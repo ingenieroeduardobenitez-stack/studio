@@ -1,14 +1,39 @@
 
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle2, Clock, AlertTriangle, FileText, ArrowUpRight } from "lucide-react"
+import { CheckCircle2, Clock, AlertTriangle, FileText, ArrowUpRight, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { useUser, useDoc, useFirestore } from "@/firebase"
+import { doc } from "firebase/firestore"
+import { useMemo } from "react"
 
 export default function DashboardPage() {
+  const { user, loading: userLoading } = useUser()
+  const db = useFirestore()
+  
+  const userProfileRef = useMemo(() => {
+    if (!db || !user?.uid) return null
+    return doc(db, "users", user.uid)
+  }, [db, user?.uid])
+
+  const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
+
+  if (userLoading || profileLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-headline font-bold text-primary">Bienvenido de nuevo, Juan</h1>
+        <h1 className="text-3xl font-headline font-bold text-primary">
+          Bienvenido de nuevo, {profile?.firstName || "Usuario"}
+        </h1>
         <p className="text-muted-foreground">Aquí tienes un resumen de tu estado de registro NSPS.</p>
       </div>
 

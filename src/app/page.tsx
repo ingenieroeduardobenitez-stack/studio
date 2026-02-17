@@ -4,7 +4,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Shield, LogIn, Loader2, AlertCircle } from "lucide-react"
+import { Shield, LogIn, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth } from "@/firebase/provider"
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function RootLoginPage() {
   const router = useRouter()
@@ -31,14 +30,7 @@ export default function RootLoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!auth) {
-      toast({
-        variant: "destructive",
-        title: "Configuración incompleta",
-        description: "Por favor, pega tu firebaseConfig en los ajustes de Firebase Studio para habilitar el acceso.",
-      })
-      return
-    }
+    if (!auth) return;
 
     setLoading(true)
     
@@ -53,8 +45,8 @@ export default function RootLoginPage() {
       console.error("Error de login:", error)
       let errorMessage = "Credenciales incorrectas o usuario no encontrado."
       
-      if (error.code === 'auth/invalid-api-key' || error.code === 'auth/invalid-app-id') {
-        errorMessage = "La configuración de Firebase es incorrecta. Revisa tu apiKey."
+      if (error.code === 'auth/invalid-credential') {
+        errorMessage = "El correo o la contraseña son incorrectos."
       } else if (error.code === 'auth/network-request-failed') {
         errorMessage = "Error de conexión. Verifica tu internet."
       }
@@ -81,16 +73,6 @@ export default function RootLoginPage() {
             <p className="text-muted-foreground font-medium">Registro Nacional de Seguridad</p>
           </div>
         </div>
-
-        {!auth && (
-          <Alert variant="destructive" className="bg-white border-destructive/50 shadow-md animate-pulse">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle className="font-bold">Configuración Requerida</AlertTitle>
-            <AlertDescription className="text-sm">
-              Falta conectar tu proyecto. Ve a la consola de Firebase, copia tu <strong>firebaseConfig</strong> y pégalo en el panel de ajustes de Firebase aquí en el Studio.
-            </AlertDescription>
-          </Alert>
-        )}
 
         <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
           <form onSubmit={handleSubmit}>
@@ -132,7 +114,7 @@ export default function RootLoginPage() {
               <Button 
                 type="submit" 
                 className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg" 
-                disabled={loading || !auth}
+                disabled={loading}
               >
                 {loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
