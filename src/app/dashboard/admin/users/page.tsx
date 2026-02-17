@@ -2,27 +2,34 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2 } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 export default function UsersAdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<any>(null)
+  
   const { toast } = useToast()
   const db = useFirestore()
 
-  // Obtener usuarios de Firestore
   const usersQuery = useMemo(() => {
     if (!db) return null
     return collection(db, "users")
@@ -30,7 +37,6 @@ export default function UsersAdminPage() {
 
   const { data: users, loading } = useCollection(usersQuery)
 
-  // Filtrado local
   const filteredUsers = useMemo(() => {
     if (!users) return []
     return users.filter(u => 
@@ -52,27 +58,83 @@ export default function UsersAdminPage() {
       createdAt: serverTimestamp(),
     }
 
-    try {
-      // Nota: En un entorno real, la creación de la cuenta de Auth 
-      // debería hacerse vía Admin SDK o Cloud Function para evitar desloguear al admin.
-      // Aquí creamos el perfil en Firestore como prototipo.
-      const newUserId = `user_${Date.now()}`
-      await setDoc(doc(db, "users", newUserId), userData)
-      
-      toast({
-        title: "Usuario creado",
-        description: `Se ha creado el perfil para ${userData.firstName} correctamente.`,
+    const newUserId = `user_${Date.now()}`
+    const userRef = doc(db, "users", newUserId)
+
+    setDoc(userRef, userData)
+      .then(() => {
+        toast({
+          title: "Usuario creado",
+          description: `Se ha creado el perfil para ${userData.firstName} correctamente.`,
+        })
+        setIsCreateDialogOpen(false)
       })
-      setIsCreateDialogOpen(false)
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No se pudo crear el usuario.",
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: userRef.path,
+          operation: 'create',
+          requestResourceData: userData,
+        })
+        errorEmitter.emit('permission-error', permissionError)
       })
-    } finally {
-      setIsSubmitting(false)
+      .finally(() => setIsSubmitting(false))
+  }
+
+  const handleEditUser = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!selectedUser) return
+    setIsSubmitting(true)
+    
+    const formData = new FormData(e.currentTarget)
+    const userData = {
+      firstName: formData.get("firstName") as string,
+      lastName: formData.get("lastName") as string,
+      role: formData.get("role") as string,
     }
+
+    const userRef = doc(db, "users", selectedUser.id)
+
+    updateDoc(userRef, userData)
+      .then(() => {
+        toast({
+          title: "Usuario actualizado",
+          description: "Los cambios se han guardado correctamente.",
+        })
+        setIsEditDialogOpen(false)
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: userRef.path,
+          operation: 'update',
+          requestResourceData: userData,
+        })
+        errorEmitter.emit('permission-error', permissionError)
+      })
+      .finally(() => setIsSubmitting(false))
+  }
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return
+    setIsSubmitting(true)
+
+    const userRef = doc(db, "users", selectedUser.id)
+
+    deleteDoc(userRef)
+      .then(() => {
+        toast({
+          title: "Usuario eliminado",
+          description: "El registro ha sido borrado del sistema.",
+        })
+        setIsDeleteDialogOpen(false)
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: userRef.path,
+          operation: 'delete',
+        })
+        errorEmitter.emit('permission-error', permissionError)
+      })
+      .finally(() => setIsSubmitting(false))
   }
 
   return (
@@ -94,7 +156,7 @@ export default function UsersAdminPage() {
               <DialogHeader>
                 <DialogTitle>Añadir Nuevo Usuario</DialogTitle>
                 <DialogDescription>
-                  Ingresa los detalles del nuevo miembro del personal. Se creará un perfil en el sistema.
+                  Ingresa los detalles del nuevo miembro del personal.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -121,8 +183,7 @@ export default function UsersAdminPage() {
                     <SelectContent>
                       <SelectItem value="Personal de Seguridad">Personal de Seguridad</SelectItem>
                       <SelectItem value="Analista">Analista de Inteligencia</SelectItem>
-                      <SelectItem value="Administrador">Administrador de Sistema</SelectItem>
-                      <SelectItem value="Auditor">Auditor Externo</SelectItem>
+                      <SelectItem value="Administrador">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -183,7 +244,7 @@ export default function UsersAdminPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
+                      <Badge variant="secondary" className="bg-green-100 text-green-700">
                         ACTIVO
                       </Badge>
                     </TableCell>
@@ -191,24 +252,100 @@ export default function UsersAdminPage() {
                       {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString() : 'Pendiente'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => { setSelectedUser(u); setIsEditDialogOpen(true); }}>
+                            <Edit className="mr-2 h-4 w-4" /> Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-destructive focus:text-destructive" 
+                            onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
-                {filteredUsers.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                      No se encontraron usuarios que coincidan con la búsqueda.
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      {/* Diálogo Editar Usuario */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleEditUser}>
+            <DialogHeader>
+              <DialogTitle>Editar Usuario</DialogTitle>
+              <DialogDescription>
+                Modifica los detalles del perfil del usuario.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-firstName">Nombre</Label>
+                  <Input id="edit-firstName" name="firstName" defaultValue={selectedUser?.firstName} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lastName">Apellido</Label>
+                  <Input id="edit-lastName" name="lastName" defaultValue={selectedUser?.lastName} required />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Correo (No editable)</Label>
+                <Input value={selectedUser?.email} disabled />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-role">Rol del Sistema</Label>
+                <Select name="role" defaultValue={selectedUser?.role}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Personal de Seguridad">Personal de Seguridad</SelectItem>
+                    <SelectItem value="Analista">Analista de Inteligencia</SelectItem>
+                    <SelectItem value="Administrador">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={isSubmitting} className="w-full">
+                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alerta Confirmar Borrado */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará permanentemente al usuario <strong>{selectedUser?.firstName} {selectedUser?.lastName}</strong> del sistema. No se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDeleteUser}>
+              Eliminar Definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
