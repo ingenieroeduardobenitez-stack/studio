@@ -1,0 +1,85 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "Perfil de Usuario",
+      "description": "Información del perfil del usuario registrado en el sistema.",
+      "type": "object",
+      "properties": {
+        "firstName": {
+          "type": "string",
+          "description": "Nombre del usuario"
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Apellido del usuario"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Correo electrónico institucional"
+        },
+        "role": {
+          "type": "string",
+          "description": "Rol o cargo del usuario"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha de creación de la cuenta"
+        }
+      },
+      "required": ["firstName", "lastName", "email"]
+    },
+    "NspsRegistration": {
+      "title": "Registro NSPS",
+      "description": "Detalles de la solicitud de estado NSPS de un usuario.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "ID del usuario propietario"
+        },
+        "applicantName": {
+          "type": "string"
+        },
+        "citizenship": {
+          "type": "string"
+        },
+        "educationLevel": {
+          "type": "string"
+        },
+        "employmentStatus": {
+          "type": "string"
+        },
+        "declarationText": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "CONFIRMED", "DENIED"]
+        },
+        "aiReason": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Almacena los datos del perfil de cada usuario."
+    },
+    "/registrations/{registrationId}": {
+      "schema": "NspsRegistration",
+      "description": "Almacena las solicitudes de registro NSPS."
+    }
+  }
+}

@@ -4,24 +4,72 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Shield, UserPlus, ArrowRight, Loader2 } from "lucide-react"
+import { Shield, UserPlus, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useAuth, useFirestore } from "@/firebase/provider"
+import { createUserWithEmailAndPassword } from "firebase/auth"
+import { doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
 
 export default function RegisterPage() {
   const router = useRouter()
+  const auth = useAuth()
+  const db = useFirestore()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: ""
+  })
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.id]: e.target.value })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // Simulación de registro
-    setTimeout(() => {
-      setLoading(false)
+
+    try {
+      // 1. Crear el usuario en Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        formData.email, 
+        formData.password
+      )
+      const user = userCredential.user
+
+      // 2. Guardar el perfil en Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        role: "Personal de Seguridad",
+        createdAt: serverTimestamp()
+      })
+
+      toast({
+        title: "Cuenta creada con éxito",
+        description: "Bienvenido a Confir NSPS. Redirigiendo...",
+      })
+
       router.push("/dashboard/registration")
-    }, 1500)
+    } catch (error: any) {
+      console.error("Error al registrar:", error)
+      toast({
+        variant: "destructive",
+        title: "Error al crear la cuenta",
+        description: error.message || "Por favor verifica tus datos e inténtalo de nuevo.",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -44,21 +92,50 @@ export default function RegisterPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="first-name" className="font-body">Nombre</Label>
-                  <Input id="first-name" placeholder="Juan" required className="bg-background/50" />
+                  <Label htmlFor="firstName" className="font-body">Nombre</Label>
+                  <Input 
+                    id="firstName" 
+                    placeholder="Juan" 
+                    required 
+                    className="bg-background/50" 
+                    value={formData.firstName}
+                    onChange={handleChange}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last-name" className="font-body">Apellido</Label>
-                  <Input id="last-name" placeholder="Pérez" required className="bg-background/50" />
+                  <Label htmlFor="lastName" className="font-body">Apellido</Label>
+                  <Input 
+                    id="lastName" 
+                    placeholder="Pérez" 
+                    required 
+                    className="bg-background/50" 
+                    value={formData.lastName}
+                    onChange={handleChange}
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email" className="font-body">Correo electrónico</Label>
-                <Input id="email" type="email" placeholder="juan.perez@ejemplo.gov" required className="bg-background/50" />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="juan.perez@ejemplo.gov" 
+                  required 
+                  className="bg-background/50" 
+                  value={formData.email}
+                  onChange={handleChange}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="font-body">Contraseña</Label>
-                <Input id="password" type="password" required className="bg-background/50" />
+                <Input 
+                  id="password" 
+                  type="password" 
+                  required 
+                  className="bg-background/50" 
+                  value={formData.password}
+                  onChange={handleChange}
+                />
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">

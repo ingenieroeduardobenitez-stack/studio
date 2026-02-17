@@ -9,19 +9,45 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useAuth } from "@/firebase/provider"
+import { signInWithEmailAndPassword } from "firebase/auth"
+import { useToast } from "@/hooks/use-toast"
 
 export default function RootLoginPage() {
   const router = useRouter()
+  const auth = useAuth()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    email: "",
+    password: ""
+  })
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.id]: e.target.value })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // Simulación de inicio de sesión
-    setTimeout(() => {
-      setLoading(false)
+    
+    try {
+      await signInWithEmailAndPassword(auth, formData.email, formData.password)
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: "Redirigiendo a tu panel...",
+      })
       router.push("/dashboard")
-    }, 1200)
+    } catch (error: any) {
+      console.error("Error al iniciar sesión:", error)
+      toast({
+        variant: "destructive",
+        title: "Error de acceso",
+        description: "Correo o contraseña incorrectos.",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -54,6 +80,8 @@ export default function RootLoginPage() {
                   placeholder="juan.perez@ejemplo.gov" 
                   required 
                   className="bg-[#f9fafb] border-gray-200 h-12 focus:ring-[#3f51b5]" 
+                  value={formData.email}
+                  onChange={handleChange}
                 />
               </div>
               <div className="space-y-2">
@@ -66,6 +94,8 @@ export default function RootLoginPage() {
                   type="password" 
                   required 
                   className="bg-[#f9fafb] border-gray-200 h-12 focus:ring-[#3f51b5]" 
+                  value={formData.password}
+                  onChange={handleChange}
                 />
               </div>
             </CardContent>
