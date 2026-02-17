@@ -1,7 +1,6 @@
 
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
-import { Shield, Bell, Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { Shield, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function DashboardLayout({
@@ -13,17 +12,7 @@ export default function DashboardLayout({
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b px-8 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex-1 max-w-md hidden md:block">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar..."
-                className="pl-9 bg-secondary/50 border-none h-10 w-full"
-              />
-            </div>
-          </div>
+        <header className="h-16 bg-white border-b px-8 flex items-center justify-end sticky top-0 z-30">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5 text-muted-foreground" />
