@@ -1,0 +1,17 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "hero-image",
+      "description": "Professional government building",
+      "imageUrl": "https://picsum.photos/seed/nsps1/1200/800",
+      "imageHint": "government building"
+    },
+    {
+      "id": "avatar-user",
+      "description": "User profile avatar",
+      "imageUrl": "https://picsum.photos/seed/user1/200/200",
+      "imageHint": "profile avatar"
+    }
+  ]
+}
