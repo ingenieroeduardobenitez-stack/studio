@@ -32,24 +32,24 @@ export default function LoginPage() {
             <Shield className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-3xl font-headline font-bold tracking-tight text-primary">Confir NSPS</h1>
-          <p className="text-muted-foreground font-body">Sign in to manage your registration</p>
+          <p className="text-muted-foreground font-body">Inicia sesión para gestionar tu registro</p>
         </div>
 
         <Card className="border-border/50 shadow-xl bg-white/80 backdrop-blur-sm">
           <form onSubmit={handleSubmit}>
             <CardHeader className="space-y-1">
-              <CardTitle className="text-xl font-headline">Sign In</CardTitle>
-              <CardDescription className="font-body">Enter your credentials to access your account</CardDescription>
+              <CardTitle className="text-xl font-headline">Iniciar Sesión</CardTitle>
+              <CardDescription className="font-body">Ingresa tus credenciales para acceder a tu cuenta</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="font-body">Email</Label>
-                <Input id="email" type="email" placeholder="john.doe@example.gov" required className="bg-background/50" />
+                <Label htmlFor="email" className="font-body">Correo electrónico</Label>
+                <Input id="email" type="email" placeholder="juan.perez@ejemplo.gov" required className="bg-background/50" />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link href="#" className="text-xs text-accent font-medium hover:underline">Forgot password?</Link>
+                  <Label htmlFor="password">Contraseña</Label>
+                  <Link href="#" className="text-xs text-accent font-medium hover:underline">¿Olvidaste tu contraseña?</Link>
                 </div>
                 <Input id="password" type="password" required className="bg-background/50" />
               </div>
@@ -59,13 +59,13 @@ export default function LoginPage() {
                 {loading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <>Sign In <LogIn className="ml-2 h-4 w-4" /></>
+                  <>Entrar <LogIn className="ml-2 h-4 w-4" /></>
                 )}
               </Button>
               <div className="text-sm text-center font-body">
-                Don't have an account?{" "}
+                ¿No tienes una cuenta?{" "}
                 <Link href="/register" className="text-accent font-semibold hover:underline">
-                  Register now
+                  Regístrate ahora
                 </Link>
               </div>
             </CardFooter>
