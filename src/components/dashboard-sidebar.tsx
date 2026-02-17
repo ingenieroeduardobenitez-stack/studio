@@ -17,10 +17,10 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 const menuItems = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Registration", href: "/dashboard/registration", icon: FileText },
-  { name: "Profile", href: "/dashboard/profile", icon: User },
-  { name: "Admin Panel", href: "/dashboard/admin", icon: Lock },
+  { name: "Panel de Control", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Registro NSPS", href: "/dashboard/registration", icon: FileText },
+  { name: "Perfil", href: "/dashboard/profile", icon: User },
+  { name: "Panel Admin", href: "/dashboard/admin", icon: Lock },
 ]
 
 export function DashboardSidebar() {
@@ -59,14 +59,14 @@ export function DashboardSidebar() {
             <User className="h-4 w-4 text-accent" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">John Doe</p>
-            <p className="text-xs text-muted-foreground truncate">john.doe@gov.us</p>
+            <p className="text-sm font-semibold truncate">Juan Pérez</p>
+            <p className="text-xs text-muted-foreground truncate">juan.perez@gov.us</p>
           </div>
         </div>
         <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10" asChild>
           <Link href="/">
             <LogOut className="mr-2 h-4 w-4" />
-            Logout
+            Cerrar Sesión
           </Link>
         </Button>
       </div>

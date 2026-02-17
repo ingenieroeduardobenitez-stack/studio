@@ -1,28 +1,29 @@
+
 'use server';
 /**
- * @fileOverview A GenAI flow for automatically confirming NSPS status based on user registration details.
+ * @fileOverview Un flujo de GenAI para confirmar automáticamente el estado NSPS basado en los detalles de registro del usuario.
  *
- * - confirmNspsStatus - A function that handles the NSPS status confirmation process.
- * - ConfirmNspsStatusInput - The input type for the confirmNspsStatus function.
- * - ConfirmNspsStatusOutput - The return type for the confirmNspsStatus function.
+ * - confirmNspsStatus - Una función que maneja el proceso de confirmación del estado NSPS.
+ * - ConfirmNspsStatusInput - El tipo de entrada para la función confirmNspsStatus.
+ * - ConfirmNspsStatusOutput - El tipo de retorno para la función confirmNspsStatus.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const ConfirmNspsStatusInputSchema = z.object({
-  applicantName: z.string().describe('The full name of the applicant.'),
-  citizenship: z.string().describe('The declared citizenship of the applicant.'),
-  educationLevel: z.string().describe('The highest education level attained by the applicant.'),
-  employmentStatus: z.string().describe('The current employment status of the applicant.'),
-  declarationText: z.string().describe('A self-declaration provided by the applicant regarding their eligibility for NSPS status.'),
+  applicantName: z.string().describe('El nombre completo del solicitante.'),
+  citizenship: z.string().describe('La ciudadanía declarada del solicitante.'),
+  educationLevel: z.string().describe('El nivel de educación más alto alcanzado.'),
+  employmentStatus: z.string().describe('El estado laboral actual del solicitante.'),
+  declarationText: z.string().describe('Una autodeclaración proporcionada por el solicitante sobre su elegibilidad para el estado NSPS.'),
 });
 export type ConfirmNspsStatusInput = z.infer<typeof ConfirmNspsStatusInputSchema>;
 
 const ConfirmNspsStatusOutputSchema = z.object({
-  isNspsConfirmed: z.boolean().describe('True if the applicant\'s NSPS status is confirmed based on the provided information, false otherwise.'),
-  confirmationReason: z.string().describe('A detailed explanation for the confirmation decision (whether it\'s confirmed or not).'),
-  nextSteps: z.string().describe('Suggestions for the applicant\'s next steps based on the confirmation outcome.'),
+  isNspsConfirmed: z.boolean().describe('Verdadero si el estado NSPS del solicitante se confirma basándose en la información proporcionada, falso de lo contrario.'),
+  confirmationReason: z.string().describe('Una explicación detallada de la decisión de confirmación (sea confirmada o no). Debe estar en español.'),
+  nextSteps: z.string().describe('Sugerencias para los próximos pasos del solicitante basándose en el resultado de la confirmación. Debe estar en español.'),
 });
 export type ConfirmNspsStatusOutput = z.infer<typeof ConfirmNspsStatusOutputSchema>;
 
@@ -34,7 +35,18 @@ const confirmNspsStatusPrompt = ai.definePrompt({
   name: 'confirmNspsStatusPrompt',
   input: {schema: ConfirmNspsStatusInputSchema},
   output: {schema: ConfirmNspsStatusOutputSchema},
-  prompt: `You are an expert system designed to automatically confirm NSPS (National Security Personnel System) status based on provided applicant details. Your task is to analyze the given information and determine if the applicant's NSPS status can be confirmed. Provide a clear reason for your decision and suggest appropriate next steps for the applicant.\n\nConsider the following applicant details:\nApplicant Name: {{{applicantName}}}\nCitizenship: {{{citizenship}}}\nEducation Level: {{{educationLevel}}}\nEmployment Status: {{{employmentStatus}}}\nApplicant's Declaration: {{{declarationText}}}\n\nBased on these details, evaluate the NSPS status. If specific details are missing or unclear, assume they are not met unless explicitly stated.\n\nOutput should be a JSON object with 'isNspsConfirmed' (boolean), 'confirmationReason' (string), and 'nextSteps' (string).`
+  prompt: `Eres un sistema experto diseñado para confirmar automáticamente el estado NSPS (Sistema de Personal de Seguridad Nacional) basándote en los detalles proporcionados por el solicitante. Tu tarea es analizar la información dada y determinar si el estado NSPS del solicitante puede ser confirmado. Proporciona una razón clara para tu decisión y sugiere los pasos a seguir apropiados.
+
+Analiza los siguientes detalles del solicitante:
+Nombre del Solicitante: {{{applicantName}}}
+Ciudadanía: {{{citizenship}}}
+Nivel de Educación: {{{educationLevel}}}
+Estado Laboral: {{{employmentStatus}}}
+Declaración del Solicitante: {{{declarationText}}}
+
+Basándote en estos detalles, evalúa el estado NSPS. Si faltan detalles específicos o no están claros, asume que no se cumplen a menos que se indique explícitamente. Responde siempre en ESPAÑOL.
+
+La salida debe ser un objeto JSON con 'isNspsConfirmed' (boolean), 'confirmationReason' (string en español) y 'nextSteps' (string en español).`
 });
 
 const confirmNspsStatusFlow = ai.defineFlow(
@@ -46,7 +58,7 @@ const confirmNspsStatusFlow = ai.defineFlow(
   async (input) => {
     const {output} = await confirmNspsStatusPrompt(input);
     if (!output) {
-      throw new Error('Failed to get output from NSPS status confirmation prompt.');
+      throw new Error('No se pudo obtener la respuesta del sistema de confirmación NSPS.');
     }
     return output;
   }

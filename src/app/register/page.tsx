@@ -17,7 +17,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // Simulate auth registration
+    // Simulación de registro
     setTimeout(() => {
       setLoading(false)
       router.push("/dashboard/registration")
@@ -31,33 +31,33 @@ export default function RegisterPage() {
           <div className="bg-primary p-3 rounded-2xl shadow-lg">
             <Shield className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-headline font-bold tracking-tight text-primary">Join Confir NSPS</h1>
-          <p className="text-muted-foreground font-body">Create your secure account to get started</p>
+          <h1 className="text-3xl font-headline font-bold tracking-tight text-primary">Únete a Confir NSPS</h1>
+          <p className="text-muted-foreground font-body">Crea tu cuenta segura para comenzar</p>
         </div>
 
         <Card className="border-border/50 shadow-xl bg-white/80 backdrop-blur-sm">
           <form onSubmit={handleSubmit}>
             <CardHeader className="space-y-1">
-              <CardTitle className="text-xl font-headline">Register</CardTitle>
-              <CardDescription className="font-body">Enter your details to create an account</CardDescription>
+              <CardTitle className="text-xl font-headline">Registrarse</CardTitle>
+              <CardDescription className="font-body">Ingresa tus datos para crear una cuenta</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="first-name" className="font-body">First Name</Label>
-                  <Input id="first-name" placeholder="John" required className="bg-background/50" />
+                  <Label htmlFor="first-name" className="font-body">Nombre</Label>
+                  <Input id="first-name" placeholder="Juan" required className="bg-background/50" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last-name" className="font-body">Last Name</Label>
-                  <Input id="last-name" placeholder="Doe" required className="bg-background/50" />
+                  <Label htmlFor="last-name" className="font-body">Apellido</Label>
+                  <Input id="last-name" placeholder="Pérez" required className="bg-background/50" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email" className="font-body">Email</Label>
-                <Input id="email" type="email" placeholder="john.doe@example.gov" required className="bg-background/50" />
+                <Label htmlFor="email" className="font-body">Correo electrónico</Label>
+                <Input id="email" type="email" placeholder="juan.perez@ejemplo.gov" required className="bg-background/50" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="font-body">Password</Label>
+                <Label htmlFor="password" className="font-body">Contraseña</Label>
                 <Input id="password" type="password" required className="bg-background/50" />
               </div>
             </CardContent>
@@ -66,13 +66,13 @@ export default function RegisterPage() {
                 {loading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <>Create Account <UserPlus className="ml-2 h-4 w-4" /></>
+                  <>Crear Cuenta <UserPlus className="ml-2 h-4 w-4" /></>
                 )}
               </Button>
               <div className="text-sm text-center font-body">
-                Already have an account?{" "}
-                <Link href="/login" className="text-accent font-semibold hover:underline">
-                  Sign in
+                ¿Ya tienes una cuenta?{" "}
+                <Link href="/" className="text-accent font-semibold hover:underline">
+                  Inicia sesión
                 </Link>
               </div>
             </CardFooter>

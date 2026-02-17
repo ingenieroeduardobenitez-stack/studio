@@ -33,33 +33,33 @@ export default function RootLoginPage() {
           </div>
           <div className="space-y-1">
             <h1 className="text-3xl font-headline font-bold tracking-tight text-[#3f51b5]">Confir NSPS</h1>
-            <p className="text-muted-foreground font-medium">Sign in to manage your registration</p>
+            <p className="text-muted-foreground font-medium">Inicia sesión para gestionar tu registro</p>
           </div>
         </div>
 
         <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
           <form onSubmit={handleSubmit}>
             <CardHeader className="space-y-1 pt-8 px-8">
-              <CardTitle className="text-2xl font-headline font-bold text-[#1f2937]">Sign In</CardTitle>
+              <CardTitle className="text-2xl font-headline font-bold text-[#1f2937]">Iniciar Sesión</CardTitle>
               <CardDescription className="text-[#6b7280] font-medium">
-                Enter your credentials to access your account
+                Ingresa tus credenciales para acceder a tu cuenta
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 px-8 py-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[#374151] font-semibold">Email</Label>
+                <Label htmlFor="email" className="text-[#374151] font-semibold">Correo electrónico</Label>
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="john.doe@example.gov" 
+                  placeholder="juan.perez@ejemplo.gov" 
                   required 
                   className="bg-[#f9fafb] border-gray-200 h-12 focus:ring-[#3f51b5]" 
                 />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-[#374151] font-semibold">Password</Label>
-                  <Link href="#" className="text-xs text-[#10b981] font-bold hover:underline">Forgot password?</Link>
+                  <Label htmlFor="password" className="text-[#374151] font-semibold">Contraseña</Label>
+                  <Link href="#" className="text-xs text-[#10b981] font-bold hover:underline">¿Olvidaste tu contraseña?</Link>
                 </div>
                 <Input 
                   id="password" 
@@ -79,14 +79,14 @@ export default function RootLoginPage() {
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    Sign In <LogIn className="h-5 w-5" />
+                    Entrar <LogIn className="h-5 w-5" />
                   </span>
                 )}
               </Button>
               <div className="text-sm text-center text-[#4b5563]">
-                Don't have an account?{" "}
+                ¿No tienes una cuenta?{" "}
                 <Link href="/register" className="text-[#10b981] font-bold hover:underline">
-                  Register now
+                  Regístrate ahora
                 </Link>
               </div>
             </CardFooter>

@@ -3,8 +3,8 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Confir NSPS - Secure Registration',
-  description: 'National Security Personnel System Confirmation and Registration',
+  title: 'Confir NSPS - Registro Seguro',
+  description: 'Sistema Nacional de Personal de Seguridad - Confirmación y Registro',
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
