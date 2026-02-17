@@ -81,6 +81,7 @@ export function DashboardSidebar() {
 
   const displayName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "Usuario")
   const displayEmail = profile?.email || user?.email || "Cargando..."
+  const isAdmin = profile?.role === "Administrador"
 
   return (
     <Sidebar collapsible="icon" className="border-r border-slate-200">
@@ -126,35 +127,37 @@ export function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="mt-4">
-          <SidebarGroupLabel className="px-2 text-slate-400 font-semibold text-[10px] uppercase tracking-widest mb-2">
-            Administración
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {adminItems.map((item) => (
-                <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname === item.href}
-                    tooltip={item.name}
-                    className={cn(
-                      "transition-all duration-200 h-10 px-3",
-                      pathname === item.href 
-                        ? "bg-primary text-white hover:bg-primary/90 shadow-md" 
-                        : "text-slate-600 hover:bg-slate-100 hover:text-primary"
-                    )}
-                  >
-                    <Link href={item.href}>
-                      <item.icon className={cn("h-4 w-4 shrink-0", pathname === item.href ? "text-white" : "text-slate-500")} />
-                      <span>{item.name}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {isAdmin && (
+          <SidebarGroup className="mt-4">
+            <SidebarGroupLabel className="px-2 text-slate-400 font-semibold text-[10px] uppercase tracking-widest mb-2">
+              Administración
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={pathname === item.href}
+                      tooltip={item.name}
+                      className={cn(
+                        "transition-all duration-200 h-10 px-3",
+                        pathname === item.href 
+                          ? "bg-primary text-white hover:bg-primary/90 shadow-md" 
+                          : "text-slate-600 hover:bg-slate-100 hover:text-primary"
+                      )}
+                    >
+                      <Link href={item.href}>
+                        <item.icon className={cn("h-4 w-4 shrink-0", pathname === item.href ? "text-white" : "text-slate-500")} />
+                        <span>{item.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-slate-100">
