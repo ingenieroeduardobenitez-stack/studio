@@ -5,7 +5,7 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Parroquia Perpetuo Socorro - Inscripciones',
+  title: 'Confir NSPS - Parroquia Perpetuo Socorro',
   description: 'Sistema de Gestión de Sacramentos - Confirmación Juvenil y Adultos',
 };
 

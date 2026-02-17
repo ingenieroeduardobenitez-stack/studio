@@ -8,14 +8,10 @@ import {
   User, 
   LogOut, 
   Church, 
-  Settings,
-  ChevronUp,
-  Loader2,
   Users,
   ClipboardCheck
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import {
   Sidebar,
   SidebarContent,
@@ -87,7 +83,7 @@ export function DashboardSidebar() {
             <Church className="h-5 w-5 text-white" />
           </div>
           {!isCollapsed && (
-            <span className="text-lg font-headline font-bold text-primary tracking-tight">P. Perpetuo Socorro</span>
+            <span className="text-lg font-headline font-bold text-primary tracking-tight">Confir NSPS</span>
           )}
         </Link>
       </SidebarHeader>

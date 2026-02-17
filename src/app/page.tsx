@@ -58,8 +58,8 @@ export default function RootLoginPage() {
             <Church className="h-10 w-10 text-white" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-4xl font-headline font-bold tracking-tight text-primary">Perpetuo Socorro</h1>
-            <p className="text-muted-foreground font-medium">Gestión de Inscripciones</p>
+            <h1 className="text-4xl font-headline font-bold tracking-tight text-primary">Confir NSPS</h1>
+            <p className="text-muted-foreground font-medium">Parroquia Perpetuo Socorro</p>
           </div>
         </div>
 
