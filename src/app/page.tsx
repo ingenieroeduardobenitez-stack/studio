@@ -34,8 +34,8 @@ export default function RootLoginPage() {
     if (!auth) {
       toast({
         variant: "destructive",
-        title: "Conexión no lista",
-        description: "Firebase no está configurado. Por favor, añade tu configuración en el panel de Firebase Studio.",
+        title: "Configuración incompleta",
+        description: "Por favor, pega tu firebaseConfig en los ajustes de Firebase Studio para habilitar el acceso.",
       })
       return
     }
@@ -45,23 +45,23 @@ export default function RootLoginPage() {
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password)
       toast({
-        title: "Bienvenido",
-        description: "Acceso concedido. Redirigiendo...",
+        title: "Acceso concedido",
+        description: "Bienvenido al sistema. Redirigiendo...",
       })
       router.push("/dashboard")
     } catch (error: any) {
       console.error("Error de login:", error)
-      let errorMessage = "Credenciales incorrectas."
+      let errorMessage = "Credenciales incorrectas o usuario no encontrado."
       
-      if (error.code === 'auth/invalid-api-key') {
-        errorMessage = "La API Key de Firebase no es válida. Revisa la configuración del proyecto."
-      } else if (error.code === 'auth/user-not-found') {
-        errorMessage = "Usuario no encontrado. ¿Ya te has registrado?"
+      if (error.code === 'auth/invalid-api-key' || error.code === 'auth/invalid-app-id') {
+        errorMessage = "La configuración de Firebase es incorrecta. Revisa tu apiKey."
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = "Error de conexión. Verifica tu internet."
       }
 
       toast({
         variant: "destructive",
-        title: "Error de acceso",
+        title: "Fallo en el inicio de sesión",
         description: errorMessage,
       })
     } finally {
@@ -78,16 +78,16 @@ export default function RootLoginPage() {
           </div>
           <div className="space-y-1">
             <h1 className="text-4xl font-headline font-bold tracking-tight text-primary">Confir NSPS</h1>
-            <p className="text-muted-foreground font-medium">Sistema Seguro de Registro Nacional</p>
+            <p className="text-muted-foreground font-medium">Registro Nacional de Seguridad</p>
           </div>
         </div>
 
         {!auth && (
-          <Alert variant="destructive" className="bg-white border-destructive/50 shadow-md">
+          <Alert variant="destructive" className="bg-white border-destructive/50 shadow-md animate-pulse">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle className="font-bold">Acción Requerida</AlertTitle>
-            <AlertDescription>
-              Falta la configuración de Firebase. Ve a la configuración de Firebase Studio y pega tu <strong>firebaseConfig</strong> de la consola de Google.
+            <AlertTitle className="font-bold">Configuración Requerida</AlertTitle>
+            <AlertDescription className="text-sm">
+              Falta conectar tu proyecto. Ve a la consola de Firebase, copia tu <strong>firebaseConfig</strong> y pégalo en el panel de ajustes de Firebase aquí en el Studio.
             </AlertDescription>
           </Alert>
         )}
@@ -95,9 +95,9 @@ export default function RootLoginPage() {
         <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
           <form onSubmit={handleSubmit}>
             <CardHeader className="space-y-1 pt-10 px-10">
-              <CardTitle className="text-2xl font-headline font-bold text-slate-900 text-center">Iniciar Sesión</CardTitle>
+              <CardTitle className="text-2xl font-headline font-bold text-slate-900 text-center">Identificación</CardTitle>
               <CardDescription className="text-slate-500 font-medium text-center">
-                Ingresa tus credenciales oficiales
+                Ingrese sus credenciales oficiales de acceso
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 px-10 py-6">
@@ -106,7 +106,7 @@ export default function RootLoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="nombre.apellido@ejemplo.gov" 
+                  placeholder="ejemplo@seguridad.gov" 
                   required 
                   className="bg-slate-50 border-slate-200 h-12 focus:ring-primary rounded-xl" 
                   value={formData.email}
@@ -131,21 +131,21 @@ export default function RootLoginPage() {
             <CardFooter className="flex flex-col space-y-6 pb-10 px-10">
               <Button 
                 type="submit" 
-                className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg shadow-blue-900/20" 
+                className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg" 
                 disabled={loading || !auth}
               >
                 {loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    Entrar <LogIn className="h-5 w-5" />
+                    Iniciar Sesión <LogIn className="h-5 w-5" />
                   </span>
                 )}
               </Button>
               <div className="text-sm text-center text-slate-600">
-                ¿No tiene una cuenta registrada?{" "}
+                ¿Aún no tiene cuenta?{" "}
                 <Link href="/register" className="text-accent font-bold hover:underline">
-                  Regístrese aquí
+                  Crear cuenta nueva
                 </Link>
               </div>
             </CardFooter>
