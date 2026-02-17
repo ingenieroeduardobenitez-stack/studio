@@ -12,7 +12,6 @@ export default function RegistrationPage() {
           <Church className="h-8 w-8 text-primary" />
         </div>
         <h1 className="text-3xl font-headline font-bold text-primary">Inscripción a Confirmación</h1>
-        <p className="text-muted-foreground">Registre a los postulantes para el ciclo de preparación espiritual {new Date().getFullYear()}.</p>
       </div>
       <ConfirmationForm />
     </div>
