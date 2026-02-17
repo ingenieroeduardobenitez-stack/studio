@@ -4,7 +4,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Church, LogIn, Loader2 } from "lucide-react"
+import { Church, LogIn, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth } from "@/firebase/provider"
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function RootLoginPage() {
   const router = useRouter()
@@ -23,13 +24,23 @@ export default function RootLoginPage() {
     password: ""
   })
 
+  const isFirebaseReady = !!auth;
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!auth) return;
+    if (!auth) {
+      toast({
+        variant: "destructive",
+        title: "Error de sistema",
+        description: "Firebase no está inicializado correctamente. Verifica tu configuración.",
+      })
+      return;
+    }
+    
     setLoading(true)
     
     try {
@@ -40,10 +51,19 @@ export default function RootLoginPage() {
       })
       router.push("/dashboard")
     } catch (error: any) {
+      console.error("Login error:", error.code, error.message)
+      let message = "Correo o contraseña incorrectos."
+      
+      if (error.code === 'auth/configuration-not-found') {
+        message = "El inicio de sesión por correo no está habilitado en la consola de Firebase."
+      } else if (error.code === 'auth/user-not-found') {
+        message = "No existe ningún catequista con este correo. ¿Ya creaste tu cuenta?"
+      }
+      
       toast({
         variant: "destructive",
         title: "Error de acceso",
-        description: "Correo o contraseña incorrectos.",
+        description: message,
       })
     } finally {
       setLoading(false)
@@ -62,6 +82,16 @@ export default function RootLoginPage() {
             <p className="text-muted-foreground font-medium">Parroquia Perpetuo Socorro</p>
           </div>
         </div>
+
+        {!isFirebaseReady && (
+          <Alert variant="destructive" className="bg-red-50 border-red-200">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Configuración Requerida</AlertTitle>
+            <AlertDescription>
+              Firebase no está conectado. Asegúrate de haber pegado las claves correctamente en los ajustes de Firebase Studio.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
           <form onSubmit={handleSubmit}>
@@ -82,6 +112,7 @@ export default function RootLoginPage() {
                   className="bg-slate-50 border-slate-200 h-12 rounded-xl" 
                   value={formData.email}
                   onChange={handleChange}
+                  disabled={!isFirebaseReady}
                 />
               </div>
               <div className="space-y-2">
@@ -95,6 +126,7 @@ export default function RootLoginPage() {
                   className="bg-slate-50 border-slate-200 h-12 rounded-xl" 
                   value={formData.password}
                   onChange={handleChange}
+                  disabled={!isFirebaseReady}
                 />
               </div>
             </CardContent>
@@ -102,7 +134,7 @@ export default function RootLoginPage() {
               <Button 
                 type="submit" 
                 className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg" 
-                disabled={loading}
+                disabled={loading || !isFirebaseReady}
               >
                 {loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
