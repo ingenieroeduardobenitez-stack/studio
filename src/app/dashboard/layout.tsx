@@ -18,17 +18,12 @@ export default function DashboardLayout({
             <div className="flex items-center gap-4">
               <SidebarTrigger className="text-primary" />
               <div className="h-6 w-px bg-border hidden sm:block"></div>
-              <h2 className="text-sm font-semibold text-slate-500 hidden sm:block uppercase tracking-wider">Sistema de Seguridad Nacional</h2>
+              <h2 className="text-sm font-semibold text-slate-500 hidden sm:block uppercase tracking-wider">Parroquia Perpetuo Socorro</h2>
             </div>
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5 text-muted-foreground" />
-                <span className="absolute top-2.5 right-2.5 h-2 w-2 bg-accent rounded-full border-2 border-white"></span>
               </Button>
-              <div className="h-8 w-px bg-border mx-2 hidden sm:block"></div>
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline-block text-sm font-medium text-slate-400 uppercase tracking-tighter">Acceso Autorizado</span>
-              </div>
             </div>
           </header>
           <main className="flex-1 p-4 md:p-8">

@@ -3,64 +3,71 @@
   "entities": {
     "UserProfile": {
       "title": "Perfil de Usuario",
-      "description": "Información del perfil del usuario registrado en el sistema.",
+      "description": "Información del catequista o administrador de la parroquia.",
       "type": "object",
       "properties": {
         "firstName": {
           "type": "string",
-          "description": "Nombre del usuario"
+          "description": "Nombre"
         },
         "lastName": {
           "type": "string",
-          "description": "Apellido del usuario"
+          "description": "Apellido"
         },
         "email": {
           "type": "string",
           "format": "email",
-          "description": "Correo electrónico institucional"
+          "description": "Correo electrónico"
         },
         "role": {
           "type": "string",
-          "description": "Rol o cargo del usuario"
+          "description": "Rol en la parroquia (Catequista, Administrador, etc.)"
         },
         "createdAt": {
           "type": "string",
           "format": "date-time",
-          "description": "Fecha de creación de la cuenta"
+          "description": "Fecha de registro"
         }
       },
       "required": ["firstName", "lastName", "email"]
     },
-    "NspsRegistration": {
-      "title": "Registro NSPS",
-      "description": "Detalles de la solicitud de estado NSPS de un usuario.",
+    "ConfirmationRegistration": {
+      "title": "Inscripción de Confirmación",
+      "description": "Detalles del postulante a la confirmación.",
       "type": "object",
       "properties": {
         "userId": {
           "type": "string",
-          "description": "ID del usuario propietario"
+          "description": "ID del usuario que realiza la inscripción"
         },
-        "applicantName": {
-          "type": "string"
+        "fullName": {
+          "type": "string",
+          "description": "Nombre completo del postulante"
         },
-        "citizenship": {
-          "type": "string"
+        "age": {
+          "type": "number",
+          "description": "Edad del postulante"
         },
-        "educationLevel": {
-          "type": "string"
+        "category": {
+          "type": "string",
+          "enum": ["JUVENIL", "ADULTO"],
+          "description": "Categoría de la confirmación"
         },
-        "employmentStatus": {
-          "type": "string"
+        "baptized": {
+          "type": "boolean",
+          "description": "Si ya cuenta con el sacramento del Bautismo"
         },
-        "declarationText": {
-          "type": "string"
+        "firstCommunion": {
+          "type": "boolean",
+          "description": "Si ya cuenta con la Primera Comunión"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Observaciones adicionales"
         },
         "status": {
           "type": "string",
-          "enum": ["PENDING", "CONFIRMED", "DENIED"]
-        },
-        "aiReason": {
-          "type": "string"
+          "enum": ["PENDIENTE", "INSCRITO", "OBSERVADO"]
         },
         "createdAt": {
           "type": "string",
@@ -75,11 +82,11 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Almacena los datos del perfil de cada usuario."
+      "description": "Datos de los catequistas o encargados."
     },
-    "/registrations/{registrationId}": {
-      "schema": "NspsRegistration",
-      "description": "Almacena las solicitudes de registro NSPS."
+    "/confirmations/{registrationId}": {
+      "schema": "ConfirmationRegistration",
+      "description": "Almacena las inscripciones a confirmación."
     }
   }
 }

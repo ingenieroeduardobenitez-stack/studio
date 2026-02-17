@@ -4,7 +4,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Shield, LogIn, Loader2 } from "lucide-react"
+import { Church, LogIn, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,32 +29,21 @@ export default function RootLoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
     if (!auth) return;
-
     setLoading(true)
     
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password)
       toast({
-        title: "Acceso concedido",
-        description: "Bienvenido al sistema. Redirigiendo...",
+        title: "Bienvenido",
+        description: "Acceso correcto al sistema parroquial.",
       })
       router.push("/dashboard")
     } catch (error: any) {
-      console.error("Error de login:", error)
-      let errorMessage = "Credenciales incorrectas o usuario no encontrado."
-      
-      if (error.code === 'auth/invalid-credential') {
-        errorMessage = "El correo o la contraseña son incorrectos."
-      } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = "Error de conexión. Verifica tu internet."
-      }
-
       toast({
         variant: "destructive",
-        title: "Fallo en el inicio de sesión",
-        description: errorMessage,
+        title: "Error de acceso",
+        description: "Correo o contraseña incorrectos.",
       })
     } finally {
       setLoading(false)
@@ -66,31 +55,31 @@ export default function RootLoginPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center space-y-3">
           <div className="bg-primary p-3 rounded-2xl shadow-xl">
-            <Shield className="h-10 w-10 text-white" />
+            <Church className="h-10 w-10 text-white" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-4xl font-headline font-bold tracking-tight text-primary">Confir NSPS</h1>
-            <p className="text-muted-foreground font-medium">Registro Nacional de Seguridad</p>
+            <h1 className="text-4xl font-headline font-bold tracking-tight text-primary">Perpetuo Socorro</h1>
+            <p className="text-muted-foreground font-medium">Gestión de Inscripciones</p>
           </div>
         </div>
 
         <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
           <form onSubmit={handleSubmit}>
             <CardHeader className="space-y-1 pt-10 px-10">
-              <CardTitle className="text-2xl font-headline font-bold text-slate-900 text-center">Identificación</CardTitle>
+              <CardTitle className="text-2xl font-headline font-bold text-slate-900 text-center">Acceso Catequistas</CardTitle>
               <CardDescription className="text-slate-500 font-medium text-center">
-                Ingrese sus credenciales oficiales de acceso
+                Inicie sesión para gestionar las inscripciones
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 px-10 py-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700 font-semibold">Correo Institucional</Label>
+                <Label htmlFor="email" className="text-slate-700 font-semibold">Correo electrónico</Label>
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="ejemplo@seguridad.gov" 
+                  placeholder="usuario@parroquia.org" 
                   required 
-                  className="bg-slate-50 border-slate-200 h-12 focus:ring-primary rounded-xl" 
+                  className="bg-slate-50 border-slate-200 h-12 rounded-xl" 
                   value={formData.email}
                   onChange={handleChange}
                 />
@@ -98,13 +87,12 @@ export default function RootLoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-slate-700 font-semibold">Contraseña</Label>
-                  <Link href="#" className="text-xs text-accent font-bold hover:underline">¿Olvidó su clave?</Link>
                 </div>
                 <Input 
                   id="password" 
                   type="password" 
                   required 
-                  className="bg-slate-50 border-slate-200 h-12 focus:ring-primary rounded-xl" 
+                  className="bg-slate-50 border-slate-200 h-12 rounded-xl" 
                   value={formData.password}
                   onChange={handleChange}
                 />
@@ -120,14 +108,14 @@ export default function RootLoginPage() {
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    Iniciar Sesión <LogIn className="h-5 w-5" />
+                    Entrar <LogIn className="h-5 w-5" />
                   </span>
                 )}
               </Button>
               <div className="text-sm text-center text-slate-600">
-                ¿Aún no tiene cuenta?{" "}
+                ¿Nuevo catequista?{" "}
                 <Link href="/register" className="text-accent font-bold hover:underline">
-                  Crear cuenta nueva
+                  Crear cuenta
                 </Link>
               </div>
             </CardFooter>

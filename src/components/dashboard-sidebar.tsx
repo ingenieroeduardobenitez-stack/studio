@@ -7,11 +7,12 @@ import {
   LayoutDashboard, 
   User, 
   LogOut, 
-  Shield, 
+  Church, 
   Settings,
   ChevronUp,
   Loader2,
-  Users
+  Users,
+  ClipboardCheck
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -42,13 +43,13 @@ import { useAuth } from "@/firebase/provider"
 import { useRouter } from "next/navigation"
 
 const menuItems = [
-  { name: "Panel de Control", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Perfil de Usuario", href: "/dashboard/profile", icon: User },
+  { name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
+  { name: "Mi Perfil", href: "/dashboard/profile", icon: User },
 ]
 
 const adminItems = [
   { name: "Gestión de Usuarios", href: "/dashboard/admin/users", icon: Users },
-  { name: "Configuración Sistema", href: "#", icon: Settings },
 ]
 
 export function DashboardSidebar() {
@@ -76,7 +77,6 @@ export function DashboardSidebar() {
   }
 
   const displayName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "Usuario")
-  const displayEmail = profile?.email || user?.email || "Cargando..."
   const isAdmin = profile?.role === "Administrador"
 
   return (
@@ -84,10 +84,10 @@ export function DashboardSidebar() {
       <SidebarHeader className="p-4">
         <Link href="/dashboard" className="flex items-center gap-3">
           <div className="bg-primary p-2 rounded-xl shrink-0 shadow-lg shadow-primary/20">
-            <Shield className="h-5 w-5 text-white" />
+            <Church className="h-5 w-5 text-white" />
           </div>
           {!isCollapsed && (
-            <span className="text-xl font-headline font-bold text-primary tracking-tight">Confir NSPS</span>
+            <span className="text-lg font-headline font-bold text-primary tracking-tight">P. Perpetuo Socorro</span>
           )}
         </Link>
       </SidebarHeader>
@@ -95,7 +95,7 @@ export function DashboardSidebar() {
       <SidebarContent className="px-2">
         <SidebarGroup>
           <SidebarGroupLabel className="px-2 text-slate-400 font-semibold text-[10px] uppercase tracking-widest mb-2">
-            Menú Principal
+            Gestión Parroquial
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -161,48 +161,22 @@ export function DashboardSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton 
-                  size="lg" 
-                  className="w-full data-[state=open]:bg-slate-100 transition-colors"
-                >
-                  <div className="flex items-center gap-3 w-full">
+                <SidebarMenuButton size="lg" className="w-full">
+                  <div className="flex items-center gap-3 w-full text-left overflow-hidden">
                     <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                      {profileLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-accent" />
-                      ) : (
-                        <User className="h-4 w-4 text-accent" />
-                      )}
+                      <User className="h-4 w-4 text-accent" />
                     </div>
                     {!isCollapsed && (
-                      <div className="flex flex-col text-left overflow-hidden">
-                        <span className="text-sm font-bold truncate text-slate-800">
-                          {profileLoading ? "Cargando..." : displayName}
-                        </span>
-                        <span className="text-[10px] text-slate-500 truncate">
-                          {profileLoading ? "esperando datos..." : displayEmail}
-                        </span>
+                      <div className="flex flex-col truncate">
+                        <span className="text-sm font-bold text-slate-800">{displayName}</span>
+                        <span className="text-[10px] text-slate-500 uppercase tracking-tighter">{profile?.role || "Catequista"}</span>
                       </div>
                     )}
-                    {!isCollapsed && <ChevronUp className="ml-auto h-4 w-4 text-slate-400" />}
                   </div>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" className="w-[--radix-dropdown-menu-trigger-width] mb-2 p-2 rounded-xl shadow-xl border-slate-200">
-                <DropdownMenuItem asChild className="rounded-lg py-2 focus:bg-slate-100 cursor-pointer">
-                  <Link href="/dashboard/profile" className="flex w-full items-center">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Ver Perfil</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="rounded-lg py-2 focus:bg-slate-100 cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Ajustes</span>
-                </DropdownMenuItem>
-                <div className="h-px bg-slate-100 my-1"></div>
-                <DropdownMenuItem 
-                  onClick={handleSignOut}
-                  className="rounded-lg py-2 focus:bg-destructive/10 text-destructive hover:text-destructive cursor-pointer"
-                >
+              <DropdownMenuContent side="top" className="w-[--radix-dropdown-menu-trigger-width] mb-2 p-2">
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Cerrar Sesión</span>
                 </DropdownMenuItem>

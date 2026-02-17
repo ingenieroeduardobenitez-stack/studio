@@ -5,8 +5,8 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Confir NSPS - Registro Seguro',
-  description: 'Sistema Nacional de Personal de Seguridad - Confirmación y Registro',
+  title: 'Parroquia Perpetuo Socorro - Inscripciones',
+  description: 'Sistema de Gestión de Sacramentos - Confirmación Juvenil y Adultos',
 };
 
 export default function RootLayout({
