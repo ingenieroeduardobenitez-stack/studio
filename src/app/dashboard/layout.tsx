@@ -27,10 +27,7 @@ export default function DashboardLayout({
               </Button>
               <div className="h-8 w-px bg-border mx-2 hidden sm:block"></div>
               <div className="flex items-center gap-2">
-                <span className="hidden sm:inline-block text-sm font-medium">Estado NSPS:</span>
-                <div className="px-2.5 py-1 rounded-full bg-accent/10 text-accent text-xs font-bold border border-accent/20">
-                  PENDIENTE
-                </div>
+                <span className="hidden sm:inline-block text-sm font-medium text-slate-400 uppercase tracking-tighter">Acceso Autorizado</span>
               </div>
             </div>
           </header>

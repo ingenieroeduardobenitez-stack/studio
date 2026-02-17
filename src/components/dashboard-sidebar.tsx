@@ -8,8 +8,6 @@ import {
   User, 
   LogOut, 
   Shield, 
-  FileText,
-  Lock,
   Settings,
   ChevronUp,
   Loader2,
@@ -45,12 +43,10 @@ import { useRouter } from "next/navigation"
 
 const menuItems = [
   { name: "Panel de Control", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Registro NSPS", href: "/dashboard/registration", icon: FileText },
   { name: "Perfil de Usuario", href: "/dashboard/profile", icon: User },
 ]
 
 const adminItems = [
-  { name: "Panel de Administración", href: "/dashboard/admin", icon: Lock },
   { name: "Gestión de Usuarios", href: "/dashboard/admin/users", icon: Users },
   { name: "Configuración Sistema", href: "#", icon: Settings },
 ]
@@ -145,7 +141,7 @@ export function DashboardSidebar() {
                         pathname === item.href 
                           ? "bg-primary text-white hover:bg-primary/90 shadow-md" 
                           : "text-slate-600 hover:bg-slate-100 hover:text-primary"
-                      )}
+                    )}
                     >
                       <Link href={item.href}>
                         <item.icon className={cn("h-4 w-4 shrink-0", pathname === item.href ? "text-white" : "text-slate-500")} />
