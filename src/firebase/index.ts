@@ -8,17 +8,16 @@ import { firebaseConfig } from './config';
 
 /**
  * Inicializa los servicios de Firebase de forma segura.
- * Si falta la configuración o es inválida, captura el error para evitar que la aplicación se detenga.
+ * Verifica si la configuración es válida antes de intentar conectar.
  */
 export function initializeFirebase() {
   try {
-    // Verificamos si la configuración es mínima y válida
     const isConfigValid = firebaseConfig.apiKey && 
                           firebaseConfig.apiKey !== "undefined" && 
                           firebaseConfig.apiKey.length > 10;
 
     if (!isConfigValid) {
-      console.warn("Firebase: Configuración no válida o incompleta detectada.");
+      console.warn("Firebase: Configuración no válida. Por favor, configura tu API Key en Firebase Studio.");
       return { 
         app: null as unknown as FirebaseApp, 
         auth: null as unknown as Auth, 
@@ -32,9 +31,7 @@ export function initializeFirebase() {
     
     return { app, auth, firestore };
   } catch (error) {
-    console.error("Error crítico al inicializar Firebase:", error);
-    // Retornamos servicios nulos para que la app pueda renderizar el resto de componentes
-    // y mostrar mensajes de aviso en lugar de un crash completo.
+    console.error("Error al inicializar Firebase:", error);
     return { 
       app: null as unknown as FirebaseApp, 
       auth: null as unknown as Auth, 

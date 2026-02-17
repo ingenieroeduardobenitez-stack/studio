@@ -34,8 +34,8 @@ export default function RootLoginPage() {
     if (!auth) {
       toast({
         variant: "destructive",
-        title: "Servicio no disponible",
-        description: "Firebase no se ha configurado correctamente. Por favor, verifica tu API Key.",
+        title: "Conexión no lista",
+        description: "Firebase no está configurado. Por favor, añade tu configuración en el panel de Firebase Studio.",
       })
       return
     }
@@ -45,18 +45,18 @@ export default function RootLoginPage() {
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password)
       toast({
-        title: "Inicio de sesión exitoso",
-        description: "Redirigiendo a tu panel...",
+        title: "Bienvenido",
+        description: "Acceso concedido. Redirigiendo...",
       })
       router.push("/dashboard")
     } catch (error: any) {
-      console.error("Error al iniciar sesión:", error)
-      let errorMessage = "Correo o contraseña incorrectos."
+      console.error("Error de login:", error)
+      let errorMessage = "Credenciales incorrectas."
       
-      if (error.code === 'auth/invalid-api-key' || error.code === 'auth/api-key-not-valid') {
-        errorMessage = "Error de configuración: La clave de API de Firebase no es válida."
-      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        errorMessage = "Credenciales inválidas. Por favor, verifica tus datos."
+      if (error.code === 'auth/invalid-api-key') {
+        errorMessage = "La API Key de Firebase no es válida. Revisa la configuración del proyecto."
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = "Usuario no encontrado. ¿Ya te has registrado?"
       }
 
       toast({
@@ -70,68 +70,68 @@ export default function RootLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-[#f3f4f6]">
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-slate-50 font-body">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center space-y-3">
-          <div className="bg-[#3f51b5] p-3 rounded-xl shadow-md">
+          <div className="bg-primary p-3 rounded-2xl shadow-xl">
             <Shield className="h-10 w-10 text-white" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-3xl font-headline font-bold tracking-tight text-[#3f51b5]">Confir NSPS</h1>
-            <p className="text-muted-foreground font-medium">Inicia sesión para gestionar tu registro</p>
+            <h1 className="text-4xl font-headline font-bold tracking-tight text-primary">Confir NSPS</h1>
+            <p className="text-muted-foreground font-medium">Sistema Seguro de Registro Nacional</p>
           </div>
         </div>
 
         {!auth && (
-          <Alert variant="destructive" className="bg-white border-destructive/50">
+          <Alert variant="destructive" className="bg-white border-destructive/50 shadow-md">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Configuración Requerida</AlertTitle>
+            <AlertTitle className="font-bold">Acción Requerida</AlertTitle>
             <AlertDescription>
-              La conexión con Firebase no está lista. Asegúrate de configurar las variables de entorno en Firebase Studio.
+              Falta la configuración de Firebase. Ve a la configuración de Firebase Studio y pega tu <strong>firebaseConfig</strong> de la consola de Google.
             </AlertDescription>
           </Alert>
         )}
 
-        <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
+        <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
           <form onSubmit={handleSubmit}>
-            <CardHeader className="space-y-1 pt-8 px-8">
-              <CardTitle className="text-2xl font-headline font-bold text-[#1f2937]">Iniciar Sesión</CardTitle>
-              <CardDescription className="text-[#6b7280] font-medium">
-                Ingresa tus credenciales para acceder a tu cuenta
+            <CardHeader className="space-y-1 pt-10 px-10">
+              <CardTitle className="text-2xl font-headline font-bold text-slate-900 text-center">Iniciar Sesión</CardTitle>
+              <CardDescription className="text-slate-500 font-medium text-center">
+                Ingresa tus credenciales oficiales
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 px-8 py-6">
+            <CardContent className="space-y-6 px-10 py-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[#374151] font-semibold">Correo electrónico</Label>
+                <Label htmlFor="email" className="text-slate-700 font-semibold">Correo Institucional</Label>
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="juan.perez@ejemplo.gov" 
+                  placeholder="nombre.apellido@ejemplo.gov" 
                   required 
-                  className="bg-[#f9fafb] border-gray-200 h-12 focus:ring-[#3f51b5]" 
+                  className="bg-slate-50 border-slate-200 h-12 focus:ring-primary rounded-xl" 
                   value={formData.email}
                   onChange={handleChange}
                 />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-[#374151] font-semibold">Contraseña</Label>
-                  <Link href="#" className="text-xs text-[#10b981] font-bold hover:underline">¿Olvidaste tu contraseña?</Link>
+                  <Label htmlFor="password" className="text-slate-700 font-semibold">Contraseña</Label>
+                  <Link href="#" className="text-xs text-accent font-bold hover:underline">¿Olvidó su clave?</Link>
                 </div>
                 <Input 
                   id="password" 
                   type="password" 
                   required 
-                  className="bg-[#f9fafb] border-gray-200 h-12 focus:ring-[#3f51b5]" 
+                  className="bg-slate-50 border-slate-200 h-12 focus:ring-primary rounded-xl" 
                   value={formData.password}
                   onChange={handleChange}
                 />
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col space-y-6 pb-8 px-8">
+            <CardFooter className="flex flex-col space-y-6 pb-10 px-10">
               <Button 
                 type="submit" 
-                className="w-full bg-[#3f51b5] hover:bg-[#3f51b5]/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg shadow-blue-900/20" 
+                className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg shadow-blue-900/20" 
                 disabled={loading || !auth}
               >
                 {loading ? (
@@ -142,10 +142,10 @@ export default function RootLoginPage() {
                   </span>
                 )}
               </Button>
-              <div className="text-sm text-center text-[#4b5563]">
-                ¿No tienes una cuenta?{" "}
-                <Link href="/register" className="text-[#10b981] font-bold hover:underline">
-                  Regístrate ahora
+              <div className="text-sm text-center text-slate-600">
+                ¿No tiene una cuenta registrada?{" "}
+                <Link href="/register" className="text-accent font-bold hover:underline">
+                  Regístrese aquí
                 </Link>
               </div>
             </CardFooter>
