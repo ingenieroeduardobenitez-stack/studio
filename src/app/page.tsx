@@ -4,7 +4,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Shield, LogIn, Loader2 } from "lucide-react"
+import { Shield, LogIn, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth } from "@/firebase/provider"
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function RootLoginPage() {
   const router = useRouter()
@@ -29,6 +30,16 @@ export default function RootLoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!auth) {
+      toast({
+        variant: "destructive",
+        title: "Servicio no disponible",
+        description: "Firebase no se ha configurado correctamente. Por favor, verifica tu API Key.",
+      })
+      return
+    }
+
     setLoading(true)
     
     try {
@@ -40,10 +51,18 @@ export default function RootLoginPage() {
       router.push("/dashboard")
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error)
+      let errorMessage = "Correo o contraseña incorrectos."
+      
+      if (error.code === 'auth/invalid-api-key' || error.code === 'auth/api-key-not-valid') {
+        errorMessage = "Error de configuración: La clave de API de Firebase no es válida."
+      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        errorMessage = "Credenciales inválidas. Por favor, verifica tus datos."
+      }
+
       toast({
         variant: "destructive",
         title: "Error de acceso",
-        description: "Correo o contraseña incorrectos.",
+        description: errorMessage,
       })
     } finally {
       setLoading(false)
@@ -62,6 +81,16 @@ export default function RootLoginPage() {
             <p className="text-muted-foreground font-medium">Inicia sesión para gestionar tu registro</p>
           </div>
         </div>
+
+        {!auth && (
+          <Alert variant="destructive" className="bg-white border-destructive/50">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Configuración Requerida</AlertTitle>
+            <AlertDescription>
+              La conexión con Firebase no está lista. Asegúrate de configurar las variables de entorno en Firebase Studio.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
           <form onSubmit={handleSubmit}>
@@ -103,7 +132,7 @@ export default function RootLoginPage() {
               <Button 
                 type="submit" 
                 className="w-full bg-[#3f51b5] hover:bg-[#3f51b5]/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg shadow-blue-900/20" 
-                disabled={loading}
+                disabled={loading || !auth}
               >
                 {loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />

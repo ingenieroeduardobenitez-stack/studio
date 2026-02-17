@@ -9,12 +9,11 @@ import {
   Loader2, 
   CheckCircle2, 
   AlertCircle, 
-  ArrowRight, 
-  ChevronRight, 
-  ChevronLeft,
   FileText,
   ShieldCheck,
-  Building2
+  Building2,
+  ChevronRight,
+  ChevronLeft
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,6 +39,10 @@ import { confirmNspsStatus, ConfirmNspsStatusOutput } from "@/ai/flows/confirm-n
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { useFirestore, useUser } from "@/firebase"
+import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 const formSchema = z.object({
   applicantName: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -55,6 +58,8 @@ export function RegistrationForm() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ConfirmNspsStatusOutput | null>(null)
+  const db = useFirestore()
+  const { user } = useUser()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -70,8 +75,32 @@ export function RegistrationForm() {
   const onSubmit = async (values: FormValues) => {
     setLoading(true)
     try {
+      // 1. Llamar a la IA para evaluación
       const response = await confirmNspsStatus(values)
       setResult(response)
+      
+      // 2. Guardar en Firestore (Real)
+      const regId = `reg_${Date.now()}`
+      const regRef = doc(db, "registrations", regId)
+      
+      const registrationData = {
+        userId: user?.uid || "anonymous",
+        ...values,
+        status: response.isNspsConfirmed ? "CONFIRMED" : "PENDING",
+        aiReason: response.confirmationReason,
+        createdAt: serverTimestamp()
+      }
+
+      setDoc(regRef, registrationData)
+        .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: regRef.path,
+            operation: 'create',
+            requestResourceData: registrationData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+
       setStep(3)
     } catch (error) {
       console.error("Confirmación fallida", error)
@@ -91,7 +120,6 @@ export function RegistrationForm() {
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      {/* Pasos de progreso */}
       <div className="flex items-center justify-between mb-8 px-4 relative">
         <div className="absolute top-5 left-0 w-full h-0.5 bg-muted -z-10" />
         {[
