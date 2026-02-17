@@ -1,124 +1,98 @@
 
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Shield, CheckCircle, Users, BarChart3, ArrowRight } from 'lucide-react';
-import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+"use client"
 
-export default function LandingPage() {
-  const heroImage = PlaceHolderImages.find(img => img.id === 'hero-image');
+import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Shield, LogIn, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+
+export default function RootLoginPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    // Simulación de inicio de sesión
+    setTimeout(() => {
+      setLoading(false)
+      router.push("/dashboard")
+    }, 1200)
+  }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="px-4 lg:px-6 h-16 flex items-center border-b bg-white/50 backdrop-blur-md sticky top-0 z-50">
-        <Link className="flex items-center justify-center gap-2" href="/">
-          <div className="bg-primary p-1.5 rounded-lg">
-            <Shield className="h-6 w-6 text-white" />
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-[#f3f4f6]">
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center text-center space-y-3">
+          <div className="bg-[#3f51b5] p-3 rounded-xl shadow-md">
+            <Shield className="h-10 w-10 text-white" />
           </div>
-          <span className="text-xl font-headline font-bold tracking-tight text-primary">Confir NSPS</span>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Link className="text-sm font-medium hover:text-accent transition-colors" href="/login">
-            Login
-          </Link>
-          <Link className="text-sm font-medium hover:text-accent transition-colors" href="/register">
-            Register
-          </Link>
-        </nav>
-      </header>
-      <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-primary text-white overflow-hidden relative">
-          <div className="container px-4 md:px-6 relative z-10">
-            <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
-              <div className="flex flex-col justify-center space-y-4">
-                <div className="space-y-2">
-                  <h1 className="text-3xl font-headline font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">
-                    Secure National Security Registration
-                  </h1>
-                  <p className="max-w-[600px] text-primary-foreground/80 md:text-xl font-body">
-                    Automated NSPS status confirmation for personnel. Streamlined, secure, and reliable.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white border-none shadow-lg">
-                    <Link href="/register">
-                      Get Started <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button asChild size="lg" variant="outline" className="bg-transparent border-white text-white hover:bg-white hover:text-primary transition-all">
-                    <Link href="/login">Sign In</Link>
-                  </Button>
-                </div>
-              </div>
-              <div className="hidden lg:block relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-accent to-primary rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-                <Image
-                  alt="Hero"
-                  className="relative mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center shadow-2xl"
-                  height={400}
-                  src={heroImage?.imageUrl || "https://picsum.photos/seed/nsps/600/400"}
-                  width={600}
-                  data-ai-hint="government building"
+          <div className="space-y-1">
+            <h1 className="text-3xl font-headline font-bold tracking-tight text-[#3f51b5]">Confir NSPS</h1>
+            <p className="text-muted-foreground font-medium">Sign in to manage your registration</p>
+          </div>
+        </div>
+
+        <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
+          <form onSubmit={handleSubmit}>
+            <CardHeader className="space-y-1 pt-8 px-8">
+              <CardTitle className="text-2xl font-headline font-bold text-[#1f2937]">Sign In</CardTitle>
+              <CardDescription className="text-[#6b7280] font-medium">
+                Enter your credentials to access your account
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 px-8 py-6">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-[#374151] font-semibold">Email</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="john.doe@example.gov" 
+                  required 
+                  className="bg-[#f9fafb] border-gray-200 h-12 focus:ring-[#3f51b5]" 
                 />
               </div>
-            </div>
-          </div>
-        </section>
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-background">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
-                <h2 className="text-3xl font-headline font-bold tracking-tighter md:text-4xl/tight">
-                  Why Choose Confir NSPS?
-                </h2>
-                <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed font-body">
-                  Our system leverages advanced AI to provide instant status confirmation for security clearance roles.
-                </p>
-              </div>
-            </div>
-            <div className="mx-auto grid max-w-5xl items-center gap-6 py-12 lg:grid-cols-3 lg:gap-12">
-              <div className="flex flex-col items-center space-y-4 text-center p-6 rounded-xl bg-white shadow-sm border border-border/50 transition-all hover:shadow-md">
-                <div className="p-3 bg-primary/10 rounded-full">
-                  <CheckCircle className="h-8 w-8 text-primary" />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-[#374151] font-semibold">Password</Label>
+                  <Link href="#" className="text-xs text-[#10b981] font-bold hover:underline">Forgot password?</Link>
                 </div>
-                <h3 className="text-xl font-headline font-bold">Instant Verification</h3>
-                <p className="text-muted-foreground font-body text-sm">
-                  Our AI engine analyzes your credentials in seconds to provide preliminary confirmation.
-                </p>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  required 
+                  className="bg-[#f9fafb] border-gray-200 h-12 focus:ring-[#3f51b5]" 
+                />
               </div>
-              <div className="flex flex-col items-center space-y-4 text-center p-6 rounded-xl bg-white shadow-sm border border-border/50 transition-all hover:shadow-md">
-                <div className="p-3 bg-accent/10 rounded-full">
-                  <Users className="h-8 w-8 text-accent" />
-                </div>
-                <h3 className="text-xl font-headline font-bold">User Centric</h3>
-                <p className="text-muted-foreground font-body text-sm">
-                  Designed for ease of use with a modern interface that guides you through every step.
-                </p>
+            </CardContent>
+            <CardFooter className="flex flex-col space-y-6 pb-8 px-8">
+              <Button 
+                type="submit" 
+                className="w-full bg-[#3f51b5] hover:bg-[#3f51b5]/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg shadow-blue-900/20" 
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    Sign In <LogIn className="h-5 w-5" />
+                  </span>
+                )}
+              </Button>
+              <div className="text-sm text-center text-[#4b5563]">
+                Don't have an account?{" "}
+                <Link href="/register" className="text-[#10b981] font-bold hover:underline">
+                  Register now
+                </Link>
               </div>
-              <div className="flex flex-col items-center space-y-4 text-center p-6 rounded-xl bg-white shadow-sm border border-border/50 transition-all hover:shadow-md">
-                <div className="p-3 bg-primary/10 rounded-full">
-                  <BarChart3 className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="text-xl font-headline font-bold">Admin Controls</h3>
-                <p className="text-muted-foreground font-body text-sm">
-                  Robust dashboard for administrators to manage registrations and review system performance.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t bg-white">
-        <p className="text-xs text-muted-foreground font-body">© 2024 Confir NSPS Inc. All rights reserved.</p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link className="text-xs hover:underline underline-offset-4 font-body" href="#">
-            Terms of Service
-          </Link>
-          <Link className="text-xs hover:underline underline-offset-4 font-body" href="#">
-            Privacy
-          </Link>
-        </nav>
-      </footer>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
     </div>
-  );
+  )
 }
