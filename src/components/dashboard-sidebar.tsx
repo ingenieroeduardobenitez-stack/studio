@@ -12,7 +12,8 @@ import {
   Lock,
   Settings,
   ChevronUp,
-  Loader2
+  Loader2,
+  Users
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -50,6 +51,7 @@ const menuItems = [
 
 const adminItems = [
   { name: "Panel de Administración", href: "/dashboard/admin", icon: Lock },
+  { name: "Gestión de Usuarios", href: "/dashboard/admin/users", icon: Users },
   { name: "Configuración Sistema", href: "#", icon: Settings },
 ]
 
