@@ -11,7 +11,8 @@ import {
   FileText,
   Lock,
   Settings,
-  ChevronUp
+  ChevronUp,
+  Loader2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useUser, useDoc, useFirestore } from "@/firebase"
+import { doc } from "firebase/firestore"
+import { useMemo } from "react"
+import { signOut } from "firebase/auth"
+import { useAuth } from "@/firebase/provider"
+import { useRouter } from "next/navigation"
 
 const menuItems = [
   { name: "Panel de Control", href: "/dashboard", icon: LayoutDashboard },
@@ -50,6 +57,28 @@ export function DashboardSidebar() {
   const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
+  const router = useRouter()
+  const auth = useAuth()
+  
+  const { user } = useUser()
+  const db = useFirestore()
+  
+  const userProfileRef = useMemo(() => {
+    if (!db || !user?.uid) return null
+    return doc(db, "users", user.uid)
+  }, [db, user?.uid])
+
+  const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
+
+  const handleSignOut = async () => {
+    if (auth) {
+      await signOut(auth)
+      router.push("/")
+    }
+  }
+
+  const displayName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "Usuario")
+  const displayEmail = profile?.email || user?.email || "Cargando..."
 
   return (
     <Sidebar collapsible="icon" className="border-r border-slate-200">
@@ -137,12 +166,20 @@ export function DashboardSidebar() {
                 >
                   <div className="flex items-center gap-3 w-full">
                     <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                      <User className="h-4 w-4 text-accent" />
+                      {profileLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-accent" />
+                      ) : (
+                        <User className="h-4 w-4 text-accent" />
+                      )}
                     </div>
                     {!isCollapsed && (
                       <div className="flex flex-col text-left overflow-hidden">
-                        <span className="text-sm font-bold truncate text-slate-800">Juan Pérez</span>
-                        <span className="text-[10px] text-slate-500 truncate">juan.perez@gov.us</span>
+                        <span className="text-sm font-bold truncate text-slate-800">
+                          {profileLoading ? "Cargando..." : displayName}
+                        </span>
+                        <span className="text-[10px] text-slate-500 truncate">
+                          {profileLoading ? "esperando datos..." : displayEmail}
+                        </span>
                       </div>
                     )}
                     {!isCollapsed && <ChevronUp className="ml-auto h-4 w-4 text-slate-400" />}
@@ -150,18 +187,23 @@ export function DashboardSidebar() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" className="w-[--radix-dropdown-menu-trigger-width] mb-2 p-2 rounded-xl shadow-xl border-slate-200">
-                <DropdownMenuItem className="rounded-lg py-2 focus:bg-slate-100">
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Ver Perfil</span>
+                <DropdownMenuItem asChild className="rounded-lg py-2 focus:bg-slate-100 cursor-pointer">
+                  <Link href="/dashboard/profile" className="flex w-full items-center">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Ver Perfil</span>
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="rounded-lg py-2 focus:bg-slate-100">
+                <DropdownMenuItem className="rounded-lg py-2 focus:bg-slate-100 cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Ajustes</span>
                 </DropdownMenuItem>
                 <div className="h-px bg-slate-100 my-1"></div>
-                <DropdownMenuItem className="rounded-lg py-2 focus:bg-destructive/10 text-destructive hover:text-destructive">
+                <DropdownMenuItem 
+                  onClick={handleSignOut}
+                  className="rounded-lg py-2 focus:bg-destructive/10 text-destructive hover:text-destructive cursor-pointer"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
-                  <Link href="/">Cerrar Sesión</Link>
+                  <span>Cerrar Sesión</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
