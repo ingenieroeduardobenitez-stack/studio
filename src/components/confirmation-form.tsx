@@ -21,7 +21,9 @@ import {
   Check,
   AlertTriangle,
   Heart,
-  Book
+  Book,
+  Printer,
+  FileText
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -50,6 +52,7 @@ import { useRouter } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -81,6 +84,8 @@ type FormValues = z.infer<typeof formSchema>
 export function ConfirmationForm() {
   const [loading, setLoading] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [submittedData, setSubmittedData] = useState<any>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   
@@ -167,21 +172,36 @@ export function ConfirmationForm() {
         registrationCost: totalCost,
         amountPaid: amountPaid,
         paymentStatus: paymentStatus,
-        createdAt: serverTimestamp()
+        createdAt: new Date().toISOString() // Usamos string para compatibilidad inmediata en el recibo
       }
 
-      await setDoc(regRef, registrationData)
+      await setDoc(regRef, {
+        ...registrationData,
+        createdAt: serverTimestamp() // Firestore guarda como timestamp
+      })
       
       toast({
         title: "Inscripción Realizada",
         description: `Se ha registrado a ${values.fullName} correctamente.`,
       })
-      router.push("/dashboard")
+
+      setSubmittedData({ ...registrationData, id: regId })
+      
+      if (amountPaid > 0) {
+        setIsReceiptOpen(true)
+      } else {
+        router.push("/dashboard")
+      }
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo completar la inscripción." })
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCloseReceipt = () => {
+    setIsReceiptOpen(false)
+    router.push("/dashboard")
   }
 
   return (
@@ -288,7 +308,6 @@ export function ConfirmationForm() {
                         <Input 
                           type="number" 
                           {...field} 
-                          max={totalCost}
                           className={`h-12 rounded-xl font-bold border-2 transition-colors ${isOverpaid ? 'bg-red-50 border-red-300 text-red-900' : 'bg-green-50 border-green-200 text-slate-900'}`} 
                         />
                       </FormControl>
@@ -377,6 +396,75 @@ export function ConfirmationForm() {
           </form>
         </Form>
       </Card>
+
+      {/* DIALOGO DE RECIBO POST-INSCRIPCIÓN */}
+      <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none">
+          <div className="p-10 bg-white space-y-8" id="receipt-print">
+            <div className="flex items-center justify-between border-b pb-6">
+              <div className="flex items-center gap-2">
+                <Church className="h-8 w-8 text-primary" />
+                <div>
+                  <h3 className="font-headline font-bold text-lg leading-none">PARROQUIA</h3>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Perpetuo Socorro</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-bold uppercase text-primary">Recibo de Pago</p>
+                <p className="text-[9px] text-muted-foreground mt-1">FECHA: {new Date().toLocaleDateString()}</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Concepto de Pago</p>
+                  <p className="text-sm font-bold text-slate-900">Inscripción {submittedData?.catechesisYear?.replace("_", " ")}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Monto Cobrado</p>
+                  <p className="text-lg font-bold text-green-600">{submittedData?.initialPayment?.toLocaleString()} Gs.</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">A nombre de</p>
+                <p className="text-base font-bold text-slate-900">{submittedData?.fullName}</p>
+                <p className="text-xs text-slate-500">Documento: {submittedData?.ciNumber}</p>
+              </div>
+              
+              <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-300 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Monto del Arancel</span>
+                  <span className="font-bold">{ submittedData?.registrationCost?.toLocaleString() } Gs.</span>
+                </div>
+                <div className="flex justify-between text-xs text-green-600">
+                  <span className="font-medium">Abonado hoy</span>
+                  <span className="font-bold">
+                    { submittedData?.initialPayment?.toLocaleString() } Gs.
+                  </span>
+                </div>
+                <Separator className="bg-slate-200" />
+                <div className="flex justify-between text-sm font-bold">
+                  <span className="text-slate-900 uppercase tracking-tighter">Saldo Pendiente</span>
+                  <span className="text-red-500">{ (submittedData?.registrationCost - submittedData?.initialPayment).toLocaleString() } Gs.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-3 pt-8 border-t border-dashed border-slate-200">
+              <div className="h-px w-40 bg-slate-300"></div>
+              <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Sello y Firma - Catequesis</p>
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 print:hidden">
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={handleCloseReceipt}>Cerrar</Button>
+            <Button className="flex-1 gap-2 rounded-xl shadow-lg" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Imprimir Recibo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
