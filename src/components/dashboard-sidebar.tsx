@@ -12,7 +12,8 @@ import {
   ClipboardCheck,
   ListChecks,
   Shapes,
-  ChevronRight
+  ChevronRight,
+  UserCheck
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -49,7 +50,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const menuItems = [
   { name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Lista de Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
+  { name: "Mi Lista (Asistencia)", href: "/dashboard/my-list", icon: UserCheck },
+  { name: "Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
   { name: "Mi Perfil", href: "/dashboard/profile", icon: User },
 ]

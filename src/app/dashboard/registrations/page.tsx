@@ -11,6 +11,7 @@ import { Search, Loader2, Download, Filter, MoreHorizontal, User } from "lucide-
 import { useFirestore, useCollection } from "@/firebase"
 import { collection } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function RegistrationsListPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -139,6 +140,7 @@ export default function RegistrationsListPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50/50">
+                  <TableHead className="w-[60px]"></TableHead>
                   <TableHead className="font-bold">Confirmando</TableHead>
                   <TableHead className="font-bold">C.I. N°</TableHead>
                   <TableHead className="font-bold">Año</TableHead>
@@ -151,6 +153,12 @@ export default function RegistrationsListPage() {
               <TableBody>
                 {filteredRegistrations.map((reg: any) => (
                   <TableRow key={reg.id} className="hover:bg-slate-50/50 transition-colors">
+                    <TableCell>
+                      <Avatar className="h-10 w-10 border shadow-sm">
+                        <AvatarImage src={reg.photoUrl || undefined} className="object-cover" />
+                        <AvatarFallback><User className="h-5 w-5" /></AvatarFallback>
+                      </Avatar>
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-bold text-slate-900">{reg.fullName}</span>

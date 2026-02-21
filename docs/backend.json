@@ -48,6 +48,10 @@
           "type": "string",
           "description": "Nombre y Apellido del confirmando"
         },
+        "photoUrl": {
+          "type": "string",
+          "description": "Foto del confirmando (Base64)"
+        },
         "ciNumber": {
           "type": "string",
           "description": "Número de Cédula de Identidad"
@@ -82,7 +86,16 @@
         "attendanceDay": {
           "type": "string",
           "enum": ["SABADO", "DOMINGO"],
-          "description": "Día de asistencia"
+          "description": "Día de asistencia original"
+        },
+        "attendanceStatus": {
+          "type": "string",
+          "enum": ["PRESENTE", "AUSENTE", "PENDIENTE"],
+          "description": "Estado de asistencia actual"
+        },
+        "needsRecovery": {
+          "type": "boolean",
+          "description": "Indica si debe recuperar en el día opuesto"
         },
         "hasBaptism": {
           "type": "boolean",
@@ -91,18 +104,6 @@
         "hasFirstCommunion": {
           "type": "boolean",
           "description": "Si ya recibió la Primera Comunión"
-        },
-        "baptismParish": {
-          "type": "string",
-          "description": "Parroquia de Bautismo"
-        },
-        "baptismBook": {
-          "type": "string",
-          "description": "Libro de Bautismo"
-        },
-        "baptismFolio": {
-          "type": "string",
-          "description": "Folio de Bautismo"
         },
         "status": {
           "type": "string",
