@@ -141,7 +141,7 @@
     },
     "/cedulas/{cedulaNumber}": {
       "schema": "Cedula",
-      "description": "Base de datos masiva de cédulas importadas."
+      "description": "Base de datos masiva de cédulas importadas basada en los campos NUMERO_CED, APELLIDO, NOMBRE, SEXO, NACIONAL, NOM_PADRE, NOM_MADRE, DIRECCION, NOM_CONJ, FECHA_NACI, BARRIO_CIU."
     }
   }
 }
