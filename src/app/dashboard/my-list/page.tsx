@@ -21,6 +21,8 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebas
 import { collection, query, where, doc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 export default function MyListPage() {
   const { user } = useUser()
@@ -28,7 +30,6 @@ export default function MyListPage() {
   const { toast } = useToast()
   const [updatingId, setUpdatingId] = useState<string | null>(null)
 
-  // 1. Obtener los grupos donde el usuario es miembro
   const myGroupsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return query(collection(db, "groups"), where("catequistaIds", "array-contains", user.uid))
@@ -36,7 +37,6 @@ export default function MyListPage() {
 
   const { data: myGroups, loading: loadingGroups } = useCollection(myGroupsQuery)
 
-  // 2. Extraer parámetros del grupo (Día y Año)
   const groupParams = useMemo(() => {
     if (!myGroups || myGroups.length === 0) return null
     return {
@@ -46,7 +46,6 @@ export default function MyListPage() {
     }
   }, [myGroups])
 
-  // 3. Consultar confirmandos del grupo propio
   const myConfirmandsQuery = useMemoFirebase(() => {
     if (!db || !groupParams) return null
     return query(
@@ -56,7 +55,6 @@ export default function MyListPage() {
     )
   }, [db, groupParams])
 
-  // 4. Consultar recuperatorios (Gente de otro día que está AUSENTE y necesita recuperación)
   const recoveryConfirmandsQuery = useMemoFirebase(() => {
     if (!db || !groupParams) return null
     return query(
@@ -69,32 +67,38 @@ export default function MyListPage() {
   const { data: myConfirmands, loading: loadingMyConf } = useCollection(myConfirmandsQuery)
   const { data: recoveryConfirmands, loading: loadingRecovery } = useCollection(recoveryConfirmandsQuery)
 
-  const handleAttendance = async (id: string, status: "PRESENTE" | "AUSENTE") => {
+  const handleAttendance = (id: string, status: "PRESENTE" | "AUSENTE") => {
     if (!db) return
     setUpdatingId(id)
     
     const regRef = doc(db, "confirmations", id)
     const isRecovery = recoveryConfirmands?.some(r => r.id === id)
     
-    try {
-      await updateDoc(regRef, {
-        attendanceStatus: status,
-        // Si se marca ausente en su día normal, habilita recuperatorio
-        needsRecovery: !isRecovery && status === "AUSENTE",
-        // Si era un recuperatorio y estuvo presente, quita la bandera
-        ...(isRecovery && status === "PRESENTE" ? { needsRecovery: false } : {}),
-        lastAttendanceUpdate: serverTimestamp()
-      })
-      
-      toast({
-        title: status === "PRESENTE" ? "Asistencia marcada" : "Ausencia registrada",
-        description: status === "AUSENTE" ? "Habilitado para recuperación el día opuesto." : "Confirmando presente.",
-      })
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar la asistencia." })
-    } finally {
-      setUpdatingId(null)
+    const updateData = {
+      attendanceStatus: status,
+      needsRecovery: !isRecovery && status === "AUSENTE",
+      ...(isRecovery && status === "PRESENTE" ? { needsRecovery: false } : {}),
+      lastAttendanceUpdate: serverTimestamp()
     }
+
+    updateDoc(regRef, updateData)
+      .then(() => {
+        toast({
+          title: status === "PRESENTE" ? "Asistencia marcada" : "Ausencia registrada",
+          description: status === "AUSENTE" ? "Habilitado para recuperación el día opuesto." : "Confirmando presente.",
+        })
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: regRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+        })
+        errorEmitter.emit('permission-error', permissionError)
+      })
+      .finally(() => {
+        setUpdatingId(null)
+      })
   }
 
   if (loadingGroups) {
@@ -110,7 +114,7 @@ export default function MyListPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 bg-white rounded-3xl border shadow-sm">
         <Users className="h-16 w-16 text-slate-200 mb-4" />
         <h2 className="text-xl font-headline font-bold text-slate-900">No tienes grupos asignados</h2>
-        <p className="text-muted-foreground mt-2 max-w-md">Contacta con el administrador para que te asigne a un grupo de catequesis y puedas gestionar la asistencia.</p>
+        <p className="text-muted-foreground mt-2 max-w-md">Contacta con el administrador para que te asigne a un grupo de catequesis.</p>
       </div>
     )
   }
@@ -134,7 +138,6 @@ export default function MyListPage() {
       </div>
 
       <div className="grid gap-6">
-        {/* LISTA PRINCIPAL */}
         <Card className="border-none shadow-xl overflow-hidden">
           <CardHeader className="bg-slate-50/50 border-b">
             <div className="flex items-center justify-between">
@@ -213,7 +216,6 @@ export default function MyListPage() {
           </CardContent>
         </Card>
 
-        {/* LISTA DE RECUPERATORIOS */}
         <Card className="border-none shadow-xl overflow-hidden border-t-4 border-t-accent">
           <CardHeader className="bg-accent/5 border-b border-accent/10">
             <div className="flex items-center justify-between">
@@ -235,7 +237,7 @@ export default function MyListPage() {
             {loadingRecovery ? (
               <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>
             ) : !recoveryConfirmands || recoveryConfirmands?.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 italic text-sm">No hay alumnos registrados para recuperación en esta sesión.</div>
+              <div className="py-12 text-center text-slate-400 italic text-sm">No hay alumnos registrados para recuperación.</div>
             ) : (
               <Table>
                 <TableHeader>

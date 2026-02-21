@@ -14,20 +14,18 @@ import {
   Search, 
   Loader2, 
   User, 
-  Users, 
-  Calendar, 
-  Check, 
   Info,
   History,
-  AlertCircle
+  Check
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase } from "@/firebase"
-import { collection, query, where, doc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore"
+import { collection, doc, updateDoc, arrayUnion } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 export default function GroupChangePage() {
   const [mounted, setMounted] = useState(false)
@@ -46,11 +44,9 @@ export default function GroupChangePage() {
     setMounted(true)
   }, [])
 
-  // 1. Obtener todos los confirmandos
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
   const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery)
 
-  // 2. Obtener todos los grupos
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
   const { data: allGroups, loading: loadingGroups } = useCollection(groupsQuery)
 
@@ -73,7 +69,6 @@ export default function GroupChangePage() {
 
   const availableGroups = useMemo(() => {
     if (!selectedReg || !allGroups) return []
-    // Solo grupos del mismo año de catequesis
     return allGroups.filter(g => 
       g.catechesisYear === selectedReg.catechesisYear && 
       g.id !== selectedReg.groupId
@@ -87,7 +82,7 @@ export default function GroupChangePage() {
     setIsChangeDialogOpen(true)
   }
 
-  const handleProcessChange = async () => {
+  const handleProcessChange = () => {
     if (!db || !selectedReg || !newGroupId || !changeReason) return
     setIsSubmitting(true)
 
@@ -104,27 +99,31 @@ export default function GroupChangePage() {
       authorizedBy: user?.uid || "admin"
     }
 
-    try {
-      await updateDoc(regRef, {
-        groupId: newGroupId,
-        attendanceDay: newGroup.attendanceDay,
-        changeHistory: arrayUnion(changeEntry)
-      })
-
-      toast({
-        title: "Traslado Exitoso",
-        description: `${selectedReg.fullName} ha sido movido al grupo "${newGroup.name}".`
-      })
-      setIsChangeDialogOpen(false)
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No se pudo procesar el cambio de grupo."
-      })
-    } finally {
-      setIsSubmitting(false)
+    const updateData = {
+      groupId: newGroupId,
+      attendanceDay: newGroup.attendanceDay,
+      changeHistory: arrayUnion(changeEntry)
     }
+
+    updateDoc(regRef, updateData)
+      .then(() => {
+        toast({
+          title: "Traslado Exitoso",
+          description: `${selectedReg.fullName} ha sido movido al grupo "${newGroup.name}".`
+        })
+        setIsChangeDialogOpen(false)
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: regRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+        })
+        errorEmitter.emit('permission-error', permissionError)
+      })
+      .finally(() => {
+        setIsSubmitting(false)
+      })
   }
 
   if (!mounted) return null
@@ -221,7 +220,6 @@ export default function GroupChangePage() {
         </CardContent>
       </Card>
 
-      {/* DIALOGO DE CAMBIO DE GRUPO */}
       <Dialog open={isChangeDialogOpen} onOpenChange={setIsChangeDialogOpen}>
         <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -274,7 +272,7 @@ export default function GroupChangePage() {
             <div className="space-y-3">
               <Label className="font-bold text-slate-700">Motivo del Cambio</Label>
               <Textarea 
-                placeholder="Explica brevemente por qué se realiza el traslado (ej. Cambio de domicilio, motivos laborales, etc.)"
+                placeholder="Explica brevemente por qué se realiza el traslado"
                 className="min-h-[100px] rounded-xl bg-slate-50 border-slate-200 resize-none"
                 value={changeReason}
                 onChange={(e) => setChangeReason(e.target.value)}

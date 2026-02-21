@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, useMemo } from "react"
@@ -7,24 +8,17 @@ import * as z from "zod"
 import { 
   Loader2, 
   User,
-  Phone,
   BookOpen,
-  Calendar,
-  CreditCard,
   Church,
   ArrowRight,
   ShieldCheck,
   Users,
   Camera,
-  RefreshCcw,
-  X,
-  Check,
-  AlertTriangle,
-  Heart,
-  Book,
+  Search,
+  CheckCircle2,
   Printer,
-  FileText,
-  Search
+  AlertTriangle,
+  CreditCard
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -52,8 +46,9 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -136,57 +131,42 @@ export function ConfirmationForm() {
     if (birthDate) {
       const birth = new Date(birthDate)
       const now = new Date()
-      let age = now.getFullYear() - birth.getFullYear()
+      let calculatedAge = now.getFullYear() - birth.getFullYear()
       const m = now.getMonth() - birth.getMonth()
       if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
-        age--
+        calculatedAge--
       }
-      form.setValue("age", age >= 0 ? age : 0)
+      form.setValue("age", calculatedAge >= 0 ? calculatedAge : 0)
     }
   }, [birthDate, form])
 
-  const handleLookupCi = async (ciValue: string) => {
+  const handleLookupCi = (ciValue: string) => {
     if (!db || !ciValue || ciValue.length < 5) return;
     
     setIsSearchingCi(true);
     const cleanCi = ciValue.replace(/\./g, "").trim();
     
-    try {
-      const cedulaRef = doc(db, "cedulas", cleanCi);
-      const docSnap = await getDoc(cedulaRef);
+    const cedulaRef = doc(db, "cedulas", cleanCi);
+    getDoc(cedulaRef)
+      .then((docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.NOMBRE && data.APELLIDO) {
+            form.setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim());
+          }
+          if (data.NOM_MADRE) form.setValue("motherName", data.NOM_MADRE);
+          if (data.NOM_PADRE) form.setValue("fatherName", data.NOM_PADRE);
+          if (data.FECHA_NACI) form.setValue("birthDate", data.FECHA_NACI);
 
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        
-        // Auto-completar campos según lo solicitado
-        if (data.NOMBRE && data.APELLIDO) {
-          form.setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim());
+          toast({
+            title: "Datos encontrados",
+            description: `Se han cargado los datos de ${data.NOMBRE || 'la persona'}.`,
+          });
         }
-        
-        if (data.NOM_MADRE) form.setValue("motherName", data.NOM_MADRE);
-        if (data.NOM_PADRE) form.setValue("fatherName", data.NOM_PADRE);
-        
-        // Extra: Si tenemos fecha de nacimiento, también la cargamos
-        if (data.FECHA_NACI) {
-          form.setValue("birthDate", data.FECHA_NACI);
-        }
-
-        toast({
-          title: "Datos encontrados",
-          description: `Se han cargado los datos de ${data.NOMBRE || 'la persona'}.`,
-        });
-      } else {
-        toast({
-          variant: "outline",
-          title: "No encontrado",
-          description: "No se hallaron datos para esta cédula en el padrón.",
-        });
-      }
-    } catch (error) {
-      console.error("Error al buscar cédula:", error);
-    } finally {
-      setIsSearchingCi(false);
-    }
+      })
+      .finally(() => {
+        setIsSearchingCi(false);
+      });
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -211,7 +191,8 @@ export function ConfirmationForm() {
   const totalCost = calculateCost()
   const isOverpaid = initialPayment > totalCost
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = (values: FormValues) => {
+    if (!db) return;
     if (isOverpaid) {
       toast({
         variant: "destructive",
@@ -222,47 +203,50 @@ export function ConfirmationForm() {
     }
 
     setLoading(true)
-    try {
-      const regId = `conf_${Date.now()}`
-      const regRef = doc(db!, "confirmations", regId)
-      
-      const amountPaid = values.initialPayment
-      const paymentStatus = amountPaid >= totalCost ? "PAGADO" : amountPaid > 0 ? "PARCIAL" : "PENDIENTE"
+    const regId = `conf_${Date.now()}`
+    const regRef = doc(db, "confirmations", regId)
+    
+    const amountPaid = values.initialPayment
+    const paymentStatus = amountPaid >= totalCost ? "PAGADO" : amountPaid > 0 ? "PARCIAL" : "PENDIENTE"
 
-      const registrationData = {
-        userId: user?.uid || "admin",
-        ...values,
-        status: "INSCRITO",
-        attendanceStatus: "PENDIENTE",
-        needsRecovery: false,
-        registrationCost: totalCost,
-        amountPaid: amountPaid,
-        paymentStatus: paymentStatus,
-        createdAt: new Date().toISOString()
-      }
-
-      await setDoc(regRef, {
-        ...registrationData,
-        createdAt: serverTimestamp()
-      })
-      
-      toast({
-        title: "Inscripción Realizada",
-        description: `Se ha registrado a ${values.fullName} correctamente.`,
-      })
-
-      setSubmittedData({ ...registrationData, id: regId })
-      
-      if (amountPaid > 0) {
-        setIsReceiptOpen(true)
-      } else {
-        router.push("/dashboard")
-      }
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo completar la inscripción." })
-    } finally {
-      setLoading(false)
+    const registrationData = {
+      userId: user?.uid || "admin",
+      ...values,
+      status: "INSCRITO",
+      attendanceStatus: "PENDIENTE",
+      needsRecovery: false,
+      registrationCost: totalCost,
+      amountPaid: amountPaid,
+      paymentStatus: paymentStatus,
+      createdAt: serverTimestamp()
     }
+
+    setDoc(regRef, registrationData)
+      .then(() => {
+        toast({
+          title: "Inscripción Realizada",
+          description: `Se ha registrado a ${values.fullName} correctamente.`,
+        })
+
+        setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() })
+        
+        if (amountPaid > 0) {
+          setIsReceiptOpen(true)
+        } else {
+          router.push("/dashboard")
+        }
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: regRef.path,
+          operation: 'create',
+          requestResourceData: registrationData,
+        })
+        errorEmitter.emit('permission-error', permissionError)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }
 
   const handleCloseReceipt = () => {
@@ -287,7 +271,6 @@ export function ConfirmationForm() {
               </div>
             </CardHeader>
             <CardContent className="p-10 space-y-10">
-              
               <div className="flex flex-col items-center gap-4 mb-6">
                 <div className="relative group">
                   <Avatar className="h-32 w-32 border-4 border-slate-100">
@@ -382,17 +365,6 @@ export function ConfirmationForm() {
                     <FormField control={form.control} name="fatherPhone" render={({ field }) => (
                       <FormItem><FormLabel className="text-xs font-semibold">Teléfono Padre</FormLabel><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
                     )} />
-                  </div>
-                  <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/30 space-y-4 md:col-span-2">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tutor / Encargado Especial</p>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <FormField control={form.control} name="tutorName" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-semibold">Nombre del Tutor</FormLabel><FormControl><Input placeholder="En caso de que no sean los padres" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
-                      )} />
-                      <FormField control={form.control} name="tutorPhone" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-semibold">Teléfono Tutor</FormLabel><FormControl><Input placeholder="Celular Encargado" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
-                      )} />
-                    </div>
                   </div>
                 </div>
               </div>
