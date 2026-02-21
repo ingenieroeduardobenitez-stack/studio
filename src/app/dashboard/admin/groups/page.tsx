@@ -61,6 +61,12 @@ export default function GroupsAdminPage() {
     )
   }, [])
 
+  const resetForm = useCallback(() => {
+    setSelectedCatequistaIds([])
+    setUserSearchTerm("")
+    setSelectedGroup(null)
+  }, [])
+
   const handleCreateGroup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (selectedCatequistaIds.length === 0) {
@@ -92,8 +98,7 @@ export default function GroupsAdminPage() {
       .then(() => {
         toast({ title: "Grupo creado", description: `El grupo "${name}" se creó correctamente.` })
         setIsCreateDialogOpen(false)
-        setSelectedCatequistaIds([])
-        setUserSearchTerm("")
+        resetForm()
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -134,9 +139,7 @@ export default function GroupsAdminPage() {
       .then(() => {
         toast({ title: "Grupo actualizado", description: "Los cambios se guardaron correctamente." })
         setIsEditDialogOpen(false)
-        setSelectedGroup(null)
-        setSelectedCatequistaIds([])
-        setUserSearchTerm("")
+        resetForm()
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -158,6 +161,7 @@ export default function GroupsAdminPage() {
       .then(() => {
         toast({ title: "Grupo eliminado", description: "El grupo ha sido borrado." })
         setIsDeleteDialogOpen(false)
+        resetForm()
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -189,12 +193,9 @@ export default function GroupsAdminPage() {
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-          if (!open && !isSubmitting) {
-            setIsCreateDialogOpen(false)
-            setSelectedCatequistaIds([])
-            setUserSearchTerm("")
-          } else if (open) {
-            setIsCreateDialogOpen(true)
+          if (!isSubmitting) {
+            setIsCreateDialogOpen(open)
+            if (!open) resetForm()
           }
         }}>
           <DialogTrigger asChild>
@@ -410,13 +411,9 @@ export default function GroupsAdminPage() {
 
       {/* DIÁLOGO DE EDICIÓN */}
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        if (!open && !isSubmitting) {
-          setIsEditDialogOpen(false)
-          setSelectedGroup(null)
-          setSelectedCatequistaIds([])
-          setUserSearchTerm("")
-        } else if (open) {
-          setIsEditDialogOpen(true)
+        if (!isSubmitting) {
+          setIsEditDialogOpen(open)
+          if (!open) resetForm()
         }
       }}>
         <DialogContent className="sm:max-w-[450px]">
@@ -511,7 +508,9 @@ export default function GroupsAdminPage() {
       </Dialog>
 
       {/* DIÁLOGO DE ELIMINACIÓN */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        if (!isSubmitting) setIsDeleteDialogOpen(open)
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>
@@ -520,10 +519,13 @@ export default function GroupsAdminPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmitting} onClick={() => resetForm()}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
-              onClick={handleDeleteGroup}
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteGroup()
+              }}
               disabled={isSubmitting}
             >
               {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar Definitivamente"}

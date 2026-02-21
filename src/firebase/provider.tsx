@@ -25,8 +25,14 @@ export function FirebaseProvider({
   auth: Auth; 
   firestore: Firestore;
 }) {
-  const value = useMemo(() => ({ app, auth, firestore }), [app, auth, firestore]);
+  // Memoize the value to prevent unnecessary re-renders in consumers
+  const value = useMemo(() => {
+    if (!app || !auth || !firestore) return undefined;
+    return { app, auth, firestore };
+  }, [app, auth, firestore]);
   
+  if (!value) return <>{children}</>;
+
   return (
     <FirebaseContext.Provider value={value}>
       {children}
