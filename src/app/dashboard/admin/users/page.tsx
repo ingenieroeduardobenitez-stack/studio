@@ -15,7 +15,7 @@ import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, K
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
-import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "firebase/auth"
+import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth"
 import { firebaseConfig } from "@/firebase/config"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
@@ -30,10 +30,13 @@ const AVAILABLE_MODULES = [
   { id: "asistencia", name: "Mi Lista (Asistencia)", category: "Operaciones" },
   { id: "confirmandos", name: "Confirmandos", category: "Operaciones" },
   { id: "inscripcion", name: "Nueva Inscripción", category: "Operaciones" },
+  { id: "cambio_grupo", name: "Cambio de Grupo", category: "Operaciones" },
+  { id: "pagos_alumnos", name: "Gestión de Pagos", category: "Operaciones" },
   { id: "tesoreria", name: "Gestión Tesorería", category: "Tesorería" },
   { id: "perfil", name: "Mi Perfil", category: "Configuración" },
   { id: "usuarios", name: "Gestión de Usuarios", category: "Administración" },
   { id: "grupos", name: "Gestión de Grupos", category: "Administración" },
+  { id: "archivar", name: "Cierre de Año / Archivo", category: "Administración" },
 ]
 
 const PERMISSIONS = [
@@ -166,58 +169,60 @@ export default function UsersAdminPage() {
     if (!selectedUser || !db) return
     setIsSubmitting(true)
     
-    const formData = new FormData(e.currentTarget)
-    const userData = {
-      firstName: formData.get("firstName") as string || "",
-      lastName: formData.get("lastName") as string || "",
-      role: formData.get("role") as string || "Catequista",
-      allowedModules: selectedModules,
-      photoUrl: tempPhoto || selectedUser.photoUrl || null
+    try {
+      const formData = new FormData(e.currentTarget)
+      const userData = {
+        firstName: formData.get("firstName") as string || "",
+        lastName: formData.get("lastName") as string || "",
+        role: formData.get("role") as string || "Catequista",
+        allowedModules: selectedModules,
+        photoUrl: tempPhoto || selectedUser.photoUrl || null
+      }
+
+      const userRef = doc(db, "users", selectedUser.id)
+      await updateDoc(userRef, userData)
+
+      toast({
+        title: "Usuario actualizado",
+        description: "Los cambios se han guardado correctamente.",
+      })
+      
+      setIsEditDialogOpen(false)
+      setTempPhoto(null)
+    } catch (error: any) {
+      console.error("Error editing user:", error)
+      const permissionError = new FirestorePermissionError({
+        path: `users/${selectedUser?.id}`,
+        operation: 'update',
+      })
+      errorEmitter.emit('permission-error', permissionError)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    const userRef = doc(db, "users", selectedUser.id)
-
-    updateDoc(userRef, userData)
-      .then(() => {
-        toast({
-          title: "Usuario actualizado",
-          description: "Los cambios se han guardado correctamente.",
-        })
-        setIsEditDialogOpen(false)
-        setTempPhoto(null)
-      })
-      .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
-          path: userRef.path,
-          operation: 'update',
-          requestResourceData: userData,
-        })
-        errorEmitter.emit('permission-error', permissionError)
-      })
-      .finally(() => setIsSubmitting(false))
   }
 
   const handleDeleteUser = async () => {
     if (!selectedUser || !db) return
     setIsSubmitting(true)
 
-    const userRef = doc(db, "users", selectedUser.id)
-    deleteDoc(userRef)
-      .then(() => {
-        toast({
-          title: "Usuario eliminado",
-          description: "El perfil ha sido borrado.",
-        })
-        setIsDeleteDialogOpen(false)
+    try {
+      const userRef = doc(db, "users", selectedUser.id)
+      await deleteDoc(userRef)
+      toast({
+        title: "Usuario eliminado",
+        description: "El perfil ha sido borrado.",
       })
-      .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
-          path: userRef.path,
-          operation: 'delete',
-        })
-        errorEmitter.emit('permission-error', permissionError)
+      setIsDeleteDialogOpen(false)
+    } catch (error: any) {
+      console.error("Error deleting user:", error)
+      const permissionError = new FirestorePermissionError({
+        path: `users/${selectedUser?.id}`,
+        operation: 'delete',
       })
-      .finally(() => setIsSubmitting(false))
+      errorEmitter.emit('permission-error', permissionError)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const getAssignedModuleNames = (allowedModules: string[] = []) => {
