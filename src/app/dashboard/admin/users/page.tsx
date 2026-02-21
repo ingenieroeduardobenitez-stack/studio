@@ -230,7 +230,7 @@ export default function UsersAdminPage() {
                 <div className="flex justify-center mb-2">
                   <div className="relative group cursor-pointer" onClick={() => createPhotoRef.current?.click()}>
                     <Avatar className="h-24 w-24 border-2 border-slate-100">
-                      <AvatarImage src={tempPhoto || ""} />
+                      <AvatarImage src={tempPhoto || undefined} />
                       <AvatarFallback className="bg-slate-50 text-slate-300">
                         <User className="h-12 w-12" />
                       </AvatarFallback>
@@ -325,7 +325,7 @@ export default function UsersAdminPage() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={u.photoUrl} />
+                          <AvatarImage src={u.photoUrl || undefined} />
                           <AvatarFallback className="bg-slate-100 text-slate-400">
                             {u.firstName[0]}{u.lastName[0]}
                           </AvatarFallback>
@@ -392,7 +392,7 @@ export default function UsersAdminPage() {
               <div className="flex justify-center mb-2">
                 <div className="relative group cursor-pointer" onClick={() => editPhotoRef.current?.click()}>
                   <Avatar className="h-24 w-24 border-2 border-slate-100">
-                    <AvatarImage src={tempPhoto || selectedUser?.photoUrl || ""} />
+                    <AvatarImage src={tempPhoto || selectedUser?.photoUrl || undefined} />
                     <AvatarFallback className="bg-slate-50 text-slate-300">
                       <User className="h-12 w-12" />
                     </AvatarFallback>

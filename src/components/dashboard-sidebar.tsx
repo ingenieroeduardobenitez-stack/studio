@@ -163,7 +163,7 @@ export function DashboardSidebar() {
                 <SidebarMenuButton size="lg" className="w-full">
                   <div className="flex items-center gap-3 w-full text-left overflow-hidden">
                     <Avatar className="h-8 w-8 rounded-full shrink-0">
-                      <AvatarImage src={profile?.photoUrl} />
+                      <AvatarImage src={profile?.photoUrl || undefined} />
                       <AvatarFallback className="bg-accent/20 text-accent">
                         <User className="h-4 w-4" />
                       </AvatarFallback>

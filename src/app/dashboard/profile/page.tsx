@@ -126,7 +126,7 @@ export default function ProfilePage() {
               </div>
               <div className="mx-auto h-24 w-24 rounded-full border-4 border-accent p-1">
                 <Avatar className="h-full w-full">
-                  <AvatarImage src={formData.photoUrl} />
+                  <AvatarImage src={formData.photoUrl || undefined} />
                   <AvatarFallback className="bg-slate-50 text-slate-300">
                     <User className="h-10 w-10" />
                   </AvatarFallback>
