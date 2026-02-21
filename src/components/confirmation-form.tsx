@@ -106,7 +106,7 @@ export function ConfirmationForm() {
       ciNumber: "",
       phone: "",
       birthDate: "",
-      age: undefined,
+      age: 0,
       photoUrl: "",
       motherName: "",
       motherPhone: "",
@@ -114,6 +114,8 @@ export function ConfirmationForm() {
       fatherPhone: "",
       tutorName: "",
       tutorPhone: "",
+      catechesisYear: undefined,
+      attendanceDay: undefined,
       hasBaptism: false,
       hasFirstCommunion: false,
       baptismParish: "",
@@ -128,7 +130,6 @@ export function ConfirmationForm() {
   const hasBaptism = form.watch("hasBaptism")
   const birthDate = form.watch("birthDate")
 
-  // Cálculo automático de edad
   useEffect(() => {
     if (birthDate) {
       const birth = new Date(birthDate)
@@ -254,7 +255,6 @@ export function ConfirmationForm() {
                 </div>
               </div>
 
-              {/* SECCIÓN 1: DATOS PERSONALES */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><User className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3></div>
                 
@@ -285,7 +285,6 @@ export function ConfirmationForm() {
 
               <Separator />
 
-              {/* SECCIÓN 2: DATOS DE PADRES / TUTOR */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><Users className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Padres / Encargado</h3></div>
                 <div className="grid gap-6 md:grid-cols-2">
@@ -323,15 +322,14 @@ export function ConfirmationForm() {
 
               <Separator />
 
-              {/* SECCIÓN 3: CATEGORÍA Y PAGO */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><BookOpen className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Categoría y Pago</h3></div>
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                   <FormField control={form.control} name="catechesisYear" render={({ field }) => (
-                    <FormItem><FormLabel className="font-semibold">Categoría *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">Primer Año</SelectItem><SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="font-semibold">Categoría *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">Primer Año</SelectItem><SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="attendanceDay" render={({ field }) => (
-                    <FormItem><FormLabel className="font-semibold">Día y Horario *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione Día" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábado (15:30 a 18:30 hs)</SelectItem><SelectItem value="DOMINGO">Domingo (08:00 a 11:00 hs)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="font-semibold">Día y Horario *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione Día" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábado (15:30 a 18:30 hs)</SelectItem><SelectItem value="DOMINGO">Domingo (08:00 a 11:00 hs)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="initialPayment" render={({ field }) => (
                     <FormItem>
@@ -354,7 +352,6 @@ export function ConfirmationForm() {
 
               <Separator />
 
-              {/* SECCIÓN 4: SACRAMENTOS PREVIOS */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><ShieldCheck className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Sacramentos Previos</h3></div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -380,7 +377,6 @@ export function ConfirmationForm() {
                   )} />
                 </div>
 
-                {/* CAMPOS CONDICIONALES DE BAUTISMO */}
                 {hasBaptism && (
                   <div className="grid gap-6 md:grid-cols-3 p-6 bg-primary/5 rounded-3xl border border-primary/10 animate-in zoom-in-95 duration-300">
                     <div className="md:col-span-3 flex items-center gap-2 mb-2">
@@ -429,7 +425,6 @@ export function ConfirmationForm() {
         </Form>
       </Card>
 
-      {/* DIALOGO DE RECIBO POST-INSCRIPCIÓN */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none">
           <div className="p-10 bg-white space-y-8" id="receipt-print">
