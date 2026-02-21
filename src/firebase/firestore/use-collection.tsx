@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -6,7 +5,7 @@ import { Query, onSnapshot } from 'firebase/firestore';
 
 /**
  * Hook robusto para suscribirse a colecciones de Firestore.
- * Evita bucles infinitos comparando los datos serializados antes de actualizar el estado.
+ * Evita actualizaciones de estado redundantes comparando los datos serializados.
  */
 export function useCollection<T = any>(query: Query | null) {
   const [data, setData] = useState<T[]>([]);
@@ -14,20 +13,16 @@ export function useCollection<T = any>(query: Query | null) {
   const [error, setError] = useState<Error | null>(null);
   
   const dataRef = useRef<string>('');
-  const queryRef = useRef<string>('');
 
   useEffect(() => {
+    // Si no hay consulta, terminamos la carga y limpiamos datos
     if (!query) {
       setLoading(false);
       setData([]);
       return;
     }
 
-    // Evitar re-suscripciones si la consulta es idéntica (basado en el path interno si es posible)
-    const currentQueryKey = JSON.stringify((query as any)._query || query.toString());
-    if (queryRef.current === currentQueryKey) return;
-    queryRef.current = currentQueryKey;
-
+    // Iniciamos la carga al suscribirnos
     setLoading(true);
 
     const unsubscribe = onSnapshot(
@@ -36,6 +31,7 @@ export function useCollection<T = any>(query: Query | null) {
         const newData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as T);
         const dataString = JSON.stringify(newData);
         
+        // Solo actualizamos el estado si los datos realmente cambiaron
         if (dataString !== dataRef.current) {
           dataRef.current = dataString;
           setData(newData);
@@ -49,6 +45,7 @@ export function useCollection<T = any>(query: Query | null) {
       }
     );
 
+    // Al desmontar o cambiar la consulta, nos desuscribimos
     return () => unsubscribe();
   }, [query]);
 
