@@ -7,30 +7,24 @@
       "type": "object",
       "properties": {
         "firstName": {
-          "type": "string",
-          "description": "Nombre"
+          "type": "string"
         },
         "lastName": {
-          "type": "string",
-          "description": "Apellido"
+          "type": "string"
         },
         "email": {
           "type": "string",
-          "format": "email",
-          "description": "Correo electrónico"
+          "format": "email"
         },
         "role": {
-          "type": "string",
-          "description": "Rol en la parroquia (Catequista, Coordinador, Administrador)"
+          "type": "string"
         },
         "photoUrl": {
-          "type": "string",
-          "description": "URL o Base64 de la foto de perfil"
+          "type": "string"
         },
         "createdAt": {
           "type": "string",
-          "format": "date-time",
-          "description": "Fecha de registro"
+          "format": "date-time"
         }
       },
       "required": ["firstName", "lastName", "email"]
@@ -41,69 +35,34 @@
       "type": "object",
       "properties": {
         "userId": {
-          "type": "string",
-          "description": "ID del catequista que registra"
+          "type": "string"
         },
         "fullName": {
-          "type": "string",
-          "description": "Nombre y Apellido del confirmando"
+          "type": "string"
         },
         "photoUrl": {
-          "type": "string",
-          "description": "Foto del confirmando (Base64)"
+          "type": "string"
         },
         "ciNumber": {
-          "type": "string",
-          "description": "Número de Cédula de Identidad"
+          "type": "string"
         },
         "phone": {
-          "type": "string",
-          "description": "Número de celular del confirmando"
-        },
-        "motherName": {
-          "type": "string"
-        },
-        "motherPhone": {
-          "type": "string"
-        },
-        "fatherName": {
-          "type": "string"
-        },
-        "fatherPhone": {
-          "type": "string"
-        },
-        "tutorName": {
-          "type": "string"
-        },
-        "tutorPhone": {
           "type": "string"
         },
         "catechesisYear": {
           "type": "string",
-          "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"],
-          "description": "Año de Catequesis"
+          "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"]
         },
         "attendanceDay": {
           "type": "string",
-          "enum": ["SABADO", "DOMINGO"],
-          "description": "Día de asistencia original"
+          "enum": ["SABADO", "DOMINGO"]
         },
         "attendanceStatus": {
           "type": "string",
-          "enum": ["PRESENTE", "AUSENTE", "PENDIENTE"],
-          "description": "Estado de asistencia actual"
+          "enum": ["PRESENTE", "AUSENTE", "PENDIENTE"]
         },
         "needsRecovery": {
-          "type": "boolean",
-          "description": "Indica si debe recuperar en el día opuesto"
-        },
-        "hasBaptism": {
-          "type": "boolean",
-          "description": "Si ya recibió el Bautismo"
-        },
-        "hasFirstCommunion": {
-          "type": "boolean",
-          "description": "Si ya recibió la Primera Comunión"
+          "type": "boolean"
         },
         "status": {
           "type": "string",
@@ -118,40 +77,23 @@
         }
       }
     },
-    "CatechesisGroup": {
-      "title": "Grupo de Catequesis",
-      "description": "Define un grupo de trabajo compuesto por varios catequistas.",
+    "Cedula": {
+      "title": "Cédula de Identidad",
+      "description": "Registro de identificación para validación masiva.",
       "type": "object",
       "properties": {
+        "number": {
+          "type": "string"
+        },
         "name": {
-          "type": "string",
-          "description": "Nombre del grupo"
+          "type": "string"
         },
-        "catequistaIds": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Lista de IDs de usuarios asignados al grupo"
-        },
-        "attendanceDay": {
-          "type": "string",
-          "enum": ["SABADO", "DOMINGO"],
-          "description": "Día de la catequesis"
-        },
-        "catechesisYear": {
-          "type": "string",
-          "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"],
-          "description": "Año de Catequesis"
-        },
-        "schedule": {
-          "type": "string",
-          "description": "Horario de la catequesis"
-        },
-        "createdAt": {
+        "importedAt": {
           "type": "string",
           "format": "date-time"
         }
       },
-      "required": ["name", "catequistaIds", "attendanceDay", "catechesisYear"]
+      "required": ["number"]
     }
   },
   "auth": {
@@ -160,15 +102,19 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Datos de los catequistas o encargados."
+      "description": "Datos de los catequistas."
     },
     "/confirmations/{registrationId}": {
       "schema": "ConfirmationRegistration",
-      "description": "Almacena las inscripciones detalladas a confirmación."
+      "description": "Inscripciones detalladas."
     },
     "/groups/{groupId}": {
       "schema": "CatechesisGroup",
-      "description": "Almacena los grupos de catequesis y sus miembros."
+      "description": "Grupos de catequesis."
+    },
+    "/cedulas/{cedulaNumber}": {
+      "schema": "Cedula",
+      "description": "Base de datos masiva de cédulas importadas."
     }
   }
 }
