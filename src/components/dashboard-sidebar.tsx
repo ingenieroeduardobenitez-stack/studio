@@ -14,7 +14,9 @@ import {
   Shapes,
   ChevronRight,
   UserCheck,
-  X
+  X,
+  Settings,
+  Briefcase
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -28,8 +30,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
-  useSidebar,
-  SidebarTrigger
+  useSidebar
 } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
@@ -50,11 +51,14 @@ import { useAuth } from "@/firebase/provider"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-const menuItems = [
+const operationsItems = [
   { name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
   { name: "Mi Lista (Asistencia)", href: "/dashboard/my-list", icon: UserCheck },
   { name: "Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
+]
+
+const accountItems = [
   { name: "Mi Perfil", href: "/dashboard/profile", icon: User },
 ]
 
@@ -65,8 +69,7 @@ const adminItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const { state, setOpen } = useSidebar()
-  const isCollapsed = state === "collapsed"
+  const { setOpen } = useSidebar()
   const router = useRouter()
   const auth = useAuth()
   const [mounted, setMounted] = useState(false)
@@ -114,42 +117,97 @@ export function DashboardSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-6">
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-4">
-            Gestión Parroquial
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-2">
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname === item.href}
-                    className={cn(
-                      "transition-all duration-300 h-11 px-4 rounded-xl",
-                      pathname === item.href 
-                        ? "bg-primary text-white hover:bg-primary shadow-lg shadow-primary/20" 
-                        : "text-slate-600 hover:bg-slate-50 hover:text-primary"
-                    )}
-                  >
-                    <Link href={item.href} onClick={() => setOpen(false)}>
-                      <item.icon className={cn("h-5 w-5 shrink-0", pathname === item.href ? "text-white" : "text-slate-400")} />
-                      <span className="font-medium">{item.name}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="px-3 py-6 space-y-4">
+        {/* GRUPO: OPERACIONES */}
+        <Collapsible defaultOpen className="group/collapsible">
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger className="flex w-full items-center justify-between text-slate-400 hover:text-primary transition-colors cursor-pointer px-2">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  <span className="text-[10px] uppercase tracking-widest font-bold">Operaciones</span>
+                </div>
+                <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarGroupContent className="mt-2">
+                <SidebarMenu className="gap-2">
+                  {operationsItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={pathname === item.href}
+                        className={cn(
+                          "transition-all duration-300 h-11 px-4 rounded-xl",
+                          pathname === item.href 
+                            ? "bg-primary text-white hover:bg-primary shadow-lg shadow-primary/20" 
+                            : "text-slate-600 hover:bg-slate-50 hover:text-primary"
+                        )}
+                      >
+                        <Link href={item.href} onClick={() => setOpen(false)}>
+                          <item.icon className={cn("h-5 w-5 shrink-0", pathname === item.href ? "text-white" : "text-slate-400")} />
+                          <span className="font-medium">{item.name}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
 
+        {/* GRUPO: MI CUENTA */}
+        <Collapsible defaultOpen className="group/collapsible">
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger className="flex w-full items-center justify-between text-slate-400 hover:text-primary transition-colors cursor-pointer px-2">
+                <div className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  <span className="text-[10px] uppercase tracking-widest font-bold">Mi Cuenta</span>
+                </div>
+                <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarGroupContent className="mt-2">
+                <SidebarMenu className="gap-2">
+                  {accountItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={pathname === item.href}
+                        className={cn(
+                          "transition-all duration-300 h-11 px-4 rounded-xl",
+                          pathname === item.href 
+                            ? "bg-primary text-white hover:bg-primary shadow-lg shadow-primary/20" 
+                            : "text-slate-600 hover:bg-slate-50 hover:text-primary"
+                        )}
+                      >
+                        <Link href={item.href} onClick={() => setOpen(false)}>
+                          <item.icon className={cn("h-5 w-5 shrink-0", pathname === item.href ? "text-white" : "text-slate-400")} />
+                          <span className="font-medium">{item.name}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+
+        {/* GRUPO: ADMINISTRACIÓN */}
         {isAdmin && (
-          <Collapsible asChild defaultOpen className="group/collapsible mt-4">
+          <Collapsible defaultOpen className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex w-full items-center justify-between text-slate-400 hover:text-primary transition-colors cursor-pointer px-2">
-                  <span className="text-[10px] uppercase tracking-widest font-bold">Administración</span>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <span className="text-[10px] uppercase tracking-widest font-bold">Administración</span>
+                  </div>
                   <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
