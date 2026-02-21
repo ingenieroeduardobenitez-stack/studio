@@ -310,7 +310,7 @@ export default function GroupsAdminPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={(open) => !isSubmitting && setIsCreateDialogOpen(open)}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh]">
           <form onSubmit={handleCreateGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader>
@@ -395,7 +395,7 @@ export default function GroupsAdminPage() {
                     {filteredUsers.map((u: any) => (
                       <div 
                         key={u.id} 
-                        className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer ${
+                        className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
                           selectedCatequistaIds.includes(u.id) ? 'bg-primary/5 border-primary/20 border' : 'hover:bg-slate-50 border border-transparent'
                         }`}
                         onClick={() => handleToggleCatequista(u.id)}
@@ -403,8 +403,9 @@ export default function GroupsAdminPage() {
                         <Checkbox 
                           id={`user-${u.id}`}
                           checked={selectedCatequistaIds.includes(u.id)} 
-                          onCheckedChange={() => {}} // Manejado por el div
+                          onCheckedChange={() => {}} // Visualmente manejado por el div
                           disabled={isSubmitting}
+                          className="pointer-events-none"
                         />
                         <Avatar className="h-7 w-7">
                           <AvatarImage src={u.photoUrl || undefined} />
@@ -434,7 +435,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !isSubmitting && setIsEditDialogOpen(open)}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh]">
           <form onSubmit={handleEditGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader>
@@ -519,7 +520,7 @@ export default function GroupsAdminPage() {
                     {filteredUsers.map((u: any) => (
                       <div 
                         key={u.id} 
-                        className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer ${
+                        className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
                           selectedCatequistaIds.includes(u.id) ? 'bg-primary/5 border-primary/20 border' : 'hover:bg-slate-50 border border-transparent'
                         }`}
                         onClick={() => handleToggleCatequista(u.id)}
@@ -527,8 +528,9 @@ export default function GroupsAdminPage() {
                         <Checkbox 
                           id={`edit-user-${u.id}`}
                           checked={selectedCatequistaIds.includes(u.id)} 
-                          onCheckedChange={() => {}} // Manejado por el div
+                          onCheckedChange={() => {}} // Visualmente manejado por el div
                           disabled={isSubmitting}
+                          className="pointer-events-none"
                         />
                         <Avatar className="h-7 w-7">
                           <AvatarImage src={u.photoUrl || undefined} />
@@ -555,7 +557,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>
