@@ -21,7 +21,7 @@
         },
         "role": {
           "type": "string",
-          "description": "Rol en la parroquia (Catequista, Administrador, etc.)"
+          "description": "Rol en la parroquia (Catequista, Coordinador, Administrador)"
         },
         "createdAt": {
           "type": "string",
@@ -33,41 +33,79 @@
     },
     "ConfirmationRegistration": {
       "title": "Inscripción de Confirmación",
-      "description": "Detalles del postulante a la confirmación.",
+      "description": "Detalles completos del postulante a la confirmación.",
       "type": "object",
       "properties": {
         "userId": {
           "type": "string",
-          "description": "ID del usuario que realiza la inscripción"
+          "description": "ID del catequista que registra"
         },
         "fullName": {
           "type": "string",
-          "description": "Nombre completo del postulante"
+          "description": "Nombre y Apellido del confirmando"
         },
-        "age": {
-          "type": "number",
-          "description": "Edad del postulante"
-        },
-        "category": {
+        "ciNumber": {
           "type": "string",
-          "enum": ["JUVENIL", "ADULTO"],
-          "description": "Categoría de la confirmación"
+          "description": "Número de Cédula de Identidad"
         },
-        "baptized": {
-          "type": "boolean",
-          "description": "Si ya cuenta con el sacramento del Bautismo"
-        },
-        "firstCommunion": {
-          "type": "boolean",
-          "description": "Si ya cuenta con la Primera Comunión"
-        },
-        "notes": {
+        "phone": {
           "type": "string",
-          "description": "Observaciones adicionales"
+          "description": "Número de celular del confirmando"
+        },
+        "motherName": {
+          "type": "string"
+        },
+        "motherPhone": {
+          "type": "string"
+        },
+        "fatherName": {
+          "type": "string"
+        },
+        "fatherPhone": {
+          "type": "string"
+        },
+        "tutorName": {
+          "type": "string"
+        },
+        "tutorPhone": {
+          "type": "string"
+        },
+        "catechesisYear": {
+          "type": "string",
+          "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"],
+          "description": "Año de Catequesis"
+        },
+        "attendanceDay": {
+          "type": "string",
+          "enum": ["SABADO", "DOMINGO"],
+          "description": "Día de asistencia"
+        },
+        "hasBaptism": {
+          "type": "boolean",
+          "description": "Si ya recibió el Bautismo"
+        },
+        "hasFirstCommunion": {
+          "type": "boolean",
+          "description": "Si ya recibió la Primera Comunión"
+        },
+        "baptismParish": {
+          "type": "string",
+          "description": "Parroquia de Bautismo"
+        },
+        "baptismBook": {
+          "type": "string",
+          "description": "Libro de Bautismo"
+        },
+        "baptismFolio": {
+          "type": "string",
+          "description": "Folio de Bautismo"
         },
         "status": {
           "type": "string",
-          "enum": ["PENDIENTE", "INSCRITO", "OBSERVADO"]
+          "enum": ["INSCRITO", "PENDIENTE", "OBSERVADO"]
+        },
+        "registrationCost": {
+          "type": "number"
         },
         "createdAt": {
           "type": "string",
@@ -86,7 +124,7 @@
     },
     "/confirmations/{registrationId}": {
       "schema": "ConfirmationRegistration",
-      "description": "Almacena las inscripciones a confirmación."
+      "description": "Almacena las inscripciones detalladas a confirmación."
     }
   }
 }

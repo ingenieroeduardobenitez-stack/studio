@@ -7,12 +7,15 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { 
   Loader2, 
-  CheckCircle2, 
   User,
-  Heart,
-  ChevronRight,
-  ChevronLeft,
-  Calendar
+  Phone,
+  BookOpen,
+  Calendar,
+  CreditCard,
+  Church,
+  ArrowRight,
+  ShieldCheck,
+  Users
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,7 +28,6 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -35,19 +37,33 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
 import { useFirestore, useUser } from "@/firebase"
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { Separator } from "@/components/ui/separator"
 
 const formSchema = z.object({
-  fullName: z.string().min(5, "El nombre completo debe tener al menos 5 caracteres"),
-  age: z.string().transform((v) => parseInt(v, 10)).pipe(z.number().min(10, "La edad mínima es de 10 años")),
-  category: z.enum(["JUVENIL", "ADULTO"]),
-  baptized: z.boolean().default(false),
-  firstCommunion: z.boolean().default(false),
-  notes: z.string().optional(),
+  fullName: z.string().min(5, "Nombre completo requerido"),
+  ciNumber: z.string().min(5, "N° C.I. requerido"),
+  phone: z.string().min(8, "N° de celular requerido"),
+  motherName: z.string().optional(),
+  motherPhone: z.string().optional(),
+  fatherName: z.string().optional(),
+  fatherPhone: z.string().optional(),
+  tutorName: z.string().optional(),
+  tutorPhone: z.string().optional(),
+  catechesisYear: z.enum(["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"], {
+    required_error: "Debe seleccionar un año de catequesis",
+  }),
+  attendanceDay: z.enum(["SABADO", "DOMINGO"], {
+    required_error: "Debe seleccionar un día de asistencia",
+  }),
+  hasBaptism: z.boolean().default(false),
+  hasFirstCommunion: z.boolean().default(false),
+  baptismParish: z.string().optional(),
+  baptismBook: z.string().optional(),
+  baptismFolio: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -63,12 +79,29 @@ export function ConfirmationForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       fullName: "",
-      category: "JUVENIL",
-      baptized: false,
-      firstCommunion: false,
-      notes: "",
+      ciNumber: "",
+      phone: "",
+      motherName: "",
+      motherPhone: "",
+      fatherName: "",
+      fatherPhone: "",
+      tutorName: "",
+      tutorPhone: "",
+      hasBaptism: false,
+      hasFirstCommunion: false,
+      baptismParish: "",
+      baptismBook: "",
+      baptismFolio: "",
     },
   })
+
+  const catechesisYear = form.watch("catechesisYear")
+  const hasBaptism = form.watch("hasBaptism")
+
+  const calculateCost = () => {
+    if (!catechesisYear) return 0
+    return catechesisYear === "ADULTOS" ? 50000 : 35000
+  }
 
   const onSubmit = async (values: FormValues) => {
     setLoading(true)
@@ -80,13 +113,14 @@ export function ConfirmationForm() {
         userId: user?.uid || "admin",
         ...values,
         status: "INSCRITO",
+        registrationCost: calculateCost(),
         createdAt: serverTimestamp()
       }
 
       await setDoc(regRef, registrationData)
       
       toast({
-        title: "Inscripción Exitosa",
+        title: "Inscripción Realizada",
         description: `Se ha registrado a ${values.fullName} correctamente.`,
       })
       router.push("/dashboard")
@@ -103,133 +137,374 @@ export function ConfirmationForm() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <Card className="border-border/50 shadow-xl bg-white overflow-hidden rounded-3xl">
+    <div className="w-full max-w-4xl mx-auto pb-12">
+      <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <CardHeader className="bg-primary/5 pb-8 border-b">
-              <CardTitle className="text-2xl font-headline text-primary">Formulario de Inscripción</CardTitle>
-              <CardDescription>Complete los datos del postulante a la Confirmación.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-8 space-y-6">
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre Completo del Postulante</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej. Juan Andrés Pérez García" {...field} className="rounded-xl h-12" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid gap-6 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="age"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Edad</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Ej. 15" {...field} className="rounded-xl h-12" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Categoría</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="rounded-xl h-12">
-                            <SelectValue placeholder="Seleccione categoría" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="JUVENIL">Juvenil (14-17 años)</SelectItem>
-                          <SelectItem value="ADULTO">Adultos (18+ años)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <CardHeader className="bg-primary text-white p-8">
+              <div className="flex items-center gap-3">
+                <Church className="h-8 w-8 text-white/80" />
+                <div>
+                  <CardTitle className="text-2xl font-headline font-bold">Registro Parroquial</CardTitle>
+                  <CardDescription className="text-white/80 font-medium">
+                    Parroquia Perpetuo Socorro • Sistema de Inscripción a Confirmación
+                  </CardDescription>
+                </div>
               </div>
-
-              <div className="space-y-4 bg-slate-50 p-6 rounded-2xl border">
-                <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-primary" /> Sacramentos Previos
-                </h4>
-                <div className="grid gap-4 md:grid-cols-2">
+            </CardHeader>
+            <CardContent className="p-10 space-y-10">
+              
+              {/* SECCIÓN 1: DATOS DEL CONFIRMANDO */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <User className="h-5 w-5 text-primary" />
+                  <h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                   <FormField
                     control={form.control}
-                    name="baptized"
+                    name="fullName"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 border rounded-xl bg-white">
+                      <FormItem className="lg:col-span-1">
+                        <FormLabel className="text-slate-700 font-semibold">Nombre y Apellido del confirmando</FormLabel>
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Input placeholder="Ej. Juan Andrés Pérez" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Bautizado</FormLabel>
-                        </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
-                    name="firstCommunion"
+                    name="ciNumber"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 border rounded-xl bg-white">
+                      <FormItem>
+                        <FormLabel className="text-slate-700 font-semibold">N° C.I.</FormLabel>
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Input placeholder="Ej. 1.234.567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Primera Comunión</FormLabel>
-                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-700 font-semibold">N° de Celular</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ej. 0981 123 456" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
+                        </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
               </div>
 
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Observaciones (Opcional)</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Ej. Vive con sus abuelos, requiere apoyo especial..." 
-                        className="rounded-xl resize-none min-h-[100px]"
-                        {...field} 
+              <Separator />
+
+              {/* SECCIÓN 2: DATOS FAMILIARES */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Users className="h-5 w-5 text-primary" />
+                  <h3 className="font-headline font-bold text-lg text-slate-800">Información Familiar</h3>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-4 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Madre</p>
+                    <FormField
+                      control={form.control}
+                      name="motherName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-slate-600">Nombre y Apellido</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nombre de la madre" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="motherPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-slate-600">N° de Celular</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Celular de la madre" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="space-y-4 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Padre</p>
+                    <FormField
+                      control={form.control}
+                      name="fatherName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-slate-600">Nombre y Apellido</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nombre del padre" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="fatherPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-slate-600">N° de Celular</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Celular del padre" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="space-y-4 p-6 bg-slate-50 rounded-2xl border border-slate-100 md:col-span-2">
+                    <p className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Tutor (Si aplica)</p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField
+                        control={form.control}
+                        name="tutorName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-600">Nombre y Apellido del Tutor</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Nombre del tutor" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                      <FormField
+                        control={form.control}
+                        name="tutorPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-600">N° de Celular del Tutor</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Celular del tutor" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* SECCIÓN 3: CATEQUESIS Y DÍA */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  <h3 className="font-headline font-bold text-lg text-slate-800">Año de Catequesis y Horario</h3>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="catechesisYear"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-700 font-semibold">Año de Catequesis *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200">
+                              <SelectValue placeholder="Seleccione Año" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
+                            <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
+                            <SelectItem value="ADULTOS">Catequesis de adultos</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="attendanceDay"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-700 font-semibold">¿Qué día asistirás? *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200">
+                              <SelectValue placeholder="Seleccione día" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="SABADO">Sábado (de 15:30 a 18:30 hs)</SelectItem>
+                            <SelectItem value="DOMINGO">Domingo (de 08:00 a 11:00 hs)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* SECCIÓN 4: SACRAMENTOS */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  <h3 className="font-headline font-bold text-lg text-slate-800">Sacramentos Previos</h3>
+                </div>
+                <p className="text-sm text-slate-500 mb-4">Marque los sacramentos que ya ha recibido:</p>
+                
+                <div className="grid gap-4 md:grid-cols-2 mb-6">
+                  <FormField
+                    control={form.control}
+                    name="hasBaptism"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-5 border rounded-2xl bg-slate-50/50">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-base font-bold text-slate-700">Bautismo</FormLabel>
+                          <p className="text-xs text-slate-500">He recibido el sacramento del Bautismo.</p>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="hasFirstCommunion"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-5 border rounded-2xl bg-slate-50/50">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-base font-bold text-slate-700">Primera Comunión</FormLabel>
+                          <p className="text-xs text-slate-500">He recibido la Primera Comunión.</p>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* CAMPOS CONDICIONALES DE BAUTISMO */}
+                {hasBaptism && (
+                  <div className="space-y-6 p-8 bg-blue-50/30 border border-blue-100 rounded-3xl animate-in fade-in slide-in-from-top-4 duration-500">
+                    <p className="text-sm font-bold text-blue-800 flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" /> Datos de Registro de Bautismo
+                    </p>
+                    <div className="grid gap-6 md:grid-cols-3">
+                      <FormField
+                        control={form.control}
+                        name="baptismParish"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-600">Parroquial de Bautismo</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej. Perpetuo Socorro" {...field} className="h-11 rounded-xl bg-white" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="baptismBook"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-600">Libro</FormLabel>
+                            <FormControl>
+                              <Input placeholder="N° de libro" {...field} className="h-11 rounded-xl bg-white" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="baptismFolio"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-600">Folio</FormLabel>
+                            <FormControl>
+                              <Input placeholder="N° de folio" {...field} className="h-11 rounded-xl bg-white" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <FormLabel className="text-slate-600">Certificado de Bautismo</FormLabel>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1 border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center bg-white cursor-pointer hover:border-primary/50 transition-all">
+                          <p className="text-xs text-slate-500">Adjuntar imagen o PDF del certificado de bautismo</p>
+                          <input type="file" className="hidden" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              />
+              </div>
             </CardContent>
-            <CardFooter className="flex justify-end gap-3 border-t pt-6 pb-8 bg-slate-50/50">
-              <Button type="button" variant="outline" onClick={() => router.back()} className="rounded-xl px-8">
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={loading} className="bg-primary hover:bg-primary/90 rounded-xl px-10 h-12 font-bold shadow-lg">
-                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Inscribir Postulante"}
-              </Button>
+
+            <CardFooter className="bg-slate-50 p-10 flex flex-col md:flex-row items-center justify-between gap-6 border-t">
+              <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
+                <div className="h-12 w-12 bg-accent/10 rounded-xl flex items-center justify-center">
+                  <CreditCard className="h-6 w-6 text-accent" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Costo de Inscripción</p>
+                  <p className="text-xl font-headline font-bold text-primary">
+                    {calculateCost().toLocaleString('es-PY')} Gs.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 w-full md:w-auto">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => router.back()} 
+                  className="h-12 rounded-xl px-8 font-semibold text-slate-600 w-full md:w-auto"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={loading} 
+                  className="h-12 bg-primary hover:bg-primary/90 text-white rounded-xl px-12 font-bold shadow-lg shadow-primary/20 w-full md:w-auto"
+                >
+                  {loading ? (
+                    <Loader2 className="animate-spin h-5 w-5" />
+                  ) : (
+                    <span className="flex items-center gap-2">Finalizar Inscripción <ArrowRight className="h-5 w-5" /></span>
+                  )}
+                </Button>
+              </div>
             </CardFooter>
           </form>
         </Form>
