@@ -12,9 +12,7 @@ import {
   ClipboardCheck,
   ListChecks,
   Shapes,
-  ChevronRight,
-  PanelLeftClose,
-  PanelLeft
+  ChevronRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -28,8 +26,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
-  useSidebar,
-  SidebarTrigger
+  useSidebar
 } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
@@ -49,7 +46,6 @@ import { signOut } from "firebase/auth"
 import { useAuth } from "@/firebase/provider"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 
 const menuItems = [
   { name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
@@ -65,7 +61,7 @@ const adminItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const { state, toggleSidebar } = useSidebar()
+  const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
   const router = useRouter()
   const auth = useAuth()
@@ -97,7 +93,7 @@ export function DashboardSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-slate-200">
-      <SidebarHeader className="p-4 flex flex-row items-center justify-between">
+      <SidebarHeader className="p-4">
         <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
           <div className="bg-primary p-2 rounded-xl shrink-0 shadow-lg shadow-primary/20">
             <Church className="h-5 w-5 text-white" />
@@ -106,11 +102,6 @@ export function DashboardSidebar() {
             <span className="text-lg font-headline font-bold text-primary tracking-tight truncate">Confir NSPS</span>
           )}
         </Link>
-        {!isCollapsed && (
-          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="hidden md:flex text-slate-400 hover:text-primary">
-            <PanelLeftClose className="h-4 w-4" />
-          </Button>
-        )}
       </SidebarHeader>
 
       <SidebarContent className="px-2">

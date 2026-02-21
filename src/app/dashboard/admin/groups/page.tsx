@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock, User, X, Check } from "lucide-react"
+import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, User, X, Check } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -20,6 +20,7 @@ import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { cn } from "@/lib/utils"
 
 export default function GroupsAdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -357,7 +358,7 @@ export default function GroupsAdminPage() {
                 <div className="flex flex-wrap gap-2 p-4 border rounded-2xl bg-slate-50 min-h-[60px] border-dashed border-slate-200">
                   {selectedCatequistaIds.length === 0 ? (
                     <span className="text-xs text-slate-400 italic flex items-center gap-2">
-                      <Users className="h-3 w-3" /> Haz clic en los catequistas de la lista inferior para agregarlos.
+                      <Users className="h-3 w-3" /> Selecciona a los miembros en la lista inferior.
                     </span>
                   ) : (
                     selectedCatequistaIds.map(id => {
@@ -378,13 +379,10 @@ export default function GroupsAdminPage() {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-slate-900 font-bold">Buscar Catequistas</Label>
-                </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Escribir nombre o correo..." 
+                    placeholder="Buscar catequistas..." 
                     className="pl-9 h-10 rounded-xl bg-white border-slate-200"
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
@@ -507,13 +505,10 @@ export default function GroupsAdminPage() {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-slate-900 font-bold">Modificar Miembros</Label>
-                </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Escribir nombre o correo..." 
+                    placeholder="Buscar catequistas..." 
                     className="pl-9 h-10 rounded-xl bg-white border-slate-200"
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
