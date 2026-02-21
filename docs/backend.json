@@ -64,7 +64,7 @@
         "tutorPhone": { "type": "string" },
         "catechesisYear": {
           "type": "string",
-          "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"]
+          "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS", "COMPLETADO"]
         },
         "attendanceDay": {
           "type": "string",
@@ -83,7 +83,7 @@
         },
         "status": {
           "type": "string",
-          "enum": ["INSCRITO", "PENDIENTE", "OBSERVADO"]
+          "enum": ["INSCRITO", "PENDIENTE", "OBSERVADO", "ARCHIVADO"]
         },
         "registrationCost": {
           "type": "number"
@@ -94,6 +94,12 @@
         "paymentStatus": {
           "type": "string",
           "enum": ["PAGADO", "PENDIENTE", "PARCIAL"]
+        },
+        "isArchived": {
+          "type": "boolean"
+        },
+        "archiveYear": {
+          "type": "number"
         },
         "changeHistory": {
           "type": "array",
