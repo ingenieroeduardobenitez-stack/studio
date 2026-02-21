@@ -168,9 +168,9 @@ export default function UsersAdminPage() {
     
     const formData = new FormData(e.currentTarget)
     const userData = {
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      role: formData.get("role") as string,
+      firstName: formData.get("firstName") as string || "",
+      lastName: formData.get("lastName") as string || "",
+      role: formData.get("role") as string || "Catequista",
       allowedModules: selectedModules,
       photoUrl: tempPhoto || selectedUser.photoUrl || null
     }
@@ -462,7 +462,6 @@ export default function UsersAdminPage() {
                             <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                               <MoreHorizontal className="h-5 w-5 text-slate-400" />
                             </button>
-                          </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-[220px] p-2 rounded-xl shadow-xl border-none">
                             <DropdownMenuItem onClick={() => { 
