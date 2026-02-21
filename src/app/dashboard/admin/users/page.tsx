@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, MailIcon, Camera, User, Checkbox as CheckboxIcon } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, Camera, User, Check, X } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
@@ -23,7 +23,7 @@ import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 const AVAILABLE_MODULES = [
   { id: "inicio", name: "Inicio", category: "Operaciones" },
@@ -35,6 +35,14 @@ const AVAILABLE_MODULES = [
   { id: "grupos", name: "Gestión de Grupos", category: "Administración" },
 ]
 
+const PERMISSIONS = [
+  { id: "ver", name: "Ver" },
+  { id: "guardar", name: "Guardar" },
+  { id: "editar", name: "Editar" },
+  { id: "borrar", name: "Borrar" },
+  { id: "pdf", name: "PDF" },
+]
+
 export default function UsersAdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -43,7 +51,7 @@ export default function UsersAdminPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [tempPhoto, setTempPhoto] = useState<string | null>(null)
-  const [selectedModules, setSelectedModules] = useState<string[]>(["inicio", "asistencia", "confirmandos", "inscripcion", "perfil"])
+  const [selectedModules, setSelectedModules] = useState<string[]>([])
   
   const createPhotoRef = useRef<HTMLInputElement>(null)
   const editPhotoRef = useRef<HTMLInputElement>(null)
@@ -66,9 +74,12 @@ export default function UsersAdminPage() {
     )
   }, [users, searchTerm])
 
-  const handleToggleModule = (moduleId: string) => {
+  const handleTogglePermission = (moduleId: string, permId: string) => {
+    const permissionKey = `${moduleId}:${permId}`
     setSelectedModules(prev => 
-      prev.includes(moduleId) ? prev.filter(id => id !== moduleId) : [...prev, moduleId]
+      prev.includes(permissionKey) 
+        ? prev.filter(p => p !== permissionKey) 
+        : [...prev, permissionKey]
     )
   }
 
@@ -124,7 +135,7 @@ export default function UsersAdminPage() {
       })
       setIsCreateDialogOpen(false)
       setTempPhoto(null)
-      setSelectedModules(["inicio", "asistencia", "confirmandos", "inscripcion", "perfil"])
+      setSelectedModules([])
     } catch (error: any) {
       console.error("Error creating user:", error)
       toast({
@@ -221,19 +232,68 @@ export default function UsersAdminPage() {
       .finally(() => setIsSubmitting(false))
   }
 
+  const ModulePermissionsGrid = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-bold text-primary">Módulos Asignados</h4>
+      </div>
+      <Accordion type="multiple" className="w-full space-y-2">
+        {["Operaciones", "Configuración", "Administración"].map(category => (
+          <AccordionItem key={category} value={category} className="border rounded-xl overflow-hidden bg-white shadow-sm">
+            <AccordionTrigger className="px-4 py-3 hover:bg-slate-50 hover:no-underline">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{category}</span>
+            </AccordionTrigger>
+            <AccordionContent className="p-0">
+              <Table>
+                <TableHeader className="bg-slate-50/50">
+                  <TableRow className="hover:bg-transparent border-none">
+                    <TableHead className="w-1/3 text-[10px] font-bold">MÓDULO</TableHead>
+                    {PERMISSIONS.map(p => (
+                      <TableHead key={p.id} className="text-center text-[10px] font-bold px-1">{p.name.toUpperCase()}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {AVAILABLE_MODULES.filter(m => m.category === category).map(module => (
+                    <TableRow key={module.id} className="border-t border-slate-100 hover:bg-slate-50/30">
+                      <TableCell className="text-xs font-medium text-slate-700 py-3">{module.name}</TableCell>
+                      {PERMISSIONS.map(p => {
+                        const permKey = `${module.id}:${p.id}`
+                        const isChecked = selectedModules.includes(permKey)
+                        return (
+                          <TableCell key={p.id} className="text-center py-3 px-1">
+                            <Checkbox 
+                              checked={isChecked}
+                              onCheckedChange={() => handleTogglePermission(module.id, p.id)}
+                              className="mx-auto"
+                            />
+                          </TableCell>
+                        )
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </div>
+  )
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Catequistas</h1>
-          <p className="text-muted-foreground">Administra los accesos y módulos asignados.</p>
+          <p className="text-muted-foreground">Administra los accesos y permisos detallados por módulo.</p>
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
           if (!isSubmitting) {
             setIsCreateDialogOpen(open)
             if (!open) setTempPhoto(null)
-            if (open) setSelectedModules(["inicio", "asistencia", "confirmandos", "inscripcion", "perfil"])
+            if (open) setSelectedModules([])
           }
         }}>
           <DialogTrigger asChild>
@@ -241,33 +301,27 @@ export default function UsersAdminPage() {
               <UserPlus className="mr-2 h-4 w-4" /> Nuevo Catequista
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-            <form onSubmit={handleCreateUser}>
-              <DialogHeader>
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+            <form onSubmit={handleCreateUser} className="flex flex-col h-full">
+              <DialogHeader className="p-6 bg-primary text-white">
                 <DialogTitle>Añadir Catequista</DialogTitle>
-                <DialogDescription>
-                  Ingresa los datos y selecciona los módulos permitidos para este usuario.
+                <DialogDescription className="text-white/80">
+                  Ingresa los datos y define los permisos específicos para cada módulo.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-6 py-4">
-                <div className="flex justify-center mb-2">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex justify-center">
                   <div className="relative group cursor-pointer" onClick={() => createPhotoRef.current?.click()}>
-                    <Avatar className="h-24 w-24 border-2 border-slate-100">
+                    <Avatar className="h-20 w-20 border-2 border-slate-100">
                       <AvatarImage src={tempPhoto || undefined} />
                       <AvatarFallback className="bg-slate-50 text-slate-300">
-                        <User className="h-12 w-12" />
+                        <User className="h-10 w-10" />
                       </AvatarFallback>
                     </Avatar>
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Camera className="h-6 w-6 text-white" />
+                      <Camera className="h-5 w-5 text-white" />
                     </div>
-                    <input 
-                      type="file" 
-                      ref={createPhotoRef} 
-                      className="hidden" 
-                      accept="image/*" 
-                      onChange={handleFileChange} 
-                    />
+                    <input type="file" ref={createPhotoRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -288,9 +342,7 @@ export default function UsersAdminPage() {
                   <div className="space-y-2">
                     <Label htmlFor="role">Rol Principal</Label>
                     <Select name="role" defaultValue="Catequista" disabled={isSubmitting}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar rol" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Catequista">Catequista</SelectItem>
                         <SelectItem value="Coordinador">Coordinador</SelectItem>
@@ -301,36 +353,12 @@ export default function UsersAdminPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Contraseña Inicial</Label>
-                  <div className="relative">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="password" name="password" type="password" placeholder="Mínimo 6 caracteres" className="pl-9" required disabled={isSubmitting} />
-                  </div>
+                  <Input id="password" name="password" type="password" placeholder="Mínimo 6 caracteres" required disabled={isSubmitting} />
                 </div>
 
-                <div className="space-y-3">
-                  <Label className="text-primary font-bold">Módulos Asignados</Label>
-                  <div className="border rounded-xl p-4 bg-slate-50/50 space-y-4">
-                    {["Operaciones", "Configuración", "Administración"].map(category => (
-                      <div key={category} className="space-y-2">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{category}</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          {AVAILABLE_MODULES.filter(m => m.category === category).map(module => (
-                            <div key={module.id} className="flex items-center space-x-2">
-                              <Checkbox 
-                                id={`mod-${module.id}`} 
-                                checked={selectedModules.includes(module.id)}
-                                onCheckedChange={() => handleToggleModule(module.id)}
-                              />
-                              <Label htmlFor={`mod-${module.id}`} className="text-xs cursor-pointer">{module.name}</Label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <ModulePermissionsGrid />
               </div>
-              <DialogFooter>
+              <DialogFooter className="p-6 bg-slate-50 border-t">
                 <Button type="submit" disabled={isSubmitting} className="w-full">
                   {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Registrar Catequista"}
                 </Button>
@@ -340,19 +368,19 @@ export default function UsersAdminPage() {
         </Dialog>
       </div>
 
-      <Card className="border-border/50 shadow-sm">
-        <CardHeader>
+      <Card className="border-border/50 shadow-sm overflow-hidden">
+        <CardHeader className="bg-slate-50/50 border-b">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               placeholder="Buscar por nombre o correo..." 
-              className="pl-9" 
+              className="pl-9 bg-white" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -363,13 +391,13 @@ export default function UsersAdminPage() {
                 <TableRow>
                   <TableHead>Catequista</TableHead>
                   <TableHead>Rol</TableHead>
-                  <TableHead>Módulos</TableHead>
+                  <TableHead>Permisos</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.map((u: any) => (
-                  <TableRow key={u.id}>
+                  <TableRow key={u.id} className="hover:bg-slate-50/50">
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
@@ -385,29 +413,20 @@ export default function UsersAdminPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="flex w-fit items-center gap-1">
+                      <Badge variant="secondary" className="gap-1">
                         <ShieldCheck className="h-3 w-3" />
                         {u.role}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
-                        {u.allowedModules?.map((modId: string) => (
-                          <Badge key={modId} variant="outline" className="text-[9px] h-4">
-                            {AVAILABLE_MODULES.find(m => m.id === modId)?.name}
-                          </Badge>
-                        ))}
-                        {(!u.allowedModules || u.allowedModules.length === 0) && (
-                          <span className="text-[10px] text-slate-400 italic">Acceso por rol</span>
-                        )}
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-[10px]">{u.allowedModules?.length || 0} permisos</Badge>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => { 
@@ -415,7 +434,7 @@ export default function UsersAdminPage() {
                             setSelectedModules(u.allowedModules || []);
                             setIsEditDialogOpen(true); 
                           }}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar Perfil / Módulos
+                            <Edit className="mr-2 h-4 w-4" /> Editar Perfil / Permisos
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}>
@@ -442,33 +461,27 @@ export default function UsersAdminPage() {
           }
         }
       }}>
-        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-          <form onSubmit={handleEditUser}>
-            <DialogHeader>
-              <DialogTitle>Editar Perfil / Módulos</DialogTitle>
-              <DialogDescription>
-                Actualiza los datos básicos o gestiona el acceso a los módulos.
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <form onSubmit={handleEditUser} className="flex flex-col h-full">
+            <DialogHeader className="p-6 bg-primary text-white">
+              <DialogTitle>Editar Perfil / Permisos</DialogTitle>
+              <DialogDescription className="text-white/80">
+                Actualiza los datos básicos o gestiona los accesos detallados.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-6 py-4">
-              <div className="flex justify-center mb-2">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="flex justify-center">
                 <div className="relative group cursor-pointer" onClick={() => editPhotoRef.current?.click()}>
-                  <Avatar className="h-24 w-24 border-2 border-slate-100">
+                  <Avatar className="h-20 w-20 border-2 border-slate-100">
                     <AvatarImage src={tempPhoto || selectedUser?.photoUrl || undefined} />
                     <AvatarFallback className="bg-slate-50 text-slate-300">
-                      <User className="h-12 w-12" />
+                      <User className="h-10 w-10" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="h-6 w-6 text-white" />
+                    <Camera className="h-5 w-5 text-white" />
                   </div>
-                  <input 
-                    type="file" 
-                    ref={editPhotoRef} 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={handleFileChange} 
-                  />
+                  <input type="file" ref={editPhotoRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -490,9 +503,7 @@ export default function UsersAdminPage() {
                 <div className="space-y-2">
                   <Label htmlFor="edit-role">Rol en el Sistema</Label>
                   <Select name="role" defaultValue={selectedUser?.role} disabled={isSubmitting}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar rol" />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Catequista">Catequista</SelectItem>
                       <SelectItem value="Coordinador">Coordinador</SelectItem>
@@ -502,44 +513,15 @@ export default function UsersAdminPage() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <Label className="text-primary font-bold">Módulos Asignados</Label>
-                <div className="border rounded-xl p-4 bg-slate-50/50 space-y-4">
-                  {["Operaciones", "Configuración", "Administración"].map(category => (
-                    <div key={category} className="space-y-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{category}</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        {AVAILABLE_MODULES.filter(m => m.category === category).map(module => (
-                          <div key={module.id} className="flex items-center space-x-2">
-                            <Checkbox 
-                              id={`edit-mod-${module.id}`} 
-                              checked={selectedModules.includes(module.id)}
-                              onCheckedChange={() => handleToggleModule(module.id)}
-                            />
-                            <Label htmlFor={`edit-mod-${module.id}`} className="text-xs cursor-pointer">{module.name}</Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ModulePermissionsGrid />
               
-              <div className="space-y-2">
-                <Label>Gestión de Acceso</Label>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full text-xs"
-                  onClick={handleResetPassword}
-                  disabled={isSubmitting}
-                >
+              <div className="pt-4 border-t">
+                <Button type="button" variant="outline" size="sm" className="w-full text-xs" onClick={handleResetPassword} disabled={isSubmitting}>
                   <Key className="mr-2 h-3 w-3" /> Enviar enlace para asignar nueva contraseña
                 </Button>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="p-6 bg-slate-50 border-t">
               <Button type="submit" disabled={isSubmitting} className="w-full">
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
               </Button>
@@ -558,11 +540,7 @@ export default function UsersAdminPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
-              onClick={handleDeleteUser}
-              disabled={isSubmitting}
-            >
+            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={handleDeleteUser} disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar Definitivamente"}
             </AlertDialogAction>
           </AlertDialogFooter>

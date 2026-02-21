@@ -82,10 +82,10 @@ export function DashboardSidebar() {
     // Si no hay módulos definidos (usuario antiguo o no configurado), usamos lógica por rol
     if (!profile?.allowedModules || profile.allowedModules.length === 0) {
       if (isAdmin) return items;
-      // Para catequistas normales, ocultamos gestión si no está en adminItems
       return items.filter(item => !adminItems.find(ai => ai.id === item.id));
     }
-    return items.filter(item => allowedModules.includes(item.id));
+    // Verificar si el usuario tiene permiso de "ver" para el módulo
+    return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));
   }
 
   const filteredOperations = filterItems(operationsItems);
