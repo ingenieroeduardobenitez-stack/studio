@@ -301,8 +301,8 @@ export default function GroupsAdminPage() {
       </Card>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[95vh] p-0 overflow-hidden">
-          <form onSubmit={handleCreateGroup} className="flex flex-col h-full">
+        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
+          <form onSubmit={handleCreateGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 bg-primary text-white shrink-0">
               <DialogTitle>Nuevo Grupo de Catequesis</DialogTitle>
               <DialogDescription className="text-white/80">Crea un equipo de trabajo para este año.</DialogDescription>
@@ -407,7 +407,7 @@ export default function GroupsAdminPage() {
               </div>
             </div>
 
-            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex gap-3 flex-row items-center">
+            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex gap-3 flex-row items-center mt-auto">
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="flex-1">Cancelar</Button>
               <Button type="submit" disabled={isSubmitting} className="flex-1">
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Grupo"}
@@ -418,8 +418,8 @@ export default function GroupsAdminPage() {
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[95vh] p-0 overflow-hidden">
-          <form onSubmit={handleEditGroup} className="flex flex-col h-full">
+        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
+          <form onSubmit={handleEditGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 bg-primary text-white shrink-0">
               <DialogTitle>Editar Grupo</DialogTitle>
               <DialogDescription className="text-white/80">Actualiza los detalles o miembros.</DialogDescription>
@@ -520,7 +520,7 @@ export default function GroupsAdminPage() {
               </div>
             </div>
 
-            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex gap-3 flex-row items-center">
+            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex gap-3 flex-row items-center mt-auto">
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1">Cerrar</Button>
               <Button type="submit" disabled={isSubmitting} className="flex-1">
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
