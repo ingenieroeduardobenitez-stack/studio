@@ -9,7 +9,8 @@ import {
   LogOut, 
   Church, 
   Users,
-  ClipboardCheck
+  ClipboardCheck,
+  ListChecks
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -40,6 +41,7 @@ import { useRouter } from "next/navigation"
 
 const menuItems = [
   { name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Lista de Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
   { name: "Mi Perfil", href: "/dashboard/profile", icon: User },
 ]
@@ -63,7 +65,7 @@ export function DashboardSidebar() {
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
 
-  const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef)
 
   const handleSignOut = async () => {
     if (auth) {
@@ -72,7 +74,7 @@ export function DashboardSidebar() {
     }
   }
 
-  const displayName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "Usuario")
+  const displayName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "Cargando...")
   const isAdmin = profile?.role === "Administrador"
 
   return (
