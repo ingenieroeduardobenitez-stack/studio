@@ -78,7 +78,6 @@ export default function TreasuryPage() {
     setIsSubmittingEvent(true)
 
     const formData = new FormData(e.currentTarget)
-    const eventName = formData.get("eventName") as string
     const eventCost = Number(formData.get("eventCost"))
     const eventCategory = formData.get("eventCategory") as string
 
@@ -86,15 +85,15 @@ export default function TreasuryPage() {
     const eventRef = doc(db, "events", eventId)
     
     const eventData = {
-      name: eventName,
-      cost: eventCost,
+      name: eventCategory,
       category: eventCategory,
+      cost: eventCost,
       createdAt: serverTimestamp(),
     }
 
     setDoc(eventRef, eventData)
       .then(() => {
-        toast({ title: "Evento creado", description: `El evento "${eventName}" se configuró correctamente.` })
+        toast({ title: "Evento creado", description: `El evento "${eventCategory}" se configuró correctamente.` })
         setIsEventDialogOpen(false)
       })
       .catch(() => toast({ variant: "destructive", title: "Error", description: "No se pudo crear el evento." }))
@@ -260,11 +259,7 @@ export default function TreasuryPage() {
                   </DialogHeader>
                   <form onSubmit={handleCreateEvent} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="eventName">Nombre del Evento</Label>
-                      <Input id="eventName" name="eventName" placeholder="Ej. Retiro de Confirmación" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="eventCategory">Tipo de Evento</Label>
+                      <Label htmlFor="eventCategory">Descripción del Evento</Label>
                       <Input id="eventCategory" name="eventCategory" placeholder="Ej. Retiro 2026, Jornada, Libro, etc." required />
                     </div>
                     <div className="space-y-2">
@@ -296,8 +291,7 @@ export default function TreasuryPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-slate-50/50">
-                        <TableHead className="font-bold">Nombre del Evento</TableHead>
-                        <TableHead className="font-bold">Categoría</TableHead>
+                        <TableHead className="font-bold">Descripción / Evento</TableHead>
                         <TableHead className="font-bold">Costo Fijado</TableHead>
                         <TableHead className="text-right font-bold">Acciones</TableHead>
                       </TableRow>
@@ -305,9 +299,8 @@ export default function TreasuryPage() {
                     <TableBody>
                       {events?.map((ev) => (
                         <TableRow key={ev.id}>
-                          <TableCell className="font-bold">{ev.name}</TableCell>
-                          <TableCell><Badge variant="secondary">{ev.category}</Badge></TableCell>
-                          <TableCell className="font-bold text-primary">{ev.cost?.slice?.toLocaleString() || ev.cost?.toLocaleString()} Gs.</TableCell>
+                          <TableCell className="font-bold">{ev.category}</TableCell>
+                          <TableCell className="font-bold text-primary">{ev.cost?.toLocaleString()} Gs.</TableCell>
                           <TableCell className="text-right">
                             <Button size="sm" variant="ghost" className="text-destructive hover:bg-red-50" onClick={() => handleDeleteEvent(ev.id)}>
                               <Trash2 className="h-4 w-4" />
