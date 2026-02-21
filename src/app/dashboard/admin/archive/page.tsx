@@ -14,7 +14,8 @@ import {
   ArrowUpCircle, 
   CheckCircle2, 
   FileText,
-  Church
+  Church,
+  X
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, writeBatch } from "firebase/firestore"
@@ -52,7 +53,7 @@ export default function ArchiveAdminPage() {
     }
   }, [activeStudents])
 
-  const handlePromoteFirstToSecond = () => {
+  const handlePromoteFirstToSecond = async () => {
     if (!db) return
     const studentsToPromote = activeStudents.filter(r => r.catechesisYear === "PRIMER_AÑO")
     if (studentsToPromote.length === 0) return
@@ -65,21 +66,18 @@ export default function ArchiveAdminPage() {
       batch.update(ref, { catechesisYear: "SEGUNDO_AÑO" })
     })
 
-    batch.commit()
-      .then(() => {
-        toast({ title: "Proceso completado", description: `${studentsToPromote.length} alumnos promovidos a 2do Año.` })
-        setTimeout(() => window.location.reload(), 1500)
-      })
-      .catch((error) => {
-        console.error(error)
-        toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la promoción." })
-      })
-      .finally(() => {
-        setIsProcessing(false)
-      })
+    try {
+      await batch.commit()
+      toast({ title: "Proceso completado", description: `${studentsToPromote.length} alumnos promovidos a 2do Año.` })
+    } catch (error) {
+      console.error(error)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la promoción." })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
-  const handleArchiveGraduates = () => {
+  const handleArchiveGraduates = async () => {
     if (!db) return
     const graduates = activeStudents.filter(r => r.catechesisYear === "SEGUNDO_AÑO" || r.catechesisYear === "ADULTOS")
     if (graduates.length === 0) return
@@ -98,18 +96,15 @@ export default function ArchiveAdminPage() {
       })
     })
 
-    batch.commit()
-      .then(() => {
-        toast({ title: "Cierre de año exitoso", description: `${graduates.length} alumnos han culminado su proceso.` })
-        setTimeout(() => window.location.reload(), 1500)
-      })
-      .catch((error) => {
-        console.error(error)
-        toast({ variant: "destructive", title: "Error", description: "No se pudo realizar el archivo." })
-      })
-      .finally(() => {
-        setIsProcessing(false)
-      })
+    try {
+      await batch.commit()
+      toast({ title: "Cierre de año exitoso", description: `${graduates.length} alumnos han culminado su proceso.` })
+    } catch (error) {
+      console.error(error)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo realizar el archivo." })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const openCertificate = (student: any) => {
@@ -129,7 +124,7 @@ export default function ArchiveAdminPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-none shadow-xl border-l-4 border-l-blue-500">
+        <Card className="border-none shadow-xl border-l-4 border-l-blue-500 bg-white">
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-50 rounded-xl"><ArrowUpCircle className="h-6 w-6 text-blue-500" /></div>
@@ -159,7 +154,7 @@ export default function ArchiveAdminPage() {
           </CardFooter>
         </Card>
 
-        <Card className="border-none shadow-xl border-l-4 border-l-accent">
+        <Card className="border-none shadow-xl border-l-4 border-l-accent bg-white">
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="p-2 bg-accent/10 rounded-xl"><Archive className="h-6 w-6 text-accent" /></div>
@@ -190,7 +185,7 @@ export default function ArchiveAdminPage() {
         </Card>
       </div>
 
-      <Card className="border-none shadow-xl overflow-hidden">
+      <Card className="border-none shadow-xl overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-lg">Generación de Certificados</CardTitle>
@@ -257,8 +252,8 @@ export default function ArchiveAdminPage() {
       </Card>
 
       <Dialog open={isCertificateOpen} onOpenChange={setIsCertificateOpen}>
-        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none shadow-2xl">
-          <div className="p-16 bg-white space-y-12 relative print:p-0" id="certificate-print">
+        <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl">
+          <div className="p-16 bg-white space-y-12 relative print:p-8" id="certificate-print">
             <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
               <Church className="h-96 w-96 text-primary" />
             </div>

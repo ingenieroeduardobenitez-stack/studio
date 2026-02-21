@@ -136,19 +136,16 @@ export default function PaymentsManagementPage() {
         })
         setLastPaymentType(selectedEvent?.category || "Evento")
       }
-      finishPayment()
+      
+      toast({ title: "Pago registrado", description: `Se procesó el cobro de ${paymentAmount.toLocaleString()} Gs.` })
+      setIsPaymentDialogOpen(false)
+      setIsReceiptOpen(true)
     } catch (error) {
       console.error("Error processing payment:", error)
       toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el pago." })
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  const finishPayment = () => {
-    toast({ title: "Pago registrado", description: `Se procesó el cobro de ${paymentAmount.toLocaleString()} Gs.` })
-    setIsPaymentDialogOpen(false)
-    setIsReceiptOpen(true)
   }
 
   if (!mounted) return null
@@ -172,7 +169,7 @@ export default function PaymentsManagementPage() {
         </div>
       </div>
 
-      <Card className="border-none shadow-xl overflow-hidden">
+      <Card className="border-none shadow-xl overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/50 border-b">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -317,8 +314,8 @@ export default function PaymentsManagementPage() {
       </Dialog>
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none">
-          <div className="p-10 bg-white space-y-8" id="receipt-print">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+          <div className="p-10 bg-white space-y-8 print:p-8" id="receipt-print">
             <div className="flex items-center justify-between border-b pb-6">
               <div className="flex items-center gap-2">
                 <Church className="h-8 w-8 text-primary" />
