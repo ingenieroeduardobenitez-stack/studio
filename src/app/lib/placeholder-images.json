@@ -2,6 +2,12 @@
 {
   "placeholderImages": [
     {
+      "id": "parish-logo",
+      "description": "Logo de la Parroquia Perpetuo Socorro",
+      "imageUrl": "/logo.png",
+      "imageHint": "church logo"
+    },
+    {
       "id": "hero-image",
       "description": "Professional government building",
       "imageUrl": "https://picsum.photos/seed/nsps1/1200/800",
@@ -12,12 +18,6 @@
       "description": "User profile avatar",
       "imageUrl": "https://picsum.photos/seed/user1/200/200",
       "imageHint": "profile avatar"
-    },
-    {
-      "id": "parish-logo",
-      "description": "Logo de la Parroquia Perpetuo Socorro",
-      "imageUrl": "https://picsum.photos/seed/church-logo/200/200",
-      "imageHint": "church logo"
     }
   ]
 }
