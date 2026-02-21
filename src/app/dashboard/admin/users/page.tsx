@@ -12,11 +12,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, MailIcon } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
-import { initializeApp, deleteApp, getApp, getApps } from "firebase/app"
-import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth"
+import { initializeApp, deleteApp } from "firebase/app"
+import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "firebase/auth"
 import { firebaseConfig } from "@/firebase/config"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
@@ -61,18 +61,13 @@ export default function UsersAdminPage() {
 
     let secondaryApp;
     try {
-      // Usamos una app secundaria para no cerrar la sesión del admin actual
       secondaryApp = initializeApp(firebaseConfig, "SecondaryApp")
       const secondaryAuth = getAuth(secondaryApp)
       
-      // 1. Crear usuario en Authentication
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
       const newUser = userCredential.user
-
-      // Cerramos la sesión de la app secundaria inmediatamente
       await signOut(secondaryAuth)
 
-      // 2. Crear perfil en Firestore con el mismo UID
       const userData = {
         firstName,
         lastName,
@@ -82,20 +77,18 @@ export default function UsersAdminPage() {
       }
 
       const userRef = doc(db, "users", newUser.uid)
-
       await setDoc(userRef, userData)
       
       toast({
         title: "Usuario creado con éxito",
-        description: `Se ha registrado a ${firstName} y ya puede iniciar sesión con su contraseña.`,
+        description: `Se ha registrado a ${firstName} con su nueva contraseña.`,
       })
       setIsCreateDialogOpen(false)
     } catch (error: any) {
-      console.error(error)
       toast({
         variant: "destructive",
         title: "Error al crear usuario",
-        description: error.message || "Asegúrate de que el correo no esté en uso y la contraseña tenga 6+ caracteres.",
+        description: error.message || "Error de conexión.",
       })
     } finally {
       if (secondaryApp) await deleteApp(secondaryApp)
@@ -136,17 +129,34 @@ export default function UsersAdminPage() {
       .finally(() => setIsSubmitting(false))
   }
 
+  const handleResetPassword = async () => {
+    if (!selectedUser) return
+    try {
+      const auth = getAuth()
+      await sendPasswordResetEmail(auth, selectedUser.email)
+      toast({
+        title: "Enlace enviado",
+        description: `Se envió un correo a ${selectedUser.email} para que asigne una nueva contraseña.`,
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo enviar el correo de restablecimiento.",
+      })
+    }
+  }
+
   const handleDeleteUser = async () => {
     if (!selectedUser) return
     setIsSubmitting(true)
 
     const userRef = doc(db, "users", selectedUser.id)
-
     deleteDoc(userRef)
       .then(() => {
         toast({
           title: "Usuario eliminado",
-          description: "El registro ha sido borrado de la base de datos.",
+          description: "El perfil ha sido borrado.",
         })
         setIsDeleteDialogOpen(false)
       })
@@ -165,13 +175,13 @@ export default function UsersAdminPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Catequistas</h1>
-          <p className="text-muted-foreground">Administra los accesos y roles de la parroquia.</p>
+          <p className="text-muted-foreground">Administra los accesos de la Parroquia Perpetuo Socorro.</p>
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
-              <UserPlus className="mr-2 h-4 w-4" /> Crear Nuevo Catequista
+              <UserPlus className="mr-2 h-4 w-4" /> Nuevo Catequista
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
@@ -179,7 +189,7 @@ export default function UsersAdminPage() {
               <DialogHeader>
                 <DialogTitle>Añadir Catequista</DialogTitle>
                 <DialogDescription>
-                  Esto creará una cuenta de acceso y un perfil en el sistema.
+                  Ingresa los datos para crear una nueva cuenta y asignar una contraseña inicial.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -195,17 +205,17 @@ export default function UsersAdminPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Correo Electrónico</Label>
-                  <Input id="email" name="email" type="email" placeholder="usuario@parroquia.org" required />
+                  <Input id="email" name="email" type="email" placeholder="catequista@parroquia.org" required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña de Acceso</Label>
+                  <Label htmlFor="password">Contraseña Inicial</Label>
                   <div className="relative">
                     <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="password" name="password" type="password" placeholder="Mínimo 6 caracteres" className="pl-9" required />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Rol del Sistema</Label>
+                  <Label htmlFor="role">Rol en el Sistema</Label>
                   <Select name="role" defaultValue="Catequista">
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar rol" />
@@ -220,7 +230,7 @@ export default function UsersAdminPage() {
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Registrar y Crear Acceso"}
+                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Registrar Catequista"}
                 </Button>
               </DialogFooter>
             </form>
@@ -230,16 +240,14 @@ export default function UsersAdminPage() {
 
       <Card className="border-border/50 shadow-sm">
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar por nombre o correo..." 
-                className="pl-9" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Buscar por nombre o correo..." 
+              className="pl-9" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -251,10 +259,9 @@ export default function UsersAdminPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Usuario</TableHead>
+                  <TableHead>Catequista</TableHead>
                   <TableHead>Rol</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Fecha Registro</TableHead>
+                  <TableHead>Registro</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -263,23 +270,18 @@ export default function UsersAdminPage() {
                   <TableRow key={u.id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-bold">{u.firstName} {u.lastName}</span>
+                        <span className="font-bold text-slate-900">{u.firstName} {u.lastName}</span>
                         <span className="text-xs text-muted-foreground">{u.email}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="h-3 w-3 text-primary" />
-                        <span className="text-sm">{u.role}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="bg-green-100 text-green-700">
-                        ACTIVO
+                      <Badge variant="secondary" className="flex w-fit items-center gap-1">
+                        <ShieldCheck className="h-3 w-3" />
+                        {u.role}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString() : 'Pendiente'}
+                      {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString() : '---'}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -289,15 +291,11 @@ export default function UsersAdminPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => { setSelectedUser(u); setIsEditDialogOpen(true); }}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar
+                            <Edit className="mr-2 h-4 w-4" /> Editar Perfil
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-destructive focus:text-destructive" 
-                            onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}
-                          >
+                          <DropdownMenuItem className="text-destructive" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}>
                             <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -311,14 +309,14 @@ export default function UsersAdminPage() {
         </CardContent>
       </Card>
 
-      {/* Diálogo Editar Usuario */}
+      {/* Diálogo Editar con Restablecimiento de Pass */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleEditUser}>
             <DialogHeader>
-              <DialogTitle>Editar Perfil</DialogTitle>
+              <DialogTitle>Editar Perfil de Catequista</DialogTitle>
               <DialogDescription>
-                Actualiza los datos informativos del catequista.
+                Actualiza los datos básicos o gestiona el acceso.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -332,12 +330,29 @@ export default function UsersAdminPage() {
                   <Input id="edit-lastName" name="lastName" defaultValue={selectedUser?.lastName} required />
                 </div>
               </div>
+              
               <div className="space-y-2">
-                <Label>Correo Electrónico (Solo lectura)</Label>
-                <Input value={selectedUser?.email} disabled className="bg-slate-50" />
+                <Label>Gestión de Acceso</Label>
+                <div className="p-4 border rounded-xl bg-slate-50 space-y-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <MailIcon className="h-3 w-3" />
+                    <span>{selectedUser?.email}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400">Por seguridad, las contraseñas solo pueden ser cambiadas por el usuario mediante un enlace enviado a su correo.</p>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full text-xs"
+                    onClick={handleResetPassword}
+                  >
+                    <Key className="mr-2 h-3 w-3" /> Enviar enlace para asignar nueva contraseña
+                  </Button>
+                </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="edit-role">Rol del Sistema</Label>
+                <Label htmlFor="edit-role">Rol en el Sistema</Label>
                 <Select name="role" defaultValue={selectedUser?.role}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar rol" />
@@ -359,13 +374,12 @@ export default function UsersAdminPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Alerta Confirmar Borrado */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar a este catequista?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción eliminará al catequista <strong>{selectedUser?.firstName} {selectedUser?.lastName}</strong>. Nota: Esto solo borra su perfil, no su acceso de Authentication.
+              Esta acción borrará el perfil de <strong>{selectedUser?.firstName} {selectedUser?.lastName}</strong> de la base de datos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
