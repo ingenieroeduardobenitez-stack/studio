@@ -82,38 +82,38 @@
       "description": "Registro de identificación detallado para validación masiva.",
       "type": "object",
       "properties": {
-        "number": {
+        "NUMERO_CED": {
           "type": "string"
         },
-        "lastName": {
+        "APELLIDO": {
           "type": "string"
         },
-        "firstName": {
+        "NOMBRE": {
           "type": "string"
         },
-        "sex": {
+        "SEXO": {
           "type": "string"
         },
-        "nationality": {
+        "NACIONAL": {
           "type": "string"
         },
-        "fatherName": {
+        "NOM_PADRE": {
           "type": "string"
         },
-        "motherName": {
+        "NOM_MADRE": {
           "type": "string"
         },
-        "address": {
+        "DIRECCION": {
           "type": "string"
         },
-        "spouseName": {
+        "NOM_CONJ": {
           "type": "string"
         },
-        "birthDate": {
+        "FECHA_NACI": {
           "type": "string",
           "description": "Fecha de nacimiento en formato YYYY-MM-DD para compatibilidad con el sistema."
         },
-        "neighborhoodCity": {
+        "BARRIO_CIU": {
           "type": "string"
         },
         "importedAt": {
@@ -121,7 +121,7 @@
           "format": "date-time"
         }
       },
-      "required": ["number"]
+      "required": ["NUMERO_CED"]
     }
   },
   "auth": {

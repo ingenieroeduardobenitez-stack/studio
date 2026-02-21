@@ -107,17 +107,17 @@ async function importExcel() {
         const docRef = doc(db, 'cedulas', cedulaNumber);
         
         const cedulaData = {
-          number: cedulaNumber,
-          lastName: String(row.APELLIDO || "").trim(),
-          firstName: String(row.NOMBRE || "").trim(),
-          sex: String(row.SEXO || "").trim(),
-          nationality: String(row.NACIONAL || "").trim(),
-          fatherName: String(row.NOM_PADRE || "").trim(),
-          motherName: String(row.NOM_MADRE || "").trim(),
-          address: String(row.DIRECCION || "").trim(),
-          spouseName: String(row.NOM_CONJ || "").trim(),
-          birthDate: formatDate(row.FECHA_NACI),
-          neighborhoodCity: String(row.BARRIO_CIU || "").trim(),
+          NUMERO_CED: cedulaNumber,
+          APELLIDO: String(row.APELLIDO || "").trim(),
+          NOMBRE: String(row.NOMBRE || "").trim(),
+          SEXO: String(row.SEXO || "").trim(),
+          NACIONAL: String(row.NACIONAL || "").trim(),
+          NOM_PADRE: String(row.NOM_PADRE || "").trim(),
+          NOM_MADRE: String(row.NOM_MADRE || "").trim(),
+          DIRECCION: String(row.DIRECCION || "").trim(),
+          NOM_CONJ: String(row.NOM_CONJ || "").trim(),
+          FECHA_NACI: formatDate(row.FECHA_NACI),
+          BARRIO_CIU: String(row.BARRIO_CIU || "").trim(),
           importedAt: serverTimestamp()
         };
 
