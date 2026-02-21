@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -12,15 +12,16 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, MailIcon } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, MailIcon, Camera, User } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
-import { initializeApp, deleteApp, getApps } from "firebase/app"
+import { initializeApp, deleteApp } from "firebase/app"
 import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "firebase/auth"
 import { firebaseConfig } from "@/firebase/config"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function UsersAdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -29,6 +30,10 @@ export default function UsersAdminPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
+  const [tempPhoto, setTempPhoto] = useState<string | null>(null)
+  
+  const createPhotoRef = useRef<HTMLInputElement>(null)
+  const editPhotoRef = useRef<HTMLInputElement>(null)
   
   const { toast } = useToast()
   const db = useFirestore()
@@ -47,6 +52,17 @@ export default function UsersAdminPage() {
       u.email.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [users, searchTerm])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setTempPhoto(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -75,6 +91,7 @@ export default function UsersAdminPage() {
         lastName,
         email,
         role,
+        photoUrl: tempPhoto,
         createdAt: serverTimestamp(),
       }
 
@@ -86,6 +103,7 @@ export default function UsersAdminPage() {
         description: `Se ha registrado a ${firstName} correctamente.`,
       })
       setIsCreateDialogOpen(false)
+      setTempPhoto(null)
     } catch (error: any) {
       console.error("Error creating user:", error)
       toast({
@@ -115,6 +133,7 @@ export default function UsersAdminPage() {
       firstName: formData.get("firstName") as string,
       lastName: formData.get("lastName") as string,
       role: formData.get("role") as string,
+      photoUrl: tempPhoto || selectedUser.photoUrl
     }
 
     const userRef = doc(db, "users", selectedUser.id)
@@ -126,6 +145,7 @@ export default function UsersAdminPage() {
           description: "Los cambios se han guardado correctamente.",
         })
         setIsEditDialogOpen(false)
+        setTempPhoto(null)
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -187,7 +207,12 @@ export default function UsersAdminPage() {
           <p className="text-muted-foreground">Administra los accesos de la Parroquia Perpetuo Socorro.</p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => !isSubmitting && setIsCreateDialogOpen(open)}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+          if (!isSubmitting) {
+            setIsCreateDialogOpen(open)
+            if (!open) setTempPhoto(null)
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
               <UserPlus className="mr-2 h-4 w-4" /> Nuevo Catequista
@@ -202,6 +227,26 @@ export default function UsersAdminPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
+                <div className="flex justify-center mb-2">
+                  <div className="relative group cursor-pointer" onClick={() => createPhotoRef.current?.click()}>
+                    <Avatar className="h-24 w-24 border-2 border-slate-100">
+                      <AvatarImage src={tempPhoto || ""} />
+                      <AvatarFallback className="bg-slate-50 text-slate-300">
+                        <User className="h-12 w-12" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Camera className="h-6 w-6 text-white" />
+                    </div>
+                    <input 
+                      type="file" 
+                      ref={createPhotoRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={handleFileChange} 
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">Nombre</Label>
@@ -278,9 +323,17 @@ export default function UsersAdminPage() {
                 {filteredUsers.map((u: any) => (
                   <TableRow key={u.id}>
                     <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-900">{u.firstName} {u.lastName}</span>
-                        <span className="text-xs text-muted-foreground">{u.email}</span>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={u.photoUrl} />
+                          <AvatarFallback className="bg-slate-100 text-slate-400">
+                            {u.firstName[0]}{u.lastName[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900">{u.firstName} {u.lastName}</span>
+                          <span className="text-xs text-muted-foreground">{u.email}</span>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -318,18 +371,44 @@ export default function UsersAdminPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !isSubmitting && setIsEditDialogOpen(open)}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        if (!isSubmitting) {
+          setIsEditDialogOpen(open)
+          if (!open) {
+            setSelectedUser(null)
+            setTempPhoto(null)
+          }
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleEditUser}>
             <DialogHeader>
               <DialogTitle>Editar Perfil de Catequista</DialogTitle>
-              <DialogHeader>
-                <DialogDescription>
-                  Actualiza los datos básicos o gestiona el acceso.
-                </DialogDescription>
-              </DialogHeader>
+              <DialogDescription>
+                Actualiza los datos básicos o gestiona el acceso.
+              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="flex justify-center mb-2">
+                <div className="relative group cursor-pointer" onClick={() => editPhotoRef.current?.click()}>
+                  <Avatar className="h-24 w-24 border-2 border-slate-100">
+                    <AvatarImage src={tempPhoto || selectedUser?.photoUrl || ""} />
+                    <AvatarFallback className="bg-slate-50 text-slate-300">
+                      <User className="h-12 w-12" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="h-6 w-6 text-white" />
+                  </div>
+                  <input 
+                    type="file" 
+                    ref={editPhotoRef} 
+                    className="hidden" 
+                    accept="image/*" 
+                    onChange={handleFileChange} 
+                  />
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-firstName">Nombre</Label>

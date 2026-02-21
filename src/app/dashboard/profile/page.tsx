@@ -1,14 +1,13 @@
 
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Camera, Shield, Mail, User, MapPin, Loader2, Save } from "lucide-react"
 import { useUser, useDoc, useFirestore } from "@/firebase"
 import { doc, updateDoc } from "firebase/firestore"
@@ -21,6 +20,7 @@ export default function ProfilePage() {
   const db = useFirestore()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const userProfileRef = useMemo(() => {
     if (!db || !user?.uid) return null
@@ -32,7 +32,8 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    role: ""
+    role: "",
+    photoUrl: ""
   })
 
   useEffect(() => {
@@ -40,10 +41,22 @@ export default function ProfilePage() {
       setFormData({
         firstName: profile.firstName || "",
         lastName: profile.lastName || "",
-        role: profile.role || "Catequista"
+        role: profile.role || "Catequista",
+        photoUrl: profile.photoUrl || ""
       })
     }
   }, [profile])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, photoUrl: reader.result as string }))
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 
   const handleSave = async () => {
     if (!userProfileRef) return
@@ -75,8 +88,6 @@ export default function ProfilePage() {
       })
   }
 
-  const userAvatar = PlaceHolderImages.find(img => img.id === 'avatar-user');
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -97,14 +108,28 @@ export default function ProfilePage() {
           <Card className="border-border/50 shadow-sm text-center">
             <CardHeader className="relative">
               <div className="absolute top-4 right-4">
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="rounded-full"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <Camera className="h-4 w-4" />
                 </Button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleFileChange} 
+                />
               </div>
               <div className="mx-auto h-24 w-24 rounded-full border-4 border-accent p-1">
                 <Avatar className="h-full w-full">
-                  <AvatarImage src={userAvatar?.imageUrl} />
-                  <AvatarFallback>{formData.firstName[0]}{formData.lastName[0]}</AvatarFallback>
+                  <AvatarImage src={formData.photoUrl} />
+                  <AvatarFallback className="bg-slate-50 text-slate-300">
+                    <User className="h-10 w-10" />
+                  </AvatarFallback>
                 </Avatar>
               </div>
               <CardTitle className="mt-4 font-headline">{formData.firstName} {formData.lastName}</CardTitle>

@@ -23,6 +23,10 @@
           "type": "string",
           "description": "Rol en la parroquia (Catequista, Coordinador, Administrador)"
         },
+        "photoUrl": {
+          "type": "string",
+          "description": "URL o Base64 de la foto de perfil"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",

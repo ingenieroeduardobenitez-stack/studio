@@ -38,6 +38,7 @@ import { useMemo } from "react"
 import { signOut } from "firebase/auth"
 import { useAuth } from "@/firebase/provider"
 import { useRouter } from "next/navigation"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const menuItems = [
   { name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
@@ -161,9 +162,12 @@ export function DashboardSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg" className="w-full">
                   <div className="flex items-center gap-3 w-full text-left overflow-hidden">
-                    <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                      <User className="h-4 w-4 text-accent" />
-                    </div>
+                    <Avatar className="h-8 w-8 rounded-full shrink-0">
+                      <AvatarImage src={profile?.photoUrl} />
+                      <AvatarFallback className="bg-accent/20 text-accent">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
                     {!isCollapsed && (
                       <div className="flex flex-col truncate">
                         <span className="text-sm font-bold text-slate-800">{displayName}</span>
