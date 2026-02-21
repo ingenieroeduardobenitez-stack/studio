@@ -69,6 +69,7 @@ export default function GroupsAdminPage() {
 
   const handleCreateGroup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!db) return
     if (selectedCatequistaIds.length === 0) {
       toast({ variant: "destructive", title: "Atención", description: "Debes seleccionar al menos un catequista." })
       return
@@ -113,7 +114,7 @@ export default function GroupsAdminPage() {
 
   const handleEditGroup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!selectedGroup) return
+    if (!db || !selectedGroup) return
     if (selectedCatequistaIds.length === 0) {
       toast({ variant: "destructive", title: "Atención", description: "El grupo debe tener al menos un catequista." })
       return
@@ -153,7 +154,7 @@ export default function GroupsAdminPage() {
   }
 
   const handleDeleteGroup = async () => {
-    if (!selectedGroup) return
+    if (!db || !selectedGroup) return
     setIsSubmitting(true)
 
     const groupRef = doc(db, "groups", selectedGroup.id)
@@ -192,12 +193,15 @@ export default function GroupsAdminPage() {
           <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo por turnos.</p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-          if (!isSubmitting) {
-            setIsCreateDialogOpen(open)
-            if (!open) resetForm()
-          }
-        }}>
+        <Dialog 
+          open={isCreateDialogOpen} 
+          onOpenChange={(open) => {
+            if (!isSubmitting) {
+              setIsCreateDialogOpen(open)
+              if (!open) resetForm()
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
               <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
@@ -410,12 +414,15 @@ export default function GroupsAdminPage() {
       </Card>
 
       {/* DIÁLOGO DE EDICIÓN */}
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        if (!isSubmitting) {
-          setIsEditDialogOpen(open)
-          if (!open) resetForm()
-        }
-      }}>
+      <Dialog 
+        open={isEditDialogOpen} 
+        onOpenChange={(open) => {
+          if (!isSubmitting) {
+            setIsEditDialogOpen(open)
+            if (!open) resetForm()
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[450px]">
           <form onSubmit={handleEditGroup}>
             <DialogHeader>
@@ -508,9 +515,12 @@ export default function GroupsAdminPage() {
       </Dialog>
 
       {/* DIÁLOGO DE ELIMINACIÓN */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-        if (!isSubmitting) setIsDeleteDialogOpen(open)
-      }}>
+      <AlertDialog 
+        open={isDeleteDialogOpen} 
+        onOpenChange={(open) => {
+          if (!isSubmitting) setIsDeleteDialogOpen(open)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>

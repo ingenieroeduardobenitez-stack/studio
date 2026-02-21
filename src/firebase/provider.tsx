@@ -7,12 +7,16 @@ import { Auth } from 'firebase/auth';
 import { Firestore } from 'firebase/firestore';
 
 interface FirebaseContextType {
-  app: FirebaseApp;
-  auth: Auth;
-  firestore: Firestore;
+  app: FirebaseApp | null;
+  auth: Auth | null;
+  firestore: Firestore | null;
 }
 
-const FirebaseContext = createContext<FirebaseContextType | undefined>(undefined);
+const FirebaseContext = createContext<FirebaseContextType>({
+  app: null,
+  auth: null,
+  firestore: null,
+});
 
 export function FirebaseProvider({ 
   children, 
@@ -21,17 +25,15 @@ export function FirebaseProvider({
   firestore 
 }: { 
   children: ReactNode; 
-  app: FirebaseApp; 
-  auth: Auth; 
-  firestore: Firestore;
+  app: FirebaseApp | null; 
+  auth: Auth | null; 
+  firestore: Firestore | null;
 }) {
-  // Memoize the value to prevent unnecessary re-renders in consumers
-  const value = useMemo(() => {
-    if (!app || !auth || !firestore) return undefined;
-    return { app, auth, firestore };
-  }, [app, auth, firestore]);
-  
-  if (!value) return <>{children}</>;
+  const value = useMemo(() => ({
+    app,
+    auth,
+    firestore
+  }), [app, auth, firestore]);
 
   return (
     <FirebaseContext.Provider value={value}>
@@ -41,9 +43,7 @@ export function FirebaseProvider({
 }
 
 export function useFirebase() {
-  const context = useContext(FirebaseContext);
-  if (!context) throw new Error('useFirebase must be used within FirebaseProvider');
-  return context;
+  return useContext(FirebaseContext);
 }
 
 export const useFirebaseApp = () => useFirebase().app;
