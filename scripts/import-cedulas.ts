@@ -26,6 +26,29 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+/**
+ * Convierte una fecha de Excel a formato YYYY-MM-DD string.
+ */
+function formatDate(val: any): string {
+  if (!val) return "";
+  
+  // Si ya es un objeto Date de JS
+  if (val instanceof Date) {
+    return val.toISOString().split('T')[0];
+  }
+  
+  // Si es un número (formato serial de Excel)
+  if (typeof val === 'number') {
+    const date = XLSX.SSF.parse_date_code(val);
+    const month = String(date.m).padStart(2, '0');
+    const day = String(date.d).padStart(2, '0');
+    return `${date.y}-${month}-${day}`;
+  }
+  
+  // Si es un string, intentamos limpiar espacios
+  return String(val).trim();
+}
+
 async function importExcel() {
   const scriptsDir = path.join(process.cwd(), 'scripts');
   // Filtramos archivos que empiecen con 'cedula' y terminen en excel
@@ -53,7 +76,8 @@ async function importExcel() {
     console.log(`\n📖 Leyendo archivo: ${file}...`);
 
     try {
-      const workbook = XLSX.readFile(filePath);
+      // Leemos con cellDates: true para que XLSX intente parsear las fechas automáticamente
+      const workbook = XLSX.readFile(filePath, { cellDates: true });
       const sheetName = workbook.SheetNames[0];
       const data: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
@@ -80,7 +104,7 @@ async function importExcel() {
           motherName: String(row.NOM_MADRE || "").trim(),
           address: String(row.DIRECCION || "").trim(),
           spouseName: String(row.NOM_CONJ || "").trim(),
-          birthDate: String(row.FECHA_NACI || "").trim(),
+          birthDate: formatDate(row.FECHA_NACI),
           neighborhoodCity: String(row.BARRIO_CIU || "").trim(),
           importedAt: serverTimestamp()
         };

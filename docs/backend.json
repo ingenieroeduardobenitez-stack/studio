@@ -110,7 +110,8 @@
           "type": "string"
         },
         "birthDate": {
-          "type": "string"
+          "type": "string",
+          "description": "Fecha de nacimiento en formato YYYY-MM-DD para compatibilidad con el sistema."
         },
         "neighborhoodCity": {
           "type": "string"
@@ -141,7 +142,7 @@
     },
     "/cedulas/{cedulaNumber}": {
       "schema": "Cedula",
-      "description": "Base de datos masiva de cédulas importadas basada en los campos NUMERO_CED, APELLIDO, NOMBRE, SEXO, NACIONAL, NOM_PADRE, NOM_MADRE, DIRECCION, NOM_CONJ, FECHA_NACI, BARRIO_CIU."
+      "description": "Base de datos masiva de cédulas importadas."
     }
   }
 }
