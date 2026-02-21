@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, Camera, User, Check, X, LayoutGrid } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, Camera, User, Check, X } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
@@ -45,6 +45,7 @@ const PERMISSIONS = [
 ]
 
 export default function UsersAdminPage() {
+  const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -59,6 +60,10 @@ export default function UsersAdminPage() {
   
   const { toast } = useToast()
   const db = useFirestore()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const usersQuery = useMemo(() => {
     if (!db) return null
@@ -289,6 +294,8 @@ export default function UsersAdminPage() {
     </div>
   )
 
+  if (!mounted) return null
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -455,6 +462,7 @@ export default function UsersAdminPage() {
                             <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                               <MoreHorizontal className="h-5 w-5 text-slate-400" />
                             </button>
+                          </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-[220px] p-2 rounded-xl shadow-xl border-none">
                             <DropdownMenuItem onClick={() => { 

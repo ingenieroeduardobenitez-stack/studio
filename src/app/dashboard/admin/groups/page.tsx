@@ -1,6 +1,7 @@
+
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
 export default function GroupsAdminPage() {
+  const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [memberSearch, setMemberSearch] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -33,6 +35,10 @@ export default function GroupsAdminPage() {
   
   const { toast } = useToast()
   const db = useFirestore()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
@@ -186,6 +192,8 @@ export default function GroupsAdminPage() {
       default: return year
     }
   }
+
+  if (!mounted) return null
 
   return (
     <div className="space-y-8">
