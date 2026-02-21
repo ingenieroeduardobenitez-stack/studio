@@ -344,6 +344,7 @@ export default function UsersAdminPage() {
                       <SelectContent>
                         <SelectItem value="Catequista">Catequista</SelectItem>
                         <SelectItem value="Coordinador">Coordinador</SelectItem>
+                        <SelectItem value="Tesorero">Tesorero</SelectItem>
                         <SelectItem value="Administrador">Administrador</SelectItem>
                       </SelectContent>
                     </Select>
@@ -517,7 +518,7 @@ export default function UsersAdminPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Email</Label>
-                  <Input value={selectedUser?.email || ""} disabled readOnly className="bg-slate-50" />
+                  <Input value={selectedUser?.email || ""} readOnly className="bg-slate-50" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-role">Rol en el Sistema</Label>
@@ -526,6 +527,7 @@ export default function UsersAdminPage() {
                     <SelectContent>
                       <SelectItem value="Catequista">Catequista</SelectItem>
                       <SelectItem value="Coordinador">Coordinador</SelectItem>
+                      <SelectItem value="Tesorero">Tesorero</SelectItem>
                       <SelectItem value="Administrador">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
