@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, Camera, User, Check, X } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, Camera, User, Check, X, LayoutGrid } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
@@ -70,8 +70,8 @@ export default function UsersAdminPage() {
   const filteredUsers = useMemo(() => {
     if (!users) return []
     return users.filter(u => 
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase())
+      `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [users, searchTerm])
 
@@ -127,7 +127,7 @@ export default function UsersAdminPage() {
         createdAt: serverTimestamp(),
       }
 
-      const userRef = doc(db, "users", newUser.uid)
+      const userRef = doc(db!, "users", newUser.uid)
       await setDoc(userRef, userData)
       
       toast({
@@ -158,7 +158,7 @@ export default function UsersAdminPage() {
 
   const handleEditUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!selectedUser) return
+    if (!selectedUser || !db) return
     setIsSubmitting(true)
     
     const formData = new FormData(e.currentTarget)
@@ -167,7 +167,7 @@ export default function UsersAdminPage() {
       lastName: formData.get("lastName") as string,
       role: formData.get("role") as string,
       allowedModules: selectedModules,
-      photoUrl: tempPhoto || selectedUser.photoUrl
+      photoUrl: tempPhoto || selectedUser.photoUrl || null
     }
 
     const userRef = doc(db, "users", selectedUser.id)
@@ -211,7 +211,7 @@ export default function UsersAdminPage() {
   }
 
   const handleDeleteUser = async () => {
-    if (!selectedUser) return
+    if (!selectedUser || !db) return
     setIsSubmitting(true)
 
     const userRef = doc(db, "users", selectedUser.id)
@@ -233,12 +233,19 @@ export default function UsersAdminPage() {
       .finally(() => setIsSubmitting(false))
   }
 
+  const getAssignedModuleNames = (allowedModules: string[] = []) => {
+    const moduleIds = Array.from(new Set(allowedModules.map(m => m.split(':')[0])))
+    return moduleIds
+      .map(id => AVAILABLE_MODULES.find(m => m.id === id)?.name)
+      .filter(Boolean)
+  }
+
   const renderPermissionsGrid = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
         <h4 className="text-sm font-bold text-primary">Módulos Asignados</h4>
       </div>
-      <Accordion type="multiple" defaultValue={["Operaciones"]} className="w-full space-y-2">
+      <Accordion type="multiple" className="w-full space-y-2">
         {["Operaciones", "Configuración", "Administración"].map(category => (
           <AccordionItem key={category} value={category} className="border rounded-xl overflow-hidden bg-white shadow-sm">
             <AccordionTrigger className="px-4 py-3 hover:bg-slate-50 hover:no-underline">
@@ -394,62 +401,79 @@ export default function UsersAdminPage() {
                 <TableRow>
                   <TableHead className="py-4 font-bold text-slate-500">Catequista</TableHead>
                   <TableHead className="py-4 font-bold text-slate-500">Rol</TableHead>
+                  <TableHead className="py-4 font-bold text-slate-500">Módulos Habilitados</TableHead>
                   <TableHead className="py-4 font-bold text-slate-500">Permisos</TableHead>
                   <TableHead className="py-4 text-right font-bold text-slate-500 pr-8">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((u: any) => (
-                  <TableRow key={u.id} className="hover:bg-slate-50/50 border-slate-100 h-20">
-                    <TableCell>
-                      <div className="flex items-center gap-4">
-                        <Avatar className="h-10 w-10 border border-slate-100">
-                          <AvatarImage src={u.photoUrl || undefined} className="object-cover" />
-                          <AvatarFallback className="bg-slate-100 text-slate-400 font-bold">
-                            {u.firstName?.[0]}{u.lastName?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 leading-tight">{u.firstName} {u.lastName}</span>
-                          <span className="text-xs text-slate-400">{u.email}</span>
+                {filteredUsers.map((u: any) => {
+                  const assignedModuleNames = getAssignedModuleNames(u.allowedModules)
+                  return (
+                    <TableRow key={u.id} className="hover:bg-slate-50/50 border-slate-100 h-20">
+                      <TableCell>
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-10 w-10 border border-slate-100">
+                            <AvatarImage src={u.photoUrl || undefined} className="object-cover" />
+                            <AvatarFallback className="bg-slate-100 text-slate-400 font-bold">
+                              {(u.firstName?.[0] || "")}{(u.lastName?.[0] || "")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 leading-tight">{u.firstName || ""} {u.lastName || ""}</span>
+                            <span className="text-xs text-slate-400">{u.email || ""}</span>
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="rounded-full px-3 py-1 font-medium bg-slate-50 border-slate-200 text-slate-700 gap-1.5">
-                        <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
-                        {u.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="rounded-full px-4 py-1 font-medium bg-white border-slate-200 text-slate-600">
-                        {u.allowedModules?.length || 0} permisos
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right pr-8">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100">
-                            <MoreHorizontal className="h-5 w-5 text-slate-400" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[220px] p-2 rounded-xl shadow-xl border-none">
-                          <DropdownMenuItem onClick={() => { 
-                            setSelectedUser(u); 
-                            setSelectedModules(u.allowedModules || []);
-                            setIsEditDialogOpen(true); 
-                          }} className="h-11 rounded-lg gap-3">
-                            <Edit className="h-4 w-4 text-slate-400" /> Editar Perfil / Permisos
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive h-11 rounded-lg gap-3" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}>
-                            <Trash2 className="h-4 w-4" /> Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-full px-3 py-1 font-medium bg-slate-50 border-slate-200 text-slate-700 gap-1.5">
+                          <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+                          {u.role || "Catequista"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1 max-w-[300px]">
+                          {assignedModuleNames.length > 0 ? (
+                            assignedModuleNames.map((name, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-[10px] bg-slate-100 text-slate-600 border-none px-2 py-0">
+                                {name}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">Ninguno</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-full px-4 py-1 font-medium bg-white border-slate-200 text-slate-600">
+                          {u.allowedModules?.length || 0} permisos
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right pr-8">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                              <MoreHorizontal className="h-5 w-5 text-slate-400" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[220px] p-2 rounded-xl shadow-xl border-none">
+                            <DropdownMenuItem onClick={() => { 
+                              setSelectedUser(u); 
+                              setSelectedModules(u.allowedModules || []);
+                              setIsEditDialogOpen(true); 
+                            }} className="h-11 rounded-lg gap-3">
+                              <Edit className="h-4 w-4 text-slate-400" /> Editar Perfil / Permisos
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive h-11 rounded-lg gap-3" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}>
+                              <Trash2 className="h-4 w-4" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}
@@ -508,7 +532,7 @@ export default function UsersAdminPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-role">Rol en el Sistema</Label>
-                  <Select name="role" defaultValue={selectedUser?.role} disabled={isSubmitting}>
+                  <Select name="role" defaultValue={selectedUser?.role || "Catequista"} disabled={isSubmitting}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Catequista">Catequista</SelectItem>
