@@ -70,6 +70,10 @@
           "type": "string",
           "enum": ["SABADO", "DOMINGO"]
         },
+        "groupId": {
+          "type": "string",
+          "description": "ID del grupo asignado."
+        },
         "attendanceStatus": {
           "type": "string",
           "enum": ["PRESENTE", "AUSENTE", "PENDIENTE"]
@@ -91,10 +95,36 @@
           "type": "string",
           "enum": ["PAGADO", "PENDIENTE", "PARCIAL"]
         },
+        "changeHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "oldGroupId": { "type": "string" },
+              "newGroupId": { "type": "string" },
+              "reason": { "type": "string" },
+              "date": { "type": "string", "format": "date-time" },
+              "authorizedBy": { "type": "string" }
+            }
+          }
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
         }
+      }
+    },
+    "Group": {
+      "title": "Grupo de Catequesis",
+      "description": "Agrupación de alumnos con sus respectivos catequistas.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "catequistaIds": { "type": "array", "items": { "type": "string" } },
+        "attendanceDay": { "type": "string", "enum": ["SABADO", "DOMINGO"] },
+        "catechesisYear": { "type": "string", "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"] },
+        "schedule": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
     },
     "TreasurySettings": {
@@ -130,6 +160,10 @@
     "/confirmations/{registrationId}": {
       "schema": "ConfirmationRegistration",
       "description": "Inscripciones detalladas."
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Grupos de catequesis."
     },
     "/settings/treasury": {
       "schema": "TreasurySettings",

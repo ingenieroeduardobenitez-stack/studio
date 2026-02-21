@@ -15,7 +15,8 @@ import {
   X,
   Briefcase,
   Wallet,
-  CreditCard
+  CreditCard,
+  ArrowLeftRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -44,6 +45,7 @@ const operationsItems = [
   { id: "asistencia", name: "Mi Lista (Asistencia)", href: "/dashboard/my-list", icon: UserCheck },
   { id: "confirmandos", name: "Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { id: "inscripcion", name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
+  { id: "cambio_grupo", name: "Cambio de Grupo", href: "/dashboard/group-change", icon: ArrowLeftRight },
   { id: "pagos_alumnos", name: "Gestión de Pagos", href: "/dashboard/payments", icon: CreditCard },
 ]
 
