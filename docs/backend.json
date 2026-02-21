@@ -79,13 +79,40 @@
     },
     "Cedula": {
       "title": "Cédula de Identidad",
-      "description": "Registro de identificación para validación masiva.",
+      "description": "Registro de identificación detallado para validación masiva.",
       "type": "object",
       "properties": {
         "number": {
           "type": "string"
         },
-        "name": {
+        "lastName": {
+          "type": "string"
+        },
+        "firstName": {
+          "type": "string"
+        },
+        "sex": {
+          "type": "string"
+        },
+        "nationality": {
+          "type": "string"
+        },
+        "fatherName": {
+          "type": "string"
+        },
+        "motherName": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "spouseName": {
+          "type": "string"
+        },
+        "birthDate": {
+          "type": "string"
+        },
+        "neighborhoodCity": {
           "type": "string"
         },
         "importedAt": {
