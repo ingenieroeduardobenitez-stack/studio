@@ -10,7 +10,8 @@ import {
   Church, 
   Users,
   ClipboardCheck,
-  ListChecks
+  ListChecks,
+  Shapes
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -49,6 +50,7 @@ const menuItems = [
 
 const adminItems = [
   { name: "Gestión de Usuarios", href: "/dashboard/admin/users", icon: Users },
+  { name: "Gestión de Grupos", href: "/dashboard/admin/groups", icon: Shapes },
 ]
 
 export function DashboardSidebar() {

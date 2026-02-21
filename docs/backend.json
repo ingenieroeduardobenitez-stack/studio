@@ -116,6 +116,27 @@
           "format": "date-time"
         }
       }
+    },
+    "CatechesisGroup": {
+      "title": "Grupo de Catequesis",
+      "description": "Define un grupo de trabajo compuesto por varios catequistas.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Nombre del grupo (ej. Jóvenes Sábados Mañana)"
+        },
+        "catequistaIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Lista de IDs de usuarios asignados al grupo"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "catequistaIds"]
     }
   },
   "auth": {
@@ -129,6 +150,10 @@
     "/confirmations/{registrationId}": {
       "schema": "ConfirmationRegistration",
       "description": "Almacena las inscripciones detalladas a confirmación."
+    },
+    "/groups/{groupId}": {
+      "schema": "CatechesisGroup",
+      "description": "Almacena los grupos de catequesis y sus miembros."
     }
   }
 }
