@@ -19,6 +19,13 @@
         "role": {
           "type": "string"
         },
+        "allowedModules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Lista de IDs de módulos a los que el usuario tiene acceso."
+        },
         "photoUrl": {
           "type": "string"
         },

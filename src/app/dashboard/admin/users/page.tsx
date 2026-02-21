@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, MailIcon, Camera, User } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, MailIcon, Camera, User, Checkbox as CheckboxIcon } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
@@ -22,6 +22,18 @@ import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
+
+const AVAILABLE_MODULES = [
+  { id: "inicio", name: "Inicio", category: "Operaciones" },
+  { id: "asistencia", name: "Mi Lista (Asistencia)", category: "Operaciones" },
+  { id: "confirmandos", name: "Confirmandos", category: "Operaciones" },
+  { id: "inscripcion", name: "Nueva Inscripción", category: "Operaciones" },
+  { id: "perfil", name: "Mi Perfil", category: "Configuración" },
+  { id: "usuarios", name: "Gestión de Usuarios", category: "Administración" },
+  { id: "grupos", name: "Gestión de Grupos", category: "Administración" },
+]
 
 export default function UsersAdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -31,6 +43,7 @@ export default function UsersAdminPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [tempPhoto, setTempPhoto] = useState<string | null>(null)
+  const [selectedModules, setSelectedModules] = useState<string[]>(["inicio", "asistencia", "confirmandos", "inscripcion", "perfil"])
   
   const createPhotoRef = useRef<HTMLInputElement>(null)
   const editPhotoRef = useRef<HTMLInputElement>(null)
@@ -52,6 +65,12 @@ export default function UsersAdminPage() {
       u.email.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [users, searchTerm])
+
+  const handleToggleModule = (moduleId: string) => {
+    setSelectedModules(prev => 
+      prev.includes(moduleId) ? prev.filter(id => id !== moduleId) : [...prev, moduleId]
+    )
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -91,6 +110,7 @@ export default function UsersAdminPage() {
         lastName,
         email,
         role,
+        allowedModules: selectedModules,
         photoUrl: tempPhoto,
         createdAt: serverTimestamp(),
       }
@@ -104,6 +124,7 @@ export default function UsersAdminPage() {
       })
       setIsCreateDialogOpen(false)
       setTempPhoto(null)
+      setSelectedModules(["inicio", "asistencia", "confirmandos", "inscripcion", "perfil"])
     } catch (error: any) {
       console.error("Error creating user:", error)
       toast({
@@ -133,6 +154,7 @@ export default function UsersAdminPage() {
       firstName: formData.get("firstName") as string,
       lastName: formData.get("lastName") as string,
       role: formData.get("role") as string,
+      allowedModules: selectedModules,
       photoUrl: tempPhoto || selectedUser.photoUrl
     }
 
@@ -204,13 +226,14 @@ export default function UsersAdminPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Catequistas</h1>
-          <p className="text-muted-foreground">Administra los accesos de la Parroquia Perpetuo Socorro.</p>
+          <p className="text-muted-foreground">Administra los accesos y módulos asignados.</p>
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
           if (!isSubmitting) {
             setIsCreateDialogOpen(open)
             if (!open) setTempPhoto(null)
+            if (open) setSelectedModules(["inicio", "asistencia", "confirmandos", "inscripcion", "perfil"])
           }
         }}>
           <DialogTrigger asChild>
@@ -218,15 +241,15 @@ export default function UsersAdminPage() {
               <UserPlus className="mr-2 h-4 w-4" /> Nuevo Catequista
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleCreateUser}>
               <DialogHeader>
                 <DialogTitle>Añadir Catequista</DialogTitle>
                 <DialogDescription>
-                  Ingresa los datos para crear una nueva cuenta y asignar una contraseña inicial.
+                  Ingresa los datos y selecciona los módulos permitidos para este usuario.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid gap-6 py-4">
                 <div className="flex justify-center mb-2">
                   <div className="relative group cursor-pointer" onClick={() => createPhotoRef.current?.click()}>
                     <Avatar className="h-24 w-24 border-2 border-slate-100">
@@ -257,9 +280,24 @@ export default function UsersAdminPage() {
                     <Input id="lastName" name="lastName" placeholder="Ej. Pérez" required disabled={isSubmitting} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Correo Electrónico</Label>
-                  <Input id="email" name="email" type="email" placeholder="catequista@parroquia.org" required disabled={isSubmitting} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Correo Electrónico</Label>
+                    <Input id="email" name="email" type="email" placeholder="catequista@parroquia.org" required disabled={isSubmitting} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Rol Principal</Label>
+                    <Select name="role" defaultValue="Catequista" disabled={isSubmitting}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar rol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Catequista">Catequista</SelectItem>
+                        <SelectItem value="Coordinador">Coordinador</SelectItem>
+                        <SelectItem value="Administrador">Administrador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Contraseña Inicial</Label>
@@ -268,18 +306,28 @@ export default function UsersAdminPage() {
                     <Input id="password" name="password" type="password" placeholder="Mínimo 6 caracteres" className="pl-9" required disabled={isSubmitting} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Rol en el Sistema</Label>
-                  <Select name="role" defaultValue="Catequista" disabled={isSubmitting}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar rol" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Catequista">Catequista</SelectItem>
-                      <SelectItem value="Coordinador">Coordinador</SelectItem>
-                      <SelectItem value="Administrador">Administrador</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+                <div className="space-y-3">
+                  <Label className="text-primary font-bold">Módulos Asignados</Label>
+                  <div className="border rounded-xl p-4 bg-slate-50/50 space-y-4">
+                    {["Operaciones", "Configuración", "Administración"].map(category => (
+                      <div key={category} className="space-y-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{category}</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {AVAILABLE_MODULES.filter(m => m.category === category).map(module => (
+                            <div key={module.id} className="flex items-center space-x-2">
+                              <Checkbox 
+                                id={`mod-${module.id}`} 
+                                checked={selectedModules.includes(module.id)}
+                                onCheckedChange={() => handleToggleModule(module.id)}
+                              />
+                              <Label htmlFor={`mod-${module.id}`} className="text-xs cursor-pointer">{module.name}</Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -315,7 +363,7 @@ export default function UsersAdminPage() {
                 <TableRow>
                   <TableHead>Catequista</TableHead>
                   <TableHead>Rol</TableHead>
-                  <TableHead>Registro</TableHead>
+                  <TableHead>Módulos</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -342,8 +390,17 @@ export default function UsersAdminPage() {
                         {u.role}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString() : '---'}
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {u.allowedModules?.map((modId: string) => (
+                          <Badge key={modId} variant="outline" className="text-[9px] h-4">
+                            {AVAILABLE_MODULES.find(m => m.id === modId)?.name}
+                          </Badge>
+                        ))}
+                        {(!u.allowedModules || u.allowedModules.length === 0) && (
+                          <span className="text-[10px] text-slate-400 italic">Acceso por rol</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -353,8 +410,12 @@ export default function UsersAdminPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => { setSelectedUser(u); setIsEditDialogOpen(true); }}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar Perfil
+                          <DropdownMenuItem onClick={() => { 
+                            setSelectedUser(u); 
+                            setSelectedModules(u.allowedModules || []);
+                            setIsEditDialogOpen(true); 
+                          }}>
+                            <Edit className="mr-2 h-4 w-4" /> Editar Perfil / Módulos
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}>
@@ -377,18 +438,19 @@ export default function UsersAdminPage() {
           if (!open) {
             setSelectedUser(null)
             setTempPhoto(null)
+            setSelectedModules([])
           }
         }
       }}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleEditUser}>
             <DialogHeader>
-              <DialogTitle>Editar Perfil de Catequista</DialogTitle>
+              <DialogTitle>Editar Perfil / Módulos</DialogTitle>
               <DialogDescription>
-                Actualiza los datos básicos o gestiona el acceso.
+                Actualiza los datos básicos o gestiona el acceso a los módulos.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-6 py-4">
               <div className="flex justify-center mb-2">
                 <div className="relative group cursor-pointer" onClick={() => editPhotoRef.current?.click()}>
                   <Avatar className="h-24 w-24 border-2 border-slate-100">
@@ -419,40 +481,62 @@ export default function UsersAdminPage() {
                   <Input id="edit-lastName" name="lastName" defaultValue={selectedUser?.lastName} required disabled={isSubmitting} />
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label>Gestión de Acceso</Label>
-                <div className="p-4 border rounded-xl bg-slate-50 space-y-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <MailIcon className="h-3 w-3" />
-                    <span>{selectedUser?.email}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400">Las contraseñas solo pueden ser cambiadas mediante un enlace enviado al correo.</p>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full text-xs"
-                    onClick={handleResetPassword}
-                    disabled={isSubmitting}
-                  >
-                    <Key className="mr-2 h-3 w-3" /> Enviar enlace para asignar nueva contraseña
-                  </Button>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input value={selectedUser?.email} disabled className="bg-slate-50" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-role">Rol en el Sistema</Label>
+                  <Select name="role" defaultValue={selectedUser?.role} disabled={isSubmitting}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar rol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Catequista">Catequista</SelectItem>
+                      <SelectItem value="Coordinador">Coordinador</SelectItem>
+                      <SelectItem value="Administrador">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
+              <div className="space-y-3">
+                <Label className="text-primary font-bold">Módulos Asignados</Label>
+                <div className="border rounded-xl p-4 bg-slate-50/50 space-y-4">
+                  {["Operaciones", "Configuración", "Administración"].map(category => (
+                    <div key={category} className="space-y-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{category}</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {AVAILABLE_MODULES.filter(m => m.category === category).map(module => (
+                          <div key={module.id} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={`edit-mod-${module.id}`} 
+                              checked={selectedModules.includes(module.id)}
+                              onCheckedChange={() => handleToggleModule(module.id)}
+                            />
+                            <Label htmlFor={`edit-mod-${module.id}`} className="text-xs cursor-pointer">{module.name}</Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
               <div className="space-y-2">
-                <Label htmlFor="edit-role">Rol en el Sistema</Label>
-                <Select name="role" defaultValue={selectedUser?.role} disabled={isSubmitting}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Catequista">Catequista</SelectItem>
-                    <SelectItem value="Coordinador">Coordinador</SelectItem>
-                    <SelectItem value="Administrador">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Gestión de Acceso</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-xs"
+                  onClick={handleResetPassword}
+                  disabled={isSubmitting}
+                >
+                  <Key className="mr-2 h-3 w-3" /> Enviar enlace para asignar nueva contraseña
+                </Button>
               </div>
             </div>
             <DialogFooter>
