@@ -24,6 +24,7 @@ import { FirestorePermissionError } from "@/firebase/errors"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { cn } from "@/lib/utils"
 
 const AVAILABLE_MODULES = [
   { id: "inicio", name: "Inicio", category: "Operaciones" },
@@ -232,12 +233,13 @@ export default function UsersAdminPage() {
       .finally(() => setIsSubmitting(false))
   }
 
-  const ModulePermissionsGrid = () => (
+  // Se define fuera de los diálogos para mantener estabilidad
+  const renderPermissionsGrid = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
         <h4 className="text-sm font-bold text-primary">Módulos Asignados</h4>
       </div>
-      <Accordion type="multiple" className="w-full space-y-2">
+      <Accordion type="multiple" defaultValue={["Operaciones"]} className="w-full space-y-2">
         {["Operaciones", "Configuración", "Administración"].map(category => (
           <AccordionItem key={category} value={category} className="border rounded-xl overflow-hidden bg-white shadow-sm">
             <AccordionTrigger className="px-4 py-3 hover:bg-slate-50 hover:no-underline">
@@ -247,16 +249,16 @@ export default function UsersAdminPage() {
               <Table>
                 <TableHeader className="bg-slate-50/50">
                   <TableRow className="hover:bg-transparent border-none">
-                    <TableHead className="w-1/3 text-[10px] font-bold">MÓDULO</TableHead>
+                    <TableHead className="w-1/3 text-[10px] font-bold text-slate-500">MÓDULO</TableHead>
                     {PERMISSIONS.map(p => (
-                      <TableHead key={p.id} className="text-center text-[10px] font-bold px-1">{p.name.toUpperCase()}</TableHead>
+                      <TableHead key={p.id} className="text-center text-[10px] font-bold text-slate-500 px-1">{p.name.toUpperCase()}</TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {AVAILABLE_MODULES.filter(m => m.category === category).map(module => (
                     <TableRow key={module.id} className="border-t border-slate-100 hover:bg-slate-50/30">
-                      <TableCell className="text-xs font-medium text-slate-700 py-3">{module.name}</TableCell>
+                      <TableCell className="text-sm font-medium text-slate-700 py-3">{module.name}</TableCell>
                       {PERMISSIONS.map(p => {
                         const permKey = `${module.id}:${p.id}`
                         const isChecked = selectedModules.includes(permKey)
@@ -265,7 +267,7 @@ export default function UsersAdminPage() {
                             <Checkbox 
                               checked={isChecked}
                               onCheckedChange={() => handleTogglePermission(module.id, p.id)}
-                              className="mx-auto"
+                              className="mx-auto rounded-full h-5 w-5 border-slate-300"
                             />
                           </TableCell>
                         )
@@ -357,7 +359,7 @@ export default function UsersAdminPage() {
                   <Input id="password" name="password" type="password" placeholder="Mínimo 6 caracteres" required disabled={isSubmitting} />
                 </div>
 
-                <ModulePermissionsGrid />
+                {renderPermissionsGrid()}
               </div>
               
               <DialogFooter className="p-6 bg-slate-50 border-t mt-auto shrink-0">
@@ -405,7 +407,7 @@ export default function UsersAdminPage() {
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={u.photoUrl || undefined} />
                           <AvatarFallback className="bg-slate-100 text-slate-400">
-                            {u.firstName[0]}{u.lastName[0]}
+                            {u.firstName?.[0]}{u.lastName?.[0]}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
@@ -516,7 +518,7 @@ export default function UsersAdminPage() {
                 </div>
               </div>
 
-              <ModulePermissionsGrid />
+              {renderPermissionsGrid()}
               
               <div className="pt-4 border-t">
                 <Button type="button" variant="outline" size="sm" className="w-full text-xs" onClick={handleResetPassword} disabled={isSubmitting}>
