@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock } from "lucide-react"
+import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock, BookOpen } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -62,6 +62,7 @@ export default function GroupsAdminPage() {
     const formData = new FormData(e.currentTarget)
     const name = formData.get("name") as string
     const attendanceDay = formData.get("attendanceDay") as string
+    const catechesisYear = formData.get("catechesisYear") as string
     
     const schedule = attendanceDay === "SABADO" ? "15:30 a 18:30 hs" : "08:00 a 11:00 hs"
 
@@ -73,6 +74,7 @@ export default function GroupsAdminPage() {
       catequistaIds: selectedCatequistaIds,
       attendanceDay,
       schedule,
+      catechesisYear,
       createdAt: serverTimestamp(),
     }
 
@@ -105,6 +107,7 @@ export default function GroupsAdminPage() {
     const formData = new FormData(e.currentTarget)
     const name = formData.get("name") as string
     const attendanceDay = formData.get("attendanceDay") as string
+    const catechesisYear = formData.get("catechesisYear") as string
     const schedule = attendanceDay === "SABADO" ? "15:30 a 18:30 hs" : "08:00 a 11:00 hs"
 
     const groupRef = doc(db, "groups", selectedGroup.id)
@@ -112,7 +115,8 @@ export default function GroupsAdminPage() {
       name,
       catequistaIds: selectedCatequistaIds,
       attendanceDay,
-      schedule
+      schedule,
+      catechesisYear
     }
 
     updateDoc(groupRef, groupData)
@@ -155,6 +159,15 @@ export default function GroupsAdminPage() {
 
   const getCatequistaInfo = (id: string) => users?.find(u => u.id === id)
 
+  const getYearLabel = (year: string) => {
+    switch (year) {
+      case "PRIMER_AÑO": return "1° Año"
+      case "SEGUNDO_AÑO": return "2° Año"
+      case "ADULTOS": return "Adultos"
+      default: return year
+    }
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -188,17 +201,32 @@ export default function GroupsAdminPage() {
                   <Input id="name" name="name" placeholder="Ej. Jóvenes Confirmación - Sábados" required disabled={isSubmitting} />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="attendanceDay">Día y Horario de Catequesis</Label>
-                  <Select name="attendanceDay" defaultValue="SABADO" disabled={isSubmitting}>
-                    <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Seleccione día" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SABADO">Sábados (15:30 a 18:30 hs)</SelectItem>
-                      <SelectItem value="DOMINGO">Domingos (08:00 a 11:00 hs)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="attendanceDay">Día y Horario</Label>
+                    <Select name="attendanceDay" defaultValue="SABADO" disabled={isSubmitting}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Día" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SABADO">Sábados (15:30 - 18:30)</SelectItem>
+                        <SelectItem value="DOMINGO">Domingos (08:00 - 11:00)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="catechesisYear">Año</Label>
+                    <Select name="catechesisYear" defaultValue="PRIMER_AÑO" disabled={isSubmitting}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Año" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
+                        <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
+                        <SelectItem value="ADULTOS">Adultos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
                 <div className="space-y-3">
@@ -265,7 +293,7 @@ export default function GroupsAdminPage() {
               <TableHeader>
                 <TableRow className="bg-slate-50/50">
                   <TableHead className="font-bold">Nombre del Grupo</TableHead>
-                  <TableHead className="font-bold">Horario</TableHead>
+                  <TableHead className="font-bold">Categoría y Horario</TableHead>
                   <TableHead className="font-bold">Miembros</TableHead>
                   <TableHead className="text-right font-bold">Acciones</TableHead>
                 </TableRow>
@@ -282,14 +310,19 @@ export default function GroupsAdminPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                          <Calendar className="h-3 w-3 text-primary" />
+                          <Calendar className="h-3.5 w-3.5 text-primary" />
                           {group.attendanceDay === "SABADO" ? "Sábados" : "Domingos"}
                         </div>
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {group.schedule}
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[9px] py-0 px-1.5 h-4 border-slate-200 bg-slate-50 text-slate-600 font-bold uppercase tracking-tighter">
+                            {getYearLabel(group.catechesisYear)}
+                          </Badge>
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {group.schedule}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
@@ -298,16 +331,16 @@ export default function GroupsAdminPage() {
                         {group.catequistaIds.slice(0, 4).map((id: string) => {
                           const info = getCatequistaInfo(id)
                           return (
-                            <Avatar key={id} className="h-8 w-8 border-2 border-white">
+                            <Avatar key={id} className="h-8 w-8 border-2 border-white shadow-sm">
                               <AvatarImage src={info?.photoUrl || undefined} />
                               <AvatarFallback className="bg-slate-200 text-[10px]">
-                                {info?.firstName?.[0] || '?'}
+                                {info?.firstName?.[0] || info?.email?.[0] || '?'}
                               </AvatarFallback>
                             </Avatar>
                           )
                         })}
                         {group.catequistaIds.length > 4 && (
-                          <div className="h-8 w-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500">
+                          <div className="h-8 w-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500 shadow-sm">
                             +{group.catequistaIds.length - 4}
                           </div>
                         )}
@@ -369,17 +402,32 @@ export default function GroupsAdminPage() {
                 <Input id="edit-name" name="name" defaultValue={selectedGroup?.name} required disabled={isSubmitting} />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-attendanceDay">Día y Horario de Catequesis</Label>
-                <Select name="attendanceDay" defaultValue={selectedGroup?.attendanceDay || "SABADO"} disabled={isSubmitting}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Seleccione día" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SABADO">Sábados (15:30 a 18:30 hs)</SelectItem>
-                    <SelectItem value="DOMINGO">Domingos (08:00 a 11:00 hs)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-attendanceDay">Día y Horario</Label>
+                  <Select name="attendanceDay" defaultValue={selectedGroup?.attendanceDay || "SABADO"} disabled={isSubmitting}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Día" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SABADO">Sábados (15:30 - 18:30)</SelectItem>
+                      <SelectItem value="DOMINGO">Domingos (08:00 - 11:00)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-catechesisYear">Año</Label>
+                  <Select name="catechesisYear" defaultValue={selectedGroup?.catechesisYear || "PRIMER_AÑO"} disabled={isSubmitting}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Año" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
+                      <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
+                      <SelectItem value="ADULTOS">Adultos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <div className="space-y-3">

@@ -136,6 +136,11 @@
           "enum": ["SABADO", "DOMINGO"],
           "description": "Día de la catequesis"
         },
+        "catechesisYear": {
+          "type": "string",
+          "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"],
+          "description": "Año de Catequesis"
+        },
         "schedule": {
           "type": "string",
           "description": "Horario de la catequesis"
@@ -145,7 +150,7 @@
           "format": "date-time"
         }
       },
-      "required": ["name", "catequistaIds", "attendanceDay"]
+      "required": ["name", "catequistaIds", "attendanceDay", "catechesisYear"]
     }
   },
   "auth": {
