@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
@@ -266,15 +265,7 @@ export default function TreasuryPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="eventCategory">Tipo de Evento</Label>
-                      <Select name="eventCategory" defaultValue="JORNADA">
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="JORNADA">Jornada</SelectItem>
-                          <SelectItem value="RETIRO">Retiro</SelectItem>
-                          <SelectItem value="ALFOMBRA">Alfombra de Flores</SelectItem>
-                          <SelectItem value="LIBRO">Libro</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Input id="eventCategory" name="eventCategory" placeholder="Ej. Retiro 2026, Jornada, Libro, etc." required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="eventCost">Monto Sugerido (Gs)</Label>
@@ -316,7 +307,7 @@ export default function TreasuryPage() {
                         <TableRow key={ev.id}>
                           <TableCell className="font-bold">{ev.name}</TableCell>
                           <TableCell><Badge variant="secondary">{ev.category}</Badge></TableCell>
-                          <TableCell className="font-bold text-primary">{ev.cost?.toLocaleString()} Gs.</TableCell>
+                          <TableCell className="font-bold text-primary">{ev.cost?.slice?.toLocaleString() || ev.cost?.toLocaleString()} Gs.</TableCell>
                           <TableCell className="text-right">
                             <Button size="sm" variant="ghost" className="text-destructive hover:bg-red-50" onClick={() => handleDeleteEvent(ev.id)}>
                               <Trash2 className="h-4 w-4" />
