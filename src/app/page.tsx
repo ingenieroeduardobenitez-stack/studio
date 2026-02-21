@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Church, LogIn, Loader2, AlertCircle } from "lucide-react"
@@ -13,6 +12,8 @@ import { useAuth } from "@/firebase/provider"
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import Image from "next/image"
+import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 export default function RootLoginPage() {
   const router = useRouter()
@@ -24,7 +25,7 @@ export default function RootLoginPage() {
     password: ""
   })
 
-  // Verificamos si auth está disponible (si la config de Firebase es válida)
+  const logoData = PlaceHolderImages.find(img => img.id === "parish-logo")
   const isFirebaseReady = !!auth && !!auth.app;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,12 +93,22 @@ export default function RootLoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-slate-50 font-body">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center space-y-3">
-          <div className="bg-primary p-3 rounded-2xl shadow-xl">
-            <Church className="h-10 w-10 text-white" />
+          <div className="relative h-24 w-24 bg-white p-2 rounded-3xl shadow-xl flex items-center justify-center overflow-hidden border">
+            {logoData ? (
+              <Image 
+                src={logoData.imageUrl} 
+                alt={logoData.description} 
+                fill
+                className="object-contain p-2"
+                data-ai-hint={logoData.imageHint}
+              />
+            ) : (
+              <Church className="h-12 w-12 text-primary" />
+            )}
           </div>
           <div className="space-y-1">
             <h1 className="text-4xl font-headline font-bold tracking-tight text-primary">Confir NSPS</h1>
-            <p className="text-muted-foreground font-medium">Parroquia Perpetuo Socorro</p>
+            <p className="text-muted-foreground font-medium uppercase tracking-widest text-xs">Parroquia Perpetuo Socorro</p>
           </div>
         </div>
 

@@ -40,6 +40,8 @@ import {
 import { useUser, useDoc, useFirestore } from "@/firebase"
 import { doc } from "firebase/firestore"
 import { useMemo, useState, useEffect } from "react"
+import Image from "next/image"
+import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 const operationsItems = [
   { id: "inicio", name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
@@ -78,6 +80,7 @@ export function DashboardSidebar() {
   }, [db, user?.uid])
 
   const { data: profile } = useDoc(userProfileRef)
+  const logoData = PlaceHolderImages.find(img => img.id === "parish-logo")
 
   const isAdmin = profile?.role === "Administrador"
   const allowedModules = profile?.allowedModules || []
@@ -101,10 +104,23 @@ export function DashboardSidebar() {
       <SidebarHeader className="p-6 border-b">
         <div className="flex items-center justify-between w-full">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="bg-primary p-2 rounded-2xl shadow-lg shadow-primary/20">
-              <Church className="h-6 w-6 text-white" />
+            <div className="relative h-10 w-10 bg-white rounded-xl shadow-md border flex items-center justify-center overflow-hidden">
+              {logoData ? (
+                <Image 
+                  src={logoData.imageUrl} 
+                  alt={logoData.description} 
+                  fill
+                  className="object-contain p-1"
+                  data-ai-hint={logoData.imageHint}
+                />
+              ) : (
+                <Church className="h-6 w-6 text-primary" />
+              )}
             </div>
-            <span className="text-xl font-headline font-bold text-primary tracking-tight">Confir NSPS</span>
+            <div className="flex flex-col leading-none">
+              <span className="text-lg font-headline font-bold text-primary tracking-tight">Confir NSPS</span>
+              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Parroquia PS</span>
+            </div>
           </Link>
           <button 
             onClick={() => setOpen(false)}
