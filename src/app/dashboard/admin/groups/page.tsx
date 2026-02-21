@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
@@ -46,11 +46,12 @@ export default function GroupsAdminPage() {
     return groups.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()))
   }, [groups, searchTerm])
 
-  const handleToggleCatequista = useCallback((userId: string) => {
+  const handleToggleCatequista = (userId: string) => {
+    if (isSubmitting) return
     setSelectedCatequistaIds(prev => 
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     )
-  }, [])
+  }
 
   const handleOpenCreateDialog = () => {
     setSelectedCatequistaIds([])
@@ -190,7 +191,7 @@ export default function GroupsAdminPage() {
           <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
         </Button>
 
-        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => !isSubmitting && setIsCreateDialogOpen(open)}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="sm:max-w-[450px]">
             <form onSubmit={handleCreateGroup}>
               <DialogHeader>
@@ -241,21 +242,21 @@ export default function GroupsAdminPage() {
                         <div 
                           key={u.id} 
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
-                          onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
+                          onClick={() => handleToggleCatequista(u.id)}
                         >
                           <Checkbox 
                             id={`user-${u.id}`}
                             checked={selectedCatequistaIds.includes(u.id)} 
-                            onCheckedChange={() => handleToggleCatequista(u.id)} 
+                            onCheckedChange={() => {}} // El clic lo maneja el div padre
                             disabled={isSubmitting}
                           />
-                          <Avatar className="h-7 w-7">
+                          <Avatar className="h-7 w-7 pointer-events-none">
                             <AvatarImage src={u.photoUrl || undefined} />
                             <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                               <User className="h-3 w-3" />
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
+                          <span className="text-sm font-medium pointer-events-none">{u.firstName} {u.lastName}</span>
                         </div>
                       ))}
                       {(!users || users.length === 0) && (
@@ -383,7 +384,7 @@ export default function GroupsAdminPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !isSubmitting && setIsEditDialogOpen(open)}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <form onSubmit={handleEditGroup}>
             <DialogHeader>
@@ -434,21 +435,21 @@ export default function GroupsAdminPage() {
                       <div 
                         key={u.id} 
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
-                        onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
+                        onClick={() => handleToggleCatequista(u.id)}
                       >
                         <Checkbox 
                           id={`edit-user-${u.id}`}
                           checked={selectedCatequistaIds.includes(u.id)} 
-                          onCheckedChange={() => handleToggleCatequista(u.id)} 
+                          onCheckedChange={() => {}} // El clic lo maneja el div padre
                           disabled={isSubmitting}
                         />
-                        <Avatar className="h-7 w-7">
+                        <Avatar className="h-7 w-7 pointer-events-none">
                           <AvatarImage src={u.photoUrl || undefined} />
                           <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                             <User className="h-3 w-3" />
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
+                        <span className="text-sm font-medium pointer-events-none">{u.firstName} {u.lastName}</span>
                       </div>
                     ))}
                   </div>
@@ -464,7 +465,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>
