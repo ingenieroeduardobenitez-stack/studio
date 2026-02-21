@@ -186,12 +186,11 @@ export default function GroupsAdminPage() {
           <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo por turnos.</p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90" onClick={handleOpenCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
-            </Button>
-          </DialogTrigger>
+        <Button className="bg-primary hover:bg-primary/90" onClick={handleOpenCreateDialog}>
+          <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
+        </Button>
+
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => !isSubmitting && setIsCreateDialogOpen(open)}>
           <DialogContent className="sm:max-w-[450px]">
             <form onSubmit={handleCreateGroup}>
               <DialogHeader>
@@ -245,8 +244,9 @@ export default function GroupsAdminPage() {
                           onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
                         >
                           <Checkbox 
+                            id={`user-${u.id}`}
                             checked={selectedCatequistaIds.includes(u.id)} 
-                            onCheckedChange={() => {}} 
+                            onCheckedChange={() => handleToggleCatequista(u.id)} 
                             disabled={isSubmitting}
                           />
                           <Avatar className="h-7 w-7">
@@ -383,7 +383,7 @@ export default function GroupsAdminPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !isSubmitting && setIsEditDialogOpen(open)}>
         <DialogContent className="sm:max-w-[450px]">
           <form onSubmit={handleEditGroup}>
             <DialogHeader>
@@ -437,8 +437,9 @@ export default function GroupsAdminPage() {
                         onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
                       >
                         <Checkbox 
+                          id={`edit-user-${u.id}`}
                           checked={selectedCatequistaIds.includes(u.id)} 
-                          onCheckedChange={() => {}} 
+                          onCheckedChange={() => handleToggleCatequista(u.id)} 
                           disabled={isSubmitting}
                         />
                         <Avatar className="h-7 w-7">
@@ -463,7 +464,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>
