@@ -24,7 +24,8 @@ export default function RootLoginPage() {
     password: ""
   })
 
-  const isFirebaseReady = !!auth;
+  // Verificamos si auth está disponible (si la config de Firebase es válida)
+  const isFirebaseReady = !!auth && !!auth.app;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value })
@@ -32,11 +33,12 @@ export default function RootLoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!auth) {
+    
+    if (!isFirebaseReady) {
       toast({
         variant: "destructive",
-        title: "Error de sistema",
-        description: "Firebase no está inicializado correctamente. Verifica tu configuración.",
+        title: "Configuración incompleta",
+        description: "Firebase no está inicializado. Pega tus claves en el panel de la derecha.",
       })
       return;
     }
@@ -46,18 +48,34 @@ export default function RootLoginPage() {
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password)
       toast({
-        title: "Bienvenido",
-        description: "Acceso correcto al sistema parroquial.",
+        title: "¡Bienvenido de nuevo!",
+        description: "Acceso concedido al sistema parroquial.",
       })
       router.push("/dashboard")
     } catch (error: any) {
-      console.error("Login error:", error.code, error.message)
+      console.error("Error detallado de Firebase Auth:", error.code, error.message)
+      
       let message = "Correo o contraseña incorrectos."
       
-      if (error.code === 'auth/configuration-not-found') {
-        message = "El inicio de sesión por correo no está habilitado en la consola de Firebase."
-      } else if (error.code === 'auth/user-not-found') {
-        message = "No existe ningún catequista con este correo. ¿Ya creaste tu cuenta?"
+      switch (error.code) {
+        case 'auth/invalid-credential':
+          message = "Las credenciales no coinciden. ¿Ya creaste tu cuenta?"
+          break
+        case 'auth/user-not-found':
+          message = "No existe ningún catequista con este correo. Ve a 'Crear cuenta'."
+          break
+        case 'auth/wrong-password':
+          message = "La contraseña es incorrecta."
+          break
+        case 'auth/invalid-email':
+          message = "El formato del correo electrónico no es válido."
+          break
+        case 'auth/operation-not-allowed':
+          message = "El acceso por correo/contraseña no está habilitado en tu consola de Firebase."
+          break
+        case 'auth/too-many-requests':
+          message = "Demasiados intentos fallidos. Inténtalo más tarde."
+          break
       }
       
       toast({
@@ -88,7 +106,7 @@ export default function RootLoginPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Configuración Requerida</AlertTitle>
             <AlertDescription>
-              Firebase no está conectado. Asegúrate de haber pegado las claves correctamente en los ajustes de Firebase Studio.
+              Firebase no está conectado. Copia el objeto `firebaseConfig` de tu consola de Firebase y pégalo en la pestaña "Firebase" del panel lateral.
             </AlertDescription>
           </Alert>
         )}

@@ -4,7 +4,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Church, UserPlus, Loader2 } from "lucide-react"
+import { Church, UserPlus, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +13,7 @@ import { useAuth, useFirestore } from "@/firebase/provider"
 import { createUserWithEmailAndPassword } from "firebase/auth"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -28,15 +29,28 @@ export default function RegisterPage() {
     password: ""
   })
 
+  const isFirebaseReady = !!auth && !!auth.app;
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!isFirebaseReady) {
+      toast({
+        variant: "destructive",
+        title: "Error de conexión",
+        description: "Firebase no está listo. Verifica tus claves.",
+      })
+      return;
+    }
+
     setLoading(true)
 
     try {
+      // 1. Crear el usuario en Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth, 
         formData.email, 
@@ -44,6 +58,7 @@ export default function RegisterPage() {
       )
       const user = userCredential.user
 
+      // 2. Crear el documento de perfil en Firestore
       await setDoc(doc(db, "users", user.uid), {
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -53,17 +68,27 @@ export default function RegisterPage() {
       })
 
       toast({
-        title: "Cuenta creada con éxito",
-        description: "Bienvenido a Confir NSPS. Redirigiendo...",
+        title: "¡Cuenta creada!",
+        description: "Bienvenido a la comunidad parroquial.",
       })
 
       router.push("/dashboard")
     } catch (error: any) {
       console.error("Error al registrar:", error)
+      let message = "No se pudo crear la cuenta."
+      
+      if (error.code === 'auth/email-already-in-use') {
+        message = "Este correo electrónico ya está registrado. Intenta iniciar sesión."
+      } else if (error.code === 'auth/weak-password') {
+        message = "La contraseña es muy débil. Debe tener al menos 6 caracteres."
+      } else if (error.code === 'auth/invalid-email') {
+        message = "El correo electrónico no es válido."
+      }
+      
       toast({
         variant: "destructive",
-        title: "Error al crear la cuenta",
-        description: error.message || "Por favor verifica tus datos e inténtalo de nuevo.",
+        title: "Error de registro",
+        description: message,
       })
     } finally {
       setLoading(false)
@@ -83,6 +108,14 @@ export default function RegisterPage() {
           </div>
         </div>
 
+        {!isFirebaseReady && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error de Firebase</AlertTitle>
+            <AlertDescription>No se pudo conectar con los servicios de Firebase.</AlertDescription>
+          </Alert>
+        )}
+
         <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
           <form onSubmit={handleSubmit}>
             <CardHeader className="space-y-1 pt-10 px-10">
@@ -100,6 +133,7 @@ export default function RegisterPage() {
                     className="bg-slate-50 border-slate-200 h-12 rounded-xl" 
                     value={formData.firstName}
                     onChange={handleChange}
+                    disabled={!isFirebaseReady}
                   />
                 </div>
                 <div className="space-y-2">
@@ -111,6 +145,7 @@ export default function RegisterPage() {
                     className="bg-slate-50 border-slate-200 h-12 rounded-xl" 
                     value={formData.lastName}
                     onChange={handleChange}
+                    disabled={!isFirebaseReady}
                   />
                 </div>
               </div>
@@ -124,6 +159,7 @@ export default function RegisterPage() {
                   className="bg-slate-50 border-slate-200 h-12 rounded-xl" 
                   value={formData.email}
                   onChange={handleChange}
+                  disabled={!isFirebaseReady}
                 />
               </div>
               <div className="space-y-2">
@@ -135,11 +171,12 @@ export default function RegisterPage() {
                   className="bg-slate-50 border-slate-200 h-12 rounded-xl" 
                   value={formData.password}
                   onChange={handleChange}
+                  disabled={!isFirebaseReady}
                 />
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-6 pb-10 px-10 pt-6">
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg" disabled={loading}>
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg" disabled={loading || !isFirebaseReady}>
                 {loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
