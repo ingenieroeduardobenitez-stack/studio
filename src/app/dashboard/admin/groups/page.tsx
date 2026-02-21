@@ -12,14 +12,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock, User, X } from "lucide-react"
+import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock, User, X, Check } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function GroupsAdminPage() {
@@ -354,21 +353,21 @@ export default function GroupsAdminPage() {
               </div>
               
               <div className="space-y-3">
-                <Label>Catequistas Seleccionados ({selectedCatequistaIds.length})</Label>
-                <div className="flex flex-wrap gap-2 p-3 border rounded-xl bg-slate-50 min-h-[50px]">
+                <Label className="text-slate-900 font-bold">Catequistas Seleccionados ({selectedCatequistaIds.length})</Label>
+                <div className="flex flex-wrap gap-2 p-3 border rounded-xl bg-slate-50 min-h-[50px] transition-all">
                   {selectedCatequistaIds.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic">Selecciona miembros de la lista inferior</span>
+                    <span className="text-xs text-muted-foreground italic">Haz clic en los catequistas de la lista inferior</span>
                   ) : (
                     selectedCatequistaIds.map(id => {
                       const u = getCatequistaInfo(id)
                       return (
-                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1 flex items-center">
+                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1 flex items-center bg-white border-primary/20 text-primary shadow-sm animate-in zoom-in-95">
                           <Avatar className="h-5 w-5">
                             <AvatarImage src={u?.photoUrl || undefined} />
-                            <AvatarFallback className="text-[8px]"><User className="h-2 w-2"/></AvatarFallback>
+                            <AvatarFallback className="text-[8px] bg-primary/10"><User className="h-2 w-2"/></AvatarFallback>
                           </Avatar>
-                          <span className="text-[10px]">{u?.firstName}</span>
-                          <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => handleToggleCatequista(id)} />
+                          <span className="text-[10px] font-bold">{u?.firstName} {u?.lastName[0]}.</span>
+                          <X className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" onClick={() => handleToggleCatequista(id)} />
                         </Badge>
                       )
                     })
@@ -378,57 +377,55 @@ export default function GroupsAdminPage() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Buscar y Agregar Miembros</Label>
-                  <span className="text-[10px] text-muted-foreground">{filteredUsers.length} encontrados</span>
+                  <Label className="text-slate-900 font-bold">Buscar y Agregar Miembros</Label>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     placeholder="Escribir nombre o correo..." 
-                    className="pl-9 h-9 text-sm"
+                    className="pl-9 h-9 text-sm bg-white"
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
                   />
                 </div>
                 <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
                   <div className="space-y-1">
-                    {filteredUsers.map((u: any) => (
-                      <div 
-                        key={u.id} 
-                        className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
-                          selectedCatequistaIds.includes(u.id) ? 'bg-primary/5 border-primary/20 border' : 'hover:bg-slate-50 border border-transparent'
-                        }`}
-                        onClick={() => handleToggleCatequista(u.id)}
-                      >
-                        <Checkbox 
-                          id={`user-${u.id}`}
-                          checked={selectedCatequistaIds.includes(u.id)} 
-                          onCheckedChange={() => {}} // Visualmente manejado por el div
-                          disabled={isSubmitting}
-                          className="pointer-events-none"
-                        />
-                        <Avatar className="h-7 w-7">
-                          <AvatarImage src={u.photoUrl || undefined} />
-                          <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                            <User className="h-3 w-3" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
-                          <span className="text-[10px] text-muted-foreground">{u.email}</span>
+                    {filteredUsers.map((u: any) => {
+                      const isSelected = selectedCatequistaIds.includes(u.id)
+                      return (
+                        <div 
+                          key={u.id} 
+                          className={`flex items-center justify-between p-2.5 rounded-lg transition-all cursor-pointer group ${
+                            isSelected ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-50 border border-transparent'
+                          }`}
+                          onClick={() => handleToggleCatequista(u.id)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className={`h-8 w-8 ${isSelected ? 'border border-white/30' : ''}`}>
+                              <AvatarImage src={u.photoUrl || undefined} />
+                              <AvatarFallback className={`text-[10px] ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>
+                                <User className="h-3.5 w-3.5" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
+                              <span className={`text-[10px] ${isSelected ? 'text-white/70' : 'text-muted-foreground'}`}>{u.email}</span>
+                            </div>
+                          </div>
+                          {isSelected && <Check className="h-4 w-4 text-white" />}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     {filteredUsers.length === 0 && (
-                      <p className="text-xs text-center text-muted-foreground py-10">No se encontraron resultados.</p>
+                      <p className="text-xs text-center text-muted-foreground py-10 italic">No se encontraron resultados.</p>
                     )}
                   </div>
                 </ScrollArea>
               </div>
             </div>
             <DialogFooter className="pt-4 mt-auto">
-              <Button type="submit" disabled={isSubmitting} className="w-full h-11">
-                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Grupo"}
+              <Button type="submit" disabled={isSubmitting} className="w-full h-11 bg-primary hover:bg-primary/90 text-white shadow-lg">
+                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Grupo de Trabajo"}
               </Button>
             </DialogFooter>
           </form>
@@ -479,7 +476,7 @@ export default function GroupsAdminPage() {
               </div>
               
               <div className="space-y-3">
-                <Label>Miembros Actuales ({selectedCatequistaIds.length})</Label>
+                <Label className="text-slate-900 font-bold">Catequistas Seleccionados ({selectedCatequistaIds.length})</Label>
                 <div className="flex flex-wrap gap-2 p-3 border rounded-xl bg-slate-50 min-h-[50px]">
                   {selectedCatequistaIds.length === 0 ? (
                     <span className="text-xs text-muted-foreground italic">No hay miembros seleccionados</span>
@@ -487,13 +484,13 @@ export default function GroupsAdminPage() {
                     selectedCatequistaIds.map(id => {
                       const u = getCatequistaInfo(id)
                       return (
-                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1 flex items-center">
+                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1 flex items-center bg-white border-primary/20 text-primary shadow-sm">
                           <Avatar className="h-5 w-5">
                             <AvatarImage src={u?.photoUrl || undefined} />
-                            <AvatarFallback className="text-[8px]"><User className="h-2 w-2"/></AvatarFallback>
+                            <AvatarFallback className="text-[8px] bg-primary/10"><User className="h-2 w-2"/></AvatarFallback>
                           </Avatar>
-                          <span className="text-[10px]">{u?.firstName}</span>
-                          <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => handleToggleCatequista(id)} />
+                          <span className="text-[10px] font-bold">{u?.firstName} {u?.lastName[0]}.</span>
+                          <X className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" onClick={() => handleToggleCatequista(id)} />
                         </Badge>
                       )
                     })
@@ -503,53 +500,51 @@ export default function GroupsAdminPage() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Buscar y Modificar Miembros</Label>
-                  <span className="text-[10px] text-muted-foreground">{filteredUsers.length} encontrados</span>
+                  <Label className="text-slate-900 font-bold">Buscar y Modificar Miembros</Label>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     placeholder="Escribir nombre o correo..." 
-                    className="pl-9 h-9 text-sm"
+                    className="pl-9 h-9 text-sm bg-white"
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
                   />
                 </div>
                 <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
                   <div className="space-y-1">
-                    {filteredUsers.map((u: any) => (
-                      <div 
-                        key={u.id} 
-                        className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
-                          selectedCatequistaIds.includes(u.id) ? 'bg-primary/5 border-primary/20 border' : 'hover:bg-slate-50 border border-transparent'
-                        }`}
-                        onClick={() => handleToggleCatequista(u.id)}
-                      >
-                        <Checkbox 
-                          id={`edit-user-${u.id}`}
-                          checked={selectedCatequistaIds.includes(u.id)} 
-                          onCheckedChange={() => {}} // Visualmente manejado por el div
-                          disabled={isSubmitting}
-                          className="pointer-events-none"
-                        />
-                        <Avatar className="h-7 w-7">
-                          <AvatarImage src={u.photoUrl || undefined} />
-                          <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                            <User className="h-3 w-3" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
-                          <span className="text-[10px] text-muted-foreground">{u.email}</span>
+                    {filteredUsers.map((u: any) => {
+                      const isSelected = selectedCatequistaIds.includes(u.id)
+                      return (
+                        <div 
+                          key={u.id} 
+                          className={`flex items-center justify-between p-2.5 rounded-lg transition-all cursor-pointer group ${
+                            isSelected ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-50 border border-transparent'
+                          }`}
+                          onClick={() => handleToggleCatequista(u.id)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className={`h-8 w-8 ${isSelected ? 'border border-white/30' : ''}`}>
+                              <AvatarImage src={u.photoUrl || undefined} />
+                              <AvatarFallback className={`text-[10px] ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>
+                                <User className="h-3.5 w-3.5" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
+                              <span className={`text-[10px] ${isSelected ? 'text-white/70' : 'text-muted-foreground'}`}>{u.email}</span>
+                            </div>
+                          </div>
+                          {isSelected && <Check className="h-4 w-4 text-white" />}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </ScrollArea>
               </div>
             </div>
             <DialogFooter className="pt-4 mt-auto">
-              <Button type="submit" disabled={isSubmitting} className="w-full h-11">
+              <Button type="submit" disabled={isSubmitting} className="w-full h-11 shadow-lg">
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
               </Button>
             </DialogFooter>
