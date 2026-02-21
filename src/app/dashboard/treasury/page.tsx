@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
-import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle } from "lucide-react"
+import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle, Calendar, Plus, Trash2 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
@@ -25,6 +26,8 @@ export default function TreasuryPage() {
   const [paymentAmount, setPaymentAmount] = useState(0)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
+  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
 
   const { toast } = useToast()
   const db = useFirestore()
@@ -38,6 +41,9 @@ export default function TreasuryPage() {
 
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
+
+  const eventsQuery = useMemoFirebase(() => db ? collection(db, "events") : null, [db])
+  const { data: events, loading: loadingEvents } = useCollection(eventsQuery)
 
   const filteredRegs = useMemo(() => {
     if (!registrations) return []
@@ -65,6 +71,43 @@ export default function TreasuryPage() {
       })
       .catch(() => toast({ variant: "destructive", title: "Error", description: "No se pudo guardar." }))
       .finally(() => setIsCostSaving(false))
+  }
+
+  const handleCreateEvent = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!db) return
+    setIsSubmittingEvent(true)
+
+    const formData = new FormData(e.currentTarget)
+    const eventName = formData.get("eventName") as string
+    const eventCost = Number(formData.get("eventCost"))
+    const eventCategory = formData.get("eventCategory") as string
+
+    const eventId = `event_${Date.now()}`
+    const eventRef = doc(db, "events", eventId)
+    
+    const eventData = {
+      name: eventName,
+      cost: eventCost,
+      category: eventCategory,
+      createdAt: serverTimestamp(),
+    }
+
+    setDoc(eventRef, eventData)
+      .then(() => {
+        toast({ title: "Evento creado", description: `El evento "${eventName}" se configuró correctamente.` })
+        setIsEventDialogOpen(false)
+      })
+      .catch(() => toast({ variant: "destructive", title: "Error", description: "No se pudo crear el evento." }))
+      .finally(() => setIsSubmittingEvent(false))
+  }
+
+  const handleDeleteEvent = async (id: string) => {
+    if (!db) return
+    const eventRef = doc(db, "events", id)
+    deleteDoc(eventRef)
+      .then(() => toast({ title: "Evento eliminado" }))
+      .catch(() => toast({ variant: "destructive", title: "Error" }))
   }
 
   const handleOpenPayment = (reg: any) => {
@@ -111,14 +154,15 @@ export default function TreasuryPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-headline font-bold text-primary">Tesoreria Parroquial</h1>
+          <h1 className="text-3xl font-headline font-bold text-primary">Tesorería Parroquial</h1>
           <p className="text-muted-foreground">Control de aranceles, cobros y saldos pendientes.</p>
         </div>
       </div>
 
       <Tabs defaultValue="pagos" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-6">
+        <TabsList className="grid w-full grid-cols-3 max-w-[600px] mb-6">
           <TabsTrigger value="pagos" className="gap-2"><CreditCard className="h-4 w-4" /> Pagos</TabsTrigger>
+          <TabsTrigger value="eventos" className="gap-2"><Calendar className="h-4 w-4" /> Eventos</TabsTrigger>
           <TabsTrigger value="config" className="gap-2"><Settings className="h-4 w-4" /> Configuración</TabsTrigger>
         </TabsList>
 
@@ -203,11 +247,96 @@ export default function TreasuryPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="eventos">
+          <div className="space-y-6">
+            <div className="flex justify-end">
+              <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2 bg-primary"><Plus className="h-4 w-4" /> Crear Nuevo Evento</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Nuevo Evento o Actividad</DialogTitle>
+                    <DialogDescription>Configura el nombre y costo de la jornada o retiro.</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateEvent} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="eventName">Nombre del Evento</Label>
+                      <Input id="eventName" name="eventName" placeholder="Ej. Retiro de Confirmación" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="eventCategory">Tipo de Evento</Label>
+                      <Select name="eventCategory" defaultValue="JORNADA">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="JORNADA">Jornada</SelectItem>
+                          <SelectItem value="RETIRO">Retiro</SelectItem>
+                          <SelectItem value="ALFOMBRA">Alfombra de Flores</SelectItem>
+                          <SelectItem value="LIBRO">Libro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="eventCost">Monto Sugerido (Gs)</Label>
+                      <Input id="eventCost" name="eventCost" type="number" required />
+                    </div>
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsEventDialogOpen(false)}>Cancelar</Button>
+                      <Button type="submit" disabled={isSubmittingEvent}>
+                        {isSubmittingEvent ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Guardar Evento"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <Card className="border-none shadow-xl overflow-hidden">
+              <CardHeader className="bg-slate-50/50 border-b">
+                <CardTitle>Eventos Configurados</CardTitle>
+                <CardDescription>Lista de actividades con costos fijados para tesorería.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                {loadingEvents ? (
+                  <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                ) : events?.length === 0 ? (
+                  <div className="text-center py-20 text-muted-foreground italic">No hay eventos configurados.</div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50/50">
+                        <TableHead className="font-bold">Nombre del Evento</TableHead>
+                        <TableHead className="font-bold">Categoría</TableHead>
+                        <TableHead className="font-bold">Costo Fijado</TableHead>
+                        <TableHead className="text-right font-bold">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {events?.map((ev) => (
+                        <TableRow key={ev.id}>
+                          <TableCell className="font-bold">{ev.name}</TableCell>
+                          <TableCell><Badge variant="secondary">{ev.category}</Badge></TableCell>
+                          <TableCell className="font-bold text-primary">{ev.cost?.toLocaleString()} Gs.</TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" variant="ghost" className="text-destructive hover:bg-red-50" onClick={() => handleDeleteEvent(ev.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
         <TabsContent value="config">
           <Card className="border-none shadow-xl max-w-2xl mx-auto">
             <CardHeader className="bg-primary text-white">
-              <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5" /> Montos de Inscripción</CardTitle>
-              <CardDescription className="text-white/80">Define los costos base que se aplicarán en el formulario de registro.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5" /> Montos de Inscripción Base</CardTitle>
+              <CardDescription className="text-white/80">Define los costos base que se aplicarán en el formulario de registro principal.</CardDescription>
             </CardHeader>
             <form onSubmit={handleUpdateCosts}>
               <CardContent className="p-8 space-y-6">

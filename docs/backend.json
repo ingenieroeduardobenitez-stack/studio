@@ -107,23 +107,15 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       }
     },
-    "Cedula": {
-      "title": "Cédula de Identidad",
-      "description": "Registro de identificación detallado para validación masiva.",
+    "Event": {
+      "title": "Evento Parroquial",
+      "description": "Evento con costo asociado para cobro en tesorería.",
       "type": "object",
       "properties": {
-        "NUMERO_CED": { "type": "string" },
-        "APELLIDO": { "type": "string" },
-        "NOMBRE": { "type": "string" },
-        "SEXO": { "type": "string" },
-        "NACIONAL": { "type": "string" },
-        "NOM_PADRE": { "type": "string" },
-        "NOM_MADRE": { "type": "string" },
-        "DIRECCION": { "type": "string" },
-        "NOM_CONJ": { "type": "string" },
-        "FECHA_NACI": { "type": "string" },
-        "BARRIO_CIU": { "type": "string" },
-        "importedAt": { "type": "string", "format": "date-time" }
+        "name": { "type": "string" },
+        "cost": { "type": "number" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -142,6 +134,10 @@
     "/settings/treasury": {
       "schema": "TreasurySettings",
       "description": "Configuración de costos de inscripción."
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Eventos y jornadas configuradas."
     }
   }
 }
