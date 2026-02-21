@@ -301,14 +301,15 @@ export default function UsersAdminPage() {
               <UserPlus className="mr-2 h-4 w-4" /> Nuevo Catequista
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
-            <form onSubmit={handleCreateUser} className="flex flex-col h-full">
-              <DialogHeader className="p-6 bg-primary text-white">
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl">
+            <form onSubmit={handleCreateUser} className="flex flex-col h-full overflow-hidden">
+              <DialogHeader className="p-6 bg-primary text-white shrink-0">
                 <DialogTitle>Añadir Catequista</DialogTitle>
                 <DialogDescription className="text-white/80">
                   Ingresa los datos y define los permisos específicos para cada módulo.
                 </DialogDescription>
               </DialogHeader>
+              
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="flex justify-center">
                   <div className="relative group cursor-pointer" onClick={() => createPhotoRef.current?.click()}>
@@ -358,9 +359,10 @@ export default function UsersAdminPage() {
 
                 <ModulePermissionsGrid />
               </div>
-              <DialogFooter className="p-6 bg-slate-50 border-t">
-                <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Registrar Catequista"}
+              
+              <DialogFooter className="p-6 bg-slate-50 border-t mt-auto shrink-0">
+                <Button type="submit" disabled={isSubmitting} className="w-full h-12 rounded-xl text-base font-bold shadow-lg">
+                  {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : "Registrar Catequista"}
                 </Button>
               </DialogFooter>
             </form>
@@ -461,14 +463,15 @@ export default function UsersAdminPage() {
           }
         }
       }}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <form onSubmit={handleEditUser} className="flex flex-col h-full">
-            <DialogHeader className="p-6 bg-primary text-white">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl">
+          <form onSubmit={handleEditUser} className="flex flex-col h-full overflow-hidden">
+            <DialogHeader className="p-6 bg-primary text-white shrink-0">
               <DialogTitle>Editar Perfil / Permisos</DialogTitle>
               <DialogDescription className="text-white/80">
                 Actualiza los datos básicos o gestiona los accesos detallados.
               </DialogDescription>
             </DialogHeader>
+            
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div className="flex justify-center">
                 <div className="relative group cursor-pointer" onClick={() => editPhotoRef.current?.click()}>
@@ -521,9 +524,10 @@ export default function UsersAdminPage() {
                 </Button>
               </div>
             </div>
-            <DialogFooter className="p-6 bg-slate-50 border-t">
-              <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
+            
+            <DialogFooter className="p-6 bg-slate-50 border-t mt-auto shrink-0">
+              <Button type="submit" disabled={isSubmitting} className="w-full h-12 rounded-xl text-base font-bold shadow-lg">
+                {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : "Guardar Cambios"}
               </Button>
             </DialogFooter>
           </form>
