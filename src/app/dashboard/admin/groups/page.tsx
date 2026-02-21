@@ -23,7 +23,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function GroupsAdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [userSearchTerm, setUserSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -34,7 +33,6 @@ export default function GroupsAdminPage() {
   const { toast } = useToast()
   const db = useFirestore()
 
-  // Uso de useMemoFirebase para garantizar la estabilidad de las consultas y evitar bucles
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
 
@@ -46,15 +44,6 @@ export default function GroupsAdminPage() {
     return groups.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()))
   }, [groups, searchTerm])
 
-  const filteredUsersForSelection = useMemo(() => {
-    if (!users) return []
-    if (!userSearchTerm) return users
-    return users.filter(u => 
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(userSearchTerm.toLowerCase())
-    )
-  }, [users, userSearchTerm])
-
   const handleToggleCatequista = useCallback((userId: string) => {
     setSelectedCatequistaIds(prev => 
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
@@ -63,11 +52,9 @@ export default function GroupsAdminPage() {
 
   const resetForm = useCallback(() => {
     setSelectedCatequistaIds([])
-    setUserSearchTerm("")
     setSelectedGroup(null)
   }, [])
 
-  // Limpieza segura de formularios cuando los diálogos se cierran
   useEffect(() => {
     if (!isCreateDialogOpen && !isEditDialogOpen && !isDeleteDialogOpen) {
       resetForm()
@@ -245,21 +232,10 @@ export default function GroupsAdminPage() {
                 </div>
                 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>Seleccionar Catequistas ({selectedCatequistaIds.length})</Label>
-                  </div>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Buscar catequista por nombre..." 
-                      className="pl-9 h-9 text-xs bg-slate-50" 
-                      value={userSearchTerm}
-                      onChange={(e) => setUserSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <ScrollArea className="h-[200px] border rounded-xl p-2 bg-slate-50/50">
+                  <Label>Seleccionar Catequistas ({selectedCatequistaIds.length})</Label>
+                  <ScrollArea className="h-[250px] border rounded-xl p-2 bg-slate-50/50">
                     <div className="space-y-2">
-                      {filteredUsersForSelection?.map((u: any) => (
+                      {users?.map((u: any) => (
                         <div 
                           key={u.id} 
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
@@ -282,7 +258,7 @@ export default function GroupsAdminPage() {
                           <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
                         </div>
                       ))}
-                      {filteredUsersForSelection?.length === 0 && (
+                      {(!users || users.length === 0) && (
                         <p className="text-xs text-center text-muted-foreground py-4">No se encontraron catequistas.</p>
                       )}
                     </div>
@@ -456,18 +432,9 @@ export default function GroupsAdminPage() {
               
               <div className="space-y-3">
                 <Label>Miembros del Grupo ({selectedCatequistaIds.length})</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Buscar catequista por nombre..." 
-                    className="pl-9 h-9 text-xs bg-slate-50" 
-                    value={userSearchTerm}
-                    onChange={(e) => setUserSearchTerm(e.target.value)}
-                  />
-                </div>
-                <ScrollArea className="h-[200px] border rounded-xl p-2 bg-slate-50/50">
+                <ScrollArea className="h-[250px] border rounded-xl p-2 bg-slate-50/50">
                   <div className="space-y-2">
-                    {filteredUsersForSelection?.map((u: any) => (
+                    {users?.map((u: any) => (
                       <div 
                         key={u.id} 
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
@@ -490,9 +457,6 @@ export default function GroupsAdminPage() {
                         <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
                       </div>
                     ))}
-                    {filteredUsersForSelection?.length === 0 && (
-                      <p className="text-xs text-center text-muted-foreground py-4">No se encontraron catequistas.</p>
-                    )}
                   </div>
                 </ScrollArea>
               </div>
