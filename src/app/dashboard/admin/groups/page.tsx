@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock, User } from "lucide-react"
+import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock, User, X } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function GroupsAdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [memberSearch, setMemberSearch] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -34,7 +35,6 @@ export default function GroupsAdminPage() {
   const { toast } = useToast()
   const db = useFirestore()
 
-  // Consultas estables para evitar bucles infinitos
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
 
@@ -46,21 +46,31 @@ export default function GroupsAdminPage() {
     return groups.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()))
   }, [groups, searchTerm])
 
-  const handleToggleCatequista = (userId: string) => {
+  const filteredUsers = useMemo(() => {
+    if (!users) return []
+    return users.filter(u => 
+      `${u.firstName} ${u.lastName}`.toLowerCase().includes(memberSearch.toLowerCase()) ||
+      u.email.toLowerCase().includes(memberSearch.toLowerCase())
+    )
+  }, [users, memberSearch])
+
+  const handleToggleCatequista = useCallback((userId: string) => {
     if (isSubmitting) return
     setSelectedCatequistaIds(prev => 
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     )
-  }
+  }, [isSubmitting])
 
   const handleOpenCreateDialog = () => {
     setSelectedCatequistaIds([])
+    setMemberSearch("")
     setSelectedGroup(null)
     setIsCreateDialogOpen(true)
   }
 
   const handleOpenEditDialog = (group: any) => {
     setSelectedGroup(group)
+    setMemberSearch("")
     setSelectedCatequistaIds(group.catequistaIds || [])
     setIsEditDialogOpen(true)
   }
@@ -190,90 +200,6 @@ export default function GroupsAdminPage() {
         <Button className="bg-primary hover:bg-primary/90" onClick={handleOpenCreateDialog}>
           <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
         </Button>
-
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="sm:max-w-[450px]">
-            <form onSubmit={handleCreateGroup}>
-              <DialogHeader>
-                <DialogTitle>Nuevo Grupo de Catequesis</DialogTitle>
-                <DialogDescription>
-                  Define un nombre, el horario y selecciona a los catequistas miembros.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-6 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nombre del Grupo</Label>
-                  <Input id="name" name="name" placeholder="Ej. Jóvenes Confirmación - Sábados" required disabled={isSubmitting} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="attendanceDay">Día y Horario</Label>
-                    <Select name="attendanceDay" defaultValue="SABADO" disabled={isSubmitting}>
-                      <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="Día" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="SABADO">Sábados (15:30 - 18:30)</SelectItem>
-                        <SelectItem value="DOMINGO">Domingos (08:00 - 11:00)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="catechesisYear">Año</Label>
-                    <Select name="catechesisYear" defaultValue="PRIMER_AÑO" disabled={isSubmitting}>
-                      <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="Año" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
-                        <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
-                        <SelectItem value="ADULTOS">Adultos</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <Label>Seleccionar Catequistas ({selectedCatequistaIds.length})</Label>
-                  <ScrollArea className="h-[250px] border rounded-xl p-2 bg-slate-50/50">
-                    <div className="space-y-2">
-                      {users?.map((u: any) => (
-                        <div 
-                          key={u.id} 
-                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
-                          onClick={() => handleToggleCatequista(u.id)}
-                        >
-                          <Checkbox 
-                            id={`user-${u.id}`}
-                            checked={selectedCatequistaIds.includes(u.id)} 
-                            onCheckedChange={() => {}} // El clic lo maneja el div padre
-                            disabled={isSubmitting}
-                          />
-                          <Avatar className="h-7 w-7 pointer-events-none">
-                            <AvatarImage src={u.photoUrl || undefined} />
-                            <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                              <User className="h-3 w-3" />
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium pointer-events-none">{u.firstName} {u.lastName}</span>
-                        </div>
-                      ))}
-                      {(!users || users.length === 0) && (
-                        <p className="text-xs text-center text-muted-foreground py-4">No se encontraron catequistas.</p>
-                      )}
-                    </div>
-                  </ScrollArea>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Grupo"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <Card className="border-border/50 shadow-sm">
@@ -384,16 +310,140 @@ export default function GroupsAdminPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <form onSubmit={handleEditGroup}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={(open) => !isSubmitting && setIsCreateDialogOpen(open)}>
+        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh]">
+          <form onSubmit={handleCreateGroup} className="flex flex-col h-full overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Nuevo Grupo de Catequesis</DialogTitle>
+              <DialogDescription>
+                Define un nombre, el horario y selecciona a los catequistas.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nombre del Grupo</Label>
+                <Input id="name" name="name" placeholder="Ej. Jóvenes Confirmación - Sábados" required disabled={isSubmitting} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="attendanceDay">Día y Horario</Label>
+                  <Select name="attendanceDay" defaultValue="SABADO" disabled={isSubmitting}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Día" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SABADO">Sábados (15:30 - 18:30)</SelectItem>
+                      <SelectItem value="DOMINGO">Domingos (08:00 - 11:00)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="catechesisYear">Año</Label>
+                  <Select name="catechesisYear" defaultValue="PRIMER_AÑO" disabled={isSubmitting}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Año" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
+                      <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
+                      <SelectItem value="ADULTOS">Adultos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <Label>Catequistas Seleccionados ({selectedCatequistaIds.length})</Label>
+                <div className="flex flex-wrap gap-2 p-3 border rounded-xl bg-slate-50 min-h-[50px]">
+                  {selectedCatequistaIds.length === 0 ? (
+                    <span className="text-xs text-muted-foreground italic">Selecciona miembros de la lista inferior</span>
+                  ) : (
+                    selectedCatequistaIds.map(id => {
+                      const u = getCatequistaInfo(id)
+                      return (
+                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1 flex items-center">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={u?.photoUrl || undefined} />
+                            <AvatarFallback className="text-[8px]"><User className="h-2 w-2"/></AvatarFallback>
+                          </Avatar>
+                          <span className="text-[10px]">{u?.firstName}</span>
+                          <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => handleToggleCatequista(id)} />
+                        </Badge>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Buscar y Agregar Miembros</Label>
+                  <span className="text-[10px] text-muted-foreground">{filteredUsers.length} encontrados</span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Escribir nombre o correo..." 
+                    className="pl-9 h-9 text-sm"
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                  />
+                </div>
+                <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
+                  <div className="space-y-1">
+                    {filteredUsers.map((u: any) => (
+                      <div 
+                        key={u.id} 
+                        className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer ${
+                          selectedCatequistaIds.includes(u.id) ? 'bg-primary/5 border-primary/20 border' : 'hover:bg-slate-50 border border-transparent'
+                        }`}
+                        onClick={() => handleToggleCatequista(u.id)}
+                      >
+                        <Checkbox 
+                          id={`user-${u.id}`}
+                          checked={selectedCatequistaIds.includes(u.id)} 
+                          onCheckedChange={() => {}} // Manejado por el div
+                          disabled={isSubmitting}
+                        />
+                        <Avatar className="h-7 w-7">
+                          <AvatarImage src={u.photoUrl || undefined} />
+                          <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                            <User className="h-3 w-3" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
+                          <span className="text-[10px] text-muted-foreground">{u.email}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredUsers.length === 0 && (
+                      <p className="text-xs text-center text-muted-foreground py-10">No se encontraron resultados.</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+            <DialogFooter className="pt-4 mt-auto">
+              <Button type="submit" disabled={isSubmitting} className="w-full h-11">
+                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Grupo"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !isSubmitting && setIsEditDialogOpen(open)}>
+        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh]">
+          <form onSubmit={handleEditGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader>
               <DialogTitle>Editar Grupo</DialogTitle>
               <DialogDescription>
-                Actualiza el nombre, el horario o los integrantes del grupo.
+                Actualiza el nombre, el horario o los integrantes.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-6 py-4">
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6 py-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Nombre del Grupo</Label>
                 <Input id="edit-name" name="name" defaultValue={selectedGroup?.name} required disabled={isSubmitting} />
@@ -428,36 +478,76 @@ export default function GroupsAdminPage() {
               </div>
               
               <div className="space-y-3">
-                <Label>Miembros del Grupo ({selectedCatequistaIds.length})</Label>
-                <ScrollArea className="h-[250px] border rounded-xl p-2 bg-slate-50/50">
-                  <div className="space-y-2">
-                    {users?.map((u: any) => (
+                <Label>Miembros Actuales ({selectedCatequistaIds.length})</Label>
+                <div className="flex flex-wrap gap-2 p-3 border rounded-xl bg-slate-50 min-h-[50px]">
+                  {selectedCatequistaIds.length === 0 ? (
+                    <span className="text-xs text-muted-foreground italic">No hay miembros seleccionados</span>
+                  ) : (
+                    selectedCatequistaIds.map(id => {
+                      const u = getCatequistaInfo(id)
+                      return (
+                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1 flex items-center">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={u?.photoUrl || undefined} />
+                            <AvatarFallback className="text-[8px]"><User className="h-2 w-2"/></AvatarFallback>
+                          </Avatar>
+                          <span className="text-[10px]">{u?.firstName}</span>
+                          <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => handleToggleCatequista(id)} />
+                        </Badge>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Buscar y Modificar Miembros</Label>
+                  <span className="text-[10px] text-muted-foreground">{filteredUsers.length} encontrados</span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Escribir nombre o correo..." 
+                    className="pl-9 h-9 text-sm"
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                  />
+                </div>
+                <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
+                  <div className="space-y-1">
+                    {filteredUsers.map((u: any) => (
                       <div 
                         key={u.id} 
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
+                        className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer ${
+                          selectedCatequistaIds.includes(u.id) ? 'bg-primary/5 border-primary/20 border' : 'hover:bg-slate-50 border border-transparent'
+                        }`}
                         onClick={() => handleToggleCatequista(u.id)}
                       >
                         <Checkbox 
                           id={`edit-user-${u.id}`}
                           checked={selectedCatequistaIds.includes(u.id)} 
-                          onCheckedChange={() => {}} // El clic lo maneja el div padre
+                          onCheckedChange={() => {}} // Manejado por el div
                           disabled={isSubmitting}
                         />
-                        <Avatar className="h-7 w-7 pointer-events-none">
+                        <Avatar className="h-7 w-7">
                           <AvatarImage src={u.photoUrl || undefined} />
                           <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                             <User className="h-3 w-3" />
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-sm font-medium pointer-events-none">{u.firstName} {u.lastName}</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
+                          <span className="text-[10px] text-muted-foreground">{u.email}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
               </div>
             </div>
-            <DialogFooter>
-              <Button type="submit" disabled={isSubmitting} className="w-full">
+            <DialogFooter className="pt-4 mt-auto">
+              <Button type="submit" disabled={isSubmitting} className="w-full h-11">
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
               </Button>
             </DialogFooter>
@@ -465,7 +555,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>
