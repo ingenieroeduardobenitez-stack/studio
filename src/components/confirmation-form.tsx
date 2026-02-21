@@ -58,6 +58,8 @@ const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
   ciNumber: z.string().min(5, "N° C.I. requerido"),
   phone: z.string().min(8, "N° de celular requerido"),
+  birthDate: z.string().min(1, "Fecha de nacimiento requerida"),
+  age: z.coerce.number().optional(),
   photoUrl: z.string().optional(),
   motherName: z.string().optional(),
   motherPhone: z.string().optional(),
@@ -103,6 +105,8 @@ export function ConfirmationForm() {
       fullName: "",
       ciNumber: "",
       phone: "",
+      birthDate: "",
+      age: undefined,
       photoUrl: "",
       motherName: "",
       motherPhone: "",
@@ -122,6 +126,21 @@ export function ConfirmationForm() {
   const catechesisYear = form.watch("catechesisYear")
   const initialPayment = form.watch("initialPayment")
   const hasBaptism = form.watch("hasBaptism")
+  const birthDate = form.watch("birthDate")
+
+  // Cálculo automático de edad
+  useEffect(() => {
+    if (birthDate) {
+      const birth = new Date(birthDate)
+      const now = new Date()
+      let age = now.getFullYear() - birth.getFullYear()
+      const m = now.getMonth() - birth.getMonth()
+      if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
+        age--
+      }
+      form.setValue("age", age >= 0 ? age : 0)
+    }
+  }, [birthDate, form])
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -238,18 +257,29 @@ export function ConfirmationForm() {
               {/* SECCIÓN 1: DATOS PERSONALES */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><User className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3></div>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="md:col-span-2">
-                    <FormField control={form.control} name="ciNumber" render={({ field }) => (
-                      <FormItem className="max-w-xs"><FormLabel className="font-semibold">N° C.I.</FormLabel><FormControl><Input placeholder="Ej. 1.234.567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                
+                <div className="grid gap-6">
+                  <FormField control={form.control} name="ciNumber" render={({ field }) => (
+                    <FormItem className="max-w-xs"><FormLabel className="font-semibold">N° C.I.</FormLabel><FormControl><Input placeholder="Ej. 1.234.567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                  )} />
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <FormField control={form.control} name="fullName" render={({ field }) => (
+                      <FormItem><FormLabel className="font-semibold">Nombre y Apellido</FormLabel><FormControl><Input placeholder="Ej. Juan Pérez" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="phone" render={({ field }) => (
+                      <FormItem><FormLabel className="font-semibold">Celular</FormLabel><FormControl><Input placeholder="Ej. 0981..." {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
-                  <FormField control={form.control} name="fullName" render={({ field }) => (
-                    <FormItem><FormLabel className="font-semibold">Nombre y Apellido</FormLabel><FormControl><Input placeholder="Ej. Juan Pérez" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="phone" render={({ field }) => (
-                    <FormItem><FormLabel className="font-semibold">Celular</FormLabel><FormControl><Input placeholder="Ej. 0981..." {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
-                  )} />
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <FormField control={form.control} name="birthDate" render={({ field }) => (
+                      <FormItem><FormLabel className="font-semibold">Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="age" render={({ field }) => (
+                      <FormItem><FormLabel className="font-semibold">Edad (años)</FormLabel><FormControl><Input type="number" readOnly {...field} className="h-12 rounded-xl bg-slate-100 border-slate-200 cursor-not-allowed" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                  </div>
                 </div>
               </div>
 
