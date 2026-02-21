@@ -2,7 +2,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church } from "lucide-react"
+import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church, User } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection } from "@/firebase"
 import { doc, collection } from "firebase/firestore"
 import { useMemo } from "react"
@@ -58,7 +58,7 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{regsLoading ? "..." : registrations.length}</div>
+            <div className="text-2xl font-bold">{regsLoading ? "..." : (registrations?.length || 0)}</div>
             <p className="text-xs text-muted-foreground">Postulantes este año</p>
           </CardContent>
         </Card>
@@ -69,7 +69,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {regsLoading ? "..." : registrations.filter(r => r.category === "JUVENIL").length}
+              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear !== "ADULTOS").length || 0)}
             </div>
             <p className="text-xs text-muted-foreground">Confirmación Jóvenes</p>
           </CardContent>
@@ -81,7 +81,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {regsLoading ? "..." : registrations.filter(r => r.category === "ADULTO").length}
+              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "ADULTOS").length || 0)}
             </div>
             <p className="text-xs text-muted-foreground">Confirmación Adultos</p>
           </CardContent>
@@ -96,9 +96,11 @@ export default function DashboardPage() {
         <CardContent>
           <div className="space-y-4">
             {regsLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : registrations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay inscripciones registradas aún.</p>
+              <div className="flex justify-center p-4">
+                <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+              </div>
+            ) : !registrations || registrations.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No hay inscripciones registradas aún.</p>
             ) : (
               registrations.slice(0, 5).map((reg) => (
                 <div key={reg.id} className="flex items-center gap-4 p-3 border rounded-xl hover:bg-slate-50 transition-colors">
@@ -107,7 +109,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-bold">{reg.fullName}</p>
-                    <p className="text-xs text-muted-foreground">{reg.category} • {reg.age} años</p>
+                    <p className="text-xs text-muted-foreground">{reg.catechesisYear} • {reg.ciNumber}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-bold uppercase text-accent">{reg.status}</p>

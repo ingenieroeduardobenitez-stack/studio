@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, MailIcon } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
-import { initializeApp, deleteApp } from "firebase/app"
+import { initializeApp, deleteApp, getApps } from "firebase/app"
 import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "firebase/auth"
 import { firebaseConfig } from "@/firebase/config"
 import { useToast } from "@/hooks/use-toast"
@@ -59,9 +59,11 @@ export default function UsersAdminPage() {
     const lastName = formData.get("lastName") as string
     const role = formData.get("role") as string
 
+    const appName = `SecondaryApp-${Date.now()}`
     let secondaryApp;
+
     try {
-      secondaryApp = initializeApp(firebaseConfig, "SecondaryApp")
+      secondaryApp = initializeApp(firebaseConfig, appName)
       const secondaryAuth = getAuth(secondaryApp)
       
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
@@ -81,17 +83,24 @@ export default function UsersAdminPage() {
       
       toast({
         title: "Usuario creado con éxito",
-        description: `Se ha registrado a ${firstName} con su nueva contraseña.`,
+        description: `Se ha registrado a ${firstName} correctamente.`,
       })
       setIsCreateDialogOpen(false)
     } catch (error: any) {
+      console.error("Error creating user:", error)
       toast({
         variant: "destructive",
         title: "Error al crear usuario",
-        description: error.message || "Error de conexión.",
+        description: error.message || "No se pudo completar el registro.",
       })
     } finally {
-      if (secondaryApp) await deleteApp(secondaryApp)
+      if (secondaryApp) {
+        try {
+          await deleteApp(secondaryApp)
+        } catch (e) {
+          console.error("Error deleting secondary app:", e)
+        }
+      }
       setIsSubmitting(false)
     }
   }
@@ -136,7 +145,7 @@ export default function UsersAdminPage() {
       await sendPasswordResetEmail(auth, selectedUser.email)
       toast({
         title: "Enlace enviado",
-        description: `Se envió un correo a ${selectedUser.email} para que asigne una nueva contraseña.`,
+        description: `Se envió un correo a ${selectedUser.email} para asignar contraseña.`,
       })
     } catch (error: any) {
       toast({
@@ -178,7 +187,7 @@ export default function UsersAdminPage() {
           <p className="text-muted-foreground">Administra los accesos de la Parroquia Perpetuo Socorro.</p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => !isSubmitting && setIsCreateDialogOpen(open)}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
               <UserPlus className="mr-2 h-4 w-4" /> Nuevo Catequista
@@ -196,27 +205,27 @@ export default function UsersAdminPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">Nombre</Label>
-                    <Input id="firstName" name="firstName" placeholder="Ej. Juan" required />
+                    <Input id="firstName" name="firstName" placeholder="Ej. Juan" required disabled={isSubmitting} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Apellido</Label>
-                    <Input id="lastName" name="lastName" placeholder="Ej. Pérez" required />
+                    <Input id="lastName" name="lastName" placeholder="Ej. Pérez" required disabled={isSubmitting} />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Correo Electrónico</Label>
-                  <Input id="email" name="email" type="email" placeholder="catequista@parroquia.org" required />
+                  <Input id="email" name="email" type="email" placeholder="catequista@parroquia.org" required disabled={isSubmitting} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Contraseña Inicial</Label>
                   <div className="relative">
                     <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="password" name="password" type="password" placeholder="Mínimo 6 caracteres" className="pl-9" required />
+                    <Input id="password" name="password" type="password" placeholder="Mínimo 6 caracteres" className="pl-9" required disabled={isSubmitting} />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Rol en el Sistema</Label>
-                  <Select name="role" defaultValue="Catequista">
+                  <Select name="role" defaultValue="Catequista" disabled={isSubmitting}>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar rol" />
                     </SelectTrigger>
@@ -309,25 +318,26 @@ export default function UsersAdminPage() {
         </CardContent>
       </Card>
 
-      {/* Diálogo Editar con Restablecimiento de Pass */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !isSubmitting && setIsEditDialogOpen(open)}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleEditUser}>
             <DialogHeader>
               <DialogTitle>Editar Perfil de Catequista</DialogTitle>
-              <DialogDescription>
-                Actualiza los datos básicos o gestiona el acceso.
-              </DialogDescription>
+              <DialogHeader>
+                <DialogDescription>
+                  Actualiza los datos básicos o gestiona el acceso.
+                </DialogDescription>
+              </DialogHeader>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-firstName">Nombre</Label>
-                  <Input id="edit-firstName" name="firstName" defaultValue={selectedUser?.firstName} required />
+                  <Input id="edit-firstName" name="firstName" defaultValue={selectedUser?.firstName} required disabled={isSubmitting} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-lastName">Apellido</Label>
-                  <Input id="edit-lastName" name="lastName" defaultValue={selectedUser?.lastName} required />
+                  <Input id="edit-lastName" name="lastName" defaultValue={selectedUser?.lastName} required disabled={isSubmitting} />
                 </div>
               </div>
               
@@ -338,13 +348,14 @@ export default function UsersAdminPage() {
                     <MailIcon className="h-3 w-3" />
                     <span>{selectedUser?.email}</span>
                   </div>
-                  <p className="text-[10px] text-slate-400">Por seguridad, las contraseñas solo pueden ser cambiadas por el usuario mediante un enlace enviado a su correo.</p>
+                  <p className="text-[10px] text-slate-400">Las contraseñas solo pueden ser cambiadas mediante un enlace enviado al correo.</p>
                   <Button 
                     type="button" 
                     variant="outline" 
                     size="sm" 
                     className="w-full text-xs"
                     onClick={handleResetPassword}
+                    disabled={isSubmitting}
                   >
                     <Key className="mr-2 h-3 w-3" /> Enviar enlace para asignar nueva contraseña
                   </Button>
@@ -353,7 +364,7 @@ export default function UsersAdminPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="edit-role">Rol en el Sistema</Label>
-                <Select name="role" defaultValue={selectedUser?.role}>
+                <Select name="role" defaultValue={selectedUser?.role} disabled={isSubmitting}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar rol" />
                   </SelectTrigger>
@@ -374,7 +385,7 @@ export default function UsersAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar a este catequista?</AlertDialogTitle>
@@ -383,9 +394,13 @@ export default function UsersAdminPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDeleteUser}>
-              Eliminar Definitivamente
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
+              onClick={handleDeleteUser}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar Definitivamente"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
