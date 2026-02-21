@@ -40,7 +40,7 @@ export default function ProfilePage() {
       setFormData({
         firstName: profile.firstName || "",
         lastName: profile.lastName || "",
-        role: profile.role || "Personal de Seguridad"
+        role: profile.role || "Catequista"
       })
     }
   }, [profile])
@@ -113,7 +113,7 @@ export default function ProfilePage() {
             <CardContent>
               <div className="flex justify-center gap-2">
                 <div className="px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-bold border border-accent/20">
-                  VERIFICADO
+                  COMUNIDAD
                 </div>
               </div>
             </CardContent>
@@ -122,21 +122,21 @@ export default function ProfilePage() {
                 <Mail className="h-4 w-4" /> <span>{profile?.email}</span>
               </div>
               <div className="w-full flex items-center gap-3 text-sm text-muted-foreground text-left px-4">
-                <MapPin className="h-4 w-4" /> <span>Ciudad de México, MX</span>
+                <MapPin className="h-4 w-4" /> <span>Parroquia Perpetuo Socorro</span>
               </div>
             </CardFooter>
           </Card>
 
           <Card className="border-border/50 shadow-sm bg-primary text-white">
             <CardHeader>
-              <CardTitle className="text-lg font-headline">Estado de Seguridad</CardTitle>
+              <CardTitle className="text-lg font-headline">Estado del Usuario</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
                 <Shield className="h-8 w-8 text-white/50" />
                 <div>
-                  <p className="text-sm font-bold">NSPS Nivel {formData.role === "Administrador" ? "A (Crítico)" : "B"}</p>
-                  <p className="text-xs text-white/80">Acceso autorizado al sistema</p>
+                  <p className="text-sm font-bold">Nivel de Acceso: {formData.role}</p>
+                  <p className="text-xs text-white/80">Acceso autorizado al sistema parroquial</p>
                 </div>
               </div>
             </CardContent>
@@ -147,7 +147,7 @@ export default function ProfilePage() {
           <Card className="border-border/50 shadow-sm">
             <CardHeader>
               <CardTitle className="font-headline">Detalles Personales</CardTitle>
-              <CardDescription>Actualiza tu información pública de perfil</CardDescription>
+              <CardDescription>Actualiza tu información de catequista</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
@@ -169,7 +169,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="role">Rol / Cargo</Label>
+                <Label htmlFor="role">Rol / Cargo Parroquial</Label>
                 <Select 
                   value={formData.role} 
                   onValueChange={(value) => setFormData({...formData, role: value})}
@@ -178,15 +178,15 @@ export default function ProfilePage() {
                     <SelectValue placeholder="Seleccionar rol" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Personal de Seguridad">Personal de Seguridad</SelectItem>
-                    <SelectItem value="Analista">Analista de Inteligencia</SelectItem>
+                    <SelectItem value="Catequista">Catequista</SelectItem>
+                    <SelectItem value="Coordinador">Coordinador</SelectItem>
                     <SelectItem value="Administrador">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground">Cambiar a 'Administrador' desbloquea funciones avanzadas en el menú lateral.</p>
+                <p className="text-[10px] text-muted-foreground">Cambiar a 'Administrador' desbloquea funciones avanzadas de gestión.</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Correo Institucional (No editable)</Label>
+                <Label htmlFor="email">Correo Electrónico (No editable)</Label>
                 <Input id="email" value={profile?.email || ""} disabled className="bg-slate-50" />
               </div>
             </CardContent>

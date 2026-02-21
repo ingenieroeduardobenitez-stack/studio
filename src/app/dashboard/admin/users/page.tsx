@@ -142,7 +142,7 @@ export default function UsersAdminPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Usuarios</h1>
-          <p className="text-muted-foreground">Administra los accesos y roles del personal del sistema.</p>
+          <p className="text-muted-foreground">Administra los accesos y roles de los catequistas.</p>
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -156,7 +156,7 @@ export default function UsersAdminPage() {
               <DialogHeader>
                 <DialogTitle>Añadir Nuevo Usuario</DialogTitle>
                 <DialogDescription>
-                  Ingresa los detalles del nuevo miembro del personal.
+                  Ingresa los detalles del nuevo miembro de la parroquia.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -171,18 +171,18 @@ export default function UsersAdminPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Correo Institucional</Label>
-                  <Input id="email" name="email" type="email" placeholder="usuario@seguridad.gov" required />
+                  <Label htmlFor="email">Correo Electrónico</Label>
+                  <Input id="email" name="email" type="email" placeholder="usuario@parroquia.org" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Rol del Sistema</Label>
-                  <Select name="role" defaultValue="Personal de Seguridad">
+                  <Select name="role" defaultValue="Catequista">
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar rol" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Personal de Seguridad">Personal de Seguridad</SelectItem>
-                      <SelectItem value="Analista">Analista de Inteligencia</SelectItem>
+                      <SelectItem value="Catequista">Catequista</SelectItem>
+                      <SelectItem value="Coordinador">Coordinador</SelectItem>
                       <SelectItem value="Administrador">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
@@ -313,8 +313,8 @@ export default function UsersAdminPage() {
                     <SelectValue placeholder="Seleccionar rol" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Personal de Seguridad">Personal de Seguridad</SelectItem>
-                    <SelectItem value="Analista">Analista de Inteligencia</SelectItem>
+                    <SelectItem value="Catequista">Catequista</SelectItem>
+                    <SelectItem value="Coordinador">Coordinador</SelectItem>
                     <SelectItem value="Administrador">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
