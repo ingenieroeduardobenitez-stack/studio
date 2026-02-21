@@ -12,9 +12,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2 } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { initializeApp, deleteApp, getApp, getApps } from "firebase/app"
+import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth"
+import { firebaseConfig } from "@/firebase/config"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
@@ -50,34 +53,54 @@ export default function UsersAdminPage() {
     setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     
-    const userData = {
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      email: formData.get("email") as string,
-      role: formData.get("role") as string,
-      createdAt: serverTimestamp(),
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+    const firstName = formData.get("firstName") as string
+    const lastName = formData.get("lastName") as string
+    const role = formData.get("role") as string
+
+    let secondaryApp;
+    try {
+      // Usamos una app secundaria para no cerrar la sesión del admin actual
+      secondaryApp = initializeApp(firebaseConfig, "SecondaryApp")
+      const secondaryAuth = getAuth(secondaryApp)
+      
+      // 1. Crear usuario en Authentication
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
+      const newUser = userCredential.user
+
+      // Cerramos la sesión de la app secundaria inmediatamente
+      await signOut(secondaryAuth)
+
+      // 2. Crear perfil en Firestore con el mismo UID
+      const userData = {
+        firstName,
+        lastName,
+        email,
+        role,
+        createdAt: serverTimestamp(),
+      }
+
+      const userRef = doc(db, "users", newUser.uid)
+
+      await setDoc(userRef, userData)
+      
+      toast({
+        title: "Usuario creado con éxito",
+        description: `Se ha registrado a ${firstName} y ya puede iniciar sesión con su contraseña.`,
+      })
+      setIsCreateDialogOpen(false)
+    } catch (error: any) {
+      console.error(error)
+      toast({
+        variant: "destructive",
+        title: "Error al crear usuario",
+        description: error.message || "Asegúrate de que el correo no esté en uso y la contraseña tenga 6+ caracteres.",
+      })
+    } finally {
+      if (secondaryApp) await deleteApp(secondaryApp)
+      setIsSubmitting(false)
     }
-
-    const newUserId = `user_${Date.now()}`
-    const userRef = doc(db, "users", newUserId)
-
-    setDoc(userRef, userData)
-      .then(() => {
-        toast({
-          title: "Usuario creado",
-          description: `Se ha creado el perfil para ${userData.firstName} correctamente.`,
-        })
-        setIsCreateDialogOpen(false)
-      })
-      .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
-          path: userRef.path,
-          operation: 'create',
-          requestResourceData: userData,
-        })
-        errorEmitter.emit('permission-error', permissionError)
-      })
-      .finally(() => setIsSubmitting(false))
   }
 
   const handleEditUser = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -123,7 +146,7 @@ export default function UsersAdminPage() {
       .then(() => {
         toast({
           title: "Usuario eliminado",
-          description: "El registro ha sido borrado del sistema.",
+          description: "El registro ha sido borrado de la base de datos.",
         })
         setIsDeleteDialogOpen(false)
       })
@@ -141,22 +164,22 @@ export default function UsersAdminPage() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Usuarios</h1>
-          <p className="text-muted-foreground">Administra los accesos y roles de los catequistas.</p>
+          <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Catequistas</h1>
+          <p className="text-muted-foreground">Administra los accesos y roles de la parroquia.</p>
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
-              <UserPlus className="mr-2 h-4 w-4" /> Crear Usuario
+              <UserPlus className="mr-2 h-4 w-4" /> Crear Nuevo Catequista
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={handleCreateUser}>
               <DialogHeader>
-                <DialogTitle>Añadir Nuevo Usuario</DialogTitle>
+                <DialogTitle>Añadir Catequista</DialogTitle>
                 <DialogDescription>
-                  Ingresa los detalles del nuevo miembro de la parroquia.
+                  Esto creará una cuenta de acceso y un perfil en el sistema.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -175,6 +198,13 @@ export default function UsersAdminPage() {
                   <Input id="email" name="email" type="email" placeholder="usuario@parroquia.org" required />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="password">Contraseña de Acceso</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="password" name="password" type="password" placeholder="Mínimo 6 caracteres" className="pl-9" required />
+                  </div>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="role">Rol del Sistema</Label>
                   <Select name="role" defaultValue="Catequista">
                     <SelectTrigger>
@@ -190,7 +220,7 @@ export default function UsersAdminPage() {
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Usuario"}
+                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Registrar y Crear Acceso"}
                 </Button>
               </DialogFooter>
             </form>
@@ -286,9 +316,9 @@ export default function UsersAdminPage() {
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleEditUser}>
             <DialogHeader>
-              <DialogTitle>Editar Usuario</DialogTitle>
+              <DialogTitle>Editar Perfil</DialogTitle>
               <DialogDescription>
-                Modifica los detalles del perfil del usuario.
+                Actualiza los datos informativos del catequista.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -303,8 +333,8 @@ export default function UsersAdminPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Correo (No editable)</Label>
-                <Input value={selectedUser?.email} disabled />
+                <Label>Correo Electrónico (Solo lectura)</Label>
+                <Input value={selectedUser?.email} disabled className="bg-slate-50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-role">Rol del Sistema</Label>
@@ -335,7 +365,7 @@ export default function UsersAdminPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción eliminará permanentemente al usuario <strong>{selectedUser?.firstName} {selectedUser?.lastName}</strong> del sistema. No se puede deshacer.
+              Esta acción eliminará al catequista <strong>{selectedUser?.firstName} {selectedUser?.lastName}</strong>. Nota: Esto solo borra su perfil, no su acceso de Authentication.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
