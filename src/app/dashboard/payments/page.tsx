@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -26,6 +27,7 @@ export default function PaymentsManagementPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   const [lastPaymentType, setLastPaymentType] = useState<string>("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { user } = useUser()
   const { toast } = useToast()
@@ -35,7 +37,6 @@ export default function PaymentsManagementPage() {
     setMounted(true)
   }, [])
 
-  // 1. Obtener grupos del catequista
   const myGroupsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return query(collection(db, "groups"), where("catequistaIds", "array-contains", user.uid))
@@ -43,16 +44,13 @@ export default function PaymentsManagementPage() {
 
   const { data: myGroups, loading: loadingGroups } = useCollection(myGroupsQuery)
 
-  // 2. Parámetros para filtrar confirmandos
   const groupFilters = useMemo(() => {
     if (!myGroups || myGroups.length === 0) return null
     return myGroups.map(g => ({ day: g.attendanceDay, year: g.catechesisYear }))
   }, [myGroups])
 
-  // 3. Obtener confirmandos (limitado por ahora a los del primer grupo encontrado para simplicidad MVP)
   const myConfirmandsQuery = useMemoFirebase(() => {
     if (!db || !groupFilters || groupFilters.length === 0) return null
-    // Nota: Firestore no permite múltiples OR complejos fácilmente, así que filtramos en memoria o por el primer grupo
     return query(
       collection(db, "confirmations"), 
       where("attendanceDay", "==", groupFilters[0].day),
@@ -62,7 +60,6 @@ export default function PaymentsManagementPage() {
 
   const { data: myConfirmands, loading: loadingRegs } = useCollection(myConfirmandsQuery)
 
-  // 4. Obtener eventos configurados
   const eventsQuery = useMemoFirebase(() => db ? collection(db, "events") : null, [db])
   const { data: events } = useCollection(eventsQuery)
 
@@ -90,7 +87,6 @@ export default function PaymentsManagementPage() {
     if (selectedEventId === "inscripcion") {
       return (reg.registrationCost || 0) - (reg.amountPaid || 0)
     }
-    // Para eventos, verificamos si ya tiene pagos registrados en el objeto eventPayments
     const eventPaid = reg.eventPayments?.[selectedEventId]?.paid || 0
     const eventTotal = selectedEvent?.cost || 0
     return eventTotal - eventPaid
@@ -100,7 +96,7 @@ export default function PaymentsManagementPage() {
   const isOverpaid = paymentAmount > pendingBalance
 
   const handleProcessPayment = async () => {
-    if (!db || !selectedReg) return
+    if (!db || !selectedReg || isSubmitting) return
     if (isOverpaid) {
       toast({
         variant: "destructive",
@@ -110,38 +106,42 @@ export default function PaymentsManagementPage() {
       return
     }
 
+    setIsSubmitting(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
     
-    if (selectedEventId === "inscripcion") {
-      const newPaid = (selectedReg.amountPaid || 0) + paymentAmount
-      const total = selectedReg.registrationCost || 0
-      const status = newPaid >= total ? "PAGADO" : "PARCIAL"
+    try {
+      if (selectedEventId === "inscripcion") {
+        const newPaid = (selectedReg.amountPaid || 0) + paymentAmount
+        const total = selectedReg.registrationCost || 0
+        const status = newPaid >= total ? "PAGADO" : "PARCIAL"
 
-      updateDoc(regRef, {
-        amountPaid: newPaid,
-        paymentStatus: status,
-        lastPaymentDate: serverTimestamp()
-      }).then(() => {
+        await updateDoc(regRef, {
+          amountPaid: newPaid,
+          paymentStatus: status,
+          lastPaymentDate: serverTimestamp()
+        })
         setLastPaymentType("Inscripción")
-        finishPayment()
-      })
-    } else {
-      // Cobro de evento
-      const currentEventPayments = selectedReg.eventPayments || {}
-      const currentPaid = currentEventPayments[selectedEventId]?.paid || 0
-      const newPaid = currentPaid + paymentAmount
-      
-      updateDoc(regRef, {
-        [`eventPayments.${selectedEventId}`]: {
-          name: selectedEvent?.category,
-          paid: newPaid,
-          total: selectedEvent?.cost,
-          date: new Date().toISOString()
-        }
-      }).then(() => {
+      } else {
+        const currentEventPayments = selectedReg.eventPayments || {}
+        const currentPaid = currentEventPayments[selectedEventId]?.paid || 0
+        const newPaid = currentPaid + paymentAmount
+        
+        await updateDoc(regRef, {
+          [`eventPayments.${selectedEventId}`]: {
+            name: selectedEvent?.category || "Evento",
+            paid: newPaid,
+            total: selectedEvent?.cost || 0,
+            date: new Date().toISOString()
+          }
+        })
         setLastPaymentType(selectedEvent?.category || "Evento")
-        finishPayment()
-      })
+      }
+      finishPayment()
+    } catch (error) {
+      console.error("Error processing payment:", error)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el pago." })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -183,7 +183,7 @@ export default function PaymentsManagementPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Buscar por nombre o C.I." 
-                className="pl-9 bg-white border-slate-200" 
+                className="pl-9 bg-white" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -248,7 +248,6 @@ export default function PaymentsManagementPage() {
         </CardContent>
       </Card>
 
-      {/* DIALOGO DE COBRO */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -259,7 +258,7 @@ export default function PaymentsManagementPage() {
           <div className="p-6 space-y-6">
             <div className="space-y-3">
               <Label className="font-bold text-slate-700">Seleccionar Concepto</Label>
-              <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <Select value={selectedEventId} onValueChange={setSelectedEventId} disabled={isSubmitting}>
                 <SelectTrigger className="h-12 rounded-xl bg-slate-50">
                   <SelectValue placeholder="¿Qué estás cobrando?" />
                 </SelectTrigger>
@@ -289,6 +288,7 @@ export default function PaymentsManagementPage() {
                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                 <Input 
                   type="number" 
+                  disabled={isSubmitting}
                   className={cn(
                     "h-14 text-2xl font-bold rounded-xl pl-12 border-2 transition-all focus:ring-primary",
                     isOverpaid ? "border-red-500 bg-red-50 text-red-900" : "border-slate-200 bg-slate-50"
@@ -308,15 +308,14 @@ export default function PaymentsManagementPage() {
           </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
-            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
-            <Button className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700 font-bold shadow-lg" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isOverpaid}>
-              <CheckCircle2 className="h-4 w-4 mr-2" /> Confirmar Cobro
+            <Button variant="outline" disabled={isSubmitting} className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
+            <Button className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700 font-bold shadow-lg" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isOverpaid || isSubmitting}>
+              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Confirmar Cobro</>}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* DIALOGO DE RECIBO */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none">
           <div className="p-10 bg-white space-y-8" id="receipt-print">

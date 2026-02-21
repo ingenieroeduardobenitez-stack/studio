@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useRef, useEffect } from "react"
@@ -105,6 +106,7 @@ export default function UsersAdminPage() {
 
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!db) return
     setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     
@@ -126,16 +128,16 @@ export default function UsersAdminPage() {
       await signOut(secondaryAuth)
 
       const userData = {
-        firstName,
-        lastName,
-        email,
-        role,
+        firstName: firstName || "",
+        lastName: lastName || "",
+        email: email || "",
+        role: role || "Catequista",
         allowedModules: selectedModules,
-        photoUrl: tempPhoto,
+        photoUrl: tempPhoto || null,
         createdAt: serverTimestamp(),
       }
 
-      const userRef = doc(db!, "users", newUser.uid)
+      const userRef = doc(db, "users", newUser.uid)
       await setDoc(userRef, userData)
       
       toast({
@@ -191,11 +193,11 @@ export default function UsersAdminPage() {
       setTempPhoto(null)
     } catch (error: any) {
       console.error("Error editing user:", error)
-      const permissionError = new FirestorePermissionError({
-        path: `users/${selectedUser?.id}`,
-        operation: 'update',
+      toast({
+        variant: "destructive",
+        title: "Error al actualizar",
+        description: "No se pudieron guardar los cambios."
       })
-      errorEmitter.emit('permission-error', permissionError)
     } finally {
       setIsSubmitting(false)
     }
@@ -215,11 +217,11 @@ export default function UsersAdminPage() {
       setIsDeleteDialogOpen(false)
     } catch (error: any) {
       console.error("Error deleting user:", error)
-      const permissionError = new FirestorePermissionError({
-        path: `users/${selectedUser?.id}`,
-        operation: 'delete',
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo eliminar el usuario."
       })
-      errorEmitter.emit('permission-error', permissionError)
     } finally {
       setIsSubmitting(false)
     }
@@ -292,11 +294,9 @@ export default function UsersAdminPage() {
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-          if (!isSubmitting) {
-            setIsCreateDialogOpen(open)
-            if (!open) setTempPhoto(null)
-            if (open) setSelectedModules([])
-          }
+          setIsCreateDialogOpen(open)
+          if (!open) setTempPhoto(null)
+          if (open) setSelectedModules([])
         }}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
@@ -476,13 +476,11 @@ export default function UsersAdminPage() {
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        if (!isSubmitting) {
-          setIsEditDialogOpen(open)
-          if (!open) {
-            setSelectedUser(null)
-            setTempPhoto(null)
-            setSelectedModules([])
-          }
+        setIsEditDialogOpen(open)
+        if (!open) {
+          setSelectedUser(null)
+          setTempPhoto(null)
+          setSelectedModules([])
         }
       }}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl">
@@ -551,7 +549,7 @@ export default function UsersAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => setIsDeleteDialogOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar a este catequista?</AlertDialogTitle>

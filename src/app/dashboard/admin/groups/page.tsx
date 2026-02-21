@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
@@ -15,8 +16,6 @@ import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Use
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { errorEmitter } from "@/firebase/error-emitter"
-import { FirestorePermissionError } from "@/firebase/errors"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -97,11 +96,11 @@ export default function GroupsAdminPage() {
     const groupRef = doc(db, "groups", groupId)
     
     const groupData = {
-      name,
+      name: name || "",
       catequistaIds: selectedCatequistaIds,
-      attendanceDay,
-      schedule,
-      catechesisYear,
+      attendanceDay: attendanceDay || "SABADO",
+      schedule: schedule || "",
+      catechesisYear: catechesisYear || "PRIMER_AÑO",
       createdAt: serverTimestamp(),
     }
 
@@ -111,12 +110,7 @@ export default function GroupsAdminPage() {
       setIsCreateDialogOpen(false)
     } catch (error: any) {
       console.error("Error creating group:", error)
-      const permissionError = new FirestorePermissionError({
-        path: groupRef.path,
-        operation: 'create',
-        requestResourceData: groupData,
-      })
-      errorEmitter.emit('permission-error', permissionError)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo crear el grupo." })
     } finally {
       setIsSubmitting(false)
     }
@@ -139,11 +133,11 @@ export default function GroupsAdminPage() {
 
     const groupRef = doc(db, "groups", selectedGroup.id)
     const groupData = {
-      name,
+      name: name || "",
       catequistaIds: selectedCatequistaIds,
-      attendanceDay,
-      schedule,
-      catechesisYear
+      attendanceDay: attendanceDay || "SABADO",
+      schedule: schedule || "",
+      catechesisYear: catechesisYear || "PRIMER_AÑO"
     }
 
     try {
@@ -152,12 +146,7 @@ export default function GroupsAdminPage() {
       setIsEditDialogOpen(false)
     } catch (error: any) {
       console.error("Error editing group:", error)
-      const permissionError = new FirestorePermissionError({
-        path: groupRef.path,
-        operation: 'update',
-        requestResourceData: groupData,
-      })
-      errorEmitter.emit('permission-error', permissionError)
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." })
     } finally {
       setIsSubmitting(false)
     }
@@ -174,11 +163,7 @@ export default function GroupsAdminPage() {
       setIsDeleteDialogOpen(false)
     } catch (error: any) {
       console.error("Error deleting group:", error)
-      const permissionError = new FirestorePermissionError({
-        path: `groups/${selectedGroup?.id}`,
-        operation: 'delete',
-      })
-      errorEmitter.emit('permission-error', permissionError)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el grupo." })
     } finally {
       setIsSubmitting(false)
     }
@@ -310,9 +295,7 @@ export default function GroupsAdminPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-        if (!isSubmitting) setIsCreateDialogOpen(open)
-      }}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
           <form onSubmit={handleCreateGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -429,9 +412,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        if (!isSubmitting) setIsEditDialogOpen(open)
-      }}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
           <form onSubmit={handleEditGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -544,9 +525,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-        if (!isSubmitting) setIsDeleteDialogOpen(open)
-      }}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>
