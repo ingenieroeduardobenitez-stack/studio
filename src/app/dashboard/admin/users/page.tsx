@@ -493,18 +493,18 @@ export default function UsersAdminPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-firstName">Nombre</Label>
-                  <Input id="edit-firstName" name="firstName" defaultValue={selectedUser?.firstName} required disabled={isSubmitting} />
+                  <Input id="edit-firstName" name="firstName" defaultValue={selectedUser?.firstName || ""} required disabled={isSubmitting} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-lastName">Apellido</Label>
-                  <Input id="edit-lastName" name="lastName" defaultValue={selectedUser?.lastName} required disabled={isSubmitting} />
+                  <Input id="edit-lastName" name="lastName" defaultValue={selectedUser?.lastName || ""} required disabled={isSubmitting} />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Email</Label>
-                  <Input value={selectedUser?.email} disabled className="bg-slate-50" />
+                  <Input value={selectedUser?.email || ""} disabled className="bg-slate-50" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-role">Rol en el Sistema</Label>
