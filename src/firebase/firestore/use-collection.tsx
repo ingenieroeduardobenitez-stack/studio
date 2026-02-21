@@ -13,17 +13,25 @@ export function useCollection<T = any>(query: Query | null) {
   const [error, setError] = useState<Error | null>(null);
   
   const dataRef = useRef<string>('');
+  const queryRef = useRef<string>('');
 
   useEffect(() => {
-    // Si no hay consulta, terminamos la carga y limpiamos datos
+    // Generamos una clave para la consulta actual
+    const currentQueryKey = query ? JSON.stringify(query.toString()) : '';
+    
+    // Si no hay consulta o cambió, reiniciamos el estado de carga
     if (!query) {
       setLoading(false);
       setData([]);
+      dataRef.current = '';
+      queryRef.current = '';
       return;
     }
 
-    // Iniciamos la carga al suscribirnos
-    setLoading(true);
+    if (currentQueryKey !== queryRef.current) {
+      setLoading(true);
+      queryRef.current = currentQueryKey;
+    }
 
     const unsubscribe = onSnapshot(
       query,

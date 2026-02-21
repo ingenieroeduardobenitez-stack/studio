@@ -34,7 +34,6 @@ export default function GroupsAdminPage() {
   const { toast } = useToast()
   const db = useFirestore()
 
-  // Queries estables para evitar bucles infinitos
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
 
@@ -43,14 +42,14 @@ export default function GroupsAdminPage() {
 
   const filteredGroups = useMemo(() => {
     if (!groups) return []
-    return groups.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    return groups.filter(g => g.name?.toLowerCase().includes(searchTerm.toLowerCase()))
   }, [groups, searchTerm])
 
   const filteredUsersForDialog = useMemo(() => {
     if (!users) return []
     return users.filter(u => 
       `${u.firstName} ${u.lastName}`.toLowerCase().includes(memberSearch.toLowerCase()) ||
-      u.email.toLowerCase().includes(memberSearch.toLowerCase())
+      u.email?.toLowerCase().includes(memberSearch.toLowerCase())
     )
   }, [users, memberSearch])
 
@@ -344,12 +343,12 @@ export default function GroupsAdminPage() {
                 </Label>
                 <div className="flex flex-wrap gap-2 p-3 border rounded-xl bg-slate-50 min-h-[50px]">
                   {selectedCatequistaIds.length === 0 ? (
-                    <span className="text-xs text-slate-400 italic">Haz clic en los catequistas de abajo para agregarlos.</span>
+                    <span className="text-xs text-slate-400 italic">Selecciona catequistas de la lista inferior.</span>
                   ) : (
                     selectedCatequistaIds.map(id => {
                       const u = getCatequistaInfo(id)
                       return (
-                        <Badge key={id} variant="secondary" className="gap-1 pl-1 pr-2">
+                        <Badge key={id} variant="secondary" className="gap-1 pl-1 pr-2 animate-in zoom-in-95">
                           <Avatar className="h-4 w-4">
                             <AvatarImage src={u?.photoUrl || undefined} />
                             <AvatarFallback><User className="h-2 w-2"/></AvatarFallback>
@@ -367,7 +366,7 @@ export default function GroupsAdminPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Buscar catequistas..." 
+                    placeholder="Buscar catequistas para agregar..." 
                     className="pl-9 h-9"
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
@@ -459,7 +458,7 @@ export default function GroupsAdminPage() {
                   {selectedCatequistaIds.map(id => {
                     const u = getCatequistaInfo(id)
                     return (
-                      <Badge key={id} variant="secondary" className="gap-1 pl-1 pr-2">
+                      <Badge key={id} variant="secondary" className="gap-1 pl-1 pr-2 animate-in zoom-in-95">
                         <Avatar className="h-4 w-4">
                           <AvatarImage src={u?.photoUrl || undefined} />
                           <AvatarFallback><User className="h-2 w-2"/></AvatarFallback>
@@ -476,7 +475,7 @@ export default function GroupsAdminPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Buscar catequistas..." 
+                    placeholder="Buscar catequistas para agregar..." 
                     className="pl-9 h-9"
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}

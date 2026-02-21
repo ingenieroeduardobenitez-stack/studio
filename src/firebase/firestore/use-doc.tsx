@@ -12,15 +12,23 @@ export function useDoc<T = any>(docRef: DocumentReference | null) {
   const [error, setError] = useState<Error | null>(null);
   
   const dataRef = useRef<string>('');
+  const docPathRef = useRef<string>('');
 
   useEffect(() => {
+    const currentPath = docRef?.path || '';
+
     if (!docRef) {
       setLoading(false);
       setData(null);
+      dataRef.current = '';
+      docPathRef.current = '';
       return;
     }
 
-    setLoading(true);
+    if (currentPath !== docPathRef.current) {
+      setLoading(true);
+      docPathRef.current = currentPath;
+    }
 
     const unsubscribe = onSnapshot(
       docRef,
