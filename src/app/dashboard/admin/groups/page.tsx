@@ -372,35 +372,37 @@ export default function GroupsAdminPage() {
                     onChange={(e) => setMemberSearch(e.target.value)}
                   />
                 </div>
-                <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
-                  <div className="space-y-1">
-                    {filteredUsersForDialog.map((u: any) => {
-                      const isSelected = selectedCatequistaIds.includes(u.id)
-                      return (
-                        <div 
-                          key={u.id} 
-                          className={cn(
-                            "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
-                            isSelected ? "bg-primary text-white" : "hover:bg-slate-100"
-                          )}
-                          onClick={() => handleToggleCatequista(u.id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={u.photoUrl || undefined} />
-                              <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
-                              <span className={cn("text-[10px]", isSelected ? "text-white/70" : "text-slate-500")}>{u.email}</span>
+                <div className="border rounded-xl overflow-hidden bg-white">
+                  <ScrollArea className="h-[200px] w-full">
+                    <div className="p-2 space-y-1">
+                      {filteredUsersForDialog.map((u: any) => {
+                        const isSelected = selectedCatequistaIds.includes(u.id)
+                        return (
+                          <div 
+                            key={u.id} 
+                            className={cn(
+                              "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
+                              isSelected ? "bg-primary text-white" : "hover:bg-slate-100"
+                            )}
+                            onClick={() => handleToggleCatequista(u.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={u.photoUrl || undefined} />
+                                <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
+                                <span className={cn("text-[10px]", isSelected ? "text-white/70" : "text-slate-500")}>{u.email}</span>
+                              </div>
                             </div>
+                            {isSelected && <Check className="h-4 w-4" />}
                           </div>
-                          {isSelected && <Check className="h-4 w-4" />}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </ScrollArea>
+                        )
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
               </div>
             </div>
             <div className="p-6 bg-slate-50 border-t flex gap-3">
@@ -481,35 +483,37 @@ export default function GroupsAdminPage() {
                     onChange={(e) => setMemberSearch(e.target.value)}
                   />
                 </div>
-                <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
-                  <div className="space-y-1">
-                    {filteredUsersForDialog.map((u: any) => {
-                      const isSelected = selectedCatequistaIds.includes(u.id)
-                      return (
-                        <div 
-                          key={u.id} 
-                          className={cn(
-                            "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
-                            isSelected ? "bg-primary text-white" : "hover:bg-slate-100"
-                          )}
-                          onClick={() => handleToggleCatequista(u.id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={u.photoUrl || undefined} />
-                              <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
-                              <span className={cn("text-[10px]", isSelected ? "text-white/70" : "text-slate-500")}>{u.email}</span>
+                <div className="border rounded-xl overflow-hidden bg-white">
+                  <ScrollArea className="h-[200px] w-full">
+                    <div className="p-2 space-y-1">
+                      {filteredUsersForDialog.map((u: any) => {
+                        const isSelected = selectedCatequistaIds.includes(u.id)
+                        return (
+                          <div 
+                            key={u.id} 
+                            className={cn(
+                              "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
+                              isSelected ? "bg-primary text-white" : "hover:bg-slate-100"
+                            )}
+                            onClick={() => handleToggleCatequista(u.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={u.photoUrl || undefined} />
+                                <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
+                                <span className={cn("text-[10px]", isSelected ? "text-white/70" : "text-slate-500")}>{u.email}</span>
+                              </div>
                             </div>
+                            {isSelected && <Check className="h-4 w-4" />}
                           </div>
-                          {isSelected && <Check className="h-4 w-4" />}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </ScrollArea>
+                        )
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
               </div>
             </div>
             <div className="p-6 bg-slate-50 border-t flex gap-3">
