@@ -34,7 +34,7 @@ export default function GroupsAdminPage() {
   const { toast } = useToast()
   const db = useFirestore()
 
-  // Queries estables para evitar bucles
+  // Queries estables para evitar bucles infinitos
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
 
@@ -328,7 +328,7 @@ export default function GroupsAdminPage() {
                 <div className="space-y-2">
                   <Label htmlFor="catechesisYear">Año</Label>
                   <Select name="catechesisYear" defaultValue="PRIMER_AÑO" disabled={isSubmitting}>
-                    <SelectTrigger><SelectValue /></SelectValue></SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
                       <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
