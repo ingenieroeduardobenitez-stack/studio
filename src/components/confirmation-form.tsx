@@ -172,12 +172,12 @@ export function ConfirmationForm() {
         registrationCost: totalCost,
         amountPaid: amountPaid,
         paymentStatus: paymentStatus,
-        createdAt: new Date().toISOString() // Usamos string para compatibilidad inmediata en el recibo
+        createdAt: new Date().toISOString()
       }
 
       await setDoc(regRef, {
         ...registrationData,
-        createdAt: serverTimestamp() // Firestore guarda como timestamp
+        createdAt: serverTimestamp()
       })
       
       toast({
@@ -238,12 +238,14 @@ export function ConfirmationForm() {
               {/* SECCIÓN 1: DATOS PERSONALES */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><User className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3></div>
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  <FormField control={form.control} name="ciNumber" render={({ field }) => (
-                    <FormItem><FormLabel className="font-semibold">N° C.I.</FormLabel><FormControl><Input placeholder="Ej. 1.234.567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
-                  )} />
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <FormField control={form.control} name="ciNumber" render={({ field }) => (
+                      <FormItem className="max-w-xs"><FormLabel className="font-semibold">N° C.I.</FormLabel><FormControl><Input placeholder="Ej. 1.234.567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                  </div>
                   <FormField control={form.control} name="fullName" render={({ field }) => (
-                    <FormItem className="lg:col-span-1"><FormLabel className="font-semibold">Nombre y Apellido</FormLabel><FormControl><Input placeholder="Ej. Juan Pérez" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="font-semibold">Nombre y Apellido</FormLabel><FormControl><Input placeholder="Ej. Juan Pérez" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="phone" render={({ field }) => (
                     <FormItem><FormLabel className="font-semibold">Celular</FormLabel><FormControl><Input placeholder="Ej. 0981..." {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
@@ -299,7 +301,7 @@ export function ConfirmationForm() {
                     <FormItem><FormLabel className="font-semibold">Categoría *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">Primer Año</SelectItem><SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="attendanceDay" render={({ field }) => (
-                    <FormItem><FormLabel className="font-semibold">Día *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Día" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábado</SelectItem><SelectItem value="DOMINGO">Domingo</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="font-semibold">Día y Horario *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione Día" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábado (15:30 a 18:30 hs)</SelectItem><SelectItem value="DOMINGO">Domingo (08:00 a 11:00 hs)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="initialPayment" render={({ field }) => (
                     <FormItem>
