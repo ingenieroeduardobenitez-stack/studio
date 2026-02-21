@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function GroupsAdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [userSearchTerm, setUserSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -44,6 +45,15 @@ export default function GroupsAdminPage() {
     if (!groups) return []
     return groups.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()))
   }, [groups, searchTerm])
+
+  const filteredUsersForSelection = useMemo(() => {
+    if (!users) return []
+    if (!userSearchTerm) return users
+    return users.filter(u => 
+      `${u.firstName} ${u.lastName}`.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      u.email.toLowerCase().includes(userSearchTerm.toLowerCase())
+    )
+  }, [users, userSearchTerm])
 
   const handleToggleCatequista = (userId: string) => {
     setSelectedCatequistaIds(prev => 
@@ -83,6 +93,7 @@ export default function GroupsAdminPage() {
         toast({ title: "Grupo creado", description: `El grupo "${name}" se creó correctamente.` })
         setIsCreateDialogOpen(false)
         setSelectedCatequistaIds([])
+        setUserSearchTerm("")
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -125,6 +136,7 @@ export default function GroupsAdminPage() {
         setIsEditDialogOpen(false)
         setSelectedGroup(null)
         setSelectedCatequistaIds([])
+        setUserSearchTerm("")
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -179,7 +191,10 @@ export default function GroupsAdminPage() {
         <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
           if (!isSubmitting) {
             setIsCreateDialogOpen(open)
-            if (!open) setSelectedCatequistaIds([])
+            if (!open) {
+              setSelectedCatequistaIds([])
+              setUserSearchTerm("")
+            }
           }
         }}>
           <DialogTrigger asChild>
@@ -230,10 +245,21 @@ export default function GroupsAdminPage() {
                 </div>
                 
                 <div className="space-y-3">
-                  <Label>Seleccionar Catequistas ({selectedCatequistaIds.length})</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Seleccionar Catequistas ({selectedCatequistaIds.length})</Label>
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Buscar catequista por nombre..." 
+                      className="pl-9 h-9 text-xs bg-slate-50" 
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                    />
+                  </div>
                   <ScrollArea className="h-[200px] border rounded-xl p-2 bg-slate-50/50">
                     <div className="space-y-2">
-                      {users?.map((u: any) => (
+                      {filteredUsersForSelection?.map((u: any) => (
                         <div 
                           key={u.id} 
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
@@ -252,6 +278,9 @@ export default function GroupsAdminPage() {
                           <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
                         </div>
                       ))}
+                      {filteredUsersForSelection?.length === 0 && (
+                        <p className="text-xs text-center text-muted-foreground py-4">No se encontraron catequistas.</p>
+                      )}
                     </div>
                   </ScrollArea>
                 </div>
@@ -385,6 +414,7 @@ export default function GroupsAdminPage() {
           if (!open) {
             setSelectedGroup(null)
             setSelectedCatequistaIds([])
+            setUserSearchTerm("")
           }
         }
       }}>
@@ -432,9 +462,18 @@ export default function GroupsAdminPage() {
               
               <div className="space-y-3">
                 <Label>Miembros del Grupo ({selectedCatequistaIds.length})</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Buscar catequista por nombre..." 
+                    className="pl-9 h-9 text-xs bg-slate-50" 
+                    value={userSearchTerm}
+                    onChange={(e) => setUserSearchTerm(e.target.value)}
+                  />
+                </div>
                 <ScrollArea className="h-[200px] border rounded-xl p-2 bg-slate-50/50">
                   <div className="space-y-2">
-                    {users?.map((u: any) => (
+                    {filteredUsersForSelection?.map((u: any) => (
                       <div 
                         key={u.id} 
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
@@ -453,6 +492,9 @@ export default function GroupsAdminPage() {
                         <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
                       </div>
                     ))}
+                    {filteredUsersForSelection?.length === 0 && (
+                      <p className="text-xs text-center text-muted-foreground py-4">No se encontraron catequistas.</p>
+                    )}
                   </div>
                 </ScrollArea>
               </div>
