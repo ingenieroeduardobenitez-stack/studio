@@ -19,6 +19,7 @@ export function useCollection<T = any>(query: Query | null) {
   useEffect(() => {
     if (!query) {
       setLoading(false);
+      setData([]);
       return;
     }
 
