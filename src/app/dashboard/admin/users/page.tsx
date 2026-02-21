@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, Camera, User, Check, X } from "lucide-react"
@@ -233,7 +233,6 @@ export default function UsersAdminPage() {
       .finally(() => setIsSubmitting(false))
   }
 
-  // Se define fuera de los diálogos para mantener estabilidad
   const renderPermissionsGrid = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
@@ -284,7 +283,7 @@ export default function UsersAdminPage() {
   )
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Catequistas</h1>
@@ -372,13 +371,13 @@ export default function UsersAdminPage() {
         </Dialog>
       </div>
 
-      <Card className="border-border/50 shadow-sm overflow-hidden">
-        <CardHeader className="bg-slate-50/50 border-b">
+      <Card className="border-border/50 shadow-sm overflow-hidden bg-white">
+        <CardHeader className="bg-slate-50/50 border-b p-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               placeholder="Buscar por nombre o correo..." 
-              className="pl-9 bg-white" 
+              className="pl-9 bg-white border-slate-200 h-11" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -386,63 +385,65 @@ export default function UsersAdminPage() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-slate-50/30">
                 <TableRow>
-                  <TableHead>Catequista</TableHead>
-                  <TableHead>Rol</TableHead>
-                  <TableHead>Permisos</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                  <TableHead className="py-4 font-bold text-slate-500">Catequista</TableHead>
+                  <TableHead className="py-4 font-bold text-slate-500">Rol</TableHead>
+                  <TableHead className="py-4 font-bold text-slate-500">Permisos</TableHead>
+                  <TableHead className="py-4 text-right font-bold text-slate-500 pr-8">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.map((u: any) => (
-                  <TableRow key={u.id} className="hover:bg-slate-50/50">
+                  <TableRow key={u.id} className="hover:bg-slate-50/50 border-slate-100 h-20">
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={u.photoUrl || undefined} />
-                          <AvatarFallback className="bg-slate-100 text-slate-400">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-10 w-10 border border-slate-100">
+                          <AvatarImage src={u.photoUrl || undefined} className="object-cover" />
+                          <AvatarFallback className="bg-slate-100 text-slate-400 font-bold">
                             {u.firstName?.[0]}{u.lastName?.[0]}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                          <span className="font-bold text-slate-900">{u.firstName} {u.lastName}</span>
-                          <span className="text-xs text-muted-foreground">{u.email}</span>
+                          <span className="font-bold text-slate-900 leading-tight">{u.firstName} {u.lastName}</span>
+                          <span className="text-xs text-slate-400">{u.email}</span>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="gap-1">
-                        <ShieldCheck className="h-3 w-3" />
+                      <Badge variant="outline" className="rounded-full px-3 py-1 font-medium bg-slate-50 border-slate-200 text-slate-700 gap-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
                         {u.role}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="text-[10px]">{u.allowedModules?.length || 0} permisos</Badge>
-                      </div>
+                      <Badge variant="outline" className="rounded-full px-4 py-1 font-medium bg-white border-slate-200 text-slate-600">
+                        {u.allowedModules?.length || 0} permisos
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right pr-8">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100">
+                            <MoreHorizontal className="h-5 w-5 text-slate-400" />
+                          </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-[220px] p-2 rounded-xl shadow-xl border-none">
                           <DropdownMenuItem onClick={() => { 
                             setSelectedUser(u); 
                             setSelectedModules(u.allowedModules || []);
                             setIsEditDialogOpen(true); 
-                          }}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar Perfil / Permisos
+                          }} className="h-11 rounded-lg gap-3">
+                            <Edit className="h-4 w-4 text-slate-400" /> Editar Perfil / Permisos
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                          <DropdownMenuItem className="text-destructive h-11 rounded-lg gap-3" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}>
+                            <Trash2 className="h-4 w-4" /> Eliminar
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
