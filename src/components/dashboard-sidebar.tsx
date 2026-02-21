@@ -226,7 +226,8 @@ export function DashboardSidebar() {
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
-                      ))}
+                      )
+                    })}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </CollapsibleContent>
