@@ -89,13 +89,11 @@ export default function GroupsAdminPage() {
         createdAt: serverTimestamp(),
       })
       toast({ title: "Grupo creado" })
-      setTimeout(() => {
-        setIsCreateDialogOpen(false)
-        setIsSubmitting(false)
-      }, 300)
+      setIsCreateDialogOpen(false)
     } catch (error) {
       console.error(error)
       toast({ variant: "destructive", title: "Error" })
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -118,13 +116,11 @@ export default function GroupsAdminPage() {
         catechesisYear: formData.get("catechesisYear") as string || "PRIMER_AÑO"
       })
       toast({ title: "Grupo actualizado" })
-      setTimeout(() => {
-        setIsEditDialogOpen(false)
-        setIsSubmitting(false)
-      }, 300)
+      setIsEditDialogOpen(false)
     } catch (error) {
       console.error(error)
       toast({ variant: "destructive", title: "Error" })
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -135,13 +131,11 @@ export default function GroupsAdminPage() {
     try {
       await deleteDoc(doc(db, "groups", selectedGroup.id))
       toast({ title: "Grupo eliminado" })
-      setTimeout(() => {
-        setIsDeleteDialogOpen(false)
-        setIsSubmitting(false)
-      }, 300)
+      setIsDeleteDialogOpen(false)
     } catch (error) {
       console.error(error)
       toast({ variant: "destructive", title: "Error" })
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -155,7 +149,7 @@ export default function GroupsAdminPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Grupos de Catequesis</h1>
           <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo.</p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => setIsCreateDialogOpen(true)} disabled={isSubmitting}>
+        <Button className="bg-primary hover:bg-primary/90" onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
         </Button>
       </div>
@@ -208,12 +202,12 @@ export default function GroupsAdminPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={(open) => !isSubmitting && setIsCreateDialogOpen(open)}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
           <form onSubmit={handleCreateGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Nuevo Grupo</DialogTitle></DialogHeader>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="space-y-2"><Label>Nombre</Label><Input name="name" required disabled={isSubmitting} /></div>
+              <div className="space-y-2"><Label>Nombre</Label><Input name="name" required /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Día</Label><Select name="attendanceDay" defaultValue="SABADO"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent></Select></div>
                 <div className="space-y-2"><Label>Año</Label><Select name="catechesisYear" defaultValue="PRIMER_AÑO"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
@@ -241,12 +235,12 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !isSubmitting && setIsEditDialogOpen(open)}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
           <form onSubmit={handleEditGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Editar Grupo</DialogTitle></DialogHeader>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="space-y-2"><Label>Nombre</Label><Input name="name" defaultValue={selectedGroup?.name} required disabled={isSubmitting} /></div>
+              <div className="space-y-2"><Label>Nombre</Label><Input name="name" defaultValue={selectedGroup?.name} required /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Día</Label><Select name="attendanceDay" defaultValue={selectedGroup?.attendanceDay}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent></Select></div>
                 <div className="space-y-2"><Label>Año</Label><Select name="catechesisYear" defaultValue={selectedGroup?.catechesisYear}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
@@ -268,12 +262,12 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle></AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-white" onClick={handleDeleteGroup} disabled={isSubmitting}>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-white" onClick={handleDeleteGroup}>
               {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>

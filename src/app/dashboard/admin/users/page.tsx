@@ -12,10 +12,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Key, Camera, User, Check, X } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Camera, User, Check, X } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
-import { initializeApp, deleteApp, getApp, getApps } from "firebase/app"
+import { initializeApp, deleteApp } from "firebase/app"
 import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth"
 import { firebaseConfig } from "@/firebase/config"
 import { useToast } from "@/hooks/use-toast"
@@ -139,18 +139,15 @@ export default function UsersAdminPage() {
       
       toast({ title: "Usuario creado", description: `Se ha registrado a ${firstName} correctamente.` })
       
-      setTimeout(() => {
-        setIsCreateDialogOpen(false)
-        setTempPhoto(null)
-        setSelectedModules([])
-        setIsSubmitting(false)
-      }, 300)
+      setIsCreateDialogOpen(false)
+      setTempPhoto(null)
+      setSelectedModules([])
 
     } catch (error: any) {
       console.error("Error creating user:", error)
       toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo completar el registro." })
-      setIsSubmitting(false)
     } finally {
+      setIsSubmitting(false)
       if (secondaryApp) {
         try {
           await deleteApp(secondaryApp)
@@ -179,15 +176,12 @@ export default function UsersAdminPage() {
       await updateDoc(doc(db, "users", selectedUser.id), userData)
 
       toast({ title: "Usuario actualizado", description: "Cambios guardados." })
-      
-      setTimeout(() => {
-        setIsEditDialogOpen(false)
-        setTempPhoto(null)
-        setIsSubmitting(false)
-      }, 300)
+      setIsEditDialogOpen(false)
+      setTempPhoto(null)
     } catch (error: any) {
       console.error("Error editing user:", error)
       toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." })
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -199,14 +193,11 @@ export default function UsersAdminPage() {
     try {
       await deleteDoc(doc(db, "users", selectedUser.id))
       toast({ title: "Usuario eliminado", description: "El perfil ha sido borrado." })
-      
-      setTimeout(() => {
-        setIsDeleteDialogOpen(false)
-        setIsSubmitting(false)
-      }, 300)
+      setIsDeleteDialogOpen(false)
     } catch (error: any) {
       console.error("Error deleting user:", error)
       toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el usuario." })
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -278,13 +269,11 @@ export default function UsersAdminPage() {
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-          if (!isSubmitting) {
-            setIsCreateDialogOpen(open)
-            if (!open) { setTempPhoto(null); setSelectedModules([]); }
-          }
+          setIsCreateDialogOpen(open)
+          if (!open) { setTempPhoto(null); setSelectedModules([]); }
         }}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90" disabled={isSubmitting}>
+            <Button className="bg-primary hover:bg-primary/90">
               <UserPlus className="mr-2 h-4 w-4" /> Nuevo Catequista
             </Button>
           </DialogTrigger>
@@ -299,7 +288,7 @@ export default function UsersAdminPage() {
               
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="flex justify-center">
-                  <div className="relative group cursor-pointer" onClick={() => !isSubmitting && createPhotoRef.current?.click()}>
+                  <div className="relative group cursor-pointer" onClick={() => createPhotoRef.current?.click()}>
                     <Avatar className="h-20 w-20 border-2 border-slate-100">
                       <AvatarImage src={tempPhoto || undefined} />
                       <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-10 w-10" /></AvatarFallback>
@@ -313,21 +302,21 @@ export default function UsersAdminPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">Nombre</Label>
-                    <Input id="firstName" name="firstName" required disabled={isSubmitting} />
+                    <Input id="firstName" name="firstName" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Apellido</Label>
-                    <Input id="lastName" name="lastName" required disabled={isSubmitting} />
+                    <Input id="lastName" name="lastName" required />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Correo Electrónico</Label>
-                    <Input id="email" name="email" type="email" required disabled={isSubmitting} />
+                    <Input id="email" name="email" type="email" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="role">Rol Principal</Label>
-                    <Select name="role" defaultValue="Catequista" disabled={isSubmitting}>
+                    <Select name="role" defaultValue="Catequista">
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Catequista">Catequista</SelectItem>
@@ -340,7 +329,7 @@ export default function UsersAdminPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Contraseña Inicial</Label>
-                  <Input id="password" name="password" type="password" required disabled={isSubmitting} />
+                  <Input id="password" name="password" type="password" required />
                 </div>
                 {renderPermissionsGrid()}
               </div>
@@ -421,10 +410,8 @@ export default function UsersAdminPage() {
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        if (!isSubmitting) {
-          setIsEditDialogOpen(open)
-          if (!open) { setSelectedUser(null); setTempPhoto(null); setSelectedModules([]); }
-        }
+        setIsEditDialogOpen(open)
+        if (!open) { setSelectedUser(null); setTempPhoto(null); setSelectedModules([]); }
       }}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl">
           <form onSubmit={handleEditUser} className="flex flex-col h-full overflow-hidden">
@@ -434,7 +421,7 @@ export default function UsersAdminPage() {
             </DialogHeader>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div className="flex justify-center">
-                <div className="relative group cursor-pointer" onClick={() => !isSubmitting && editPhotoRef.current?.click()}>
+                <div className="relative group cursor-pointer" onClick={() => editPhotoRef.current?.click()}>
                   <Avatar className="h-20 w-20 border-2 border-slate-100">
                     <AvatarImage src={tempPhoto || selectedUser?.photoUrl || undefined} />
                     <AvatarFallback><User className="h-10 w-10" /></AvatarFallback>
@@ -444,14 +431,14 @@ export default function UsersAdminPage() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Nombre</Label><Input name="firstName" defaultValue={selectedUser?.firstName} required disabled={isSubmitting} /></div>
-                <div className="space-y-2"><Label>Apellido</Label><Input name="lastName" defaultValue={selectedUser?.lastName} required disabled={isSubmitting} /></div>
+                <div className="space-y-2"><Label>Nombre</Label><Input name="firstName" defaultValue={selectedUser?.firstName} required /></div>
+                <div className="space-y-2"><Label>Apellido</Label><Input name="lastName" defaultValue={selectedUser?.lastName} required /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Email</Label><Input value={selectedUser?.email || ""} readOnly className="bg-slate-50" /></div>
                 <div className="space-y-2">
                   <Label>Rol</Label>
-                  <Select name="role" defaultValue={selectedUser?.role || "Catequista"} disabled={isSubmitting}>
+                  <Select name="role" defaultValue={selectedUser?.role || "Catequista"}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Catequista">Catequista</SelectItem>
@@ -473,15 +460,15 @@ export default function UsersAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar catequista?</AlertDialogTitle>
             <AlertDialogDescription>Esta acción borrará el perfil definitivamente.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-white" onClick={handleDeleteUser} disabled={isSubmitting}>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-white" onClick={handleDeleteUser}>
               {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>

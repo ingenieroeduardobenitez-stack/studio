@@ -58,8 +58,13 @@
   * {
     @apply border-border;
   }
+  /* Parche crítico para evitar el congelamiento de la UI por diálogos de Radix */
   body {
     @apply bg-background text-foreground font-body;
+    pointer-events: auto !important;
+  }
+  body[data-state="open"] {
+    overflow: hidden;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
