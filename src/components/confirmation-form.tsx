@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   Printer,
   AlertTriangle,
-  CreditCard
+  CreditCard,
+  Home
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,6 +50,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
+import Link from "next/link"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -79,12 +81,13 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-export function ConfirmationForm() {
+export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [loading, setLoading] = useState(false)
   const [isSearchingCi, setIsSearchingCi] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   const [submittedData, setSubmittedData] = useState<any>(null)
+  const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   
@@ -210,7 +213,7 @@ export function ConfirmationForm() {
     const paymentStatus = amountPaid >= totalCost ? "PAGADO" : amountPaid > 0 ? "PARCIAL" : "PENDIENTE"
 
     const registrationData = {
-      userId: user?.uid || "admin",
+      userId: user?.uid || "public_registration",
       ...values,
       status: "INSCRITO",
       attendanceStatus: "PENDIENTE",
@@ -232,6 +235,8 @@ export function ConfirmationForm() {
         
         if (amountPaid > 0) {
           setIsReceiptOpen(true)
+        } else if (isPublic) {
+          setIsSubmittedSuccessfully(true)
         } else {
           router.push("/dashboard")
         }
@@ -251,7 +256,49 @@ export function ConfirmationForm() {
 
   const handleCloseReceipt = () => {
     setIsReceiptOpen(false)
-    router.push("/dashboard")
+    if (isPublic) {
+      setIsSubmittedSuccessfully(true)
+    } else {
+      router.push("/dashboard")
+    }
+  }
+
+  if (isSubmittedSuccessfully) {
+    return (
+      <Card className="border-none shadow-2xl bg-white rounded-3xl p-12 text-center space-y-8 animate-in fade-in zoom-in-95 duration-500">
+        <div className="bg-green-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-inner">
+          <CheckCircle2 className="h-12 w-12 text-green-600" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-headline font-bold text-slate-900">¡Inscripción Exitosa!</h2>
+          <p className="text-slate-500 max-w-md mx-auto font-medium">
+            Tus datos han sido registrados correctamente en la base de datos de la Parroquia Perpetuo Socorro.
+          </p>
+        </div>
+        <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-200 text-left space-y-4 max-w-md mx-auto">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Próximos Pasos:</p>
+          <ul className="text-sm text-slate-600 space-y-3">
+            <li className="flex gap-3">
+              <span className="h-5 w-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center shrink-0">1</span>
+              <span>Acercarse a la secretaría parroquial para confirmar documentos.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="h-5 w-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center shrink-0">2</span>
+              <span>Presentar fotocopia de C.I. y certificado de Bautismo si lo posee.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="h-5 w-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center shrink-0">3</span>
+              <span>Abonar el arancel correspondiente si aún no lo hizo.</span>
+            </li>
+          </ul>
+        </div>
+        <Button asChild className="rounded-xl h-12 px-10 font-bold shadow-lg gap-2">
+          <Link href="/">
+            <Home className="h-4 w-4" /> Volver al Inicio
+          </Link>
+        </Button>
+      </Card>
+    )
   }
 
   return (
