@@ -12,7 +12,9 @@ import {
   ClipboardCheck,
   ListChecks,
   Shapes,
-  ChevronRight
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeft
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -26,7 +28,8 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
-  useSidebar
+  useSidebar,
+  SidebarTrigger
 } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
@@ -46,6 +49,7 @@ import { signOut } from "firebase/auth"
 import { useAuth } from "@/firebase/provider"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 
 const menuItems = [
   { name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
@@ -61,7 +65,7 @@ const adminItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const { state } = useSidebar()
+  const { state, toggleSidebar } = useSidebar()
   const isCollapsed = state === "collapsed"
   const router = useRouter()
   const auth = useAuth()
@@ -93,22 +97,29 @@ export function DashboardSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-slate-200">
-      <SidebarHeader className="p-4">
-        <Link href="/dashboard" className="flex items-center gap-3">
+      <SidebarHeader className="p-4 flex flex-row items-center justify-between">
+        <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
           <div className="bg-primary p-2 rounded-xl shrink-0 shadow-lg shadow-primary/20">
             <Church className="h-5 w-5 text-white" />
           </div>
           {!isCollapsed && (
-            <span className="text-lg font-headline font-bold text-primary tracking-tight">Confir NSPS</span>
+            <span className="text-lg font-headline font-bold text-primary tracking-tight truncate">Confir NSPS</span>
           )}
         </Link>
+        {!isCollapsed && (
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="hidden md:flex text-slate-400 hover:text-primary">
+            <PanelLeftClose className="h-4 w-4" />
+          </Button>
+        )}
       </SidebarHeader>
 
       <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-slate-400 font-semibold text-[10px] uppercase tracking-widest mb-2">
-            Gestión Parroquial
-          </SidebarGroupLabel>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="px-2 text-slate-400 font-semibold text-[10px] uppercase tracking-widest mb-2">
+              Gestión Parroquial
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -138,12 +149,14 @@ export function DashboardSidebar() {
         {isAdmin && (
           <Collapsible asChild defaultOpen className="group/collapsible">
             <SidebarGroup>
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center justify-between text-slate-400 hover:text-primary transition-colors cursor-pointer group-data-[collapsible=icon]:hidden">
-                  <span className="text-[10px] uppercase tracking-widest font-semibold">Administración</span>
-                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
+              {!isCollapsed && (
+                <SidebarGroupLabel asChild>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between text-slate-400 hover:text-primary transition-colors cursor-pointer">
+                    <span className="text-[10px] uppercase tracking-widest font-semibold">Administración</span>
+                    <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+              )}
               <CollapsibleContent>
                 <SidebarGroupContent>
                   <SidebarMenu>
@@ -181,27 +194,27 @@ export function DashboardSidebar() {
             {mounted ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton size="lg" className="w-full">
+                  <SidebarMenuButton size="lg" className="w-full h-12">
                     <div className="flex items-center gap-3 w-full text-left overflow-hidden">
-                      <Avatar className="h-8 w-8 rounded-full shrink-0">
+                      <Avatar className="h-8 w-8 rounded-full shrink-0 border border-slate-100">
                         <AvatarImage src={profile?.photoUrl || undefined} />
-                        <AvatarFallback className="bg-accent/20 text-accent">
+                        <AvatarFallback className="bg-accent/10 text-accent">
                           <User className="h-4 w-4" />
                         </AvatarFallback>
                       </Avatar>
                       {!isCollapsed && (
                         <div className="flex flex-col truncate">
-                          <span className="text-sm font-bold text-slate-800">{displayName}</span>
-                          <span className="text-[10px] text-slate-500 uppercase tracking-tighter">{profile?.role || "Catequista"}</span>
+                          <span className="text-xs font-bold text-slate-800 truncate">{displayName}</span>
+                          <span className="text-[9px] text-slate-400 uppercase tracking-tighter truncate">{profile?.role || "Catequista"}</span>
                         </div>
                       )}
                     </div>
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" className="w-[--radix-dropdown-menu-trigger-width] mb-2 p-2">
-                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Cerrar Sesión</span>
+                <DropdownMenuContent side="top" align="start" className="w-[200px] mb-2 p-2 rounded-xl shadow-xl">
+                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg gap-3">
+                    <LogOut className="h-4 w-4" />
+                    <span className="font-semibold">Cerrar Sesión</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

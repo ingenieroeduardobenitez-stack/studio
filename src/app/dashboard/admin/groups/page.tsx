@@ -45,7 +45,7 @@ export default function GroupsAdminPage() {
     return groups.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()))
   }, [groups, searchTerm])
 
-  const filteredUsers = useMemo(() => {
+  const filteredUsersForDialog = useMemo(() => {
     if (!users) return []
     return users.filter(u => 
       `${u.firstName} ${u.lastName}`.toLowerCase().includes(memberSearch.toLowerCase()) ||
@@ -193,7 +193,7 @@ export default function GroupsAdminPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Grupos de Catequesis</h1>
-          <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo por turnos.</p>
+          <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo.</p>
         </div>
         
         <Button className="bg-primary hover:bg-primary/90" onClick={handleOpenCreateDialog}>
@@ -227,10 +227,10 @@ export default function GroupsAdminPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50/50">
-                  <TableHead className="font-bold">Nombre del Grupo</TableHead>
-                  <TableHead className="font-bold">Categoría y Horario</TableHead>
-                  <TableHead className="font-bold">Miembros</TableHead>
-                  <TableHead className="text-right font-bold">Acciones</TableHead>
+                  <TableHead className="font-bold text-slate-700">Nombre del Grupo</TableHead>
+                  <TableHead className="font-bold text-slate-700">Día y Año</TableHead>
+                  <TableHead className="font-bold text-slate-700">Miembros</TableHead>
+                  <TableHead className="text-right font-bold text-slate-700">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -238,7 +238,7 @@ export default function GroupsAdminPage() {
                   <TableRow key={group.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell className="font-bold text-slate-900">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
+                        <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                           <Users className="h-4 w-4" />
                         </div>
                         {group.name}
@@ -246,37 +246,34 @@ export default function GroupsAdminPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                          <Calendar className="h-3.5 w-3.5 text-primary" />
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                          <Calendar className="h-3.5 w-3.5 text-accent" />
                           {group.attendanceDay === "SABADO" ? "Sábados" : "Domingos"}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[9px] py-0 px-1.5 h-4 border-slate-200 bg-slate-50 text-slate-600 font-bold uppercase tracking-tighter">
+                          <Badge variant="secondary" className="text-[10px] font-bold h-5 bg-accent/10 text-accent border-none">
                             {getYearLabel(group.catechesisYear)}
                           </Badge>
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {group.schedule}
-                          </div>
+                          <span className="text-[10px] text-muted-foreground font-medium">{group.schedule}</span>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex -space-x-2">
-                        {group.catequistaIds?.slice(0, 4).map((id: string) => {
+                        {group.catequistaIds?.slice(0, 5).map((id: string) => {
                           const info = getCatequistaInfo(id)
                           return (
-                            <Avatar key={id} className="h-8 w-8 border-2 border-white shadow-sm">
+                            <Avatar key={id} className="h-8 w-8 border-2 border-white shadow-sm ring-1 ring-slate-100">
                               <AvatarImage src={info?.photoUrl || undefined} />
-                              <AvatarFallback className="bg-slate-200 text-[10px]">
+                              <AvatarFallback className="bg-slate-100 text-[10px] text-slate-400">
                                 <User className="h-3 w-3" />
                               </AvatarFallback>
                             </Avatar>
                           )
                         })}
-                        {group.catequistaIds?.length > 4 && (
-                          <div className="h-8 w-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500 shadow-sm">
-                            +{group.catequistaIds.length - 4}
+                        {group.catequistaIds?.length > 5 && (
+                          <div className="h-8 w-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500 shadow-sm ring-1 ring-slate-100">
+                            +{group.catequistaIds.length - 5}
                           </div>
                         )}
                       </div>
@@ -284,19 +281,19 @@ export default function GroupsAdminPage() {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleOpenEditDialog(group)}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar Grupo
+                        <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl">
+                          <DropdownMenuItem onClick={() => handleOpenEditDialog(group)} className="rounded-lg gap-3">
+                            <Edit className="h-4 w-4 text-slate-400" /> <span>Editar Grupo</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => { 
+                          <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg gap-3" onClick={() => { 
                             setSelectedGroup(group)
                             setIsDeleteDialogOpen(true) 
                           }}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                            <Trash2 className="h-4 w-4" /> <span>Eliminar</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -310,40 +307,40 @@ export default function GroupsAdminPage() {
       </Card>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh]">
-          <form onSubmit={handleCreateGroup} className="flex flex-col h-full overflow-hidden">
-            <DialogHeader>
-              <DialogTitle>Nuevo Grupo de Catequesis</DialogTitle>
-              <DialogDescription>
-                Define un nombre, el horario y selecciona a los catequistas.
+        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 border-none shadow-2xl rounded-3xl overflow-hidden">
+          <form onSubmit={handleCreateGroup} className="flex flex-col h-full">
+            <DialogHeader className="p-8 bg-primary text-white">
+              <DialogTitle className="text-2xl font-headline font-bold">Nuevo Grupo de Catequesis</DialogTitle>
+              <DialogDescription className="text-white/80">
+                Define los detalles y selecciona a los miembros.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto pr-2 space-y-6 py-4">
+            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Nombre del Grupo</Label>
-                <Input id="name" name="name" placeholder="Ej. Jóvenes Confirmación - Sábados" required disabled={isSubmitting} />
+                <Label htmlFor="name" className="text-slate-700 font-bold">Nombre del Grupo</Label>
+                <Input id="name" name="name" placeholder="Ej. Confirmación Jóvenes - Turno Tarde" required disabled={isSubmitting} className="h-11 rounded-xl bg-slate-50 border-slate-200" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="attendanceDay">Día y Horario</Label>
+                  <Label htmlFor="attendanceDay" className="text-slate-700 font-bold">Día y Horario</Label>
                   <Select name="attendanceDay" defaultValue="SABADO" disabled={isSubmitting}>
-                    <SelectTrigger className="bg-white">
+                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200">
                       <SelectValue placeholder="Día" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl">
                       <SelectItem value="SABADO">Sábados (15:30 - 18:30)</SelectItem>
                       <SelectItem value="DOMINGO">Domingos (08:00 - 11:00)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="catechesisYear">Año</Label>
+                  <Label htmlFor="catechesisYear" className="text-slate-700 font-bold">Año</Label>
                   <Select name="catechesisYear" defaultValue="PRIMER_AÑO" disabled={isSubmitting}>
-                    <SelectTrigger className="bg-white">
+                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200">
                       <SelectValue placeholder="Año" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl">
                       <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
                       <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
                       <SelectItem value="ADULTOS">Adultos</SelectItem>
@@ -353,21 +350,26 @@ export default function GroupsAdminPage() {
               </div>
               
               <div className="space-y-3">
-                <Label className="text-slate-900 font-bold">Catequistas Seleccionados ({selectedCatequistaIds.length})</Label>
-                <div className="flex flex-wrap gap-2 p-3 border rounded-xl bg-slate-50 min-h-[50px] transition-all">
+                <Label className="text-slate-900 font-bold flex items-center justify-between">
+                  <span>Equipo Seleccionado</span>
+                  <Badge variant="secondary" className="bg-primary/10 text-primary border-none">{selectedCatequistaIds.length}</Badge>
+                </Label>
+                <div className="flex flex-wrap gap-2 p-4 border rounded-2xl bg-slate-50 min-h-[60px] border-dashed border-slate-200">
                   {selectedCatequistaIds.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic">Haz clic en los miembros de la lista inferior</span>
+                    <span className="text-xs text-slate-400 italic flex items-center gap-2">
+                      <Users className="h-3 w-3" /> Haz clic en los catequistas de la lista inferior para agregarlos.
+                    </span>
                   ) : (
                     selectedCatequistaIds.map(id => {
                       const u = getCatequistaInfo(id)
                       return (
-                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1 flex items-center bg-white border-primary/20 text-primary shadow-sm animate-in zoom-in-95">
+                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1.5 flex items-center bg-white border-primary/20 text-slate-700 shadow-sm animate-in zoom-in-95 rounded-lg">
                           <Avatar className="h-5 w-5">
                             <AvatarImage src={u?.photoUrl || undefined} />
-                            <AvatarFallback className="text-[8px] bg-primary/10"><User className="h-2 w-2"/></AvatarFallback>
+                            <AvatarFallback className="text-[8px] bg-primary/10 text-primary"><User className="h-2 w-2"/></AvatarFallback>
                           </Avatar>
                           <span className="text-[10px] font-bold">{u?.firstName} {u?.lastName[0]}.</span>
-                          <X className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" onClick={() => handleToggleCatequista(id)} />
+                          <X className="h-3 w-3 cursor-pointer text-slate-400 hover:text-destructive transition-colors" onClick={() => handleToggleCatequista(id)} />
                         </Badge>
                       )
                     })
@@ -377,39 +379,42 @@ export default function GroupsAdminPage() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-slate-900 font-bold">Buscar y Agregar Miembros</Label>
+                  <Label className="text-slate-900 font-bold">Buscar Catequistas</Label>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     placeholder="Escribir nombre o correo..." 
-                    className="pl-9 h-9 text-sm bg-white"
+                    className="pl-9 h-10 rounded-xl bg-white border-slate-200"
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
                   />
                 </div>
-                <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
+                <ScrollArea className="h-[220px] border rounded-2xl p-2 bg-white">
                   <div className="space-y-1">
-                    {filteredUsers.map((u: any) => {
+                    {filteredUsersForDialog.map((u: any) => {
                       const isSelected = selectedCatequistaIds.includes(u.id)
                       return (
                         <div 
                           key={u.id} 
-                          className={`flex items-center justify-between p-2.5 rounded-lg transition-all cursor-pointer group ${
-                            isSelected ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-50 border border-transparent'
-                          }`}
+                          className={cn(
+                            "flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer group",
+                            isSelected 
+                              ? "bg-primary text-white shadow-lg" 
+                              : "hover:bg-slate-50 border border-transparent"
+                          )}
                           onClick={() => handleToggleCatequista(u.id)}
                         >
                           <div className="flex items-center gap-3">
-                            <Avatar className={`h-8 w-8 ${isSelected ? 'border border-white/30' : ''}`}>
+                            <Avatar className={cn("h-9 w-9", isSelected ? "border border-white/30" : "border border-slate-100")}>
                               <AvatarImage src={u.photoUrl || undefined} />
-                              <AvatarFallback className={`text-[10px] ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>
-                                <User className="h-3.5 w-3.5" />
+                              <AvatarFallback className={cn("text-[10px]", isSelected ? "bg-white/20 text-white" : "bg-primary/10 text-primary")}>
+                                <User className="h-4 w-4" />
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex flex-col">
-                              <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
-                              <span className={`text-[10px] ${isSelected ? 'text-white/70' : 'text-muted-foreground'}`}>{u.email}</span>
+                              <span className="text-sm font-bold leading-tight">{u.firstName} {u.lastName}</span>
+                              <span className={cn("text-[10px]", isSelected ? "text-white/70" : "text-muted-foreground")}>{u.email}</span>
                             </div>
                           </div>
                           {isSelected && <Check className="h-4 w-4 text-white" />}
@@ -420,50 +425,53 @@ export default function GroupsAdminPage() {
                 </ScrollArea>
               </div>
             </div>
-            <DialogFooter className="pt-4 mt-auto">
-              <Button type="submit" disabled={isSubmitting} className="w-full h-11 bg-primary hover:bg-primary/90 text-white shadow-lg">
-                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Grupo de Trabajo"}
+            <div className="p-8 bg-slate-50 border-t flex flex-col gap-3">
+              <Button type="submit" disabled={isSubmitting} className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold shadow-lg shadow-primary/20">
+                {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Crear Grupo de Trabajo"}
               </Button>
-            </DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setIsCreateDialogOpen(false)} disabled={isSubmitting} className="h-11 rounded-xl text-slate-500 font-semibold hover:bg-slate-100">
+                Cancelar
+              </Button>
+            </div>
           </form>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh]">
-          <form onSubmit={handleEditGroup} className="flex flex-col h-full overflow-hidden">
-            <DialogHeader>
-              <DialogTitle>Editar Grupo</DialogTitle>
-              <DialogDescription>
-                Actualiza el nombre, el horario o los integrantes.
+        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 border-none shadow-2xl rounded-3xl overflow-hidden">
+          <form onSubmit={handleEditGroup} className="flex flex-col h-full">
+            <DialogHeader className="p-8 bg-primary text-white">
+              <DialogTitle className="text-2xl font-headline font-bold">Editar Grupo</DialogTitle>
+              <DialogDescription className="text-white/80">
+                Actualiza los detalles o los miembros del equipo.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto pr-2 space-y-6 py-4">
+            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Nombre del Grupo</Label>
-                <Input id="edit-name" name="name" defaultValue={selectedGroup?.name} required disabled={isSubmitting} />
+                <Label htmlFor="edit-name" className="text-slate-700 font-bold">Nombre del Grupo</Label>
+                <Input id="edit-name" name="name" defaultValue={selectedGroup?.name} required disabled={isSubmitting} className="h-11 rounded-xl bg-slate-50 border-slate-200" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-attendanceDay">Día y Horario</Label>
+                  <Label htmlFor="edit-attendanceDay" className="text-slate-700 font-bold">Día y Horario</Label>
                   <Select name="attendanceDay" defaultValue={selectedGroup?.attendanceDay || "SABADO"} disabled={isSubmitting}>
-                    <SelectTrigger className="bg-white">
+                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200">
                       <SelectValue placeholder="Día" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl">
                       <SelectItem value="SABADO">Sábados (15:30 - 18:30)</SelectItem>
                       <SelectItem value="DOMINGO">Domingos (08:00 - 11:00)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-catechesisYear">Año</Label>
+                  <Label htmlFor="edit-catechesisYear" className="text-slate-700 font-bold">Año</Label>
                   <Select name="catechesisYear" defaultValue={selectedGroup?.catechesisYear || "PRIMER_AÑO"} disabled={isSubmitting}>
-                    <SelectTrigger className="bg-white">
+                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200">
                       <SelectValue placeholder="Año" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl">
                       <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
                       <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
                       <SelectItem value="ADULTOS">Adultos</SelectItem>
@@ -473,21 +481,24 @@ export default function GroupsAdminPage() {
               </div>
               
               <div className="space-y-3">
-                <Label className="text-slate-900 font-bold">Catequistas Seleccionados ({selectedCatequistaIds.length})</Label>
-                <div className="flex flex-wrap gap-2 p-3 border rounded-xl bg-slate-50 min-h-[50px]">
+                <Label className="text-slate-900 font-bold flex items-center justify-between">
+                  <span>Equipo Actual</span>
+                  <Badge variant="secondary" className="bg-primary/10 text-primary border-none">{selectedCatequistaIds.length}</Badge>
+                </Label>
+                <div className="flex flex-wrap gap-2 p-4 border rounded-2xl bg-slate-50 min-h-[60px] border-dashed border-slate-200">
                   {selectedCatequistaIds.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic">No hay miembros seleccionados</span>
+                    <span className="text-xs text-slate-400 italic">No hay miembros seleccionados</span>
                   ) : (
                     selectedCatequistaIds.map(id => {
                       const u = getCatequistaInfo(id)
                       return (
-                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1 flex items-center bg-white border-primary/20 text-primary shadow-sm">
+                        <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-1.5 flex items-center bg-white border-primary/20 text-slate-700 shadow-sm rounded-lg">
                           <Avatar className="h-5 w-5">
                             <AvatarImage src={u?.photoUrl || undefined} />
-                            <AvatarFallback className="text-[8px] bg-primary/10"><User className="h-2 w-2"/></AvatarFallback>
+                            <AvatarFallback className="text-[8px] bg-primary/10 text-primary"><User className="h-2 w-2"/></AvatarFallback>
                           </Avatar>
                           <span className="text-[10px] font-bold">{u?.firstName} {u?.lastName[0]}.</span>
-                          <X className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" onClick={() => handleToggleCatequista(id)} />
+                          <X className="h-3 w-3 cursor-pointer text-slate-400 hover:text-destructive transition-colors" onClick={() => handleToggleCatequista(id)} />
                         </Badge>
                       )
                     })
@@ -497,39 +508,42 @@ export default function GroupsAdminPage() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-slate-900 font-bold">Buscar y Modificar Miembros</Label>
+                  <Label className="text-slate-900 font-bold">Modificar Miembros</Label>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     placeholder="Escribir nombre o correo..." 
-                    className="pl-9 h-9 text-sm bg-white"
+                    className="pl-9 h-10 rounded-xl bg-white border-slate-200"
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
                   />
                 </div>
-                <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
+                <ScrollArea className="h-[220px] border rounded-2xl p-2 bg-white">
                   <div className="space-y-1">
-                    {filteredUsers.map((u: any) => {
+                    {filteredUsersForDialog.map((u: any) => {
                       const isSelected = selectedCatequistaIds.includes(u.id)
                       return (
                         <div 
                           key={u.id} 
-                          className={`flex items-center justify-between p-2.5 rounded-lg transition-all cursor-pointer group ${
-                            isSelected ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-50 border border-transparent'
-                          }`}
+                          className={cn(
+                            "flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer group",
+                            isSelected 
+                              ? "bg-primary text-white shadow-lg" 
+                              : "hover:bg-slate-50 border border-transparent"
+                          )}
                           onClick={() => handleToggleCatequista(u.id)}
                         >
                           <div className="flex items-center gap-3">
-                            <Avatar className={`h-8 w-8 ${isSelected ? 'border border-white/30' : ''}`}>
+                            <Avatar className={cn("h-9 w-9", isSelected ? "border border-white/30" : "border border-slate-100")}>
                               <AvatarImage src={u.photoUrl || undefined} />
-                              <AvatarFallback className={`text-[10px] ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>
-                                <User className="h-3.5 w-3.5" />
+                              <AvatarFallback className={cn("text-[10px]", isSelected ? "bg-white/20 text-white" : "bg-primary/10 text-primary")}>
+                                <User className="h-4 w-4" />
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex flex-col">
-                              <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
-                              <span className={`text-[10px] ${isSelected ? 'text-white/70' : 'text-muted-foreground'}`}>{u.email}</span>
+                              <span className="text-sm font-bold leading-tight">{u.firstName} {u.lastName}</span>
+                              <span className={cn("text-[10px]", isSelected ? "text-white/70" : "text-muted-foreground")}>{u.email}</span>
                             </div>
                           </div>
                           {isSelected && <Check className="h-4 w-4 text-white" />}
@@ -540,34 +554,37 @@ export default function GroupsAdminPage() {
                 </ScrollArea>
               </div>
             </div>
-            <DialogFooter className="pt-4 mt-auto">
-              <Button type="submit" disabled={isSubmitting} className="w-full h-11 shadow-lg">
-                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
+            <div className="p-8 bg-slate-50 border-t flex flex-col gap-3">
+              <Button type="submit" disabled={isSubmitting} className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold shadow-lg shadow-primary/20">
+                {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Guardar Cambios"}
               </Button>
-            </DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)} disabled={isSubmitting} className="h-11 rounded-xl text-slate-500 font-semibold hover:bg-slate-100">
+                Cerrar
+              </Button>
+            </div>
           </form>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl p-8 border-none shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción eliminará el grupo <strong>{selectedGroup?.name}</strong>. Los catequistas asignados no serán borrados del sistema.
+            <AlertDialogTitle className="text-2xl font-headline font-bold text-slate-900">¿Eliminar este grupo?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-500 text-base">
+              Esta acción eliminará el grupo <strong className="text-primary font-bold">{selectedGroup?.name}</strong>. Los catequistas asignados no serán borrados del sistema.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="mt-8 gap-3">
+            <AlertDialogCancel disabled={isSubmitting} className="h-12 rounded-xl border-slate-200 font-semibold text-slate-500">Cancelar</AlertDialogCancel>
             <AlertDialogAction 
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-12 rounded-xl font-bold shadow-lg shadow-destructive/20" 
               onClick={(e) => {
                 e.preventDefault()
                 handleDeleteGroup()
               }}
               disabled={isSubmitting}
             >
-              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar Definitivamente"}
+              {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Eliminar Definitivamente"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
