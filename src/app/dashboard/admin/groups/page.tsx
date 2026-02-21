@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
-import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Check } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -33,7 +34,6 @@ export default function GroupsAdminPage() {
   const { toast } = useToast()
   const db = useFirestore()
 
-  // Consultas a Firestore
   const usersQuery = useMemo(() => db ? collection(db, "users") : null, [db])
   const groupsQuery = useMemo(() => db ? collection(db, "groups") : null, [db])
 
@@ -61,6 +61,9 @@ export default function GroupsAdminPage() {
     setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     const name = formData.get("name") as string
+    const attendanceDay = formData.get("attendanceDay") as string
+    
+    const schedule = attendanceDay === "SABADO" ? "15:30 a 18:30 hs" : "08:00 a 11:00 hs"
 
     const groupId = `group_${Date.now()}`
     const groupRef = doc(db, "groups", groupId)
@@ -68,6 +71,8 @@ export default function GroupsAdminPage() {
     const groupData = {
       name,
       catequistaIds: selectedCatequistaIds,
+      attendanceDay,
+      schedule,
       createdAt: serverTimestamp(),
     }
 
@@ -99,11 +104,15 @@ export default function GroupsAdminPage() {
     setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     const name = formData.get("name") as string
+    const attendanceDay = formData.get("attendanceDay") as string
+    const schedule = attendanceDay === "SABADO" ? "15:30 a 18:30 hs" : "08:00 a 11:00 hs"
 
     const groupRef = doc(db, "groups", selectedGroup.id)
     const groupData = {
       name,
       catequistaIds: selectedCatequistaIds,
+      attendanceDay,
+      schedule
     }
 
     updateDoc(groupRef, groupData)
@@ -151,7 +160,7 @@ export default function GroupsAdminPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Grupos de Catequesis</h1>
-          <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo.</p>
+          <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo por turnos.</p>
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
@@ -170,13 +179,26 @@ export default function GroupsAdminPage() {
               <DialogHeader>
                 <DialogTitle>Nuevo Grupo de Catequesis</DialogTitle>
                 <DialogDescription>
-                  Define un nombre y selecciona a los catequistas que formarán este grupo.
+                  Define un nombre, el horario y selecciona a los catequistas miembros.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-6 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nombre del Grupo</Label>
                   <Input id="name" name="name" placeholder="Ej. Jóvenes Confirmación - Sábados" required disabled={isSubmitting} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="attendanceDay">Día y Horario de Catequesis</Label>
+                  <Select name="attendanceDay" defaultValue="SABADO" disabled={isSubmitting}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Seleccione día" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SABADO">Sábados (15:30 a 18:30 hs)</SelectItem>
+                      <SelectItem value="DOMINGO">Domingos (08:00 a 11:00 hs)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div className="space-y-3">
@@ -196,7 +218,7 @@ export default function GroupsAdminPage() {
                           <Avatar className="h-7 w-7">
                             <AvatarImage src={u.photoUrl || undefined} />
                             <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                              {u.firstName[0]}{u.lastName[0]}
+                              {u.firstName?.[0] || '?'}{u.lastName?.[0] || ''}
                             </AvatarFallback>
                           </Avatar>
                           <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
@@ -243,8 +265,8 @@ export default function GroupsAdminPage() {
               <TableHeader>
                 <TableRow className="bg-slate-50/50">
                   <TableHead className="font-bold">Nombre del Grupo</TableHead>
+                  <TableHead className="font-bold">Horario</TableHead>
                   <TableHead className="font-bold">Miembros</TableHead>
-                  <TableHead className="font-bold">Fecha Creación</TableHead>
                   <TableHead className="text-right font-bold">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -257,6 +279,18 @@ export default function GroupsAdminPage() {
                           <Users className="h-4 w-4" />
                         </div>
                         {group.name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                          <Calendar className="h-3 w-3 text-primary" />
+                          {group.attendanceDay === "SABADO" ? "Sábados" : "Domingos"}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {group.schedule}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -278,9 +312,6 @@ export default function GroupsAdminPage() {
                           </div>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {group.createdAt?.toDate ? group.createdAt.toDate().toLocaleDateString() : '---'}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -329,13 +360,26 @@ export default function GroupsAdminPage() {
             <DialogHeader>
               <DialogTitle>Editar Grupo</DialogTitle>
               <DialogDescription>
-                Actualiza el nombre del grupo o sus integrantes.
+                Actualiza el nombre, el horario o los integrantes del grupo.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-6 py-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Nombre del Grupo</Label>
                 <Input id="edit-name" name="name" defaultValue={selectedGroup?.name} required disabled={isSubmitting} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-attendanceDay">Día y Horario de Catequesis</Label>
+                <Select name="attendanceDay" defaultValue={selectedGroup?.attendanceDay || "SABADO"} disabled={isSubmitting}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Seleccione día" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SABADO">Sábados (15:30 a 18:30 hs)</SelectItem>
+                    <SelectItem value="DOMINGO">Domingos (08:00 a 11:00 hs)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-3">
@@ -355,7 +399,7 @@ export default function GroupsAdminPage() {
                         <Avatar className="h-7 w-7">
                           <AvatarImage src={u.photoUrl || undefined} />
                           <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                            {u.firstName[0]}{u.lastName[0]}
+                            {u.firstName?.[0] || '?'}{u.lastName?.[0] || ''}
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
