@@ -39,10 +39,14 @@ function formatDate(val: any): string {
   
   // Si es un número (formato serial de Excel)
   if (typeof val === 'number') {
-    const date = XLSX.SSF.parse_date_code(val);
-    const month = String(date.m).padStart(2, '0');
-    const day = String(date.d).padStart(2, '0');
-    return `${date.y}-${month}-${day}`;
+    try {
+      const date = XLSX.SSF.parse_date_code(val);
+      const month = String(date.m).padStart(2, '0');
+      const day = String(date.d).padStart(2, '0');
+      return `${date.y}-${month}-${day}`;
+    } catch (e) {
+      return String(val);
+    }
   }
   
   // Si es un string, intentamos limpiar espacios
@@ -51,9 +55,15 @@ function formatDate(val: any): string {
 
 async function importExcel() {
   const scriptsDir = path.join(process.cwd(), 'scripts');
+  
+  if (!fs.existsSync(scriptsDir)) {
+    console.error("❌ La carpeta /scripts no existe en la raíz del proyecto.");
+    return;
+  }
+
   // Filtramos archivos que empiecen con 'cedula' y terminen en excel
   const files = fs.readdirSync(scriptsDir).filter(f => 
-    (f.startsWith('cedula') && (f.endsWith('.xlsx') || f.endsWith('.xls')))
+    (f.toLowerCase().startsWith('cedula') && (f.endsWith('.xlsx') || f.endsWith('.xls')))
   ).sort((a, b) => {
     // Ordenamos numéricamente para procesar en orden: cedula1, cedula2...
     const numA = parseInt(a.replace(/[^0-9]/g, '')) || 0;
@@ -62,14 +72,16 @@ async function importExcel() {
   });
 
   if (files.length === 0) {
-    console.log("❌ No se encontraron archivos Excel (cedulaX.xlsx) en la carpeta /scripts");
+    console.log("❌ No se encontraron archivos Excel (cedula1.xlsx, etc.) en la carpeta /scripts");
+    console.log("💡 Instrucciones: Sube tus 17 archivos a la carpeta 'scripts' y vuelve a ejecutar.");
     return;
   }
 
   console.log(`📂 Encontrados ${files.length} archivos para procesar: ${files.join(', ')}`);
-  console.log("🚀 Iniciando proceso de importación masiva...");
+  console.log("🚀 Iniciando proceso de importación masiva (Bloques de 500)...");
 
   let totalProcessed = 0;
+  const startTime = Date.now();
 
   for (const file of files) {
     const filePath = path.join(scriptsDir, file);
@@ -90,7 +102,7 @@ async function importExcel() {
         // Mapeo exacto según los campos del usuario
         const cedulaNumber = String(row.NUMERO_CED || "").trim();
         
-        if (!cedulaNumber) continue;
+        if (!cedulaNumber || cedulaNumber === "undefined" || cedulaNumber === "") continue;
 
         const docRef = doc(db, 'cedulas', cedulaNumber);
         
@@ -118,25 +130,28 @@ async function importExcel() {
         if (count % 500 === 0) {
           await batch.commit();
           batch = writeBatch(db);
-          process.stdout.write(`\r🚀 Progreso de ${file}: ${count} / ${data.length} | Total global: ${totalProcessed}`);
+          const elapsed = (Date.now() - startTime) / 1000;
+          process.stdout.write(`\r🚀 Progreso Global: ${totalProcessed} registros | Tiempo: ${elapsed.toFixed(1)}s`);
         }
       }
 
       // Subir el remanente del archivo actual
       await batch.commit();
-      console.log(`\n🎉 Finalizado archivo ${file}. Subidos: ${count} registros.`);
+      console.log(`\n🎉 Finalizado archivo ${file}. Registros subidos: ${count}.`);
 
     } catch (error) {
-      console.error(`\n❌ Error procesando el archivo ${file}:`, error);
+      console.error(`\n❌ Error crítico procesando el archivo ${file}:`, error);
     }
   }
 
+  const totalTime = (Date.now() - startTime) / 1000;
   console.log(`\n✨ PROCESO COMPLETO ✨`);
-  console.log(`📊 Total global de registros procesados: ${totalProcessed}`);
+  console.log(`📊 Total global de registros importados: ${totalProcessed}`);
+  console.log(`⏱️ Tiempo total de ejecución: ${totalTime.toFixed(1)} segundos`);
   process.exit(0);
 }
 
 importExcel().catch(err => {
-  console.error("\n💥 Error crítico durante la importación:", err);
+  console.error("\n💥 Error fatal durante la importación:", err);
   process.exit(1);
 });
