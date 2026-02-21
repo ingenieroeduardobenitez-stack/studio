@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
-import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church } from "lucide-react"
+import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -73,8 +73,20 @@ export default function TreasuryPage() {
     setIsPaymentDialogOpen(true)
   }
 
+  const pendingBalance = selectedReg ? (selectedReg.registrationCost || 0) - (selectedReg.amountPaid || 0) : 0
+  const isOverpaid = paymentAmount > pendingBalance
+
   const handleProcessPayment = async () => {
     if (!db || !selectedReg) return
+    if (isOverpaid) {
+      toast({
+        variant: "destructive",
+        title: "Monto excedido",
+        description: `No puedes cobrar más del saldo pendiente (${pendingBalance.toLocaleString()} Gs).`
+      })
+      return
+    }
+
     const newPaid = (selectedReg.amountPaid || 0) + paymentAmount
     const total = selectedReg.registrationCost || 0
     const status = newPaid >= total ? "PAGADO" : "PARCIAL"
@@ -239,23 +251,32 @@ export default function TreasuryPage() {
               <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase"><span>Total Deuda</span><span>Pendiente</span></div>
               <div className="flex justify-between text-lg font-bold">
                 <span>{selectedReg?.registrationCost?.toLocaleString()} Gs.</span>
-                <span className="text-red-500">{((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString()} Gs.</span>
+                <span className="text-red-500">{pendingBalance.toLocaleString()} Gs.</span>
               </div>
             </div>
             <div className="space-y-2">
               <Label className="font-bold">Monto a cobrar ahora</Label>
               <Input 
                 type="number" 
-                className="h-12 text-xl font-bold rounded-xl" 
+                className={cn(
+                  "h-12 text-xl font-bold rounded-xl",
+                  isOverpaid ? "border-red-500 bg-red-50" : ""
+                )}
                 value={paymentAmount} 
                 onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                max={pendingBalance}
                 autoFocus
               />
+              {isOverpaid && (
+                <p className="text-[10px] text-red-500 font-bold flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> No puede superar el saldo pendiente.
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" className="flex-1" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
-            <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={handleProcessPayment} disabled={paymentAmount <= 0}>Confirmar Cobro</Button>
+            <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isOverpaid}>Confirmar Cobro</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

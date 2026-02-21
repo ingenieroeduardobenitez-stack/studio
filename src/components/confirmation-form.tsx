@@ -19,7 +19,8 @@ import {
   Camera,
   RefreshCcw,
   X,
-  Check
+  Check,
+  AlertTriangle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -127,7 +128,7 @@ export function ConfirmationForm() {
   })
 
   const catechesisYear = form.watch("catechesisYear")
-  const hasBaptism = form.watch("hasBaptism")
+  const initialPayment = form.watch("initialPayment")
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -166,13 +167,24 @@ export function ConfirmationForm() {
     return costs?.juvenileCost || 35000
   }
 
+  const totalCost = calculateCost()
+  const isOverpaid = initialPayment > totalCost
+
   const onSubmit = async (values: FormValues) => {
+    if (isOverpaid) {
+      toast({
+        variant: "destructive",
+        title: "Monto inválido",
+        description: `El pago inicial no puede ser mayor al costo total (${totalCost.toLocaleString()} Gs).`
+      })
+      return
+    }
+
     setLoading(true)
     try {
       const regId = `conf_${Date.now()}`
       const regRef = doc(db!, "confirmations", regId)
       
-      const totalCost = calculateCost()
       const amountPaid = values.initialPayment
       const paymentStatus = amountPaid >= totalCost ? "PAGADO" : amountPaid > 0 ? "PARCIAL" : "PENDIENTE"
 
@@ -260,7 +272,21 @@ export function ConfirmationForm() {
                     <FormItem><FormLabel className="font-semibold">Día *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Día" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábado</SelectItem><SelectItem value="DOMINGO">Domingo</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="initialPayment" render={({ field }) => (
-                    <FormItem><FormLabel className="font-semibold">Monto a abonar (Gs)</FormLabel><FormControl><Input type="number" {...field} className="h-12 rounded-xl bg-green-50 border-green-200 font-bold" /></FormControl><FormDescription>Puedes pagar una parte o el total.</FormDescription><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel className="font-semibold">Monto a abonar (Gs)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          {...field} 
+                          max={totalCost}
+                          className={`h-12 rounded-xl font-bold border-2 transition-colors ${isOverpaid ? 'bg-red-50 border-red-300 text-red-900' : 'bg-green-50 border-green-200 text-slate-900'}`} 
+                        />
+                      </FormControl>
+                      <FormDescription className={isOverpaid ? "text-red-500 font-bold flex items-center gap-1" : ""}>
+                        {isOverpaid ? <><AlertTriangle className="h-3 w-3" /> El monto excede el total de {totalCost.toLocaleString()} Gs.</> : "Puedes pagar una parte o el total."}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                 </div>
               </div>
@@ -283,9 +309,9 @@ export function ConfirmationForm() {
             <CardFooter className="bg-slate-50 p-10 flex flex-col md:flex-row items-center justify-between gap-6 border-t">
               <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
                 <div className="h-12 w-12 bg-accent/10 rounded-xl flex items-center justify-center"><CreditCard className="h-6 w-6 text-accent" /></div>
-                <div><p className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Costo Total</p><p className="text-xl font-headline font-bold text-primary">{calculateCost().toLocaleString('es-PY')} Gs.</p></div>
+                <div><p className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Costo Total</p><p className="text-xl font-headline font-bold text-primary">{totalCost.toLocaleString('es-PY')} Gs.</p></div>
               </div>
-              <Button type="submit" disabled={loading} className="h-12 bg-primary hover:bg-primary/90 text-white rounded-xl px-12 font-bold shadow-lg w-full md:w-auto">
+              <Button type="submit" disabled={loading || isOverpaid} className="h-12 bg-primary hover:bg-primary/90 text-white rounded-xl px-12 font-bold shadow-lg w-full md:w-auto">
                 {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <span className="flex items-center gap-2">Finalizar Inscripción <ArrowRight className="h-5 w-5" /></span>}
               </Button>
             </CardFooter>
