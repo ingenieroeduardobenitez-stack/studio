@@ -11,7 +11,8 @@ import {
   Users,
   ClipboardCheck,
   ListChecks,
-  Shapes
+  Shapes,
+  ChevronRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -33,6 +34,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { useUser, useDoc, useFirestore } from "@/firebase"
 import { doc } from "firebase/firestore"
 import { useMemo, useState, useEffect } from "react"
@@ -130,35 +136,42 @@ export function DashboardSidebar() {
         </SidebarGroup>
 
         {isAdmin && (
-          <SidebarGroup className="mt-4">
-            <SidebarGroupLabel className="px-2 text-slate-400 font-semibold text-[10px] uppercase tracking-widest mb-2">
-              Administración
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={pathname === item.href}
-                      tooltip={item.name}
-                      className={cn(
-                        "transition-all duration-200 h-10 px-3",
-                        pathname === item.href 
-                          ? "bg-primary text-white hover:bg-primary/90 shadow-md" 
-                          : "text-slate-600 hover:bg-slate-100 hover:text-primary"
-                    )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className={cn("h-4 w-4 shrink-0", pathname === item.href ? "text-white" : "text-slate-500")} />
-                        <span>{item.name}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <Collapsible asChild defaultOpen className="group/collapsible">
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center justify-between text-slate-400 hover:text-primary transition-colors cursor-pointer group-data-[collapsible=icon]:hidden">
+                  <span className="text-[10px] uppercase tracking-widest font-semibold">Administración</span>
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {adminItems.map((item) => (
+                      <SidebarMenuItem key={item.name}>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={pathname === item.href}
+                          tooltip={item.name}
+                          className={cn(
+                            "transition-all duration-200 h-10 px-3",
+                            pathname === item.href 
+                              ? "bg-primary text-white hover:bg-primary/90 shadow-md" 
+                              : "text-slate-600 hover:bg-slate-100 hover:text-primary"
+                        )}
+                        >
+                          <Link href={item.href}>
+                            <item.icon className={cn("h-4 w-4 shrink-0", pathname === item.href ? "text-white" : "text-slate-500")} />
+                            <span>{item.name}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
         )}
       </SidebarContent>
 

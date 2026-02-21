@@ -356,7 +356,7 @@ export default function GroupsAdminPage() {
                 <Label className="text-slate-900 font-bold">Catequistas Seleccionados ({selectedCatequistaIds.length})</Label>
                 <div className="flex flex-wrap gap-2 p-3 border rounded-xl bg-slate-50 min-h-[50px] transition-all">
                   {selectedCatequistaIds.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic">Haz clic en los catequistas de la lista inferior</span>
+                    <span className="text-xs text-muted-foreground italic">Haz clic en los miembros de la lista inferior</span>
                   ) : (
                     selectedCatequistaIds.map(id => {
                       const u = getCatequistaInfo(id)
@@ -416,9 +416,6 @@ export default function GroupsAdminPage() {
                         </div>
                       )
                     })}
-                    {filteredUsers.length === 0 && (
-                      <p className="text-xs text-center text-muted-foreground py-10 italic">No se encontraron resultados.</p>
-                    )}
                   </div>
                 </ScrollArea>
               </div>
