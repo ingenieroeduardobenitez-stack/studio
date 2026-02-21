@@ -1,4 +1,3 @@
-
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,7 +17,7 @@ export default function DashboardLayout({
             <div className="flex items-center gap-4">
               <SidebarTrigger className="text-primary" />
               <div className="h-6 w-px bg-border hidden sm:block"></div>
-              <h2 className="text-sm font-semibold text-slate-500 hidden sm:block uppercase tracking-wider">Parroquia Perpetuo Socorro</h2>
+              <h2 className="text-sm font-semibold text-slate-500 hidden sm:block uppercase tracking-wider">SISTEMA DE GESTIÓN CONFIRMACIÓN JUVENIL</h2>
             </div>
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" className="relative">
