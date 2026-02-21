@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, User, X, Check } from "lucide-react"
+import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, User, X, Check } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -301,12 +301,13 @@ export default function GroupsAdminPage() {
       </Card>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[95vh] p-0 overflow-hidden">
           <form onSubmit={handleCreateGroup} className="flex flex-col h-full">
-            <DialogHeader className="p-6 bg-primary text-white">
+            <DialogHeader className="p-6 bg-primary text-white shrink-0">
               <DialogTitle>Nuevo Grupo de Catequesis</DialogTitle>
               <DialogDescription className="text-white/80">Crea un equipo de trabajo para este año.</DialogDescription>
             </DialogHeader>
+            
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="name">Nombre del Grupo</Label>
@@ -405,23 +406,25 @@ export default function GroupsAdminPage() {
                 </div>
               </div>
             </div>
-            <div className="p-6 bg-slate-50 border-t flex gap-3">
+
+            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex gap-3 flex-row items-center">
+              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="flex-1">Cancelar</Button>
               <Button type="submit" disabled={isSubmitting} className="flex-1">
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Grupo"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancelar</Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[95vh] p-0 overflow-hidden">
           <form onSubmit={handleEditGroup} className="flex flex-col h-full">
-            <DialogHeader className="p-6 bg-primary text-white">
+            <DialogHeader className="p-6 bg-primary text-white shrink-0">
               <DialogTitle>Editar Grupo</DialogTitle>
               <DialogDescription className="text-white/80">Actualiza los detalles o miembros.</DialogDescription>
             </DialogHeader>
+            
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Nombre del Grupo</Label>
@@ -516,12 +519,13 @@ export default function GroupsAdminPage() {
                 </div>
               </div>
             </div>
-            <div className="p-6 bg-slate-50 border-t flex gap-3">
+
+            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex gap-3 flex-row items-center">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1">Cerrar</Button>
               <Button type="submit" disabled={isSubmitting} className="flex-1">
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cerrar</Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
