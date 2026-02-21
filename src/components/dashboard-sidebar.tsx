@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useUser, useDoc, useFirestore } from "@/firebase"
 import { doc } from "firebase/firestore"
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { signOut } from "firebase/auth"
 import { useAuth } from "@/firebase/provider"
 import { useRouter } from "next/navigation"
@@ -59,10 +59,15 @@ export function DashboardSidebar() {
   const isCollapsed = state === "collapsed"
   const router = useRouter()
   const auth = useAuth()
+  const [mounted, setMounted] = useState(false)
   
   const { user } = useUser()
   const db = useFirestore()
   
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const userProfileRef = useMemo(() => {
     if (!db || !user?.uid) return null
     return doc(db, "users", user.uid)
@@ -77,7 +82,7 @@ export function DashboardSidebar() {
     }
   }
 
-  const displayName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "Cargando...")
+  const displayName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "Catequista")
   const isAdmin = profile?.role === "Administrador"
 
   return (
@@ -160,32 +165,44 @@ export function DashboardSidebar() {
       <SidebarFooter className="p-4 border-t border-slate-100">
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" className="w-full">
-                  <div className="flex items-center gap-3 w-full text-left overflow-hidden">
-                    <Avatar className="h-8 w-8 rounded-full shrink-0">
-                      <AvatarImage src={profile?.photoUrl || undefined} />
-                      <AvatarFallback className="bg-accent/20 text-accent">
-                        <User className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    {!isCollapsed && (
-                      <div className="flex flex-col truncate">
-                        <span className="text-sm font-bold text-slate-800">{displayName}</span>
-                        <span className="text-[10px] text-slate-500 uppercase tracking-tighter">{profile?.role || "Catequista"}</span>
-                      </div>
-                    )}
+            {mounted ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton size="lg" className="w-full">
+                    <div className="flex items-center gap-3 w-full text-left overflow-hidden">
+                      <Avatar className="h-8 w-8 rounded-full shrink-0">
+                        <AvatarImage src={profile?.photoUrl || undefined} />
+                        <AvatarFallback className="bg-accent/20 text-accent">
+                          <User className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      {!isCollapsed && (
+                        <div className="flex flex-col truncate">
+                          <span className="text-sm font-bold text-slate-800">{displayName}</span>
+                          <span className="text-[10px] text-slate-500 uppercase tracking-tighter">{profile?.role || "Catequista"}</span>
+                        </div>
+                      )}
+                    </div>
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" className="w-[--radix-dropdown-menu-trigger-width] mb-2 p-2">
+                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Cerrar Sesión</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-3 w-full px-2 py-2">
+                <div className="h-8 w-8 rounded-full bg-slate-100 animate-pulse shrink-0" />
+                {!isCollapsed && (
+                  <div className="flex flex-col gap-1 w-full">
+                    <div className="h-3 w-20 bg-slate-100 animate-pulse rounded" />
+                    <div className="h-2 w-12 bg-slate-100 animate-pulse rounded" />
                   </div>
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" className="w-[--radix-dropdown-menu-trigger-width] mb-2 p-2">
-                <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Cerrar Sesión</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                )}
+              </div>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
