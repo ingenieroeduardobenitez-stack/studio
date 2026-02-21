@@ -20,7 +20,8 @@ import {
   RefreshCcw,
   X,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Heart
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -48,19 +49,6 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
@@ -72,6 +60,8 @@ const formSchema = z.object({
   motherPhone: z.string().optional(),
   fatherName: z.string().optional(),
   fatherPhone: z.string().optional(),
+  tutorName: z.string().optional(),
+  tutorPhone: z.string().optional(),
   catechesisYear: z.enum(["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"], {
     required_error: "Debe seleccionar un año de catequesis",
   }),
@@ -91,13 +81,8 @@ type FormValues = z.infer<typeof formSchema>
 export function ConfirmationForm() {
   const [loading, setLoading] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [isCameraOpen, setIsCameraOpen] = useState(false)
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   
   const db = useFirestore()
   const { user } = useUser()
@@ -118,6 +103,8 @@ export function ConfirmationForm() {
       motherPhone: "",
       fatherName: "",
       fatherPhone: "",
+      tutorName: "",
+      tutorPhone: "",
       hasBaptism: false,
       hasFirstCommunion: false,
       baptismParish: "",
@@ -129,24 +116,6 @@ export function ConfirmationForm() {
 
   const catechesisYear = form.watch("catechesisYear")
   const initialPayment = form.watch("initialPayment")
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const startCamera = async () => {
-      if (isCameraOpen) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } });
-          setHasCameraPermission(true);
-          if (videoRef.current) videoRef.current.srcObject = stream;
-        } catch (error) {
-          setHasCameraPermission(false);
-          toast({ variant: 'destructive', title: 'Acceso a Cámara Denegado' });
-        }
-      }
-    };
-    startCamera();
-    return () => stream?.getTracks().forEach(track => track.stop());
-  }, [isCameraOpen, facingMode, toast]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -245,6 +214,7 @@ export function ConfirmationForm() {
                 </div>
               </div>
 
+              {/* SECCIÓN 1: DATOS PERSONALES */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><User className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3></div>
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -262,6 +232,45 @@ export function ConfirmationForm() {
 
               <Separator />
 
+              {/* SECCIÓN 2: DATOS DE PADRES / TUTOR */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4"><Users className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Padres / Encargado</h3></div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/30 space-y-4">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Información de la Madre</p>
+                    <FormField control={form.control} name="motherName" render={({ field }) => (
+                      <FormItem><FormLabel className="text-xs font-semibold">Nombre de la Madre</FormLabel><FormControl><Input placeholder="Nombre Completo" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
+                    )} />
+                    <FormField control={form.control} name="motherPhone" render={({ field }) => (
+                      <FormItem><FormLabel className="text-xs font-semibold">Teléfono Madre</FormLabel><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
+                    )} />
+                  </div>
+                  <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/30 space-y-4">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Información del Padre</p>
+                    <FormField control={form.control} name="fatherName" render={({ field }) => (
+                      <FormItem><FormLabel className="text-xs font-semibold">Nombre del Padre</FormLabel><FormControl><Input placeholder="Nombre Completo" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
+                    )} />
+                    <FormField control={form.control} name="fatherPhone" render={({ field }) => (
+                      <FormItem><FormLabel className="text-xs font-semibold">Teléfono Padre</FormLabel><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
+                    )} />
+                  </div>
+                  <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/30 space-y-4 md:col-span-2">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tutor / Encargado Especial</p>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <FormField control={form.control} name="tutorName" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs font-semibold">Nombre del Tutor</FormLabel><FormControl><Input placeholder="En caso de que no sean los padres" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
+                      )} />
+                      <FormField control={form.control} name="tutorPhone" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs font-semibold">Teléfono Tutor</FormLabel><FormControl><Input placeholder="Celular Encargado" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
+                      )} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* SECCIÓN 3: CATEGORÍA Y PAGO */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><BookOpen className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Categoría y Pago</h3></div>
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -293,14 +302,15 @@ export function ConfirmationForm() {
 
               <Separator />
 
+              {/* SECCIÓN 4: SACRAMENTOS PREVIOS */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><ShieldCheck className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Sacramentos Previos</h3></div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField control={form.control} name="hasBaptism" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="text-base font-bold">Bautismo</FormLabel></FormItem>
+                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel className="text-base font-bold">Bautismo</FormLabel></div></FormItem>
                   )} />
                   <FormField control={form.control} name="hasFirstCommunion" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="text-base font-bold">Primera Comunión</FormLabel></FormItem>
+                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel className="text-base font-bold">Primera Comunión</FormLabel></div></FormItem>
                   )} />
                 </div>
               </div>

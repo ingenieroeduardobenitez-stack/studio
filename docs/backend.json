@@ -56,6 +56,12 @@
         "phone": {
           "type": "string"
         },
+        "motherName": { "type": "string" },
+        "motherPhone": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "fatherPhone": { "type": "string" },
+        "tutorName": { "type": "string" },
+        "tutorPhone": { "type": "string" },
         "catechesisYear": {
           "type": "string",
           "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"]
@@ -76,12 +82,10 @@
           "enum": ["INSCRITO", "PENDIENTE", "OBSERVADO"]
         },
         "registrationCost": {
-          "type": "number",
-          "description": "Costo total asignado en el momento de la inscripción."
+          "type": "number"
         },
         "amountPaid": {
-          "type": "number",
-          "description": "Monto total abonado hasta la fecha."
+          "type": "number"
         },
         "paymentStatus": {
           "type": "string",
