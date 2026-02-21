@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -8,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import { Wallet, Search, Loader2, Printer, FileText, User, Church, AlertTriangle, CreditCard, CheckCircle2 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp } from "firebase/firestore"
@@ -376,7 +376,7 @@ export default function PaymentsManagementPage() {
               <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Sello y Firma - Catequesis</p>
             </div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 print:hidden">
             <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
             <Button className="flex-1 gap-2 rounded-xl shadow-lg" onClick={() => window.print()}>
               <Printer className="h-4 w-4" /> Imprimir Recibo
