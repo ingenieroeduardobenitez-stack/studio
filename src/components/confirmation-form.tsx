@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -16,7 +16,10 @@ import {
   ArrowRight,
   ShieldCheck,
   Users,
-  Camera
+  Camera,
+  RefreshCcw,
+  X,
+  Check
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -44,6 +47,20 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -74,7 +91,14 @@ type FormValues = z.infer<typeof formSchema>
 export function ConfirmationForm() {
   const [loading, setLoading] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  
   const db = useFirestore()
   const { user } = useUser()
   const { toast } = useToast()
@@ -104,6 +128,41 @@ export function ConfirmationForm() {
   const catechesisYear = form.watch("catechesisYear")
   const hasBaptism = form.watch("hasBaptism")
 
+  // Manejo de cámara
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+
+    const startCamera = async () => {
+      if (isCameraOpen) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: facingMode } 
+          });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Acceso a Cámara Denegado',
+            description: 'Por favor permite el acceso a la cámara en los ajustes de tu navegador.',
+          });
+        }
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isCameraOpen, facingMode, toast]);
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -115,6 +174,34 @@ export function ConfirmationForm() {
       }
       reader.readAsDataURL(file)
     }
+  }
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+
+      if (context) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        setPhotoPreview(imageData);
+        form.setValue("photoUrl", imageData);
+        setIsCameraOpen(false);
+        
+        toast({
+          title: "Foto capturada",
+          description: "La imagen se ha guardado correctamente en el formulario.",
+        });
+      }
+    }
+  }
+
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   }
 
   const calculateCost = () => {
@@ -183,15 +270,36 @@ export function ConfirmationForm() {
                       <User className="h-16 w-16" />
                     </AvatarFallback>
                   </Avatar>
-                  <Button 
-                    type="button"
-                    variant="secondary" 
-                    size="icon" 
-                    className="absolute bottom-0 right-0 rounded-full shadow-lg"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Camera className="h-4 w-4" />
-                  </Button>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        type="button"
+                        variant="secondary" 
+                        size="icon" 
+                        className="absolute bottom-0 right-0 rounded-full shadow-lg h-10 w-10 border-2 border-white"
+                      >
+                        <Camera className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" className="rounded-xl">
+                      <DropdownMenuItem className="py-2 cursor-pointer gap-2" onClick={() => fileInputRef.current?.click()}>
+                        <Users className="h-4 w-4" /> Subir archivo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="py-2 cursor-pointer gap-2" onClick={() => setIsCameraOpen(true)}>
+                        <Camera className="h-4 w-4" /> Tomar foto en vivo
+                      </DropdownMenuItem>
+                      {photoPreview && (
+                        <DropdownMenuItem className="py-2 cursor-pointer gap-2 text-destructive" onClick={() => {
+                          setPhotoPreview(null);
+                          form.setValue("photoUrl", "");
+                        }}>
+                          <X className="h-4 w-4" /> Quitar foto
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   <input 
                     type="file" 
                     ref={fileInputRef} 
@@ -512,6 +620,49 @@ export function ConfirmationForm() {
           </form>
         </Form>
       </Card>
+
+      {/* DIÁLOGO DE CÁMARA */}
+      <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
+        <DialogContent className="sm:max-w-md bg-white p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="p-4 bg-primary text-white">
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" /> Tomar Foto del Confirmando
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative aspect-square bg-black flex items-center justify-center">
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className="w-full h-full object-cover"
+            />
+            <canvas ref={canvasRef} className="hidden" />
+            
+            {!hasCameraPermission && hasCameraPermission !== null && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-black/80">
+                <Alert variant="destructive" className="max-w-xs">
+                  <AlertTitle>Sin acceso</AlertTitle>
+                  <AlertDescription>No se pudo acceder a la cámara. Revisa los permisos.</AlertDescription>
+                </Alert>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 flex flex-row items-center justify-between gap-4">
+            <Button variant="outline" size="icon" className="rounded-full h-12 w-12" onClick={toggleCamera}>
+              <RefreshCcw className="h-5 w-5" />
+            </Button>
+            <Button className="flex-1 h-12 rounded-xl bg-primary gap-2" onClick={takePhoto}>
+              <Check className="h-5 w-5" /> Capturar Foto
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full h-12 w-12" onClick={() => setIsCameraOpen(false)}>
+              <X className="h-5 w-5" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
