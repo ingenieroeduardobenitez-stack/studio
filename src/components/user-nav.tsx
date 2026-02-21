@@ -8,8 +8,9 @@ import { signOut } from "firebase/auth"
 import { useAuth } from "@/firebase/provider"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { LogOut, User as UserIcon } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { LogOut, User as UserIcon, UserCircle } from "lucide-react"
+import Link from "next/link"
 
 export function UserNav() {
   const router = useRouter()
@@ -45,20 +46,27 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 hover:bg-slate-100 p-1.5 rounded-full transition-all outline-none">
-          <Avatar className="h-10 w-10 border-2 border-slate-200 shadow-sm">
-            <AvatarImage src={profile?.photoUrl || undefined} />
+        <button className="flex items-center gap-4 hover:bg-slate-100 p-2 rounded-xl transition-all outline-none text-left">
+          <Avatar className="h-12 w-12 border-2 border-slate-100 shadow-sm">
+            <AvatarImage src={profile?.photoUrl || undefined} className="object-cover" />
             <AvatarFallback className="bg-primary/5 text-primary">
-              <UserIcon className="h-5 w-5" />
+              <UserIcon className="h-6 w-6" />
             </AvatarFallback>
           </Avatar>
-          <div className="hidden md:flex flex-col text-left mr-2">
-            <span className="text-sm font-bold text-slate-800 leading-none mb-1">{displayName}</span>
-            <span className="text-[10px] text-primary font-bold uppercase tracking-tight">{role}</span>
+          <div className="hidden md:flex flex-col justify-center">
+            <span className="text-base font-bold text-slate-900 leading-tight">{displayName}</span>
+            <span className="text-[11px] text-primary font-bold uppercase tracking-wider mt-0.5">{role}</span>
           </div>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[200px] mt-2 p-2 rounded-2xl shadow-xl border-none">
+      <DropdownMenuContent align="end" className="w-[220px] mt-2 p-2 rounded-2xl shadow-xl border-none">
+        <DropdownMenuItem asChild>
+          <Link href="/dashboard/profile" className="h-11 rounded-xl px-4 gap-3 cursor-pointer flex items-center">
+            <UserCircle className="h-5 w-5 text-slate-400" />
+            <span className="font-bold">Mi Perfil</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:bg-red-50 focus:text-destructive rounded-xl h-11 px-4 gap-3 cursor-pointer">
           <LogOut className="h-5 w-5" />
           <span className="font-bold">Cerrar Sesión</span>

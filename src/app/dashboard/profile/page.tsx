@@ -7,19 +7,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Camera, Shield, Mail, User, MapPin, Loader2, Save } from "lucide-react"
-import { useUser, useDoc, useFirestore } from "@/firebase"
+import { Camera, Shield, Mail, User, MapPin, Loader2, Save, Key, Lock } from "lucide-react"
+import { useUser, useDoc, useFirestore, useAuth } from "@/firebase"
 import { doc, updateDoc } from "firebase/firestore"
+import { updatePassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 
 export default function ProfilePage() {
   const { user } = useUser()
+  const auth = useAuth()
   const db = useFirestore()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const userProfileRef = useMemo(() => {
@@ -32,16 +34,16 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    role: "",
     photoUrl: ""
   })
+
+  const [newPassword, setNewPassword] = useState("")
 
   useEffect(() => {
     if (profile) {
       setFormData({
         firstName: profile.firstName || "",
         lastName: profile.lastName || "",
-        role: profile.role || "Catequista",
         photoUrl: profile.photoUrl || ""
       })
     }
@@ -58,7 +60,7 @@ export default function ProfilePage() {
     }
   }
 
-  const handleSave = async () => {
+  const handleSaveProfile = async () => {
     if (!userProfileRef) return
     setIsSaving(true)
 
@@ -66,7 +68,7 @@ export default function ProfilePage() {
       .then(() => {
         toast({
           title: "Perfil actualizado",
-          description: "Tus cambios se han guardado correctamente.",
+          description: "Tus datos personales se han guardado correctamente.",
         })
       })
       .catch(async (error) => {
@@ -76,16 +78,41 @@ export default function ProfilePage() {
           requestResourceData: formData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "No se pudieron guardar los cambios.",
-        })
       })
       .finally(() => {
         setIsSaving(false)
       })
+  }
+
+  const handleUpdatePassword = async () => {
+    if (!auth || !auth.currentUser || !newPassword) return
+    if (newPassword.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Contraseña débil",
+        description: "La contraseña debe tener al menos 6 caracteres.",
+      })
+      return
+    }
+
+    setIsUpdatingPassword(true)
+    try {
+      await updatePassword(auth.currentUser, newPassword)
+      setNewPassword("")
+      toast({
+        title: "Contraseña actualizada",
+        description: "Tu nueva contraseña ha sido guardada con éxito.",
+      })
+    } catch (error: any) {
+      console.error(error)
+      toast({
+        variant: "destructive",
+        title: "Error de seguridad",
+        description: "Para cambiar la contraseña, debes haber iniciado sesión recientemente. Intenta cerrar sesión y volver a entrar.",
+      })
+    } finally {
+      setIsUpdatingPassword(false)
+    }
   }
 
   if (loading) {
@@ -97,25 +124,29 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <div>
         <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Perfil</h1>
-        <p className="text-muted-foreground">Administra tu información personal y configuración de cuenta.</p>
+        <p className="text-muted-foreground">Administra tu información personal y seguridad de cuenta.</p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-1 space-y-8">
-          <Card className="border-border/50 shadow-sm text-center">
-            <CardHeader className="relative">
-              <div className="absolute top-4 right-4">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="rounded-full"
+          <Card className="border-none shadow-xl text-center overflow-hidden bg-white">
+            <CardHeader className="relative pb-0 pt-10">
+              <div className="mx-auto h-32 w-32 rounded-full border-4 border-slate-50 p-1 relative">
+                <Avatar className="h-full w-full">
+                  <AvatarImage src={formData.photoUrl || undefined} className="object-cover" />
+                  <AvatarFallback className="bg-slate-50 text-slate-300">
+                    <User className="h-16 w-16" />
+                  </AvatarFallback>
+                </Avatar>
+                <button 
+                  className="absolute bottom-0 right-0 h-9 w-9 rounded-full bg-primary text-white border-4 border-white flex items-center justify-center hover:bg-primary/90 transition-colors shadow-lg"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Camera className="h-4 w-4" />
-                </Button>
+                </button>
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -124,105 +155,108 @@ export default function ProfilePage() {
                   onChange={handleFileChange} 
                 />
               </div>
-              <div className="mx-auto h-24 w-24 rounded-full border-4 border-accent p-1">
-                <Avatar className="h-full w-full">
-                  <AvatarImage src={formData.photoUrl || undefined} />
-                  <AvatarFallback className="bg-slate-50 text-slate-300">
-                    <User className="h-10 w-10" />
-                  </AvatarFallback>
-                </Avatar>
+              <CardTitle className="mt-6 font-headline text-2xl font-bold">{formData.firstName} {formData.lastName}</CardTitle>
+              <div className="mt-2 inline-flex px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest">
+                {profile?.role || "Catequista"}
               </div>
-              <CardTitle className="mt-4 font-headline">{formData.firstName} {formData.lastName}</CardTitle>
-              <CardDescription>{formData.role}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex justify-center gap-2">
-                <div className="px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-bold border border-accent/20">
-                  COMUNIDAD
+            <CardContent className="pt-8">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-sm text-slate-600 px-4">
+                  <Mail className="h-4 w-4 text-slate-400" /> 
+                  <span className="font-medium truncate">{profile?.email}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-slate-600 px-4">
+                  <MapPin className="h-4 w-4 text-slate-400" /> 
+                  <span className="font-medium">Parroquia Perpetuo Socorro</span>
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-2 border-t pt-6">
-              <div className="w-full flex items-center gap-3 text-sm text-muted-foreground text-left px-4">
-                <Mail className="h-4 w-4" /> <span>{profile?.email}</span>
-              </div>
-              <div className="w-full flex items-center gap-3 text-sm text-muted-foreground text-left px-4">
-                <MapPin className="h-4 w-4" /> <span>Parroquia Perpetuo Socorro</span>
+            <CardFooter className="bg-slate-50/50 p-6 flex justify-center border-t">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <Shield className="h-3 w-3" /> Acceso Autorizado
               </div>
             </CardFooter>
           </Card>
-
-          <Card className="border-border/50 shadow-sm bg-primary text-white">
-            <CardHeader>
-              <CardTitle className="text-lg font-headline">Estado del Usuario</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Shield className="h-8 w-8 text-white/50" />
-                <div>
-                  <p className="text-sm font-bold">Nivel de Acceso: {formData.role}</p>
-                  <p className="text-xs text-white/80">Acceso autorizado al sistema parroquial</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
-        <div className="lg:col-span-2">
-          <Card className="border-border/50 shadow-sm">
+        <div className="lg:col-span-2 space-y-8">
+          {/* DATOS PERSONALES */}
+          <Card className="border-none shadow-xl bg-white">
             <CardHeader>
-              <CardTitle className="font-headline">Detalles Personales</CardTitle>
-              <CardDescription>Actualiza tu información de catequista</CardDescription>
+              <CardTitle className="font-headline text-xl">Detalles Personales</CardTitle>
+              <CardDescription>Actualiza tu nombre y apellido en el sistema.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">Nombre</Label>
+                  <Label htmlFor="firstName" className="font-bold text-slate-700">Nombre</Label>
                   <Input 
                     id="firstName" 
                     value={formData.firstName} 
                     onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                    className="h-12 rounded-xl bg-slate-50 border-slate-200"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Apellido</Label>
+                  <Label htmlFor="lastName" className="font-bold text-slate-700">Apellido</Label>
                   <Input 
                     id="lastName" 
                     value={formData.lastName}
                     onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                    className="h-12 rounded-xl bg-slate-50 border-slate-200"
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="role">Rol / Cargo Parroquial</Label>
-                <Select 
-                  value={formData.role} 
-                  onValueChange={(value) => setFormData({...formData, role: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Catequista">Catequista</SelectItem>
-                    <SelectItem value="Coordinador">Coordinador</SelectItem>
-                    <SelectItem value="Administrador">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">Cambiar a 'Administrador' desbloquea funciones avanzadas de gestión.</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Correo Electrónico (No editable)</Label>
-                <Input id="email" value={profile?.email || ""} disabled className="bg-slate-50" />
-              </div>
             </CardContent>
-            <CardFooter className="justify-end gap-2 border-t pt-6">
+            <CardFooter className="justify-end bg-slate-50/50 p-6 rounded-b-xl border-t">
               <Button 
-                className="bg-primary hover:bg-primary/90 text-white" 
-                onClick={handleSave}
+                className="bg-primary hover:bg-primary/90 text-white h-11 px-8 rounded-xl font-bold shadow-lg" 
+                onClick={handleSaveProfile}
                 disabled={isSaving}
               >
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Guardar Cambios
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* SEGURIDAD */}
+          <Card className="border-none shadow-xl bg-white">
+            <CardHeader>
+              <CardTitle className="font-headline text-xl flex items-center gap-2">
+                <Lock className="h-5 w-5 text-primary" /> Seguridad
+              </CardTitle>
+              <CardDescription>Actualiza tu contraseña para mantener tu cuenta segura.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword" className="font-bold text-slate-700">Nueva Contraseña</Label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input 
+                    id="newPassword" 
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-12 rounded-xl bg-slate-50 border-slate-200 pl-10"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground italic">
+                  Se recomienda usar una combinación de letras, números y símbolos.
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter className="justify-end bg-slate-50/50 p-6 rounded-b-xl border-t">
+              <Button 
+                variant="outline"
+                className="h-11 px-8 rounded-xl font-bold border-slate-200 text-slate-600 hover:bg-slate-100" 
+                onClick={handleUpdatePassword}
+                disabled={isUpdatingPassword || !newPassword}
+              >
+                {isUpdatingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Key className="mr-2 h-4 w-4" />}
+                Actualizar Contraseña
               </Button>
             </CardFooter>
           </Card>
