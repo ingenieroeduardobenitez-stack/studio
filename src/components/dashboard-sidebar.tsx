@@ -5,7 +5,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { 
   LayoutDashboard, 
-  User, 
   Church, 
   Users,
   ClipboardCheck,
@@ -15,7 +14,8 @@ import {
   UserCheck,
   X,
   Briefcase,
-  Wallet
+  Wallet,
+  CreditCard
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -44,6 +44,7 @@ const operationsItems = [
   { id: "asistencia", name: "Mi Lista (Asistencia)", href: "/dashboard/my-list", icon: UserCheck },
   { id: "confirmandos", name: "Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { id: "inscripcion", name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
+  { id: "pagos_alumnos", name: "Gestión de Pagos", href: "/dashboard/payments", icon: CreditCard },
 ]
 
 const treasuryItems = [
@@ -77,7 +78,6 @@ export function DashboardSidebar() {
   const isAdmin = profile?.role === "Administrador"
   const allowedModules = profile?.allowedModules || []
 
-  // Función para filtrar items según los módulos permitidos
   const filterItems = (items: any[]) => {
     if (!profile?.allowedModules || profile.allowedModules.length === 0) {
       if (isAdmin) return items;
@@ -112,7 +112,6 @@ export function DashboardSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-3 py-6 space-y-4">
-        {/* GRUPO: OPERACIONES */}
         {filteredOperations.length > 0 && (
           <Collapsible defaultOpen={true} className="group/collapsible">
             <SidebarGroup>
@@ -150,7 +149,6 @@ export function DashboardSidebar() {
           </Collapsible>
         )}
 
-        {/* GRUPO: TESORERÍA */}
         {filteredTreasury.length > 0 && (
           <Collapsible defaultOpen={true} className="group/collapsible">
             <SidebarGroup>
@@ -188,7 +186,6 @@ export function DashboardSidebar() {
           </Collapsible>
         )}
 
-        {/* GRUPO: ADMINISTRACIÓN */}
         {filteredAdmin.length > 0 && (
           <Collapsible defaultOpen={false} className="group/collapsible">
             <SidebarGroup>
