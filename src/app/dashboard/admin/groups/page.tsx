@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -13,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock } from "lucide-react"
-import { useFirestore, useCollection } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
@@ -35,8 +34,9 @@ export default function GroupsAdminPage() {
   const { toast } = useToast()
   const db = useFirestore()
 
-  const usersQuery = useMemo(() => db ? collection(db, "users") : null, [db])
-  const groupsQuery = useMemo(() => db ? collection(db, "groups") : null, [db])
+  // Uso de useMemoFirebase para garantizar la estabilidad de las consultas y evitar bucles
+  const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
+  const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
 
   const { data: users, loading: loadingUsers } = useCollection(usersQuery)
   const { data: groups, loading: loadingGroups } = useCollection(groupsQuery)
@@ -67,6 +67,13 @@ export default function GroupsAdminPage() {
     setSelectedGroup(null)
   }, [])
 
+  // Limpieza segura de formularios cuando los diálogos se cierran
+  useEffect(() => {
+    if (!isCreateDialogOpen && !isEditDialogOpen && !isDeleteDialogOpen) {
+      resetForm()
+    }
+  }, [isCreateDialogOpen, isEditDialogOpen, isDeleteDialogOpen, resetForm])
+
   const handleCreateGroup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!db) return
@@ -80,7 +87,6 @@ export default function GroupsAdminPage() {
     const name = formData.get("name") as string
     const attendanceDay = formData.get("attendanceDay") as string
     const catechesisYear = formData.get("catechesisYear") as string
-    
     const schedule = attendanceDay === "SABADO" ? "15:30 a 18:30 hs" : "08:00 a 11:00 hs"
 
     const groupId = `group_${Date.now()}`
@@ -99,7 +105,6 @@ export default function GroupsAdminPage() {
       .then(() => {
         toast({ title: "Grupo creado", description: `El grupo "${name}" se creó correctamente.` })
         setIsCreateDialogOpen(false)
-        resetForm()
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -140,7 +145,6 @@ export default function GroupsAdminPage() {
       .then(() => {
         toast({ title: "Grupo actualizado", description: "Los cambios se guardaron correctamente." })
         setIsEditDialogOpen(false)
-        resetForm()
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -162,7 +166,6 @@ export default function GroupsAdminPage() {
       .then(() => {
         toast({ title: "Grupo eliminado", description: "El grupo ha sido borrado." })
         setIsDeleteDialogOpen(false)
-        resetForm()
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -193,15 +196,7 @@ export default function GroupsAdminPage() {
           <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo por turnos.</p>
         </div>
         
-        <Dialog 
-          open={isCreateDialogOpen} 
-          onOpenChange={(open) => {
-            if (!isSubmitting) {
-              setIsCreateDialogOpen(open)
-              if (!open) resetForm()
-            }
-          }}
-        >
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => !isSubmitting && setIsCreateDialogOpen(open)}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
               <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
@@ -268,11 +263,14 @@ export default function GroupsAdminPage() {
                         <div 
                           key={u.id} 
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
-                          onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (!isSubmitting) handleToggleCatequista(u.id);
+                          }}
                         >
                           <Checkbox 
                             checked={selectedCatequistaIds.includes(u.id)} 
-                            onCheckedChange={() => !isSubmitting && handleToggleCatequista(u.id)}
+                            onCheckedChange={() => {}} 
                             disabled={isSubmitting}
                           />
                           <Avatar className="h-7 w-7">
@@ -413,16 +411,7 @@ export default function GroupsAdminPage() {
         </CardContent>
       </Card>
 
-      {/* DIÁLOGO DE EDICIÓN */}
-      <Dialog 
-        open={isEditDialogOpen} 
-        onOpenChange={(open) => {
-          if (!isSubmitting) {
-            setIsEditDialogOpen(open)
-            if (!open) resetForm()
-          }
-        }}
-      >
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !isSubmitting && setIsEditDialogOpen(open)}>
         <DialogContent className="sm:max-w-[450px]">
           <form onSubmit={handleEditGroup}>
             <DialogHeader>
@@ -482,11 +471,14 @@ export default function GroupsAdminPage() {
                       <div 
                         key={u.id} 
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
-                        onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!isSubmitting) handleToggleCatequista(u.id);
+                        }}
                       >
                         <Checkbox 
                           checked={selectedCatequistaIds.includes(u.id)} 
-                          onCheckedChange={() => !isSubmitting && handleToggleCatequista(u.id)}
+                          onCheckedChange={() => {}} 
                           disabled={isSubmitting}
                         />
                         <Avatar className="h-7 w-7">
@@ -514,13 +506,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE ELIMINACIÓN */}
-      <AlertDialog 
-        open={isDeleteDialogOpen} 
-        onOpenChange={(open) => {
-          if (!isSubmitting) setIsDeleteDialogOpen(open)
-        }}
-      >
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>
@@ -529,7 +515,7 @@ export default function GroupsAdminPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting} onClick={() => resetForm()}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
               onClick={(e) => {
