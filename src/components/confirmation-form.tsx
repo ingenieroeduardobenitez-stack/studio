@@ -23,7 +23,8 @@ import {
   Heart,
   Book,
   Printer,
-  FileText
+  FileText,
+  Search
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -46,7 +47,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFirestore, useUser, useDoc } from "@/firebase"
-import { doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
@@ -85,6 +86,7 @@ type FormValues = z.infer<typeof formSchema>
 
 export function ConfirmationForm() {
   const [loading, setLoading] = useState(false)
+  const [isSearchingCi, setIsSearchingCi] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   const [submittedData, setSubmittedData] = useState<any>(null)
@@ -142,6 +144,50 @@ export function ConfirmationForm() {
       form.setValue("age", age >= 0 ? age : 0)
     }
   }, [birthDate, form])
+
+  const handleLookupCi = async (ciValue: string) => {
+    if (!db || !ciValue || ciValue.length < 5) return;
+    
+    setIsSearchingCi(true);
+    const cleanCi = ciValue.replace(/\./g, "").trim();
+    
+    try {
+      const cedulaRef = doc(db, "cedulas", cleanCi);
+      const docSnap = await getDoc(cedulaRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // Auto-completar campos según lo solicitado
+        if (data.NOMBRE && data.APELLIDO) {
+          form.setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim());
+        }
+        
+        if (data.NOM_MADRE) form.setValue("motherName", data.NOM_MADRE);
+        if (data.NOM_PADRE) form.setValue("fatherName", data.NOM_PADRE);
+        
+        // Extra: Si tenemos fecha de nacimiento, también la cargamos
+        if (data.FECHA_NACI) {
+          form.setValue("birthDate", data.FECHA_NACI);
+        }
+
+        toast({
+          title: "Datos encontrados",
+          description: `Se han cargado los datos de ${data.NOMBRE || 'la persona'}.`,
+        });
+      } else {
+        toast({
+          variant: "outline",
+          title: "No encontrado",
+          description: "No se hallaron datos para esta cédula en el padrón.",
+        });
+      }
+    } catch (error) {
+      console.error("Error al buscar cédula:", error);
+    } finally {
+      setIsSearchingCi(false);
+    }
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -260,7 +306,38 @@ export function ConfirmationForm() {
                 
                 <div className="grid gap-6">
                   <FormField control={form.control} name="ciNumber" render={({ field }) => (
-                    <FormItem className="max-w-xs"><FormLabel className="font-semibold">N° C.I.</FormLabel><FormControl><Input placeholder="Ej. 1.234.567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="max-w-xs">
+                      <FormLabel className="font-semibold">N° C.I.</FormLabel>
+                      <div className="relative">
+                        <FormControl>
+                          <Input 
+                            placeholder="Ej. 1.234.567" 
+                            {...field} 
+                            className="h-12 rounded-xl bg-slate-50 border-slate-200 pr-12" 
+                            onBlur={(e) => {
+                              field.onBlur();
+                              handleLookupCi(e.target.value);
+                            }}
+                          />
+                        </FormControl>
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          {isSearchingCi ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          ) : (
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 hover:bg-slate-200 rounded-full"
+                              onClick={() => handleLookupCi(form.getValues("ciNumber"))}
+                            >
+                              <Search className="h-4 w-4 text-slate-400" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
                   )} />
 
                   <div className="grid gap-6 md:grid-cols-2">
