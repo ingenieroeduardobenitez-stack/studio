@@ -1,6 +1,7 @@
+
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -11,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock } from "lucide-react"
+import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock, User } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -33,6 +34,7 @@ export default function GroupsAdminPage() {
   const { toast } = useToast()
   const db = useFirestore()
 
+  // Consultas estables para evitar bucles infinitos
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
 
@@ -50,16 +52,17 @@ export default function GroupsAdminPage() {
     )
   }, [])
 
-  const resetForm = useCallback(() => {
+  const handleOpenCreateDialog = () => {
     setSelectedCatequistaIds([])
     setSelectedGroup(null)
-  }, [])
+    setIsCreateDialogOpen(true)
+  }
 
-  useEffect(() => {
-    if (!isCreateDialogOpen && !isEditDialogOpen && !isDeleteDialogOpen) {
-      resetForm()
-    }
-  }, [isCreateDialogOpen, isEditDialogOpen, isDeleteDialogOpen, resetForm])
+  const handleOpenEditDialog = (group: any) => {
+    setSelectedGroup(group)
+    setSelectedCatequistaIds(group.catequistaIds || [])
+    setIsEditDialogOpen(true)
+  }
 
   const handleCreateGroup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -183,9 +186,9 @@ export default function GroupsAdminPage() {
           <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo por turnos.</p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => !isSubmitting && setIsCreateDialogOpen(open)}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
+            <Button className="bg-primary hover:bg-primary/90" onClick={handleOpenCreateDialog}>
               <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
             </Button>
           </DialogTrigger>
@@ -239,10 +242,7 @@ export default function GroupsAdminPage() {
                         <div 
                           key={u.id} 
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (!isSubmitting) handleToggleCatequista(u.id);
-                          }}
+                          onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
                         >
                           <Checkbox 
                             checked={selectedCatequistaIds.includes(u.id)} 
@@ -252,7 +252,7 @@ export default function GroupsAdminPage() {
                           <Avatar className="h-7 w-7">
                             <AvatarImage src={u.photoUrl || undefined} />
                             <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                              {u.firstName?.[0] || '?'}{u.lastName?.[0] || ''}
+                              <User className="h-3 w-3" />
                             </AvatarFallback>
                           </Avatar>
                           <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
@@ -337,18 +337,18 @@ export default function GroupsAdminPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex -space-x-2">
-                        {group.catequistaIds.slice(0, 4).map((id: string) => {
+                        {group.catequistaIds?.slice(0, 4).map((id: string) => {
                           const info = getCatequistaInfo(id)
                           return (
                             <Avatar key={id} className="h-8 w-8 border-2 border-white shadow-sm">
                               <AvatarImage src={info?.photoUrl || undefined} />
                               <AvatarFallback className="bg-slate-200 text-[10px]">
-                                {info?.firstName?.[0] || info?.email?.[0] || '?'}
+                                <User className="h-3 w-3" />
                               </AvatarFallback>
                             </Avatar>
                           )
                         })}
-                        {group.catequistaIds.length > 4 && (
+                        {group.catequistaIds?.length > 4 && (
                           <div className="h-8 w-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500 shadow-sm">
                             +{group.catequistaIds.length - 4}
                           </div>
@@ -363,11 +363,7 @@ export default function GroupsAdminPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => { 
-                            setSelectedGroup(group)
-                            setSelectedCatequistaIds(group.catequistaIds)
-                            setIsEditDialogOpen(true) 
-                          }}>
+                          <DropdownMenuItem onClick={() => handleOpenEditDialog(group)}>
                             <Edit className="mr-2 h-4 w-4" /> Editar Grupo
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => { 
@@ -387,7 +383,7 @@ export default function GroupsAdminPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !isSubmitting && setIsEditDialogOpen(open)}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <form onSubmit={handleEditGroup}>
             <DialogHeader>
@@ -438,10 +434,7 @@ export default function GroupsAdminPage() {
                       <div 
                         key={u.id} 
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (!isSubmitting) handleToggleCatequista(u.id);
-                        }}
+                        onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
                       >
                         <Checkbox 
                           checked={selectedCatequistaIds.includes(u.id)} 
@@ -451,7 +444,7 @@ export default function GroupsAdminPage() {
                         <Avatar className="h-7 w-7">
                           <AvatarImage src={u.photoUrl || undefined} />
                           <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                            {u.firstName?.[0] || '?'}{u.lastName?.[0] || ''}
+                            <User className="h-3 w-3" />
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-sm font-medium">{u.firstName} {u.lastName}</span>
@@ -470,7 +463,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => !isSubmitting && setIsDeleteDialogOpen(open)}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>

@@ -1,8 +1,13 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Query, onSnapshot } from 'firebase/firestore';
 
+/**
+ * Hook para suscribirse a una colección o consulta de Firestore.
+ * Incluye protecciones contra bucles infinitos de renderizado.
+ */
 export function useCollection<T = any>(query: Query | null) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -11,7 +16,7 @@ export function useCollection<T = any>(query: Query | null) {
 
   useEffect(() => {
     if (!query) {
-      setLoading(false);
+      if (loading) setLoading(false);
       return;
     }
 
@@ -21,10 +26,10 @@ export function useCollection<T = any>(query: Query | null) {
         const newData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as T);
         const dataString = JSON.stringify(newData);
         
-        // Evitar actualizaciones de estado si los datos son idénticos para prevenir bucles
+        // Solo actualizamos el estado si los datos han cambiado realmente
         if (dataString !== dataRef.current) {
-          setData(newData);
           dataRef.current = dataString;
+          setData(newData);
         }
         setLoading(false);
       },
@@ -35,7 +40,7 @@ export function useCollection<T = any>(query: Query | null) {
     );
 
     return unsubscribe;
-  }, [query]);
+  }, [query]); // query debe ser estable (usar useMemoFirebase)
 
   return { data, loading, error };
 }
