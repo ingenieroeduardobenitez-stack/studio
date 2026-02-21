@@ -31,6 +31,7 @@ const AVAILABLE_MODULES = [
   { id: "asistencia", name: "Mi Lista (Asistencia)", category: "Operaciones" },
   { id: "confirmandos", name: "Confirmandos", category: "Operaciones" },
   { id: "inscripcion", name: "Nueva Inscripción", category: "Operaciones" },
+  { id: "tesoreria", name: "Gestión Tesorería", category: "Tesorería" },
   { id: "perfil", name: "Mi Perfil", category: "Configuración" },
   { id: "usuarios", name: "Gestión de Usuarios", category: "Administración" },
   { id: "grupos", name: "Gestión de Grupos", category: "Administración" },
@@ -197,24 +198,6 @@ export default function UsersAdminPage() {
       .finally(() => setIsSubmitting(false))
   }
 
-  const handleResetPassword = async () => {
-    if (!selectedUser) return
-    try {
-      const auth = getAuth()
-      await sendPasswordResetEmail(auth, selectedUser.email)
-      toast({
-        title: "Enlace enviado",
-        description: `Se envió un correo a ${selectedUser.email} para asignar contraseña.`,
-      })
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No se pudo enviar el correo de restablecimiento.",
-      })
-    }
-  }
-
   const handleDeleteUser = async () => {
     if (!selectedUser || !db) return
     setIsSubmitting(true)
@@ -251,7 +234,7 @@ export default function UsersAdminPage() {
         <h4 className="text-sm font-bold text-primary">Módulos Asignados</h4>
       </div>
       <Accordion type="multiple" className="w-full space-y-2">
-        {["Operaciones", "Configuración", "Administración"].map(category => (
+        {["Operaciones", "Tesorería", "Configuración", "Administración"].map(category => (
           <AccordionItem key={category} value={category} className="border rounded-xl overflow-hidden bg-white shadow-sm">
             <AccordionTrigger className="px-4 py-3 hover:bg-slate-50 hover:no-underline">
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{category}</span>
@@ -551,12 +534,6 @@ export default function UsersAdminPage() {
               </div>
 
               {renderPermissionsGrid()}
-              
-              <div className="pt-4 border-t">
-                <Button type="button" variant="outline" size="sm" className="w-full text-xs" onClick={handleResetPassword} disabled={isSubmitting}>
-                  <Key className="mr-2 h-3 w-3" /> Enviar enlace para asignar nueva contraseña
-                </Button>
-              </div>
             </div>
             
             <DialogFooter className="p-6 bg-slate-50 border-t mt-auto shrink-0">

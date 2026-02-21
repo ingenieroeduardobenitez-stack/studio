@@ -76,7 +76,16 @@
           "enum": ["INSCRITO", "PENDIENTE", "OBSERVADO"]
         },
         "registrationCost": {
-          "type": "number"
+          "type": "number",
+          "description": "Costo total asignado en el momento de la inscripción."
+        },
+        "amountPaid": {
+          "type": "number",
+          "description": "Monto total abonado hasta la fecha."
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["PAGADO", "PENDIENTE", "PARCIAL"]
         },
         "createdAt": {
           "type": "string",
@@ -84,51 +93,34 @@
         }
       }
     },
+    "TreasurySettings": {
+      "title": "Configuración de Tesorería",
+      "description": "Montos globales definidos por el tesorero.",
+      "type": "object",
+      "properties": {
+        "juvenileCost": { "type": "number" },
+        "adultCost": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "Cedula": {
       "title": "Cédula de Identidad",
       "description": "Registro de identificación detallado para validación masiva.",
       "type": "object",
       "properties": {
-        "NUMERO_CED": {
-          "type": "string"
-        },
-        "APELLIDO": {
-          "type": "string"
-        },
-        "NOMBRE": {
-          "type": "string"
-        },
-        "SEXO": {
-          "type": "string"
-        },
-        "NACIONAL": {
-          "type": "string"
-        },
-        "NOM_PADRE": {
-          "type": "string"
-        },
-        "NOM_MADRE": {
-          "type": "string"
-        },
-        "DIRECCION": {
-          "type": "string"
-        },
-        "NOM_CONJ": {
-          "type": "string"
-        },
-        "FECHA_NACI": {
-          "type": "string",
-          "description": "Fecha de nacimiento en formato YYYY-MM-DD para compatibilidad con el sistema."
-        },
-        "BARRIO_CIU": {
-          "type": "string"
-        },
-        "importedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": ["NUMERO_CED"]
+        "NUMERO_CED": { "type": "string" },
+        "APELLIDO": { "type": "string" },
+        "NOMBRE": { "type": "string" },
+        "SEXO": { "type": "string" },
+        "NACIONAL": { "type": "string" },
+        "NOM_PADRE": { "type": "string" },
+        "NOM_MADRE": { "type": "string" },
+        "DIRECCION": { "type": "string" },
+        "NOM_CONJ": { "type": "string" },
+        "FECHA_NACI": { "type": "string" },
+        "BARRIO_CIU": { "type": "string" },
+        "importedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -143,13 +135,9 @@
       "schema": "ConfirmationRegistration",
       "description": "Inscripciones detalladas."
     },
-    "/groups/{groupId}": {
-      "schema": "CatechesisGroup",
-      "description": "Grupos de catequesis."
-    },
-    "/cedulas/{cedulaNumber}": {
-      "schema": "Cedula",
-      "description": "Base de datos masiva de cédulas importadas."
+    "/settings/treasury": {
+      "schema": "TreasurySettings",
+      "description": "Configuración de costos de inscripción."
     }
   }
 }

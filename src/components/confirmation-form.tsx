@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { useFirestore, useUser } from "@/firebase"
+import { useFirestore, useUser, useDoc } from "@/firebase"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -71,8 +71,6 @@ const formSchema = z.object({
   motherPhone: z.string().optional(),
   fatherName: z.string().optional(),
   fatherPhone: z.string().optional(),
-  tutorName: z.string().optional(),
-  tutorPhone: z.string().optional(),
   catechesisYear: z.enum(["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"], {
     required_error: "Debe seleccionar un año de catequesis",
   }),
@@ -84,6 +82,7 @@ const formSchema = z.object({
   baptismParish: z.string().optional(),
   baptismBook: z.string().optional(),
   baptismFolio: z.string().optional(),
+  initialPayment: z.coerce.number().min(0, "Monto inválido").default(0),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -104,6 +103,9 @@ export function ConfirmationForm() {
   const { toast } = useToast()
   const router = useRouter()
 
+  const treasuryRef = useMemo(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const { data: costs } = useDoc(treasuryRef)
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -115,52 +117,34 @@ export function ConfirmationForm() {
       motherPhone: "",
       fatherName: "",
       fatherPhone: "",
-      tutorName: "",
-      tutorPhone: "",
       hasBaptism: false,
       hasFirstCommunion: false,
       baptismParish: "",
       baptismBook: "",
       baptismFolio: "",
+      initialPayment: 0,
     },
   })
 
   const catechesisYear = form.watch("catechesisYear")
   const hasBaptism = form.watch("hasBaptism")
 
-  // Manejo de cámara
   useEffect(() => {
     let stream: MediaStream | null = null;
-
     const startCamera = async () => {
       if (isCameraOpen) {
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: facingMode } 
-          });
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } });
           setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
+          if (videoRef.current) videoRef.current.srcObject = stream;
         } catch (error) {
-          console.error('Error accessing camera:', error);
           setHasCameraPermission(false);
-          toast({
-            variant: 'destructive',
-            title: 'Acceso a Cámara Denegado',
-            description: 'Por favor permite el acceso a la cámara en los ajustes de tu navegador.',
-          });
+          toast({ variant: 'destructive', title: 'Acceso a Cámara Denegado' });
         }
       }
     };
-
     startCamera();
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
+    return () => stream?.getTracks().forEach(track => track.stop());
   }, [isCameraOpen, facingMode, toast]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,52 +160,31 @@ export function ConfirmationForm() {
     }
   }
 
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
-
-      if (context) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const imageData = canvas.toDataURL('image/jpeg', 0.8);
-        setPhotoPreview(imageData);
-        form.setValue("photoUrl", imageData);
-        setIsCameraOpen(false);
-        
-        toast({
-          title: "Foto capturada",
-          description: "La imagen se ha guardado correctamente en el formulario.",
-        });
-      }
-    }
-  }
-
-  const toggleCamera = () => {
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  }
-
   const calculateCost = () => {
     if (!catechesisYear) return 0
-    return catechesisYear === "ADULTOS" ? 50000 : 35000
+    if (catechesisYear === "ADULTOS") return costs?.adultCost || 50000
+    return costs?.juvenileCost || 35000
   }
 
   const onSubmit = async (values: FormValues) => {
     setLoading(true)
     try {
       const regId = `conf_${Date.now()}`
-      const regRef = doc(db, "confirmations", regId)
+      const regRef = doc(db!, "confirmations", regId)
       
+      const totalCost = calculateCost()
+      const amountPaid = values.initialPayment
+      const paymentStatus = amountPaid >= totalCost ? "PAGADO" : amountPaid > 0 ? "PARCIAL" : "PENDIENTE"
+
       const registrationData = {
         userId: user?.uid || "admin",
         ...values,
         status: "INSCRITO",
         attendanceStatus: "PENDIENTE",
         needsRecovery: false,
-        registrationCost: calculateCost(),
+        registrationCost: totalCost,
+        amountPaid: amountPaid,
+        paymentStatus: paymentStatus,
         createdAt: serverTimestamp()
       }
 
@@ -233,12 +196,7 @@ export function ConfirmationForm() {
       })
       router.push("/dashboard")
     } catch (error) {
-      console.error(error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No se pudo completar la inscripción.",
-      })
+      toast({ variant: "destructive", title: "Error", description: "No se pudo completar la inscripción." })
     } finally {
       setLoading(false)
     }
@@ -255,7 +213,7 @@ export function ConfirmationForm() {
                 <div>
                   <CardTitle className="text-2xl font-headline font-bold">Registro Parroquial</CardTitle>
                   <CardDescription className="text-white/80 font-medium">
-                    Parroquia Perpetuo Socorro • Sistema de Inscripción a Confirmación
+                    Parroquia Perpetuo Socorro • Sistema de Inscripción
                   </CardDescription>
                 </div>
               </div>
@@ -270,399 +228,70 @@ export function ConfirmationForm() {
                       <User className="h-16 w-16" />
                     </AvatarFallback>
                   </Avatar>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button 
-                        type="button"
-                        variant="secondary" 
-                        size="icon" 
-                        className="absolute bottom-0 right-0 rounded-full shadow-lg h-10 w-10 border-2 border-white"
-                      >
-                        <Camera className="h-5 w-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center" className="rounded-xl">
-                      <DropdownMenuItem className="py-2 cursor-pointer gap-2" onClick={() => fileInputRef.current?.click()}>
-                        <Users className="h-4 w-4" /> Subir archivo
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="py-2 cursor-pointer gap-2" onClick={() => setIsCameraOpen(true)}>
-                        <Camera className="h-4 w-4" /> Tomar foto en vivo
-                      </DropdownMenuItem>
-                      {photoPreview && (
-                        <DropdownMenuItem className="py-2 cursor-pointer gap-2 text-destructive" onClick={() => {
-                          setPhotoPreview(null);
-                          form.setValue("photoUrl", "");
-                        }}>
-                          <X className="h-4 w-4" /> Quitar foto
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={handlePhotoUpload}
-                  />
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute bottom-0 right-0 h-10 w-10 bg-primary rounded-full flex items-center justify-center text-white border-4 border-white"><Camera className="h-5 w-5" /></button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
                 </div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Foto del Confirmando</p>
               </div>
 
-              {/* SECCIÓN 1: DATOS DEL CONFIRMANDO */}
               <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <User className="h-5 w-5 text-primary" />
-                  <h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3>
-                </div>
+                <div className="flex items-center gap-2 mb-4"><User className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3></div>
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  <FormField
-                    control={form.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem className="lg:col-span-1">
-                        <FormLabel className="text-slate-700 font-semibold">Nombre y Apellido del confirmando</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ej. Juan Andrés Pérez" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="ciNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-slate-700 font-semibold">N° C.I.</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ej. 1.234.567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-slate-700 font-semibold">N° de Celular</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ej. 0981 123 456" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <FormField control={form.control} name="fullName" render={({ field }) => (
+                    <FormItem className="lg:col-span-1"><FormLabel className="font-semibold">Nombre y Apellido</FormLabel><FormControl><Input placeholder="Ej. Juan Pérez" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="ciNumber" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold">N° C.I.</FormLabel><FormControl><Input placeholder="Ej. 1.234.567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="phone" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold">Celular</FormLabel><FormControl><Input placeholder="Ej. 0981..." {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
+                  )} />
                 </div>
               </div>
 
               <Separator />
 
-              {/* SECCIÓN 2: DATOS FAMILIARES */}
               <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Users className="h-5 w-5 text-primary" />
-                  <h3 className="font-headline font-bold text-lg text-slate-800">Información Familiar</h3>
-                </div>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-4 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Madre</p>
-                    <FormField
-                      control={form.control}
-                      name="motherName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-slate-600">Nombre y Apellido</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Nombre de la madre" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="motherPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-slate-600">N° de Celular</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Celular de la madre" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="space-y-4 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-sm font-bold text-primary uppercase tracking-wider mb-2">Padre</p>
-                    <FormField
-                      control={form.control}
-                      name="fatherName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-slate-600">Nombre y Apellido</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Nombre del padre" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="fatherPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-slate-600">N° de Celular</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Celular del padre" {...field} className="h-11 rounded-xl bg-white border-slate-200" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                <div className="flex items-center gap-2 mb-4"><BookOpen className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Categoría y Pago</h3></div>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  <FormField control={form.control} name="catechesisYear" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold">Categoría *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">Primer Año</SelectItem><SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="attendanceDay" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold">Día *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Día" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábado</SelectItem><SelectItem value="DOMINGO">Domingo</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="initialPayment" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold">Monto a abonar (Gs)</FormLabel><FormControl><Input type="number" {...field} className="h-12 rounded-xl bg-green-50 border-green-200 font-bold" /></FormControl><FormDescription>Puedes pagar una parte o el total.</FormDescription><FormMessage /></FormItem>
+                  )} />
                 </div>
               </div>
 
               <Separator />
 
-              {/* SECCIÓN 3: CATEQUESIS Y DÍA */}
               <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <BookOpen className="h-5 w-5 text-primary" />
-                  <h3 className="font-headline font-bold text-lg text-slate-800">Año de Catequesis y Horario</h3>
+                <div className="flex items-center gap-2 mb-4"><ShieldCheck className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Sacramentos Previos</h3></div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField control={form.control} name="hasBaptism" render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="text-base font-bold">Bautismo</FormLabel></FormItem>
+                  )} />
+                  <FormField control={form.control} name="hasFirstCommunion" render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="text-base font-bold">Primera Comunión</FormLabel></FormItem>
+                  )} />
                 </div>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="catechesisYear"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-slate-700 font-semibold">Año de Catequesis *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200">
-                              <SelectValue placeholder="Seleccione Año" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
-                            <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
-                            <SelectItem value="ADULTOS">Catequesis de adultos</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="attendanceDay"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-slate-700 font-semibold">¿Qué día asistirás? *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200">
-                              <SelectValue placeholder="Seleccione día" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="SABADO">Sábado (de 15:30 a 18:30 hs)</SelectItem>
-                            <SelectItem value="DOMINGO">Domingo (de 08:00 a 11:00 hs)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* SECCIÓN 4: SACRAMENTOS */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <ShieldCheck className="h-5 w-5 text-primary" />
-                  <h3 className="font-headline font-bold text-lg text-slate-800">Sacramentos Previos</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2 mb-6">
-                  <FormField
-                    control={form.control}
-                    name="hasBaptism"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-5 border rounded-2xl bg-slate-50/50">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className="text-base font-bold text-slate-700">Bautismo</FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="hasFirstCommunion"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-5 border rounded-2xl bg-slate-50/50">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className="text-base font-bold text-slate-700">Primera Comunión</FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {hasBaptism && (
-                  <div className="space-y-6 p-8 bg-blue-50/30 border border-blue-100 rounded-3xl animate-in fade-in slide-in-from-top-4 duration-500">
-                    <p className="text-sm font-bold text-blue-800 flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" /> Datos de Registro de Bautismo
-                    </p>
-                    <div className="grid gap-6 md:grid-cols-3">
-                      <FormField
-                        control={form.control}
-                        name="baptismParish"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-slate-600">Parroquia de Bautismo</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Ej. Perpetuo Socorro" {...field} className="h-11 rounded-xl bg-white" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="baptismBook"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-slate-600">Libro</FormLabel>
-                            <FormControl>
-                              <Input placeholder="N°" {...field} className="h-11 rounded-xl bg-white" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="baptismFolio"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-slate-600">Folio</FormLabel>
-                            <FormControl>
-                              <Input placeholder="N°" {...field} className="h-11 rounded-xl bg-white" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             </CardContent>
 
             <CardFooter className="bg-slate-50 p-10 flex flex-col md:flex-row items-center justify-between gap-6 border-t">
               <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
-                <div className="h-12 w-12 bg-accent/10 rounded-xl flex items-center justify-center">
-                  <CreditCard className="h-6 w-6 text-accent" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Costo de Inscripción</p>
-                  <p className="text-xl font-headline font-bold text-primary">
-                    {calculateCost().toLocaleString('es-PY')} Gs.
-                  </p>
-                </div>
+                <div className="h-12 w-12 bg-accent/10 rounded-xl flex items-center justify-center"><CreditCard className="h-6 w-6 text-accent" /></div>
+                <div><p className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Costo Total</p><p className="text-xl font-headline font-bold text-primary">{calculateCost().toLocaleString('es-PY')} Gs.</p></div>
               </div>
-
-              <div className="flex gap-4 w-full md:w-auto">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => router.back()} 
-                  className="h-12 rounded-xl px-8 font-semibold text-slate-600 w-full md:w-auto"
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={loading} 
-                  className="h-12 bg-primary hover:bg-primary/90 text-white rounded-xl px-12 font-bold shadow-lg shadow-primary/20 w-full md:w-auto"
-                >
-                  {loading ? (
-                    <Loader2 className="animate-spin h-5 w-5" />
-                  ) : (
-                    <span className="flex items-center gap-2">Finalizar Inscripción <ArrowRight className="h-5 w-5" /></span>
-                  )}
-                </Button>
-              </div>
+              <Button type="submit" disabled={loading} className="h-12 bg-primary hover:bg-primary/90 text-white rounded-xl px-12 font-bold shadow-lg w-full md:w-auto">
+                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <span className="flex items-center gap-2">Finalizar Inscripción <ArrowRight className="h-5 w-5" /></span>}
+              </Button>
             </CardFooter>
           </form>
         </Form>
       </Card>
-
-      {/* DIÁLOGO DE CÁMARA */}
-      <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
-        <DialogContent className="sm:max-w-md bg-white p-0 overflow-hidden border-none shadow-2xl">
-          <DialogHeader className="p-4 bg-primary text-white">
-            <DialogTitle className="flex items-center gap-2">
-              <Camera className="h-5 w-5" /> Tomar Foto del Confirmando
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="relative aspect-square bg-black flex items-center justify-center">
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              muted 
-              className="w-full h-full object-cover"
-            />
-            <canvas ref={canvasRef} className="hidden" />
-            
-            {!hasCameraPermission && hasCameraPermission !== null && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-black/80">
-                <Alert variant="destructive" className="max-w-xs">
-                  <AlertTitle>Sin acceso</AlertTitle>
-                  <AlertDescription>No se pudo acceder a la cámara. Revisa los permisos.</AlertDescription>
-                </Alert>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="p-6 bg-slate-50 flex flex-row items-center justify-between gap-4">
-            <Button variant="outline" size="icon" className="rounded-full h-12 w-12" onClick={toggleCamera}>
-              <RefreshCcw className="h-5 w-5" />
-            </Button>
-            <Button className="flex-1 h-12 rounded-xl bg-primary gap-2" onClick={takePhoto}>
-              <Check className="h-5 w-5" /> Capturar Foto
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full h-12 w-12" onClick={() => setIsCameraOpen(false)}>
-              <X className="h-5 w-5" />
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

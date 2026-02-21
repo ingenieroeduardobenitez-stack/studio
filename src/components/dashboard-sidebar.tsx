@@ -14,7 +14,8 @@ import {
   ChevronRight,
   UserCheck,
   X,
-  Briefcase
+  Briefcase,
+  Wallet
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -43,6 +44,10 @@ const operationsItems = [
   { id: "asistencia", name: "Mi Lista (Asistencia)", href: "/dashboard/my-list", icon: UserCheck },
   { id: "confirmandos", name: "Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { id: "inscripcion", name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
+]
+
+const treasuryItems = [
+  { id: "tesoreria", name: "Gestión Tesorería", href: "/dashboard/treasury", icon: Wallet },
 ]
 
 const adminItems = [
@@ -74,16 +79,15 @@ export function DashboardSidebar() {
 
   // Función para filtrar items según los módulos permitidos
   const filterItems = (items: any[]) => {
-    // Si no hay módulos definidos (usuario antiguo o no configurado), usamos lógica por rol
     if (!profile?.allowedModules || profile.allowedModules.length === 0) {
       if (isAdmin) return items;
-      return items.filter(item => !adminItems.find(ai => ai.id === item.id));
+      return items.filter(item => !adminItems.find(ai => ai.id === item.id) && !treasuryItems.find(ti => ti.id === item.id));
     }
-    // Verificar si el usuario tiene permiso de "ver" para el módulo
     return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));
   }
 
   const filteredOperations = filterItems(operationsItems);
+  const filteredTreasury = filterItems(treasuryItems);
   const filteredAdmin = filterItems(adminItems);
 
   if (!mounted) return null
@@ -130,19 +134,48 @@ export function DashboardSidebar() {
                       const isActive = pathname === item.href
                       return (
                         <SidebarMenuItem key={item.href} className="px-2">
-                          <SidebarMenuButton 
-                            asChild 
-                            isActive={isActive}
-                            className={cn(
-                              "transition-all duration-300 h-14 px-5 rounded-2xl flex items-center gap-4 border-none",
-                              isActive 
-                                ? "bg-white text-slate-900 shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:bg-white scale-[1.02]" 
-                                : "text-slate-500 hover:bg-slate-50 hover:text-primary"
-                            )}
-                          >
+                          <SidebarMenuButton asChild isActive={isActive}>
                             <Link href={item.href} onClick={() => setOpen(false)}>
-                              <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary" : "text-slate-400")} />
-                              <span className={cn("font-bold text-sm", isActive ? "text-slate-800" : "text-slate-600")}>{item.name}</span>
+                              <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
+                              <span className="font-bold">{item.name}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        )}
+
+        {/* GRUPO: TESORERÍA */}
+        {filteredTreasury.length > 0 && (
+          <Collapsible defaultOpen={true} className="group/collapsible">
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center justify-between text-slate-500 hover:text-primary transition-colors cursor-pointer px-2 py-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-1 rounded-lg bg-primary/5">
+                      <Wallet className="h-5 w-5 text-primary" />
+                    </div>
+                    <span className="text-xs uppercase tracking-[0.15em] font-bold">Tesorería</span>
+                  </div>
+                  <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent className="mt-4">
+                  <SidebarMenu className="gap-3">
+                    {filteredTreasury.map((item) => {
+                      const isActive = pathname === item.href
+                      return (
+                        <SidebarMenuItem key={item.href} className="px-2">
+                          <SidebarMenuButton asChild isActive={isActive}>
+                            <Link href={item.href} onClick={() => setOpen(false)}>
+                              <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
+                              <span className="font-bold">{item.name}</span>
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -177,19 +210,10 @@ export function DashboardSidebar() {
                       const isActive = pathname === item.href
                       return (
                         <SidebarMenuItem key={item.id} className="px-2">
-                          <SidebarMenuButton 
-                            asChild 
-                            isActive={isActive}
-                            className={cn(
-                              "transition-all duration-300 h-14 px-5 rounded-2xl flex items-center gap-4 border-none",
-                              isActive 
-                                ? "bg-white text-slate-900 shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:bg-white scale-[1.02]" 
-                                : "text-slate-500 hover:bg-slate-50 hover:text-primary"
-                            )}
-                          >
+                          <SidebarMenuButton asChild isActive={isActive}>
                             <Link href={item.href} onClick={() => setOpen(false)}>
-                              <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary" : "text-slate-400")} />
-                              <span className={cn("font-bold text-sm", isActive ? "text-slate-800" : "text-slate-600")}>{item.name}</span>
+                              <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
+                              <span className="font-bold">{item.name}</span>
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
