@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useMemo } from "react"
@@ -21,7 +20,8 @@ import {
   X,
   Check,
   AlertTriangle,
-  Heart
+  Heart,
+  Book
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -116,6 +116,7 @@ export function ConfirmationForm() {
 
   const catechesisYear = form.watch("catechesisYear")
   const initialPayment = form.watch("initialPayment")
+  const hasBaptism = form.watch("hasBaptism")
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -307,12 +308,60 @@ export function ConfirmationForm() {
                 <div className="flex items-center gap-2 mb-4"><ShieldCheck className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Sacramentos Previos</h3></div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField control={form.control} name="hasBaptism" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel className="text-base font-bold">Bautismo</FormLabel></div></FormItem>
+                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="text-base font-bold">Bautismo</FormLabel>
+                      </div>
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="hasFirstCommunion" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel className="text-base font-bold">Primera Comunión</FormLabel></div></FormItem>
+                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="text-base font-bold">Primera Comunión</FormLabel>
+                      </div>
+                    </FormItem>
                   )} />
                 </div>
+
+                {/* CAMPOS CONDICIONALES DE BAUTISMO */}
+                {hasBaptism && (
+                  <div className="grid gap-6 md:grid-cols-3 p-6 bg-primary/5 rounded-3xl border border-primary/10 animate-in zoom-in-95 duration-300">
+                    <div className="md:col-span-3 flex items-center gap-2 mb-2">
+                      <Church className="h-4 w-4 text-primary" />
+                      <h4 className="text-sm font-bold text-primary uppercase tracking-wider">Detalles del Bautismo</h4>
+                    </div>
+                    <FormField control={form.control} name="baptismParish" render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel className="text-xs font-bold text-slate-600">Parroquia / Iglesia</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nombre de la Parroquia" {...field} className="h-10 rounded-xl bg-white border-slate-200" />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="baptismBook" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold text-slate-600">Libro N°</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ej. 12" {...field} className="h-10 rounded-xl bg-white border-slate-200" />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="baptismFolio" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold text-slate-600">Folio N°</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ej. 45" {...field} className="h-10 rounded-xl bg-white border-slate-200" />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                  </div>
+                )}
               </div>
             </CardContent>
 
