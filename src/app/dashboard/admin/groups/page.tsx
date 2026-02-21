@@ -1,8 +1,8 @@
 
 "use client"
 
-import { useState, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useState, useMemo, useCallback } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock, BookOpen } from "lucide-react"
+import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, Calendar, Clock } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -55,11 +55,11 @@ export default function GroupsAdminPage() {
     )
   }, [users, userSearchTerm])
 
-  const handleToggleCatequista = (userId: string) => {
+  const handleToggleCatequista = useCallback((userId: string) => {
     setSelectedCatequistaIds(prev => 
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     )
-  }
+  }, [])
 
   const handleCreateGroup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -189,12 +189,12 @@ export default function GroupsAdminPage() {
         </div>
         
         <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-          if (!isSubmitting) {
-            setIsCreateDialogOpen(open)
-            if (!open) {
-              setSelectedCatequistaIds([])
-              setUserSearchTerm("")
-            }
+          if (!open && !isSubmitting) {
+            setIsCreateDialogOpen(false)
+            setSelectedCatequistaIds([])
+            setUserSearchTerm("")
+          } else if (open) {
+            setIsCreateDialogOpen(true)
           }
         }}>
           <DialogTrigger asChild>
@@ -263,11 +263,12 @@ export default function GroupsAdminPage() {
                         <div 
                           key={u.id} 
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
-                          onClick={() => handleToggleCatequista(u.id)}
+                          onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
                         >
                           <Checkbox 
                             checked={selectedCatequistaIds.includes(u.id)} 
-                            onCheckedChange={() => handleToggleCatequista(u.id)}
+                            onCheckedChange={() => !isSubmitting && handleToggleCatequista(u.id)}
+                            disabled={isSubmitting}
                           />
                           <Avatar className="h-7 w-7">
                             <AvatarImage src={u.photoUrl || undefined} />
@@ -409,13 +410,13 @@ export default function GroupsAdminPage() {
 
       {/* DIÁLOGO DE EDICIÓN */}
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        if (!isSubmitting) {
-          setIsEditDialogOpen(open)
-          if (!open) {
-            setSelectedGroup(null)
-            setSelectedCatequistaIds([])
-            setUserSearchTerm("")
-          }
+        if (!open && !isSubmitting) {
+          setIsEditDialogOpen(false)
+          setSelectedGroup(null)
+          setSelectedCatequistaIds([])
+          setUserSearchTerm("")
+        } else if (open) {
+          setIsEditDialogOpen(true)
         }
       }}>
         <DialogContent className="sm:max-w-[450px]">
@@ -477,11 +478,12 @@ export default function GroupsAdminPage() {
                       <div 
                         key={u.id} 
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
-                        onClick={() => handleToggleCatequista(u.id)}
+                        onClick={() => !isSubmitting && handleToggleCatequista(u.id)}
                       >
                         <Checkbox 
                           checked={selectedCatequistaIds.includes(u.id)} 
-                          onCheckedChange={() => handleToggleCatequista(u.id)}
+                          onCheckedChange={() => !isSubmitting && handleToggleCatequista(u.id)}
+                          disabled={isSubmitting}
                         />
                         <Avatar className="h-7 w-7">
                           <AvatarImage src={u.photoUrl || undefined} />
