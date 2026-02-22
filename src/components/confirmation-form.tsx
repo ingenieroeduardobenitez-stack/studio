@@ -22,7 +22,7 @@ import {
   Home,
   Info,
   Wallet,
-  Download,
+  MessageCircle,
   Building2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -261,6 +261,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       })
   }
 
+  const handleSendProofWhatsApp = () => {
+    if (!submittedData) return
+    const message = encodeURIComponent(`⛪ *Comprobante de Inscripción*\n\nHola, adjunto el comprobante de transferencia para mi inscripción.\n\n*Nombre:* ${submittedData.fullName}\n*C.I.:* ${submittedData.ciNumber}\n*Nivel:* ${submittedData.catechesisYear.replace("_", " ")}\n\n_Quedo atento a la validación para recibir mi recibo oficial._`)
+    window.open(`https://wa.me/?text=${message}`, '_blank')
+  }
+
   const handleCloseReceipt = () => {
     setIsReceiptOpen(false)
     router.push("/dashboard")
@@ -308,9 +314,27 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-dashed text-xs text-slate-600 space-y-2">
-              <p className="font-bold flex items-center gap-2"><Info className="h-3 w-3" /> IMPORTANTE:</p>
-              <p>Una vez realizada la transferencia, favor enviar el comprobante al catequista encargado o presentarlo en la secretaría para recibir tu <b>Recibo Oficial de Pago</b>.</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-primary/10">
+              <div className="text-center space-y-1">
+                <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto text-xs font-bold">1</div>
+                <p className="text-[10px] font-bold uppercase text-slate-500">Realizar Transferencia</p>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto text-xs font-bold">2</div>
+                <p className="text-[10px] font-bold uppercase text-slate-500">Enviar Comprobante</p>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto text-xs font-bold">3</div>
+                <p className="text-[10px] font-bold uppercase text-slate-500">Recibir Recibo Oficial</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-dashed text-xs text-slate-600 space-y-3">
+              <p className="font-bold flex items-center gap-2 text-primary"><Info className="h-3 w-3" /> PASO FINAL OBLIGATORIO:</p>
+              <p>Para habilitar tu inscripción, debes enviar la captura de tu transferencia. Una vez validada, el sistema emitirá tu recibo legal.</p>
+              <Button onClick={handleSendProofWhatsApp} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold h-11 rounded-xl gap-2">
+                <MessageCircle className="h-4 w-4" /> Enviar Comprobante por WhatsApp
+              </Button>
             </div>
           </div>
 
