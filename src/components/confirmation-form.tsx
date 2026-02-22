@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, useMemo } from "react"
@@ -45,7 +46,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFirestore, useUser, useDoc } from "@/firebase"
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
+import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
@@ -100,6 +101,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const { user } = useUser()
   const { toast } = useToast()
   const router = useRouter()
+
+  const userProfileRef = useMemo(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const { data: profile } = useDoc(userProfileRef)
 
   const treasuryRef = useMemo(() => db ? doc(db, "settings", "treasury") : null, [db])
   const { data: costs } = useDoc(treasuryRef)
@@ -199,7 +203,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const totalCost = calculateCost()
   const isOverpaid = initialPayment > totalCost
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = async (values: FormValues) => {
     if (!db) return;
     if (!isPublic && isOverpaid) {
       toast({
@@ -230,34 +234,43 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       createdAt: serverTimestamp()
     }
 
-    setDoc(regRef, registrationData)
-      .then(() => {
-        toast({
-          title: isPublic ? "Datos enviados" : "Inscripción Realizada",
-          description: `Se ha registrado a ${values.fullName} correctamente.`,
-        })
+    try {
+      await setDoc(regRef, registrationData)
+      
+      // REGISTRO DE AUDITORÍA
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "public",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Usuario Público" : "Sistema"),
+        action: "Registro de Confirmando",
+        module: "inscripcion",
+        details: `Nueva inscripción: ${values.fullName} (CI: ${values.ciNumber}) - Nivel: ${values.catechesisYear}`,
+        timestamp: serverTimestamp()
+      })
 
-        setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() })
-        
-        if (isPublic) {
-          setIsSubmittedSuccessfully(true)
-        } else if (amountPaid > 0) {
-          setIsReceiptOpen(true)
-        } else {
-          router.push("/dashboard")
-        }
+      toast({
+        title: isPublic ? "Datos enviados" : "Inscripción Realizada",
+        description: `Se ha registrado a ${values.fullName} correctamente.`,
       })
-      .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
-          path: regRef.path,
-          operation: 'create',
-          requestResourceData: registrationData,
-        })
-        errorEmitter.emit('permission-error', permissionError)
+
+      setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() })
+      
+      if (isPublic) {
+        setIsSubmittedSuccessfully(true)
+      } else if (amountPaid > 0) {
+        setIsReceiptOpen(true)
+      } else {
+        router.push("/dashboard")
+      }
+    } catch (error: any) {
+      const permissionError = new FirestorePermissionError({
+        path: regRef.path,
+        operation: 'create',
+        requestResourceData: registrationData,
       })
-      .finally(() => {
-        setLoading(false)
-      })
+      errorEmitter.emit('permission-error', permissionError)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSendProofWhatsApp = () => {

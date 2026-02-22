@@ -18,7 +18,8 @@ import {
   CreditCard,
   ArrowLeftRight,
   Archive,
-  Globe
+  Globe,
+  ShieldCheck
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -61,6 +62,7 @@ const adminItems = [
   { id: "usuarios", name: "Gestión de Usuarios", href: "/dashboard/admin/users", icon: Users },
   { id: "grupos", name: "Gestión de Grupos", href: "/dashboard/admin/groups", icon: Shapes },
   { id: "conexiones", name: "Monitoreo Conexiones", href: "/dashboard/admin/connections", icon: Globe },
+  { id: "auditoria", name: "Auditoría de Acciones", href: "/dashboard/admin/audit", icon: ShieldCheck },
   { id: "archivar", name: "Cierre de Año / Archivo", href: "/dashboard/admin/archive", icon: Archive },
 ]
 
@@ -92,6 +94,7 @@ export function DashboardSidebar() {
       if (isAdmin) return items;
       return items.filter(item => !adminItems.find(ai => ai.id === item.id) && !treasuryItems.find(ti => ti.id === item.id));
     }
+    // Si tiene módulos permitidos explícitos
     return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));
   }
 
@@ -107,17 +110,16 @@ export function DashboardSidebar() {
         <div className="flex items-center justify-between w-full">
           <Link href="/dashboard" className="flex items-center gap-3">
             <div className="relative h-10 w-10 bg-white rounded-xl shadow-md border flex items-center justify-center overflow-hidden">
-              {logoData ? (
-                <Image 
-                  src={logoData.imageUrl} 
-                  alt={logoData.description} 
-                  fill
-                  className="object-cover"
-                  data-ai-hint={logoData.imageHint}
-                />
-              ) : (
-                <Church className="h-6 w-6 text-primary" />
-              )}
+              <Image 
+                src="/logo.png" 
+                alt="Logo Parroquia" 
+                fill
+                className="object-contain p-1"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                }}
+              />
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-lg font-headline font-bold text-primary tracking-tight">Confir NSPS</span>

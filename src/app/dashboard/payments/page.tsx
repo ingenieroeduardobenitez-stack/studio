@@ -10,8 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Wallet, Search, Loader2, Printer, FileText, User, Church, AlertTriangle, CreditCard, CheckCircle2 } from "lucide-react"
-import { useFirestore, useCollection, useUser, useMemoFirebase } from "@/firebase"
-import { collection, query, where, doc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
+import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -36,6 +36,9 @@ export default function PaymentsManagementPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const userProfileRef = useMemo(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const { data: profile } = useDoc(userProfileRef)
 
   const myGroupsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
@@ -136,6 +139,16 @@ export default function PaymentsManagementPage() {
         })
         setLastPaymentType(selectedEvent?.category || "Evento")
       }
+
+      // REGISTRO DE AUDITORÍA
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Catequista",
+        action: "Cobro de Arancel",
+        module: "pagos",
+        details: `Cobro de ${paymentAmount.toLocaleString()} Gs. a ${selectedReg.fullName} por concepto de ${selectedEventId === 'inscripcion' ? 'Inscripción' : selectedEvent?.category}`,
+        timestamp: serverTimestamp()
+      })
       
       toast({ title: "Pago registrado", description: `Se procesó el cobro de ${paymentAmount.toLocaleString()} Gs.` })
       setIsPaymentDialogOpen(false)
