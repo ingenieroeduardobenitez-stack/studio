@@ -508,7 +508,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/30 space-y-4">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Referencia Materna</p>
                     <FormField control={form.control} name="motherName" render={({ field }) => (
-                      <FormItem><FormLabel className="text-xs font-semibold">Nombre de la Madre</FormLabel><FormControl><Input placeholder="Nombre Completo" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
+                      <FormItem><FormLabel className="text-xs font-semibold">Nombre de la Madre</FormLabel><FormControl><Input placeholder="Nombre Completos" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="motherPhone" render={({ field }) => (
                       <FormItem><FormLabel className="text-xs font-semibold">Celular de la Madre</FormLabel><FormControl><Input placeholder="Ej. 09..." {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
@@ -563,27 +563,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       <FormField control={form.control} name="generateReceipt" render={({ field }) => (
                         <FormItem className="w-full">
                           <FormControl>
-                            <button 
+                            <Button 
                               type="button"
+                              variant={field.value ? "default" : "outline"}
                               onClick={() => field.onChange(!field.value)}
                               className={cn(
-                                "w-full h-12 rounded-xl border-2 flex items-center justify-between px-4 transition-all active:scale-[0.98]",
-                                field.value 
-                                  ? "bg-primary border-primary text-white shadow-md" 
-                                  : "bg-slate-50 border-slate-200 text-slate-400 hover:border-primary/30 hover:text-primary"
+                                "w-full h-12 rounded-xl font-bold gap-2 transition-all shadow-sm",
+                                !field.value && "text-slate-400 border-slate-200 hover:text-primary hover:border-primary/30"
                               )}
                             >
-                              <div className="flex items-center gap-2">
-                                <FileText className={cn("h-4 w-4", field.value ? "text-white" : "text-slate-400")} />
-                                <span className="text-[10px] font-bold uppercase tracking-tight">Generar Recibo Digital</span>
-                              </div>
-                              <div className={cn(
-                                "h-5 w-5 rounded-full border-2 flex items-center justify-center",
-                                field.value ? "bg-white border-white" : "border-slate-300"
-                              )}>
-                                {field.value && <Check className="h-3 w-3 text-primary" />}
-                              </div>
-                            </button>
+                              <FileText className="h-4 w-4" />
+                              <span className="text-[10px] font-bold uppercase tracking-tight">
+                                {field.value ? "RECIBO DIGITAL ACTIVADO" : "GENERAR RECIBO DIGITAL"}
+                              </span>
+                              {field.value && <Check className="h-4 w-4" />}
+                            </Button>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
