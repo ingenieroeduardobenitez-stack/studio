@@ -20,7 +20,14 @@ import {
   UserCircle,
   UserPlus,
   Trash2,
-  Check
+  Check,
+  Calendar,
+  Phone,
+  CreditCard,
+  Church,
+  BookOpen,
+  Info,
+  X
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
@@ -61,6 +68,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 
 type ViewMode = "LIST" | "GROUPS"
 
@@ -70,6 +79,7 @@ export default function RegistrationsListPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("GROUPS")
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [newGroupId, setNewGroupId] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -163,6 +173,11 @@ export default function RegistrationsListPage() {
   const openDeleteDialog = (reg: any) => {
     setSelectedReg(reg)
     setIsDeleteDialogOpen(true)
+  }
+
+  const openDetailsDialog = (reg: any) => {
+    setSelectedReg(reg)
+    setIsDetailsDialogOpen(true)
   }
 
   const getStatusBadge = (status: string) => {
@@ -337,7 +352,9 @@ export default function RegistrationsListPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-xl p-2 border-none shadow-xl">
                             <DropdownMenuLabel className="text-[10px] uppercase text-slate-400">Gestión</DropdownMenuLabel>
-                            <DropdownMenuItem className="rounded-lg h-10 gap-2"><UserCircle className="h-4 w-4" /> Ver Detalles</DropdownMenuItem>
+                            <DropdownMenuItem className="rounded-lg h-10 gap-2" onClick={() => openDetailsDialog(reg)}>
+                              <UserCircle className="h-4 w-4" /> Ver Detalles
+                            </DropdownMenuItem>
                             {isAdmin && (
                               <>
                                 <DropdownMenuItem className="rounded-lg h-10 gap-2" onClick={() => openAssignDialog(reg)}>
@@ -383,6 +400,7 @@ export default function RegistrationsListPage() {
                         isAdmin={isAdmin} 
                         onAssignGroup={openAssignDialog}
                         onDelete={openDeleteDialog}
+                        onViewDetails={openDetailsDialog}
                       />
                     </AccordionContent>
                   </div>
@@ -425,6 +443,7 @@ export default function RegistrationsListPage() {
                             isAdmin={isAdmin} 
                             onAssignGroup={openAssignDialog}
                             onDelete={openDeleteDialog}
+                            onViewDetails={openDetailsDialog}
                           />
                         )}
                       </AccordionContent>
@@ -494,6 +513,168 @@ export default function RegistrationsListPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* DIALOGO DE DETALLES DEL ALUMNO */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 border-2 border-white/20">
+                  <AvatarImage src={selectedReg?.photoUrl} className="object-cover" />
+                  <AvatarFallback className="bg-white/10 text-white"><User className="h-8 w-8" /></AvatarFallback>
+                </Avatar>
+                <div>
+                  <DialogTitle className="text-xl font-bold uppercase tracking-tight">{selectedReg?.fullName}</DialogTitle>
+                  <p className="text-sm text-white/80 font-medium">C.I. N° {selectedReg?.ciNumber}</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="bg-white/10 text-white border-white/20 text-[10px] uppercase font-bold px-3">
+                {selectedReg?.status || "INSCRITO"}
+              </Badge>
+            </div>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[70vh]">
+            <div className="p-8 space-y-8">
+              {/* SECCIÓN PERSONAL */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                    <UserCircle className="h-3 w-3" /> Datos Personales
+                  </h4>
+                  <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500">Nacimiento:</span>
+                      <span className="text-sm font-bold text-slate-900">{selectedReg?.birthDate || "---"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500">Edad:</span>
+                      <span className="text-sm font-bold text-slate-900">{selectedReg?.age} años</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500">Celular:</span>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3 w-3 text-primary" />
+                        <span className="text-sm font-bold text-slate-900">{selectedReg?.phone || "---"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                    <BookOpen className="h-3 w-3" /> Nivel Asignado
+                  </h4>
+                  <div className="space-y-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500">Año de Catequesis:</span>
+                      <Badge variant="secondary" className="text-[10px] h-5">{formatCatechesisYear(selectedReg?.catechesisYear)}</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500">Día de Asistencia:</span>
+                      <span className="text-sm font-bold text-primary">{selectedReg?.attendanceDay === "SABADO" ? "Sábados" : "Domingos"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500">Grupo Actual:</span>
+                      <span className="text-sm font-bold text-slate-900">
+                        {groups?.find(g => g.id === selectedReg?.groupId)?.name || "Sin Asignar"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* SECCIÓN FAMILIAR */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Users className="h-3 w-3" /> Familia y Referencias
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl border border-slate-100 bg-white space-y-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">Referencia Materna</p>
+                    <p className="text-sm font-bold text-slate-900">{selectedReg?.motherName || "---"}</p>
+                    <p className="text-xs text-slate-500">{selectedReg?.motherPhone}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl border border-slate-100 bg-white space-y-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">Referencia Paterna</p>
+                    <p className="text-sm font-bold text-slate-900">{selectedReg?.fatherName || "---"}</p>
+                    <p className="text-xs text-slate-500">{selectedReg?.fatherPhone}</p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* SECCIÓN SACRAMENTOS */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Church className="h-3 w-3" /> Sacramentos Recibidos
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", selectedReg?.hasBaptism ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600")}>
+                      {selectedReg?.hasBaptism ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-900">Bautismo</span>
+                      <span className="text-[10px] text-slate-500 uppercase">{selectedReg?.hasBaptism ? `Parroquia: ${selectedReg.baptismParish}` : "Pendiente"}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", selectedReg?.hasFirstCommunion ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600")}>
+                      {selectedReg?.hasFirstCommunion ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-900">1ra Comunión</span>
+                      <span className="text-[10px] text-slate-500 uppercase">{selectedReg?.hasFirstCommunion ? "Sacramento Recibido" : "Pendiente"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* SECCIÓN TESORERÍA */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                  <CreditCard className="h-3 w-3" /> Situación Financiera (Inscripción)
+                </h4>
+                <div className="bg-slate-900 text-white p-6 rounded-[2rem] relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-6 opacity-10">
+                    <CreditCard className="h-20 w-20" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+                    <div>
+                      <p className="text-[9px] font-bold text-white/50 uppercase mb-1">Costo Total</p>
+                      <p className="text-xl font-bold">{selectedReg?.registrationCost?.toLocaleString()} Gs.</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold text-white/50 uppercase mb-1">Total Abonado</p>
+                      <p className="text-xl font-bold text-green-400">{selectedReg?.amountPaid?.toLocaleString()} Gs.</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold text-white/50 uppercase mb-1">Saldo Pendiente</p>
+                      <p className="text-xl font-bold text-red-400">
+                        {((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString()} Gs.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row justify-end gap-3">
+            <Button variant="outline" className="rounded-xl px-8 h-11" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar Ficha</Button>
+            <Button className="rounded-xl px-8 h-11 gap-2" onClick={() => window.print()}>
+              <Download className="h-4 w-4" /> Exportar PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -504,14 +685,16 @@ function StudentTable({
   getBadge, 
   isAdmin, 
   onAssignGroup, 
-  onDelete 
+  onDelete,
+  onViewDetails
 }: { 
   students: any[], 
   formatYear: any, 
   getBadge: any, 
   isAdmin: boolean,
   onAssignGroup: (reg: any) => void,
-  onDelete: (reg: any) => void
+  onDelete: (reg: any) => void,
+  onViewDetails: (reg: any) => void
 }) {
   return (
     <Table>
@@ -571,7 +754,9 @@ function StudentTable({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="rounded-xl p-2 border-none shadow-xl">
                   <DropdownMenuLabel className="text-[10px] uppercase text-slate-400">Opciones</DropdownMenuLabel>
-                  <DropdownMenuItem className="rounded-lg h-9 gap-2 text-xs font-medium">Ver Detalles</DropdownMenuItem>
+                  <DropdownMenuItem className="rounded-lg h-9 gap-2 text-xs font-medium" onClick={() => onViewDetails(reg)}>
+                    <UserCircle className="h-4 w-4" /> Ver Detalles
+                  </DropdownMenuItem>
                   {isAdmin && (
                     <>
                       <DropdownMenuItem className="rounded-lg h-9 gap-2 text-xs font-medium" onClick={() => onAssignGroup(reg)}>
