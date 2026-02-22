@@ -49,13 +49,39 @@ export default function GroupsAdminPage() {
     return groups.filter(g => g.name?.toLowerCase().includes(searchTerm.toLowerCase()))
   }, [groups, searchTerm])
 
+  // LÓGICA DE FILTRADO: Excluir catequistas que ya tienen grupo
   const filteredUsersForDialog = useMemo(() => {
     if (!users) return []
-    return users.filter(u => 
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(memberSearch.toLowerCase()) ||
-      u.email?.toLowerCase().includes(memberSearch.toLowerCase())
-    )
-  }, [users, memberSearch])
+    
+    // Obtener todos los IDs de catequistas que ya pertenecen a algún grupo
+    const allAssignedIds = new Set<string>()
+    groups?.forEach(g => {
+      if (g.catequistaIds && Array.isArray(g.catequistaIds)) {
+        g.catequistaIds.forEach((id: string) => allAssignedIds.add(id))
+      }
+    })
+
+    return users.filter(u => {
+      // Filtro de búsqueda por texto
+      const matchesSearch = `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                            (u.email || "").toLowerCase().includes(memberSearch.toLowerCase())
+      
+      if (!matchesSearch) return false
+
+      const isAlreadyAssigned = allAssignedIds.has(u.id)
+      
+      // Si estamos editando, permitimos ver a los que ya están en ESTE grupo específico
+      // aunque técnicamente estén "asignados", ya que son parte del grupo que estamos viendo.
+      const isInCurrentGroup = selectedGroup?.catequistaIds?.includes(u.id)
+
+      if (isEditDialogOpen) {
+        return isInCurrentGroup || !isAlreadyAssigned
+      }
+
+      // Si es creación, solo mostramos los que no tienen ningún grupo asignado
+      return !isAlreadyAssigned
+    })
+  }, [users, groups, memberSearch, isEditDialogOpen, selectedGroup])
 
   const handleToggleCatequista = useCallback((userId: string) => {
     setSelectedCatequistaIds(prev => 
@@ -215,7 +241,7 @@ export default function GroupsAdminPage() {
                 <div className="space-y-2"><Label>Año</Label><Select name="catechesisYear" defaultValue="PRIMER_AÑO"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
               </div>
               <div className="space-y-3">
-                <Label>Miembros ({selectedCatequistaIds.length})</Label>
+                <Label>Seleccionar Miembros disponibles ({selectedCatequistaIds.length})</Label>
                 <div className="border rounded-xl p-3 bg-slate-50 flex flex-wrap gap-2 mb-2">
                   {selectedCatequistaIds.map(id => {
                     const u = users?.find(u => u.id === id)
@@ -227,7 +253,7 @@ export default function GroupsAdminPage() {
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input 
-                    placeholder="Buscar catequista..." 
+                    placeholder="Buscar catequista sin grupo..." 
                     className="pl-9 h-9 text-xs" 
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
@@ -236,7 +262,7 @@ export default function GroupsAdminPage() {
 
                 <ScrollArea className="h-[150px] border rounded-xl p-2 bg-white">
                   {filteredUsersForDialog.length === 0 ? (
-                    <p className="text-center text-[10px] text-slate-400 py-4 italic">No se encontraron resultados</p>
+                    <p className="text-center text-[10px] text-slate-400 py-4 italic">No hay catequistas disponibles o no coinciden con la búsqueda</p>
                   ) : (
                     filteredUsersForDialog.map(u => (
                       <div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1 transition-colors", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}>
@@ -246,6 +272,7 @@ export default function GroupsAdminPage() {
                     ))
                   )}
                 </ScrollArea>
+                <p className="text-[10px] text-muted-foreground italic">Nota: Solo se muestran catequistas que aún no pertenecen a ningún grupo.</p>
               </div>
             </div>
             <DialogFooter className="p-6 bg-slate-50 border-t shrink-0"><Button type="submit" disabled={isSubmitting} className="w-full h-11">{isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Crear Grupo"}</Button></DialogFooter>
@@ -268,7 +295,7 @@ export default function GroupsAdminPage() {
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input 
-                    placeholder="Buscar catequista..." 
+                    placeholder="Buscar catequistas disponibles..." 
                     className="pl-9 h-9 text-xs" 
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
@@ -276,7 +303,7 @@ export default function GroupsAdminPage() {
                 </div>
                 <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
                   {filteredUsersForDialog.length === 0 ? (
-                    <p className="text-center text-[10px] text-slate-400 py-4 italic">No se encontraron resultados</p>
+                    <p className="text-center text-[10px] text-slate-400 py-4 italic">No se encontraron resultados disponibles</p>
                   ) : (
                     filteredUsersForDialog.map(u => (
                       <div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1 transition-colors", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}>
@@ -286,6 +313,7 @@ export default function GroupsAdminPage() {
                     ))
                   )}
                 </ScrollArea>
+                <p className="text-[10px] text-muted-foreground italic">Nota: Se muestran miembros actuales y catequistas libres.</p>
               </div>
             </div>
             <DialogFooter className="p-6 bg-slate-50 border-t shrink-0"><Button type="submit" disabled={isSubmitting} className="w-full h-11">{isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Guardar Cambios"}</Button></DialogFooter>
