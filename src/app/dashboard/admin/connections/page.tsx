@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, User, Globe, ShieldCheck, Clock, Circle, Activity, History } from "lucide-react"
+import { Loader2, User, Globe, ShieldCheck, Clock, Circle, Activity, History, Calendar } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
 import { collection, query, orderBy, limit } from "firebase/firestore"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -84,6 +84,19 @@ export default function ConnectionsMonitorPage() {
     return auditLogs.find(log => log.userId === userId)
   }
 
+  const formatTimestamp = (ts: any) => {
+    if (!ts) return "N/A"
+    const date = ts.toDate ? ts.toDate() : new Date(ts)
+    return date.toLocaleString('es-PY', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+
   if (!mounted) return null
 
   return (
@@ -128,6 +141,7 @@ export default function ConnectionsMonitorPage() {
                     <TableHead className="font-bold">Usuario</TableHead>
                     <TableHead className="font-bold">Rol</TableHead>
                     <TableHead className="font-bold">Última Acción Realizada</TableHead>
+                    <TableHead className="font-bold">Fecha y Hora de Actividad</TableHead>
                     <TableHead className="text-right pr-8 font-bold">Estado</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -169,14 +183,22 @@ export default function ConnectionsMonitorPage() {
                                 <span className="text-[10px] text-slate-500 truncate italic" title={lastAction.details}>
                                   {lastAction.details}
                                 </span>
-                                <span className="text-[8px] text-slate-400">
-                                  {lastAction.timestamp ? formatDistanceToNow(lastAction.timestamp.toDate ? lastAction.timestamp.toDate() : new Date(lastAction.timestamp), { addSuffix: true, locale: es }) : ''}
-                                </span>
                               </div>
                             </div>
                           ) : (
                             <span className="text-[10px] text-slate-400 italic">Sin acciones registradas hoy</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                              <Calendar className="h-3 w-3 text-slate-400" />
+                              {formatTimestamp(u.lastSeen)}
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-medium">
+                              ({formatDistanceToNow(u.lastSeen?.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen || 0), { addSuffix: true, locale: es })})
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
                           <Badge className="bg-green-500 hover:bg-green-600 gap-1.5 h-6">
@@ -218,11 +240,16 @@ export default function ConnectionsMonitorPage() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900 truncate">{u.firstName} {u.lastName}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
-                          {u.lastSeen ? `Visto ${formatDistanceToNow(u.lastSeen.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen), { addSuffix: true, locale: es })}` : "Sin actividad registrada"}
-                        </p>
+                        <div className="space-y-0.5 mt-1">
+                          <p className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+                            <Clock className="h-2.5 w-2.5" /> {formatTimestamp(u.lastSeen)}
+                          </p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
+                            Visto {formatDistanceToNow(u.lastSeen.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen), { addSuffix: true, locale: es })}
+                          </p>
+                        </div>
                         {lastAction && (
-                          <p className="text-[8px] text-primary font-medium truncate mt-1">
+                          <p className="text-[8px] text-primary font-medium truncate mt-1.5 border-t border-slate-200 pt-1">
                             Última acción: {lastAction.action}
                           </p>
                         )}
