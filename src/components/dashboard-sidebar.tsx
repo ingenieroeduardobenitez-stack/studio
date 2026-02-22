@@ -112,7 +112,7 @@ export function DashboardSidebar() {
                   src={logoData.imageUrl} 
                   alt={logoData.description} 
                   fill
-                  className="object-contain p-1"
+                  className="object-cover"
                   data-ai-hint={logoData.imageHint}
                 />
               ) : (

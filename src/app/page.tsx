@@ -32,7 +32,6 @@ export default function RootPage() {
     setMounted(true)
   }, [])
 
-  // Redirigir si ya está logueado
   useEffect(() => {
     if (mounted && user && !userLoading) {
       router.push("/dashboard")
@@ -53,7 +52,7 @@ export default function RootPage() {
       toast({
         variant: "destructive",
         title: "Configuración incompleta",
-        description: "Firebase no está inicializado.",
+        description: "Firebase no está inicializado. Contacte al administrador.",
       })
       return;
     }
@@ -95,7 +94,6 @@ export default function RootPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-slate-50 font-body relative overflow-hidden">
-      {/* Fondo decorativo sutil */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none flex items-center justify-center">
         <Church className="h-[500px] w-[500px] text-primary" />
       </div>
@@ -103,17 +101,17 @@ export default function RootPage() {
       <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in-95 duration-700 relative z-10">
         
         <div className="flex flex-col items-center text-center space-y-4">
-          <div className="relative h-20 w-20 bg-white p-2 rounded-3xl shadow-xl flex items-center justify-center border-2 border-primary/10">
-            {logoData && logoData.imageUrl !== "/logo.png" ? (
+          <div className="relative h-24 w-24 bg-white p-2 rounded-3xl shadow-xl flex items-center justify-center border-2 border-primary/10 overflow-hidden">
+            {logoData ? (
               <Image 
                 src={logoData.imageUrl} 
                 alt="Logo Parroquia" 
                 fill
-                className="object-contain p-2"
-                data-ai-hint="church logo"
+                className="object-cover"
+                data-ai-hint={logoData.imageHint}
               />
             ) : (
-              <Church className="h-10 w-10 text-primary" />
+              <Church className="h-12 w-12 text-primary" />
             )}
           </div>
           <div className="space-y-1">

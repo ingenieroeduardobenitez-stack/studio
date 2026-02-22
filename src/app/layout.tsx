@@ -7,6 +7,10 @@ import { Toaster } from '@/components/ui/toaster';
 export const metadata: Metadata = {
   title: 'Confir NSPS - Parroquia Perpetuo Socorro',
   description: 'Sistema de Gestión de Sacramentos - Confirmación Juvenil y Adultos',
+  icons: {
+    icon: 'https://picsum.photos/seed/churchlogo77/32/32',
+    apple: 'https://picsum.photos/seed/churchlogo77/180/180',
+  }
 };
 
 export default function RootLayout({
