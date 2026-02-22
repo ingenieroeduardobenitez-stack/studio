@@ -450,6 +450,10 @@ export default function TreasuryPage() {
       {/* DIALOGO DE RECIBO */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Recibo de Pago</DialogTitle>
+            <DialogDescription>Comprobante oficial de pago para impresión.</DialogDescription>
+          </DialogHeader>
           <div className="p-10 bg-white space-y-8" id="receipt-content">
             <div className="flex items-center justify-between border-b pb-6">
               <div className="flex items-center gap-2">

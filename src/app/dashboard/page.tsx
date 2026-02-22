@@ -207,6 +207,10 @@ export default function DashboardPage() {
       {/* DIALOGO QR */}
       <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Código QR de Inscripción</DialogTitle>
+            <DialogDescription>Escanea este código para acceder al formulario de inscripción digital.</DialogDescription>
+          </DialogHeader>
           <div className="p-12 bg-white flex flex-col items-center space-y-8 print:p-8" id="qr-print-area">
             <div className="text-center space-y-2">
               <div className="flex items-center justify-center gap-2 mb-2">

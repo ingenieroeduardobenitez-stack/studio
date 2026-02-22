@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useMemo } from "react"
@@ -595,6 +594,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       {!isPublic && (
         <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
           <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Recibo de Pago Inicial</DialogTitle>
+              <DialogDescription>Comprobante de pago generado inmediatamente después de la inscripción.</DialogDescription>
+            </DialogHeader>
             <div className="p-10 bg-white space-y-8 print:p-8" id="receipt-print">
               <div className="flex items-center justify-between border-b pb-6">
                 <div className="flex items-center gap-2">
