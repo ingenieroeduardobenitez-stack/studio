@@ -24,7 +24,8 @@ import {
   Wallet,
   MessageCircle,
   Building2,
-  FileText
+  FileText,
+  Send
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -276,6 +277,31 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }
 
+  const handleSendReceiptWhatsApp = () => {
+    if (!submittedData) return
+    
+    const phone = submittedData.phone || submittedData.motherPhone || submittedData.fatherPhone;
+    if (!phone) {
+      toast({ variant: "destructive", title: "Sin número", description: "No hay un número de contacto para enviar." })
+      return
+    }
+
+    const message = encodeURIComponent(
+      `⛪ *RECIBO OFICIAL - CATEQUESIS*\n` +
+      `*Parroquia Perpetuo Socorro*\n\n` +
+      `Hola *${submittedData.fullName}*,\n` +
+      `Confirmamos el cobro de tu arancel de inscripción.\n\n` +
+      `*Detalles:* \n` +
+      `• *Concepto:* Inscripción ${submittedData.catechesisYear.replace("_", " ")}\n` +
+      `• *Monto Cobrado:* ${submittedData.initialPayment.toLocaleString()} Gs.\n` +
+      `• *Saldo Pendiente:* ${(submittedData.registrationCost - submittedData.initialPayment).toLocaleString()} Gs.\n` +
+      `• *Fecha:* ${new Date().toLocaleDateString()}\n\n` +
+      `_Gracias por tu compromiso. ¡Te esperamos!_`
+    )
+    
+    window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
+  }
+
   const handleSendProofWhatsApp = () => {
     if (!submittedData) return
     const message = encodeURIComponent(`⛪ *Comprobante de Inscripción*\n\nHola, adjunto el comprobante de transferencia para mi inscripción.\n\n*Nombre:* ${submittedData.fullName}\n*C.I.:* ${submittedData.ciNumber}\n*Nivel:* ${submittedData.catechesisYear.replace("_", " ")}\n\n_Quedo atento a la validación para recibir mi recibo oficial._`)
@@ -519,13 +545,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       )} />
                       
                       <FormField control={form.control} name="generateReceipt" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-xl bg-slate-50">
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border-2 border-primary/20 rounded-xl bg-primary/5 shadow-sm">
                           <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5" />
                           </FormControl>
                           <div className="space-y-1 leading-none">
-                            <FormLabel className="text-xs font-bold text-slate-600 flex items-center gap-2 cursor-pointer">
-                              <FileText className="h-3 w-3 text-primary" /> Generar recibo de pago ahora
+                            <FormLabel className="text-xs font-bold text-primary flex items-center gap-2 cursor-pointer">
+                              <FileText className="h-4 w-4" /> Generar recibo de pago ahora
                             </FormLabel>
                           </div>
                         </FormItem>
@@ -686,10 +712,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Sello y Firma - Catequesis</p>
               </div>
             </div>
-            <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 print:hidden">
-              <Button variant="outline" className="flex-1 rounded-xl" onClick={handleCloseReceipt}>Cerrar</Button>
-              <Button className="flex-1 gap-2 rounded-xl shadow-lg" onClick={() => window.print()}>
-                <Printer className="h-4 w-4" /> Imprimir Recibo
+            <DialogFooter className="p-6 bg-slate-50 border-t grid grid-cols-1 sm:grid-cols-2 gap-3 print:hidden">
+              <Button variant="outline" className="rounded-xl h-12 font-bold" onClick={handleCloseReceipt}>Cerrar</Button>
+              <Button className="rounded-xl h-12 font-bold shadow-lg gap-2" onClick={() => window.print()}>
+                <Printer className="h-4 w-4" /> Imprimir
+              </Button>
+              <Button className="rounded-xl h-12 bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg gap-2 sm:col-span-2" onClick={handleSendReceiptWhatsApp}>
+                <MessageCircle className="h-4 w-4" /> Enviar por WhatsApp
               </Button>
             </DialogFooter>
           </DialogContent>
