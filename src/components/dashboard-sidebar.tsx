@@ -106,7 +106,7 @@ export function DashboardSidebar() {
 
   return (
     <Sidebar collapsible="offcanvas" className="z-[60] shadow-2xl border-r bg-white">
-      <SidebarHeader className="p-6 border-b">
+      <SidebarHeader className="p-6 border-b bg-white">
         <div className="flex items-center justify-between w-full">
           <Link href="/dashboard" className="flex items-center gap-3">
             <div className="relative h-10 w-10 bg-white rounded-xl shadow-md border flex items-center justify-center overflow-hidden">
@@ -135,7 +135,7 @@ export function DashboardSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-6 space-y-4">
+      <SidebarContent className="px-3 py-6 space-y-4 bg-white">
         {filteredOperations.length > 0 && (
           <Collapsible defaultOpen={true} className="group/collapsible">
             <SidebarGroup>
@@ -157,7 +157,7 @@ export function DashboardSidebar() {
                       const isActive = pathname === item.href
                       return (
                         <SidebarMenuItem key={item.href} className="px-2">
-                          <SidebarMenuButton asChild isActive={isActive}>
+                          <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
                             <Link href={item.href} onClick={() => setOpen(false)}>
                               <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
                               <span className="font-bold">{item.name}</span>
@@ -194,7 +194,7 @@ export function DashboardSidebar() {
                       const isActive = pathname === item.href
                       return (
                         <SidebarMenuItem key={item.href} className="px-2">
-                          <SidebarMenuButton asChild isActive={isActive}>
+                          <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
                             <Link href={item.href} onClick={() => setOpen(false)}>
                               <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
                               <span className="font-bold">{item.name}</span>
@@ -231,7 +231,7 @@ export function DashboardSidebar() {
                       const isActive = pathname === item.href
                       return (
                         <SidebarMenuItem key={item.id} className="px-2">
-                          <SidebarMenuButton asChild isActive={isActive}>
+                          <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
                             <Link href={item.href} onClick={() => setOpen(false)}>
                               <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
                               <span className="font-bold">{item.name}</span>
