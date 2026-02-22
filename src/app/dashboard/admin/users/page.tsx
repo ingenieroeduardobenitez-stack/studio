@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Camera, User, Check, X } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Camera, User, Check, X, Circle } from "lucide-react"
 import { useFirestore, useCollection } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
@@ -23,6 +23,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { cn } from "@/lib/utils"
+import { formatDistanceToNow } from "date-fns"
+import { es } from "date-fns/locale"
 
 const AVAILABLE_MODULES = [
   { id: "inicio", name: "Inicio", category: "Operaciones" },
@@ -36,6 +38,7 @@ const AVAILABLE_MODULES = [
   { id: "usuarios", name: "Gestión de Usuarios", category: "Administración" },
   { id: "grupos", name: "Gestión de Grupos", category: "Administración" },
   { id: "archivar", name: "Cierre de Año / Archivo", category: "Administración" },
+  { id: "conexiones", name: "Monitoreo de Conexiones", category: "Administración" },
 ]
 
 const PERMISSIONS = [
@@ -79,8 +82,18 @@ export default function UsersAdminPage() {
     return users.filter(u => 
       `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    ).sort((a, b) => (a.status === 'online' ? -1 : 1))
   }, [users, searchTerm])
+
+  const isOnline = (user: any) => {
+    if (user.status !== "online") return false
+    if (!user.lastSeen) return false
+    
+    // Considerar offline si no hubo señal en los últimos 2 minutos
+    const lastSeenDate = user.lastSeen.toDate ? user.lastSeen.toDate() : new Date(user.lastSeen)
+    const diff = (new Date().getTime() - lastSeenDate.getTime()) / 1000
+    return diff < 120 
+  }
 
   const handleTogglePermission = (moduleId: string, permId: string) => {
     const permissionKey = `${moduleId}:${permId}`
@@ -132,6 +145,8 @@ export default function UsersAdminPage() {
         role: role || "Catequista",
         allowedModules: selectedModules,
         photoUrl: tempPhoto || null,
+        status: "offline",
+        lastSeen: serverTimestamp(),
         createdAt: serverTimestamp(),
       }
 
@@ -373,6 +388,7 @@ export default function UsersAdminPage() {
               <TableHeader className="bg-slate-50/30">
                 <TableRow>
                   <TableHead className="py-4 font-bold text-slate-500">Catequista</TableHead>
+                  <TableHead className="py-4 font-bold text-slate-500">Estado</TableHead>
                   <TableHead className="py-4 font-bold text-slate-500">Rol</TableHead>
                   <TableHead className="py-4 font-bold text-slate-500">Módulos</TableHead>
                   <TableHead className="py-4 text-right font-bold text-slate-500 pr-8">Acciones</TableHead>
@@ -381,13 +397,36 @@ export default function UsersAdminPage() {
               <TableBody>
                 {filteredUsers.map((u: any) => {
                   const moduleNames = getAssignedModuleNames(u.allowedModules)
+                  const online = isOnline(u)
                   return (
                     <TableRow key={u.id} className="hover:bg-slate-50/50 border-slate-100 h-20">
                       <TableCell>
                         <div className="flex items-center gap-4">
-                          <Avatar className="h-10 w-10"><AvatarImage src={u.photoUrl || undefined} /><AvatarFallback>{(u.firstName?.[0] || "")}</AvatarFallback></Avatar>
-                          <div className="flex flex-col"><span className="font-bold text-slate-900">{u.firstName} {u.lastName}</span><span className="text-xs text-slate-400">{u.email}</span></div>
+                          <div className="relative">
+                            <Avatar className="h-10 w-10 border shadow-sm">
+                              <AvatarImage src={u.photoUrl || undefined} />
+                              <AvatarFallback>{(u.firstName?.[0] || "")}</AvatarFallback>
+                            </Avatar>
+                            {online && (
+                              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white ring-1 ring-green-200 animate-pulse" />
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900">{u.firstName} {u.lastName}</span>
+                            <span className="text-xs text-slate-400">{u.email}</span>
+                          </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {online ? (
+                          <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100 gap-1.5 h-6">
+                            <Circle className="h-2 w-2 fill-green-600 border-none" /> En Línea
+                          </Badge>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium italic">
+                            {u.lastSeen ? `Visto ${formatDistanceToNow(u.lastSeen.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen), { addSuffix: true, locale: es })}` : "Sin actividad"}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell><Badge variant="outline" className="gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />{u.role || "Catequista"}</Badge></TableCell>
                       <TableCell>
@@ -399,12 +438,13 @@ export default function UsersAdminPage() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><button className="p-2 hover:bg-slate-100 rounded-full"><MoreHorizontal className="h-5 w-5 text-slate-400" /></button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-xl shadow-xl border-none">
+                            <DropdownMenuLabel className="text-[10px] uppercase text-slate-400">Opciones</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => { setSelectedUser(u); setSelectedModules(u.allowedModules || []); setIsEditDialogOpen(true); }} className="h-11 rounded-lg gap-3">
-                              <Edit className="h-4 w-4 text-slate-400" /> Editar
+                              <Edit className="h-4 w-4 text-slate-400" /> Editar Permisos
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive h-11 rounded-lg gap-3" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}>
-                              <Trash2 className="h-4 w-4" /> Eliminar
+                              <Trash2 className="h-4 w-4" /> Eliminar Cuenta
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -473,7 +513,7 @@ export default function UsersAdminPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar catequista?</AlertDialogTitle>
-            <AlertDialogDescription>Esta acción borrará el perfil definitivamente.</AlertDialogDescription>
+            <AlertDialogDescription>Esta acción borrará el perfil definitivamente del sistema administrativo.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>

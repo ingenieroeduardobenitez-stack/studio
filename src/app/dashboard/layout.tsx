@@ -1,15 +1,59 @@
 
+"use client"
+
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { Bell, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { UserNav } from "@/components/user-nav"
+import { useEffect } from "react"
+import { useUser, useFirestore } from "@/firebase"
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const { user } = useUser()
+  const db = useFirestore()
+
+  // Sistema de Presencia (Heartbeat)
+  useEffect(() => {
+    if (!db || !user?.uid) return
+
+    const userRef = doc(db, "users", user.uid)
+    
+    // Marcar como online al entrar
+    const markOnline = () => {
+      updateDoc(userRef, {
+        status: "online",
+        lastSeen: serverTimestamp()
+      }).catch(console.error)
+    }
+
+    // Marcar como offline al salir (intento de mejor esfuerzo)
+    const markOffline = () => {
+      updateDoc(userRef, {
+        status: "offline",
+        lastSeen: serverTimestamp()
+      }).catch(console.error)
+    }
+
+    markOnline()
+
+    // Intervalo para mantener el estado "online" activo
+    const interval = setInterval(markOnline, 30000) // Cada 30 segundos
+
+    window.addEventListener("beforeunload", markOffline)
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("beforeunload", markOffline)
+      markOffline()
+    }
+  }, [db, user?.uid])
+
   return (
     <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen bg-slate-50/50 w-full relative">

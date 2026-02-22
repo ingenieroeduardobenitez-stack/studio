@@ -17,7 +17,8 @@ import {
   Wallet,
   CreditCard,
   ArrowLeftRight,
-  Archive
+  Archive,
+  Globe
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -59,6 +60,7 @@ const treasuryItems = [
 const adminItems = [
   { id: "usuarios", name: "Gestión de Usuarios", href: "/dashboard/admin/users", icon: Users },
   { id: "grupos", name: "Gestión de Grupos", href: "/dashboard/admin/groups", icon: Shapes },
+  { id: "conexiones", name: "Monitoreo Conexiones", href: "/dashboard/admin/connections", icon: Globe },
   { id: "archivar", name: "Cierre de Año / Archivo", href: "/dashboard/admin/archive", icon: Archive },
 ]
 
