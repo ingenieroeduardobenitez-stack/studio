@@ -28,18 +28,16 @@ export default function ConnectionsMonitorPage() {
   const { data: users, loading } = useCollection(usersQuery)
 
   const isOnline = (user: any) => {
-    // Si el estatus es offline explícitamente, está fuera
+    // Si el estatus no es online, está fuera
     if (user.status !== "online") return false
     if (!user.lastSeen) return false
     
-    // Calculamos la diferencia entre ahora y la última vez que el sistema "vio" al usuario
     const lastSeenDate = user.lastSeen.toDate ? user.lastSeen.toDate() : new Date(user.lastSeen)
     const now = new Date()
     
-    // Ventana de 5 minutos (300 segundos) para considerar a alguien online
-    // Esto previene saltos por lag de red o desincronización de reloj local
+    // Ventana más amplia (10 minutos) para considerar online, ignorando skews pequeños de reloj
     const diffInSeconds = Math.abs((now.getTime() - lastSeenDate.getTime()) / 1000)
-    return diffInSeconds < 300 
+    return diffInSeconds < 600 
   }
 
   const onlineUsers = useMemo(() => {
@@ -58,7 +56,7 @@ export default function ConnectionsMonitorPage() {
         return dateB.getTime() - dateA.getTime()
       })
       .slice(0, 15)
-  }, [users, onlineUsers]) // Dependemos de onlineUsers para recalcular cuando alguien entra/sale
+  }, [users, onlineUsers])
 
   if (!mounted) return null
 

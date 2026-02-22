@@ -36,15 +36,15 @@ export default function DashboardLayout({
       }
     }
 
-    // Marcar como online inmediatamente al montar o al cambiar de ruta
+    // Marcar como online inmediatamente
     updatePresence("online")
 
-    // Intervalo de pulso cada 30 segundos
+    // Intervalo de pulso más frecuente (cada 20 segundos)
     presenceInterval.current = setInterval(() => {
       if (document.visibilityState === 'visible') {
         updatePresence("online")
       }
-    }, 30000)
+    }, 20000)
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -52,20 +52,19 @@ export default function DashboardLayout({
       }
     }
 
-    const handleBeforeUnload = () => {
-      // Intentamos marcar como offline al cerrar la pestaña
-      // Nota: Esto es best-effort, no siempre se garantiza en todos los navegadores
-      updatePresence("offline")
+    const handleFocus = () => {
+      updatePresence("online")
     }
 
-    window.addEventListener("beforeunload", handleBeforeUnload)
+    window.addEventListener("focus", handleFocus)
+    window.addEventListener("beforeunload", () => updatePresence("offline"))
     document.addEventListener("visibilitychange", handleVisibilityChange)
     
     return () => {
       if (presenceInterval.current) clearInterval(presenceInterval.current)
-      window.removeEventListener("beforeunload", handleBeforeUnload)
+      window.removeEventListener("focus", handleFocus)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
-      updatePresence("offline")
+      // No marcamos offline en el cleanup del efecto para evitar falsos negativos en navegaciones internas
     }
   }, [db, user?.uid])
 
