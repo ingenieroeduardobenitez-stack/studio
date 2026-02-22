@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle } from "lucide-react"
+import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection } from "@/firebase"
 import { doc, collection } from "firebase/firestore"
 import { useMemo, useState, useEffect } from "react"
@@ -37,8 +37,19 @@ export default function DashboardPage() {
   const registrationUrl = typeof window !== 'undefined' ? `${window.location.origin}/inscripcion` : ""
 
   const handleShareWhatsApp = () => {
-    const message = encodeURIComponent(`¡Hola! Inscríbete a la Catequesis de Confirmación 2026 de la Parroquia Perpetuo Socorro aquí: ${registrationUrl}`)
+    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola! Te comparto el acceso para la *Inscripción Digital de Confirmación 2026*.\n\nPuedes inscribirte directamente aquí:\n${registrationUrl}\n\n_Secretaría de Catequesis_`)
     window.open(`https://wa.me/?text=${message}`, '_blank')
+  }
+
+  const handleDownloadQR = () => {
+    const canvas = document.querySelector("#qr-print-area canvas") as HTMLCanvasElement
+    if (canvas) {
+      const url = canvas.toDataURL("image/png")
+      const link = document.createElement("a")
+      link.download = "QR-Inscripcion-Perpetuo-Socorro-2026.png"
+      link.href = url
+      link.click()
+    }
   }
 
   if (!mounted || userLoading || profileLoading) {
@@ -163,10 +174,10 @@ export default function DashboardPage() {
           </div>
           <CardHeader>
             <CardTitle className="font-headline flex items-center gap-2">
-              <Share2 className="h-5 w-5" /> Compartir Inscripción
+              <Share2 className="h-5 w-5" /> Compartir Acceso
             </CardTitle>
             <CardDescription className="text-white/80">
-              Usa el código QR para que los postulantes se inscriban solos desde su celular.
+              Distribuye el link o el QR para que los postulantes se inscriban desde casa.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-6 pt-4">
@@ -184,7 +195,7 @@ export default function DashboardPage() {
           </CardContent>
           <CardFooter className="pt-2 flex flex-col gap-2">
             <Button className="w-full bg-white text-primary hover:bg-white/90 font-bold rounded-xl gap-2 h-11" onClick={() => setIsQrOpen(true)}>
-              Ver QR e Imprimir
+              <QrCode className="h-4 w-4" /> Gestionar QR
             </Button>
             <Button variant="outline" className="w-full bg-green-500 hover:bg-green-600 text-white border-none font-bold rounded-xl gap-2 h-11" onClick={handleShareWhatsApp}>
               <MessageCircle className="h-4 w-4" /> Enviar por WhatsApp
@@ -223,13 +234,16 @@ export default function DashboardPage() {
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Secretaría de Catequesis</p>
             </div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col sm:flex-row gap-3 print:hidden">
-            <Button variant="outline" className="flex-1 rounded-xl font-bold h-12" onClick={() => setIsQrOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg h-12 gap-2" onClick={handleShareWhatsApp}>
-              <MessageCircle className="h-4 w-4" /> Compartir
+          <DialogFooter className="p-6 bg-slate-50 border-t grid grid-cols-2 gap-3 print:hidden">
+            <Button variant="outline" className="rounded-xl font-bold h-12 gap-2" onClick={handleDownloadQR}>
+              <Download className="h-4 w-4" /> Imagen PNG
             </Button>
-            <Button className="flex-1 rounded-xl bg-primary font-bold shadow-lg h-12 gap-2" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Imprimir
+            <Button className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg h-12 gap-2" onClick={handleShareWhatsApp}>
+              <MessageCircle className="h-4 w-4" /> WhatsApp
+            </Button>
+            <Button variant="outline" className="rounded-xl font-bold h-12" onClick={() => setIsQrOpen(false)}>Cerrar</Button>
+            <Button className="rounded-xl bg-primary font-bold shadow-lg h-12 gap-2" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Imprimir Cartel
             </Button>
           </DialogFooter>
         </DialogContent>
