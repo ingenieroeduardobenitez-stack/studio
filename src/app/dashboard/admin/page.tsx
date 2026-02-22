@@ -1,117 +1,269 @@
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+"use client"
+
+import { useState, useMemo, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Users, Shield, FileCheck, Filter } from "lucide-react"
-
-const registrations = [
-  { id: "1", name: "Alice Thompson", date: "2024-03-15", status: "CONFIRMED", role: "Analista de Inteligencia" },
-  { id: "2", name: "Bob Smith", date: "2024-03-14", status: "PENDING", role: "Especialista en Ciberseguridad" },
-  { id: "3", name: "Charlie Brown", date: "2024-03-14", status: "DENIED", role: "Operativo de Campo" },
-  { id: "4", name: "Diana Prince", date: "2024-03-13", status: "CONFIRMED", role: "Oficial de Logística" },
-  { id: "5", name: "Edward Norton", date: "2024-03-12", status: "PENDING", role: "Infraestructura TI" },
-]
+import { 
+  Users, 
+  Shield, 
+  Settings, 
+  Church, 
+  Loader2, 
+  ArrowRight, 
+  CreditCard, 
+  Building2,
+  Shapes,
+  UserCheck
+} from "lucide-react"
+import { useFirestore, useCollection, useDoc } from "@/firebase"
+import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 
 export default function AdminPage() {
+  const [mounted, setMounted] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const db = useFirestore()
+  const { toast } = useToast()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Suscripciones a datos
+  const regsQuery = useMemo(() => db ? collection(db, "confirmations") : null, [db])
+  const groupsQuery = useMemo(() => db ? collection(db, "groups") : null, [db])
+  const usersQuery = useMemo(() => db ? collection(db, "users") : null, [db])
+  const treasuryRef = useMemo(() => db ? doc(db, "settings", "treasury") : null, [db])
+
+  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
+  const { data: groups, loading: loadingGroups } = useCollection(groupsQuery)
+  const { data: catechists, loading: loadingUsers } = useCollection(usersQuery)
+  const { data: settings, loading: loadingSettings } = useDoc(treasuryRef)
+
+  const handleSaveSettings = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!db || !treasuryRef) return
+    setIsSaving(true)
+
+    const formData = new FormData(e.currentTarget)
+    const data = {
+      juvenileCost: Number(formData.get("juvenile")),
+      adultCost: Number(formData.get("adult")),
+      bankName: formData.get("bankName") as string || "",
+      accountNumber: formData.get("accountNumber") as string || "",
+      accountOwner: formData.get("accountOwner") as string || "",
+      ownerCi: formData.get("ownerCi") as string || "",
+      updatedAt: serverTimestamp()
+    }
+
+    try {
+      await setDoc(treasuryRef, data, { merge: true })
+      toast({ title: "Configuración guardada", description: "Los datos de la parroquia han sido actualizados." })
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (!mounted) return null
+
+  const stats = {
+    total: registrations?.length || 0,
+    firstYear: registrations?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0,
+    secondYear: registrations?.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length || 0,
+    adults: registrations?.filter(r => r.catechesisYear === "ADULTOS").length || 0,
+    groups: groups?.length || 0,
+    catechists: catechists?.length || 0,
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Panel de Administración</h1>
-          <p className="text-muted-foreground">Supervisa y gestiona toda la actividad de registro NSPS.</p>
+          <p className="text-muted-foreground">Gestión global de la Catequesis de Confirmación.</p>
         </div>
         <div className="flex gap-2">
-          <Button className="bg-primary text-white hover:bg-primary/90">
-            <Users className="mr-2 h-4 w-4" /> Gestionar Equipos
+          <Button asChild variant="outline" className="rounded-xl font-bold">
+            <Link href="/dashboard/admin/users">
+              <Users className="mr-2 h-4 w-4" /> Usuarios
+            </Link>
           </Button>
-          <Button variant="outline">Exportar Datos</Button>
+          <Button asChild className="bg-primary hover:bg-primary/90 rounded-xl font-bold shadow-lg">
+            <Link href="/dashboard/admin/groups">
+              <Shapes className="mr-2 h-4 w-4" /> Grupos
+            </Link>
+          </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-border/50 shadow-sm">
+      {/* TARJETAS DE ESTADÍSTICAS */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="border-none shadow-sm bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total de Registros</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
+            <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Inscritos Totales</CardTitle>
+            <Shield className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,284</div>
-            <p className="text-xs text-muted-foreground">+12% desde el mes pasado</p>
+            <div className="text-2xl font-bold">{loadingRegs ? "..." : stats.total}</div>
+            <p className="text-[10px] text-muted-foreground">Ciclo Lectivo 2026</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 shadow-sm">
+        <Card className="border-none shadow-sm bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Auto-Confirmados</CardTitle>
-            <Shield className="h-4 w-4 text-accent" />
+            <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Grupos Activos</CardTitle>
+            <Shapes className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">892</div>
-            <p className="text-xs text-muted-foreground">70% de tasa de éxito</p>
+            <div className="text-2xl font-bold">{loadingGroups ? "..." : stats.groups}</div>
+            <p className="text-[10px] text-muted-foreground">Sábados y Domingos</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 shadow-sm">
+        <Card className="border-none shadow-sm bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes de Revisión</CardTitle>
-            <FileCheck className="h-4 w-4 text-orange-500" />
+            <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Catequistas</CardTitle>
+            <UserCheck className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">45</div>
-            <p className="text-xs text-muted-foreground">Requiere supervisión humana</p>
+            <div className="text-2xl font-bold">{loadingUsers ? "..." : stats.catechists}</div>
+            <p className="text-[10px] text-muted-foreground">Personal Autorizado</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white border-l-4 border-l-orange-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Adultos</CardTitle>
+            <Church className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.adults}</div>
+            <p className="text-[10px] text-muted-foreground">Inscripción especial</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-border/50 shadow-sm">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="font-headline">Registros Recientes</CardTitle>
-              <CardDescription>Lista de los últimos solicitantes en el sistema.</CardDescription>
+      <div className="grid gap-8 lg:grid-cols-3">
+        {/* CARGA DE DATOS DE LA PARROQUIA */}
+        <Card className="lg:col-span-2 border-none shadow-xl bg-white overflow-hidden">
+          <CardHeader className="bg-primary text-white p-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/10 rounded-lg"><Settings className="h-5 w-5" /></div>
+              <div>
+                <CardTitle className="text-lg">Configuración de la Parroquia</CardTitle>
+                <CardDescription className="text-white/70">Carga aquí los costos y datos bancarios para el público.</CardDescription>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
+          </CardHeader>
+          <form onSubmit={handleSaveSettings}>
+            <CardContent className="p-8 space-y-8">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="font-bold text-slate-700">Arancel Juvenil (Gs)</Label>
+                  <div className="relative">
+                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input name="juvenile" type="number" defaultValue={settings?.juvenileCost || 35000} className="pl-10 h-12 rounded-xl bg-slate-50" required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold text-slate-700">Arancel Adultos (Gs)</Label>
+                  <div className="relative">
+                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input name="adult" type="number" defaultValue={settings?.adultCost || 50000} className="pl-10 h-12 rounded-xl bg-slate-50" required />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-primary flex items-center gap-2 uppercase tracking-wider">
+                  <Building2 className="h-4 w-4" /> Datos de Cuenta Bancaria
+                </h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-500">Nombre del Banco</Label>
+                    <Input name="bankName" defaultValue={settings?.bankName} placeholder="Ej. Banco Familiar" className="h-11 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-500">N° de Cuenta</Label>
+                    <Input name="accountNumber" defaultValue={settings?.accountNumber} placeholder="00000000" className="h-11 rounded-xl font-mono" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-500">Titular de la Cuenta</Label>
+                    <Input name="accountOwner" defaultValue={settings?.accountOwner} placeholder="Nombre completo" className="h-11 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-500">C.I. o RUC del Titular</Label>
+                    <Input name="ownerCi" defaultValue={settings?.ownerCi} placeholder="1.234.567-8" className="h-11 rounded-xl" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="bg-slate-50 p-6 border-t flex justify-end">
+              <Button type="submit" disabled={isSaving} className="rounded-xl h-12 px-8 font-bold shadow-lg gap-2">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
+                Guardar Datos de la Parroquia
               </Button>
+            </CardFooter>
+          </form>
+        </Card>
+
+        {/* ACCESOS RÁPIDOS */}
+        <div className="space-y-6">
+          <Card className="border-none shadow-xl bg-white">
+            <CardHeader>
+              <CardTitle className="text-base">Mantenimiento</CardTitle>
+              <CardDescription>Acciones de control del sistema.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button asChild variant="outline" className="w-full justify-start h-12 rounded-xl font-bold gap-3 border-slate-100 hover:bg-slate-50">
+                <Link href="/dashboard/admin/users">
+                  <Users className="h-5 w-5 text-blue-500" /> Gestionar Usuarios
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-start h-12 rounded-xl font-bold gap-3 border-slate-100 hover:bg-slate-50">
+                <Link href="/dashboard/admin/groups">
+                  <Shapes className="h-5 w-5 text-accent" /> Gestionar Grupos
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-start h-12 rounded-xl font-bold gap-3 border-slate-100 hover:bg-slate-50">
+                <Link href="/dashboard/admin/archive">
+                  <Church className="h-5 w-5 text-orange-500" /> Cierre de Año
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Shield className="h-20 w-20" />
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Solicitante</TableHead>
-                <TableHead>Cargo</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {registrations.map((reg) => (
-                <TableRow key={reg.id}>
-                  <TableCell className="font-medium">{reg.name}</TableCell>
-                  <TableCell>{reg.role}</TableCell>
-                  <TableCell>{reg.date}</TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={reg.status === "CONFIRMED" ? "default" : reg.status === "DENIED" ? "destructive" : "secondary"}
-                      className={reg.status === "CONFIRMED" ? "bg-green-500 hover:bg-green-600" : ""}
-                    >
-                      {reg.status === "CONFIRMED" ? "CONFIRMADO" : reg.status === "DENIED" ? "DENEGADO" : "PENDIENTE"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            <CardHeader>
+              <CardTitle className="text-white">Estado del Sistema</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs font-bold text-green-400">Servidores Operativos</span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Todas las conexiones con Firebase Firestore y Authentication están activas. Las inscripciones públicas están habilitadas.
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Button variant="ghost" className="w-full text-white/50 text-[10px] hover:text-white" disabled>
+                Versión 1.2.0 • Estable
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
