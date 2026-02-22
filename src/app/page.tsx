@@ -13,7 +13,6 @@ import { signInWithEmailAndPassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Image from "next/image"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
 import Link from "next/link"
 
 export default function RootPage() {
@@ -38,7 +37,6 @@ export default function RootPage() {
     }
   }, [user, userLoading, mounted, router])
 
-  const logoData = PlaceHolderImages.find(img => img.id === "parish-logo")
   const isFirebaseReady = !!auth && !!auth.app;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,17 +100,18 @@ export default function RootPage() {
         
         <div className="flex flex-col items-center text-center space-y-4">
           <div className="relative h-24 w-24 bg-white p-2 rounded-3xl shadow-xl flex items-center justify-center border-2 border-primary/10 overflow-hidden">
-            {logoData ? (
-              <Image 
-                src={logoData.imageUrl} 
-                alt="Logo Parroquia" 
-                fill
-                className="object-contain p-2"
-                priority
-              />
-            ) : (
-              <Church className="h-12 w-12 text-primary" />
-            )}
+            <Image 
+              src="/logo.png" 
+              alt="Logo Parroquia" 
+              fill
+              className="object-contain p-2"
+              priority
+              onError={(e) => {
+                // Si falla la carga del logo local, mostrar icono por defecto
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
           </div>
           <div className="space-y-1">
             <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Portal de Gestión</h1>
