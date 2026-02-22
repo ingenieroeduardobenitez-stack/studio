@@ -23,7 +23,8 @@ import {
   Info,
   Wallet,
   MessageCircle,
-  Building2
+  Building2,
+  FileText
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -83,6 +84,7 @@ const formSchema = z.object({
   baptismBook: z.string().optional(),
   baptismFolio: z.string().optional(),
   initialPayment: z.coerce.number().min(0, "Monto inválido").default(0),
+  generateReceipt: z.boolean().default(true),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -131,6 +133,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       baptismBook: "",
       baptismFolio: "",
       initialPayment: 0,
+      generateReceipt: true,
     },
   })
 
@@ -256,7 +259,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       
       if (isPublic) {
         setIsSubmittedSuccessfully(true)
-      } else if (amountPaid > 0) {
+      } else if (amountPaid > 0 && values.generateReceipt) {
         setIsReceiptOpen(true)
       } else {
         router.push("/dashboard")
@@ -494,25 +497,40 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   )} />
                   
                   {!isPublic && (
-                    <FormField control={form.control} name="initialPayment" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold text-primary">Monto Cobrado (Gs)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            {...field} 
-                            className={cn(
-                              "h-12 rounded-xl font-bold border-2 transition-colors",
-                              isOverpaid ? 'bg-red-50 border-red-300 text-red-900' : 'bg-green-50 border-green-200 text-slate-900'
-                            )}
-                          />
-                        </FormControl>
-                        <FormDescription className={isOverpaid ? "text-red-500 font-bold flex items-center gap-1" : ""}>
-                          {isOverpaid ? <><AlertTriangle className="h-3 w-3" /> Excede el total.</> : "Cobro de inscripción."}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <div className="space-y-4">
+                      <FormField control={form.control} name="initialPayment" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold text-primary">Monto Cobrado (Gs)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              {...field} 
+                              className={cn(
+                                "h-12 rounded-xl font-bold border-2 transition-colors",
+                                isOverpaid ? 'bg-red-50 border-red-300 text-red-900' : 'bg-green-50 border-green-200 text-slate-900'
+                              )}
+                            />
+                          </FormControl>
+                          <FormDescription className={isOverpaid ? "text-red-500 font-bold flex items-center gap-1" : ""}>
+                            {isOverpaid ? <><AlertTriangle className="h-3 w-3" /> Excede el total.</> : "Cobro de inscripción."}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      
+                      <FormField control={form.control} name="generateReceipt" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border rounded-xl bg-slate-50">
+                          <FormControl>
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel className="text-xs font-bold text-slate-600 flex items-center gap-2 cursor-pointer">
+                              <FileText className="h-3 w-3 text-primary" /> Generar recibo de pago ahora
+                            </FormLabel>
+                          </div>
+                        </FormItem>
+                      )} />
+                    </div>
                   )}
 
                   {isPublic && catechesisYear && (
