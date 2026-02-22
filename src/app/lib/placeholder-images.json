@@ -4,7 +4,7 @@
     {
       "id": "parish-logo",
       "description": "Logo institucional de la Parroquia Perpetuo Socorro",
-      "imageUrl": "https://picsum.photos/seed/churchlogo77/400/400",
+      "imageUrl": "/logo.png",
       "imageHint": "church logo"
     },
     {

@@ -90,14 +90,14 @@ export default function LoginPage() {
         </div>
 
         <div className="flex flex-col items-center text-center space-y-4">
-          <div className="relative h-20 w-20 bg-white p-2 rounded-3xl shadow-lg flex items-center justify-center border">
-            {logoData && logoData.imageUrl !== "/logo.png" ? (
+          <div className="relative h-20 w-20 bg-white p-2 rounded-3xl shadow-lg flex items-center justify-center border overflow-hidden">
+            {logoData ? (
               <Image 
                 src={logoData.imageUrl} 
                 alt="Logo" 
                 fill
                 className="object-contain p-2"
-                data-ai-hint="church logo"
+                priority
               />
             ) : (
               <Church className="h-10 w-10 text-primary" />

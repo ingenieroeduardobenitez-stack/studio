@@ -107,8 +107,8 @@ export default function RootPage() {
                 src={logoData.imageUrl} 
                 alt="Logo Parroquia" 
                 fill
-                className="object-cover"
-                data-ai-hint={logoData.imageHint}
+                className="object-contain p-2"
+                priority
               />
             ) : (
               <Church className="h-12 w-12 text-primary" />
@@ -197,7 +197,7 @@ export default function RootPage() {
         </div>
 
         <p className="text-center text-[10px] text-slate-300 font-bold uppercase tracking-[0.4em]">
-          Ciclo de Catequesis 2026
+          Ciclo de Catequesis {new Date().getFullYear()}
         </p>
       </div>
     </div>
