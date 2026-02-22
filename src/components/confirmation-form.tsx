@@ -20,7 +20,10 @@ import {
   AlertTriangle,
   CreditCard,
   Home,
-  Info
+  Info,
+  Wallet,
+  Download,
+  Building2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -53,6 +56,7 @@ import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { QRCodeCanvas } from "qrcode.react"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -211,14 +215,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const regId = `conf_${Date.now()}`
     const regRef = doc(db, "confirmations", regId)
     
-    // Si es público, el pago siempre es 0 en el envío inicial por formulario web
     const amountPaid = isPublic ? 0 : values.initialPayment
     const paymentStatus = amountPaid >= totalCost ? "PAGADO" : amountPaid > 0 ? "PARCIAL" : "PENDIENTE"
 
     const registrationData = {
       userId: user?.uid || "public_registration",
       ...values,
-      initialPayment: amountPaid, // Sobrescribir por seguridad si es público
+      initialPayment: amountPaid,
       status: "INSCRITO",
       attendanceStatus: "PENDIENTE",
       needsRecovery: false,
@@ -264,36 +267,65 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   }
 
   if (isSubmittedSuccessfully) {
+    const qrValue = `Banco: ${costs?.bankName}\nCuenta: ${costs?.accountNumber}\nTitular: ${costs?.accountOwner}\nConcepto: Inscripcion ${submittedData?.fullName}`
+
     return (
-      <Card className="border-none shadow-2xl bg-white rounded-3xl p-12 text-center space-y-8 animate-in fade-in zoom-in-95 duration-500">
-        <div className="bg-green-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-inner">
-          <CheckCircle2 className="h-12 w-12 text-green-600" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-3xl font-headline font-bold text-slate-900">¡Inscripción Recibida!</h2>
-          <p className="text-slate-500 max-w-md mx-auto font-medium">
-            Tus datos han sido registrados correctamente en la base de datos de la Parroquia Perpetuo Socorro.
-          </p>
-        </div>
-        <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-200 text-left space-y-4 max-w-md mx-auto">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">¿Qué sigue ahora?</p>
-          <ul className="text-sm text-slate-600 space-y-3">
-            <li className="flex gap-3">
-              <span className="h-5 w-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center shrink-0">1</span>
-              <span>Acércate a la secretaría parroquial para confirmar tu inscripción.</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="h-5 w-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center shrink-0">2</span>
-              <span>Presenta fotocopia de C.I. y el arancel correspondiente ({totalCost.toLocaleString()} Gs).</span>
-            </li>
-          </ul>
-        </div>
-        <Button asChild className="rounded-xl h-12 px-10 font-bold shadow-lg gap-2">
-          <Link href="/">
-            <Home className="h-4 w-4" /> Volver al Inicio
-          </Link>
-        </Button>
-      </Card>
+      <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto">
+        <Card className="border-none shadow-2xl bg-white rounded-3xl p-10 text-center space-y-6">
+          <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner">
+            <CheckCircle2 className="h-10 w-10 text-green-600" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-headline font-bold text-slate-900">¡Inscripción Enviada!</h2>
+            <p className="text-slate-500 font-medium">
+              Hola <span className="text-primary font-bold">{submittedData?.fullName}</span>, tus datos han sido recibidos.
+            </p>
+          </div>
+
+          <div className="bg-primary/5 p-8 rounded-3xl border border-primary/10 text-left space-y-6">
+            <div className="flex items-center gap-3 border-b border-primary/10 pb-4">
+              <Wallet className="h-6 w-6 text-primary" />
+              <h3 className="font-bold text-primary uppercase tracking-wider text-sm">Información para el Pago</h3>
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2 items-center">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Total Arancel</p>
+                  <p className="text-2xl font-headline font-bold text-slate-900">{totalCost.toLocaleString()} Gs.</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-slate-700">{costs?.bankName || "Cuenta Bancaria"}</p>
+                  <p className="text-sm font-mono font-bold text-primary">{costs?.accountNumber || "---"}</p>
+                  <p className="text-xs text-slate-500">{costs?.accountOwner || "---"}</p>
+                  <p className="text-xs text-slate-500">{costs?.ownerCi || "---"}</p>
+                </div>
+              </div>
+              
+              <div className="flex flex-col items-center gap-2 bg-white p-4 rounded-2xl border shadow-sm">
+                <QRCodeCanvas value={qrValue} size={120} level="M" />
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">QR de Referencia</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-dashed text-xs text-slate-600 space-y-2">
+              <p className="font-bold flex items-center gap-2"><Info className="h-3 w-3" /> IMPORTANTE:</p>
+              <p>Una vez realizada la transferencia, favor enviar el comprobante al catequista encargado o presentarlo en la secretaría para recibir tu <b>Recibo Oficial de Pago</b>.</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold gap-2" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Imprimir Ficha
+            </Button>
+            <Button asChild className="flex-1 h-12 rounded-xl font-bold shadow-lg gap-2">
+              <Link href="/">
+                <Home className="h-4 w-4" /> Volver al Inicio
+              </Link>
+            </Button>
+          </div>
+        </Card>
+      </div>
     )
   }
 
@@ -425,7 +457,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <FormItem><FormLabel className="font-semibold">Día de Asistencia *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione Día" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 - 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 - 11:00)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )} />
                   
-                  {/* El campo de pago solo es para el administrador */}
                   {!isPublic && (
                     <FormField control={form.control} name="initialPayment" render={({ field }) => (
                       <FormItem>
@@ -448,7 +479,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     )} />
                   )}
 
-                  {/* Para el público mostramos un aviso informativo del costo */}
                   {isPublic && catechesisYear && (
                     <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><Info className="h-4 w-4 text-primary" /></div>
@@ -538,7 +568,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         </Form>
       </Card>
 
-      {/* Solo mostramos el recibo si NO es público y hay un pago */}
       {!isPublic && (
         <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
           <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">

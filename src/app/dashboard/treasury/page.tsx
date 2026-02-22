@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
-import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle, Calendar, Plus, Trash2 } from "lucide-react"
+import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle, Calendar, Plus, Trash2, Building2 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -61,12 +61,16 @@ export default function TreasuryPage() {
     const data = {
       juvenileCost: Number(formData.get("juvenile")),
       adultCost: Number(formData.get("adult")),
+      bankName: formData.get("bankName") as string || "",
+      accountNumber: formData.get("accountNumber") as string || "",
+      accountOwner: formData.get("accountOwner") as string || "",
+      ownerCi: formData.get("ownerCi") as string || "",
       updatedAt: serverTimestamp()
     }
 
     setDoc(treasuryRef, data, { merge: true })
       .then(() => {
-        toast({ title: "Costos actualizados", description: "Los nuevos montos se han guardado." })
+        toast({ title: "Configuración actualizada", description: "Los costos y datos bancarios se han guardado." })
       })
       .catch(() => toast({ variant: "destructive", title: "Error", description: "No se pudo guardar." }))
       .finally(() => setIsCostSaving(false))
@@ -153,7 +157,7 @@ export default function TreasuryPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Tesorería Parroquial</h1>
-          <p className="text-muted-foreground">Control de aranceles, cobros y saldos pendientes.</p>
+          <p className="text-muted-foreground">Control de aranceles, cobros y configuración de pagos bancarios.</p>
         </div>
       </div>
 
@@ -317,14 +321,14 @@ export default function TreasuryPage() {
         </TabsContent>
 
         <TabsContent value="config">
-          <Card className="border-none shadow-xl max-w-2xl mx-auto">
-            <CardHeader className="bg-primary text-white">
-              <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5" /> Montos de Inscripción Base</CardTitle>
-              <CardDescription className="text-white/80">Define los costos base que se aplicarán en el formulario de registro principal.</CardDescription>
-            </CardHeader>
-            <form onSubmit={handleUpdateCosts}>
-              <CardContent className="p-8 space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid gap-8 lg:grid-cols-2">
+            <Card className="border-none shadow-xl">
+              <CardHeader className="bg-primary text-white">
+                <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5" /> Aranceles Base</CardTitle>
+                <CardDescription className="text-white/80">Define los costos que verán los postulantes al inscribirse.</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleUpdateCosts}>
+                <CardContent className="p-8 space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="juvenile" className="font-bold">Confirmación Juvenil (Gs)</Label>
                     <div className="relative">
@@ -339,16 +343,65 @@ export default function TreasuryPage() {
                       <Input id="adult" name="adult" type="number" defaultValue={costs?.adultCost || 50000} className="pl-10 h-12 rounded-xl" required />
                     </div>
                   </div>
+
+                  <Separator className="my-6" />
+                  
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-primary flex items-center gap-2"><Building2 className="h-4 w-4" /> Datos de Cuenta Bancaria</h3>
+                    <p className="text-xs text-muted-foreground italic">Estos datos se mostrarán a los postulantes que se inscriban vía web para que realicen sus transferencias.</p>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold">Nombre del Banco</Label>
+                      <Input name="bankName" defaultValue={costs?.bankName} placeholder="Ej. Banco Itau, Sudameris, etc." className="h-10 rounded-lg" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold">N° de Cuenta</Label>
+                      <Input name="accountNumber" defaultValue={costs?.accountNumber} placeholder="000000000" className="h-10 rounded-lg" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold">Titular de la Cuenta</Label>
+                      <Input name="accountOwner" defaultValue={costs?.accountOwner} placeholder="Nombre completo o Parroquia" className="h-10 rounded-lg" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold">C.I. o RUC del Titular</Label>
+                      <Input name="ownerCi" defaultValue={costs?.ownerCi} placeholder="1.234.567-8" className="h-10 rounded-lg" />
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="bg-slate-50 p-6 border-t flex justify-end">
+                  <Button type="submit" disabled={isCostSaving} className="h-11 px-8 rounded-xl font-bold shadow-lg">
+                    {isCostSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Settings className="h-4 w-4 mr-2" />}
+                    Guardar Configuración
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+
+            <Card className="border-none shadow-xl bg-slate-50">
+              <CardHeader>
+                <CardTitle className="text-lg">Vista Previa para el Postulante</CardTitle>
+                <CardDescription>Así verá el usuario los datos de pago al inscribirse públicamente.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-8">
+                <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-6">
+                  <div className="flex items-center gap-3 border-b pb-4">
+                    <div className="h-10 w-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center"><Wallet className="h-5 w-5" /></div>
+                    <div><p className="text-[10px] font-bold text-slate-400 uppercase">Información de Pago</p><p className="font-bold text-slate-900">Transferencia Bancaria</p></div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-medium">Banco:</span><span className="font-bold">{costs?.bankName || "---"}</span></div>
+                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-medium">Cuenta N°:</span><span className="font-bold font-mono">{costs?.accountNumber || "---"}</span></div>
+                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-medium">Titular:</span><span className="font-bold">{costs?.accountOwner || "---"}</span></div>
+                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-medium">Documento:</span><span className="font-bold">{costs?.ownerCi || "---"}</span></div>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-dashed flex flex-col items-center gap-2">
+                    <div className="h-24 w-24 bg-slate-200 rounded-lg flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2">CÓDIGO QR GENERADO</div>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold">Escanear para transferir</p>
+                  </div>
                 </div>
               </CardContent>
-              <CardFooter className="bg-slate-50 p-6 border-t flex justify-end">
-                <Button type="submit" disabled={isCostSaving} className="h-11 px-8 rounded-xl font-bold shadow-lg">
-                  {isCostSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Settings className="h-4 w-4 mr-2" />}
-                  Guardar Configuración
-                </Button>
-              </CardFooter>
-            </form>
-          </Card>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 

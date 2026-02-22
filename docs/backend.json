@@ -135,11 +135,15 @@
     },
     "TreasurySettings": {
       "title": "Configuración de Tesorería",
-      "description": "Montos globales definidos por el tesorero.",
+      "description": "Montos globales y datos bancarios definidos por el tesorero.",
       "type": "object",
       "properties": {
         "juvenileCost": { "type": "number" },
         "adultCost": { "type": "number" },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "accountOwner": { "type": "string" },
+        "ownerCi": { "type": "string" },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
     },
@@ -173,7 +177,7 @@
     },
     "/settings/treasury": {
       "schema": "TreasurySettings",
-      "description": "Configuración de costos de inscripción."
+      "description": "Configuración de costos de inscripción y datos bancarios."
     },
     "/events/{eventId}": {
       "schema": "Event",
