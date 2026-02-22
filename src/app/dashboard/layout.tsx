@@ -25,26 +25,25 @@ export default function DashboardLayout({
 
     const userRef = doc(db, "users", user.uid)
     
-    const updatePresence = async (status: "online" | "offline") => {
-      try {
-        await updateDoc(userRef, {
-          status: status,
-          lastSeen: serverTimestamp()
-        })
-      } catch (err) {
-        // Silently fail to not interrupt UX
-      }
+    const updatePresence = (status: "online" | "offline") => {
+      // Usamos updateDoc sin await para ejecución inmediata y optimismo UI
+      updateDoc(userRef, {
+        status: status,
+        lastSeen: serverTimestamp()
+      }).catch(() => {
+        // Silencio en caso de error para no interrumpir la navegación
+      })
     }
 
-    // Marcar como online inmediatamente
+    // Marcar como online inmediatamente al entrar
     updatePresence("online")
 
-    // Intervalo de pulso más frecuente (cada 20 segundos)
+    // Intervalo de pulso frecuente (cada 15 segundos) para mantener la sesión viva
     presenceInterval.current = setInterval(() => {
       if (document.visibilityState === 'visible') {
         updatePresence("online")
       }
-    }, 20000)
+    }, 15000)
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -64,7 +63,6 @@ export default function DashboardLayout({
       if (presenceInterval.current) clearInterval(presenceInterval.current)
       window.removeEventListener("focus", handleFocus)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
-      // No marcamos offline en el cleanup del efecto para evitar falsos negativos en navegaciones internas
     }
   }, [db, user?.uid])
 

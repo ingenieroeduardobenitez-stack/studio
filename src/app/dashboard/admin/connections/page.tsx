@@ -6,14 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, User, Globe, ShieldCheck, Clock, Circle, Activity, History } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
 import { collection, query, orderBy, limit } from "firebase/firestore"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { formatDistanceToNow } from "date-fns"
 import { es } from "date-fns/locale"
+import { cn } from "@/lib/utils"
 
 export default function ConnectionsMonitorPage() {
   const [mounted, setMounted] = useState(false)
+  const { user: currentUser } = useUser()
   const db = useFirestore()
 
   useEffect(() => {
@@ -37,22 +39,32 @@ export default function ConnectionsMonitorPage() {
   const { data: auditLogs } = useCollection(auditQuery)
 
   const isOnline = (user: any) => {
-    // Prioridad al estado 'online' definido por el heartbeat del layout
+    // Si es el usuario actual, está en línea por definición
+    if (currentUser && user.id === currentUser.uid) return true
+    
+    // Prioridad al estado 'online' definido por el heartbeat
     if (user.status !== "online") return false
     if (!user.lastSeen) return false
     
     const lastSeenDate = user.lastSeen.toDate ? user.lastSeen.toDate() : new Date(user.lastSeen)
     const now = new Date()
     
-    // Margen de 10 minutos para considerar online, tolerando skews de reloj
+    // Margen amplio de 15 minutos para evitar problemas de sincronización de reloj
     const diffInSeconds = Math.abs((now.getTime() - lastSeenDate.getTime()) / 1000)
-    return diffInSeconds < 600 
+    return diffInSeconds < 900 
   }
 
   const onlineUsers = useMemo(() => {
     if (!users) return []
-    return users.filter(u => isOnline(u))
-  }, [users])
+    // Filtramos y aseguramos que el usuario actual siempre esté al principio si está en la lista
+    return users
+      .filter(u => isOnline(u))
+      .sort((a, b) => {
+        if (a.id === currentUser?.uid) return -1
+        if (b.id === currentUser?.uid) return 1
+        return 0
+      })
+  }, [users, currentUser])
 
   const recentUsers = useMemo(() => {
     if (!users) return []
@@ -122,14 +134,21 @@ export default function ConnectionsMonitorPage() {
                 <TableBody>
                   {onlineUsers.map((u: any) => {
                     const lastAction = getUserLastAction(u.id)
+                    const isMe = u.id === currentUser?.uid
+                    
                     return (
-                      <TableRow key={u.id} className="hover:bg-slate-50/30 h-20">
+                      <TableRow key={u.id} className={cn("hover:bg-slate-50/30 h-20 transition-colors", isMe && "bg-green-50/30")}>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border shadow-sm ring-2 ring-green-100">
-                              <AvatarImage src={u.photoUrl || undefined} className="object-cover" />
-                              <AvatarFallback><User className="h-5 w-5" /></AvatarFallback>
-                            </Avatar>
+                            <div className="relative">
+                              <Avatar className={cn("h-10 w-10 border shadow-sm", isMe ? "ring-2 ring-primary" : "ring-2 ring-green-100")}>
+                                <AvatarImage src={u.photoUrl || undefined} className="object-cover" />
+                                <AvatarFallback><User className="h-5 w-5" /></AvatarFallback>
+                              </Avatar>
+                              {isMe && (
+                                <span className="absolute -top-1 -left-1 bg-primary text-white text-[7px] font-black px-1 rounded-sm shadow-sm">TÚ</span>
+                              )}
+                            </div>
                             <div className="flex flex-col">
                               <span className="font-bold text-sm text-slate-900">{u.firstName} {u.lastName}</span>
                               <span className="text-[10px] text-slate-500">{u.email}</span>
@@ -160,7 +179,7 @@ export default function ConnectionsMonitorPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-right pr-8">
-                          <Badge className="bg-green-500 hover:bg-green-600 gap-1.5 h-6 animate-in fade-in zoom-in-95">
+                          <Badge className="bg-green-500 hover:bg-green-600 gap-1.5 h-6">
                             <Circle className="h-2 w-2 fill-white border-none animate-pulse" /> En Línea
                           </Badge>
                         </TableCell>
@@ -195,7 +214,7 @@ export default function ConnectionsMonitorPage() {
                     <div key={u.id} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-orange-200 transition-all group">
                       <Avatar className="h-12 w-12 grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all border-2 border-white shadow-sm">
                         <AvatarImage src={u.photoUrl || undefined} className="object-cover" />
-                        <AvatarFallback><User className="h-6 w-6 text-slate-300" /></AvatarFallback>
+                        <AvatarFallback><User className="h-6 w-6" /></AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900 truncate">{u.firstName} {u.lastName}</p>
