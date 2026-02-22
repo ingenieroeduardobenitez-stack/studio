@@ -83,15 +83,15 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-slate-50 font-body">
       <div className="w-full max-w-md space-y-8 animate-in fade-in duration-700">
         
-        <div className="flex justify-between items-center px-2">
+        <div className="flex justify-start items-center px-2">
           <Link href="/" className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-primary transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Volver al Inicio
+            <ArrowLeft className="h-4 w-4" /> Volver al Inicio Público
           </Link>
         </div>
 
         <div className="flex flex-col items-center text-center space-y-4">
           <div className="relative h-20 w-20 bg-white p-2 rounded-3xl shadow-lg flex items-center justify-center border">
-            {logoData ? (
+            {logoData && logoData.imageUrl !== "/logo.png" ? (
               <Image 
                 src={logoData.imageUrl} 
                 alt="Logo" 
@@ -104,8 +104,8 @@ export default function LoginPage() {
             )}
           </div>
           <div className="space-y-1">
-            <h1 className="text-2xl font-headline font-bold text-primary">Acceso Catequistas</h1>
-            <p className="text-slate-500 text-sm font-medium">Inicia sesión para gestionar las inscripciones</p>
+            <h1 className="text-2xl font-headline font-bold text-primary tracking-tight">Portal Administrativo</h1>
+            <p className="text-slate-500 text-sm font-medium">Acceso exclusivo para Catequistas y Coordinadores</p>
           </div>
         </div>
 
@@ -123,7 +123,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-6 p-10">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700 font-bold text-xs uppercase tracking-wider">Correo electrónico</Label>
+                <Label htmlFor="email" className="text-slate-700 font-bold text-xs uppercase tracking-wider">Correo Institucional</Label>
                 <Input 
                   id="email" 
                   type="email" 
@@ -136,7 +136,9 @@ export default function LoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" title="Contraseña" className="text-slate-700 font-bold text-xs uppercase tracking-wider">Contraseña</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" title="Contraseña" className="text-slate-700 font-bold text-xs uppercase tracking-wider">Contraseña</Label>
+                </div>
                 <Input 
                   id="password" 
                   type="password" 
@@ -149,25 +151,22 @@ export default function LoginPage() {
               </div>
               <Button 
                 type="submit" 
-                className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg" 
+                className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg mt-4" 
                 disabled={loading || !isFirebaseReady}
               >
                 {loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    Entrar <LogIn className="h-5 w-5" />
+                    Iniciar Sesión <LogIn className="h-5 w-5" />
                   </span>
                 )}
               </Button>
             </CardContent>
             <CardFooter className="bg-slate-50 p-6 flex flex-col gap-4 border-t">
-              <div className="text-xs text-center text-slate-500">
-                ¿No tienes una cuenta de catequista?{" "}
-                <Link href="/register" className="text-primary font-bold hover:underline">
-                  Registrarse aquí
-                </Link>
-              </div>
+              <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+                Si olvidaste tu contraseña o no tienes acceso, contacta con el administrador del sistema.
+              </p>
             </CardFooter>
           </form>
         </Card>

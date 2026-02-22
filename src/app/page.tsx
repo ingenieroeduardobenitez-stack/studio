@@ -2,7 +2,7 @@
 "use client"
 
 import Link from "next/link"
-import { Church, ClipboardCheck, ArrowRight, LogIn, Users, Calendar, MapPin } from "lucide-react"
+import { Church, ArrowRight, Users, Calendar, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import Image from "next/image"
@@ -32,7 +32,7 @@ export default function LandingPage() {
             <span className="font-headline font-bold text-primary hidden sm:block">Perpetuo Socorro</span>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" asChild className="text-slate-600 font-bold hidden sm:flex">
+            <Button variant="ghost" asChild className="text-slate-500 font-bold text-xs hover:text-primary">
               <Link href="/login">
                 Acceso Catequistas
               </Link>
@@ -73,17 +73,15 @@ export default function LandingPage() {
             <p className="text-xl text-slate-600 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000">
               Invitamos a todos los jóvenes y adultos a iniciar su proceso de formación espiritual en la Parroquia Perpetuo Socorro.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-              <Button asChild className="h-14 px-10 text-lg font-bold rounded-2xl shadow-xl bg-primary hover:bg-primary/90 w-full sm:w-auto">
+            <div className="flex flex-col items-center justify-center pt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+              <Button asChild className="h-16 px-12 text-xl font-bold rounded-2xl shadow-xl bg-primary hover:bg-primary/90 w-full sm:w-auto transform transition-transform hover:scale-105 active:scale-95">
                 <Link href="/inscripcion">
                   Iniciar Inscripción Digital
                 </Link>
               </Button>
-              <Button variant="outline" asChild className="h-14 px-10 text-lg font-bold rounded-2xl border-2 w-full sm:w-auto">
-                <Link href="/login" className="gap-2">
-                  <LogIn className="h-5 w-5" /> Soy Catequista
-                </Link>
-              </Button>
+              <p className="mt-6 text-sm text-slate-400 font-medium">
+                Proceso rápido, seguro y 100% digital.
+              </p>
             </div>
           </div>
         </div>
@@ -138,6 +136,11 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <Church className="h-6 w-6 text-slate-300" />
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">Parroquia Perpetuo Socorro</span>
+          </div>
+          <div className="flex gap-6">
+            <Link href="/login" className="text-xs text-slate-400 hover:text-primary font-bold uppercase tracking-widest transition-colors">
+              Gestión Interna
+            </Link>
           </div>
           <p className="text-xs text-slate-400 font-medium">
             © {new Date().getFullYear()} Sistema de Gestión de Sacramentos. Todos los derechos reservados.
