@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection } from "@/firebase"
 import { doc, collection } from "firebase/firestore"
@@ -89,7 +90,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{regsLoading ? "..." : (registrations?.length || 0)}</div>
-            <p className="text-[10px] text-muted-foreground">Postulantes 2026</p>
+            <p className="text-[10px] text-muted-foreground">Ciclo Lectivo 2026</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-accent">
