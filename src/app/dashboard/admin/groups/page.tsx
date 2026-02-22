@@ -90,6 +90,7 @@ export default function GroupsAdminPage() {
       })
       toast({ title: "Grupo creado" })
       setIsCreateDialogOpen(false)
+      setMemberSearch("")
     } catch (error) {
       console.error(error)
       toast({ variant: "destructive", title: "Error" })
@@ -117,6 +118,7 @@ export default function GroupsAdminPage() {
       })
       toast({ title: "Grupo actualizado" })
       setIsEditDialogOpen(false)
+      setMemberSearch("")
     } catch (error) {
       console.error(error)
       toast({ variant: "destructive", title: "Error" })
@@ -149,7 +151,7 @@ export default function GroupsAdminPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Grupos de Catequesis</h1>
           <p className="text-muted-foreground">Organiza a tus catequistas en equipos de trabajo.</p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => setIsCreateDialogOpen(true)}>
+        <Button className="bg-primary hover:bg-primary/90" onClick={() => { setIsCreateDialogOpen(true); setSelectedCatequistaIds([]); setMemberSearch(""); }}>
           <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
         </Button>
       </div>
@@ -189,7 +191,7 @@ export default function GroupsAdminPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => { setSelectedGroup(group); setSelectedCatequistaIds(group.catequistaIds || []); setIsEditDialogOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedGroup(group); setSelectedCatequistaIds(group.catequistaIds || []); setMemberSearch(""); setIsEditDialogOpen(true); }}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => { setSelectedGroup(group); setIsDeleteDialogOpen(true); }}><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -202,7 +204,7 @@ export default function GroupsAdminPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={(open) => { setIsCreateDialogOpen(open); if(!open) setMemberSearch(""); }}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
           <form onSubmit={handleCreateGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Nuevo Grupo</DialogTitle></DialogHeader>
@@ -214,19 +216,35 @@ export default function GroupsAdminPage() {
               </div>
               <div className="space-y-3">
                 <Label>Miembros ({selectedCatequistaIds.length})</Label>
-                <div className="border rounded-xl p-3 bg-slate-50 flex flex-wrap gap-2">
+                <div className="border rounded-xl p-3 bg-slate-50 flex flex-wrap gap-2 mb-2">
                   {selectedCatequistaIds.map(id => {
                     const u = users?.find(u => u.id === id)
                     return (<Badge key={id} variant="secondary" className="gap-1">{u?.firstName} <X className="h-3 w-3 cursor-pointer" onClick={() => handleToggleCatequista(id)} /></Badge>)
                   })}
+                  {selectedCatequistaIds.length === 0 && <span className="text-[10px] text-slate-400 italic">Ningún catequista seleccionado</span>}
                 </div>
+                
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Buscar catequista..." 
+                    className="pl-9 h-9 text-xs" 
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                  />
+                </div>
+
                 <ScrollArea className="h-[150px] border rounded-xl p-2 bg-white">
-                  {filteredUsersForDialog.map(u => (
-                    <div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}>
-                      <span className="text-sm">{u.firstName} {u.lastName}</span>
-                      {selectedCatequistaIds.includes(u.id) && <Check className="h-4 w-4" />}
-                    </div>
-                  ))}
+                  {filteredUsersForDialog.length === 0 ? (
+                    <p className="text-center text-[10px] text-slate-400 py-4 italic">No se encontraron resultados</p>
+                  ) : (
+                    filteredUsersForDialog.map(u => (
+                      <div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1 transition-colors", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}>
+                        <span className="text-sm">{u.firstName} {u.lastName}</span>
+                        {selectedCatequistaIds.includes(u.id) && <Check className="h-4 w-4" />}
+                      </div>
+                    ))
+                  )}
                 </ScrollArea>
               </div>
             </div>
@@ -235,7 +253,7 @@ export default function GroupsAdminPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { setIsEditDialogOpen(open); if(!open) setMemberSearch(""); }}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
           <form onSubmit={handleEditGroup} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Editar Grupo</DialogTitle></DialogHeader>
@@ -247,13 +265,26 @@ export default function GroupsAdminPage() {
               </div>
               <div className="space-y-3">
                 <Label>Miembros ({selectedCatequistaIds.length})</Label>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Buscar catequista..." 
+                    className="pl-9 h-9 text-xs" 
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                  />
+                </div>
                 <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
-                  {users?.map(u => (
-                    <div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}>
-                      <span className="text-sm">{u.firstName} {u.lastName}</span>
-                      {selectedCatequistaIds.includes(u.id) && <Check className="h-4 w-4" />}
-                    </div>
-                  ))}
+                  {filteredUsersForDialog.length === 0 ? (
+                    <p className="text-center text-[10px] text-slate-400 py-4 italic">No se encontraron resultados</p>
+                  ) : (
+                    filteredUsersForDialog.map(u => (
+                      <div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1 transition-colors", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}>
+                        <span className="text-sm">{u.firstName} {u.lastName}</span>
+                        {selectedCatequistaIds.includes(u.id) && <Check className="h-4 w-4" />}
+                      </div>
+                    ))
+                  )}
                 </ScrollArea>
               </div>
             </div>
