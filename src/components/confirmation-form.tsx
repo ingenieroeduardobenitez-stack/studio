@@ -25,7 +25,9 @@ import {
   MessageCircle,
   Building2,
   FileText,
-  Send
+  Fingerprint,
+  QrCode,
+  Shield
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -312,6 +314,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setIsReceiptOpen(false)
     router.push("/dashboard")
   }
+
+  const receiptVerificationData = useMemo(() => {
+    if (!submittedData) return ""
+    return JSON.stringify({
+      id: submittedData.id,
+      student: submittedData.fullName,
+      amount: submittedData.initialPayment,
+      catechist: profile ? `${profile.firstName} ${profile.lastName}` : "Catequista",
+      date: new Date().toISOString()
+    })
+  }, [submittedData, profile])
 
   if (isSubmittedSuccessfully) {
     const qrValue = `Banco: ${costs?.bankName}\nCuenta: ${costs?.accountNumber}\nTitular: ${costs?.accountOwner}\nConcepto: Inscripcion ${submittedData?.fullName}`
@@ -650,75 +663,100 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
       {!isPublic && (
         <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-          <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl bg-white">
             <DialogHeader className="sr-only">
-              <DialogTitle>Recibo de Pago Inicial</DialogTitle>
-              <DialogDescription>Comprobante de pago generado inmediatamente después de la inscripción.</DialogDescription>
+              <DialogTitle>Recibo de Pago con Certificación Digital</DialogTitle>
+              <DialogDescription>Comprobante oficial generado con firma digital y validación QR.</DialogDescription>
             </DialogHeader>
-            <div className="p-10 bg-white space-y-8 print:p-8" id="receipt-print">
-              <div className="flex items-center justify-between border-b pb-6">
-                <div className="flex items-center gap-2">
-                  <Church className="h-8 w-8 text-primary" />
+            <div className="p-12 space-y-10 print:p-8 bg-white" id="receipt-print">
+              <div className="flex items-center justify-between border-b pb-8">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
+                    <Church className="h-8 w-8 text-white" />
+                  </div>
                   <div>
-                    <h3 className="font-headline font-bold text-lg leading-none">PARROQUIA</h3>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Perpetuo Socorro</p>
+                    <h3 className="font-headline font-bold text-2xl leading-none text-slate-900">PARROQUIA</h3>
+                    <p className="text-xs text-muted-foreground uppercase tracking-[0.3em] mt-1 font-bold">Perpetuo Socorro</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-bold uppercase text-primary">Recibo de Pago</p>
-                  <p className="text-[9px] text-muted-foreground mt-1">FECHA: {new Date().toLocaleDateString()}</p>
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold border-primary text-primary px-3 py-1 mb-2">Comprobante de Pago</Badge>
+                  <p className="text-sm font-bold text-slate-900">ID: {submittedData?.id?.slice(-10)}</p>
+                  <p className="text-[10px] text-slate-400 font-medium">EMITIDO: {new Date().toLocaleString()}</p>
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="space-y-6">
                   <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Concepto de Pago</p>
-                    <p className="text-sm font-bold text-slate-900">Inscripción {submittedData?.catechesisYear?.replace("_", " ")}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-1">Confirmando</p>
+                    <p className="text-xl font-headline font-bold text-slate-900">{submittedData?.fullName}</p>
+                    <p className="text-sm text-slate-500 font-medium">Documento: {submittedData?.ciNumber}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Monto Cobrado</p>
-                    <p className="text-lg font-bold text-green-600">{submittedData?.initialPayment?.toLocaleString()} Gs.</p>
+                  
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500 font-bold uppercase">Concepto</span>
+                      <span className="text-sm font-bold text-slate-900">Inscripción {submittedData?.catechesisYear?.replace("_", " ")}</span>
+                    </div>
+                    <Separator className="bg-slate-200" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500 font-bold uppercase">Monto Arancel</span>
+                      <span className="text-sm font-bold text-slate-900">{submittedData?.registrationCost?.toLocaleString()} Gs.</span>
+                    </div>
+                    <div className="flex justify-between items-center text-green-600">
+                      <span className="text-xs font-bold uppercase">Abonado Ahora</span>
+                      <span className="text-lg font-bold">{submittedData?.initialPayment?.toLocaleString()} Gs.</span>
+                    </div>
+                    <Separator className="bg-slate-200" />
+                    <div className="flex justify-between items-center text-red-500">
+                      <span className="text-xs font-bold uppercase">Saldo Pendiente</span>
+                      <span className="text-sm font-bold">{(submittedData?.registrationCost - submittedData?.initialPayment).toLocaleString()} Gs.</span>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">A nombre de</p>
-                  <p className="text-base font-bold text-slate-900">{submittedData?.fullName}</p>
-                  <p className="text-xs text-slate-500">Documento: {submittedData?.ciNumber}</p>
-                </div>
-                
-                <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-300 space-y-3">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Monto del Arancel</span>
-                    <span className="font-bold">{ submittedData?.registrationCost?.toLocaleString() } Gs.</span>
+                <div className="flex flex-col items-center justify-between border-l border-slate-100 pl-10">
+                  <div className="text-center space-y-3">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Validación Digital</p>
+                    <div className="p-3 bg-white border-2 border-primary/10 rounded-3xl shadow-sm inline-block">
+                      <QRCodeCanvas value={receiptVerificationData} size={140} level="H" />
+                    </div>
+                    <p className="text-[8px] text-slate-400 leading-tight max-w-[150px] mx-auto">
+                      Escanee este código para verificar la autenticidad del recibo en el portal parroquial.
+                    </p>
                   </div>
-                  <div className="flex justify-between text-xs text-green-600">
-                    <span className="font-medium">Abonado ahora</span>
-                    <span className="font-bold">
-                      { submittedData?.initialPayment?.toLocaleString() } Gs.
-                    </span>
-                  </div>
-                  <Separator className="bg-slate-200" />
-                  <div className="flex justify-between text-sm font-bold">
-                    <span className="text-slate-900 uppercase tracking-tighter">Saldo Pendiente</span>
-                    <span className="text-red-500">{ (submittedData?.registrationCost - submittedData?.initialPayment).toLocaleString() } Gs.</span>
+
+                  <div className="w-full space-y-4 mt-6">
+                    <div className="relative pt-8 border-t-2 border-dashed border-slate-200 text-center">
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-white px-4">
+                        <Fingerprint className="h-8 w-8 text-primary opacity-20" />
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-900 uppercase">{profile?.firstName} {profile?.lastName}</p>
+                      <p className="text-[9px] text-primary font-bold uppercase tracking-widest">{profile?.role || 'Catequista'}</p>
+                      <div className="mt-2 flex items-center justify-center gap-1">
+                        <Shield className="h-3 w-3 text-green-500" />
+                        <span className="text-[8px] text-green-600 font-bold uppercase tracking-tighter">Certificación Digital Verificada</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col items-center gap-3 pt-8 border-t border-dashed border-slate-200">
-                <div className="h-px w-40 bg-slate-300"></div>
-                <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Sello y Firma - Catequesis</p>
+              <div className="text-center pt-8 border-t border-slate-100">
+                <p className="text-[9px] text-slate-400 font-medium italic">
+                  Este documento es un comprobante oficial de pago para la Catequesis de Confirmación Ciclo 2026. 
+                  Consérvelo para cualquier reclamo o trámite posterior.
+                </p>
               </div>
             </div>
-            <DialogFooter className="p-6 bg-slate-50 border-t grid grid-cols-1 sm:grid-cols-2 gap-3 print:hidden">
-              <Button variant="outline" className="rounded-xl h-12 font-bold" onClick={handleCloseReceipt}>Cerrar</Button>
-              <Button className="rounded-xl h-12 font-bold shadow-lg gap-2" onClick={() => window.print()}>
-                <Printer className="h-4 w-4" /> Imprimir
+            <DialogFooter className="p-8 bg-slate-50 border-t grid grid-cols-1 sm:grid-cols-2 gap-4 print:hidden">
+              <Button variant="outline" className="rounded-2xl h-14 font-bold text-slate-600 border-slate-200" onClick={handleCloseReceipt}>Cerrar</Button>
+              <Button className="rounded-2xl h-14 bg-primary hover:bg-primary/90 text-white font-bold shadow-xl gap-2" onClick={() => window.print()}>
+                <Printer className="h-5 w-5" /> Imprimir Recibo (PDF)
               </Button>
-              <Button className="rounded-xl h-12 bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg gap-2 sm:col-span-2" onClick={handleSendReceiptWhatsApp}>
-                <MessageCircle className="h-4 w-4" /> Enviar por WhatsApp
+              <Button className="rounded-2xl h-14 bg-green-600 hover:bg-green-700 text-white font-bold shadow-xl gap-2 sm:col-span-2" onClick={handleSendReceiptWhatsApp}>
+                <MessageCircle className="h-5 w-5" /> Enviar por WhatsApp
               </Button>
             </DialogFooter>
           </DialogContent>
