@@ -27,7 +27,9 @@ import {
   FileText,
   Fingerprint,
   QrCode,
-  Shield
+  Shield,
+  Check,
+  X
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -528,7 +530,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4"><BookOpen className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Preferencias de Catequesis</h3></div>
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-end">
                   <FormField control={form.control} name="catechesisYear" render={({ field }) => (
                     <FormItem><FormLabel className="font-semibold">Nivel a Cursar *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione Nivel" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">Primer Año (Iniciación)</SelectItem><SelectItem value="SEGUNDO_AÑO">Segundo Año (Candidatos)</SelectItem><SelectItem value="ADULTOS">Catequesis de Adultos</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )} />
@@ -559,15 +561,31 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       )} />
                       
                       <FormField control={form.control} name="generateReceipt" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-3 border-2 border-primary/20 rounded-xl bg-primary/5 shadow-sm">
+                        <FormItem className="w-full">
                           <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5" />
+                            <button 
+                              type="button"
+                              onClick={() => field.onChange(!field.value)}
+                              className={cn(
+                                "w-full h-12 rounded-xl border-2 flex items-center justify-between px-4 transition-all active:scale-[0.98]",
+                                field.value 
+                                  ? "bg-primary border-primary text-white shadow-md" 
+                                  : "bg-slate-50 border-slate-200 text-slate-400 hover:border-primary/30 hover:text-primary"
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <FileText className={cn("h-4 w-4", field.value ? "text-white" : "text-slate-400")} />
+                                <span className="text-[10px] font-bold uppercase tracking-tight">Generar Recibo Digital</span>
+                              </div>
+                              <div className={cn(
+                                "h-5 w-5 rounded-full border-2 flex items-center justify-center",
+                                field.value ? "bg-white border-white" : "border-slate-300"
+                              )}>
+                                {field.value && <Check className="h-3 w-3 text-primary" />}
+                              </div>
+                            </button>
                           </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="text-xs font-bold text-primary flex items-center gap-2 cursor-pointer">
-                              <FileText className="h-4 w-4" /> Generar recibo de pago ahora
-                            </FormLabel>
-                          </div>
+                          <FormMessage />
                         </FormItem>
                       )} />
                     </div>
