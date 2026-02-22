@@ -31,9 +31,10 @@ export default function ConnectionsMonitorPage() {
     if (user.status !== "online") return false
     if (!user.lastSeen) return false
     
+    // Usamos una ventana de tiempo más amplia (5 minutos) para evitar falsos offline por desincronización de reloj
     const lastSeenDate = user.lastSeen.toDate ? user.lastSeen.toDate() : new Date(user.lastSeen)
     const diff = (new Date().getTime() - lastSeenDate.getTime()) / 1000
-    return diff < 120 
+    return Math.abs(diff) < 300 
   }
 
   const onlineUsers = useMemo(() => {
@@ -50,7 +51,7 @@ export default function ConnectionsMonitorPage() {
         const dateB = b.lastSeen?.toDate ? b.lastSeen.toDate() : new Date(b.lastSeen || 0)
         return dateB.getTime() - dateA.getTime()
       })
-      .slice(0, 10)
+      .slice(0, 15)
   }, [users])
 
   if (!mounted) return null
@@ -70,14 +71,15 @@ export default function ConnectionsMonitorPage() {
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-none shadow-xl bg-white overflow-hidden">
+      <div className="space-y-8">
+        {/* TABLA DE ACTIVOS */}
+        <Card className="border-none shadow-xl bg-white overflow-hidden">
           <CardHeader className="bg-primary text-white p-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/10 rounded-lg"><Globe className="h-5 w-5" /></div>
               <div>
                 <CardTitle className="text-lg">Sesiones Activas</CardTitle>
-                <CardDescription className="text-white/70">Personal que se encuentra navegando el sistema.</CardDescription>
+                <CardDescription className="text-white/70">Personal que se encuentra navegando el sistema en este momento.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -93,7 +95,7 @@ export default function ConnectionsMonitorPage() {
                     <TableHead className="font-bold">Usuario</TableHead>
                     <TableHead className="font-bold">Rol</TableHead>
                     <TableHead className="font-bold">Estado</TableHead>
-                    <TableHead className="text-right pr-8 font-bold">Última Señal</TableHead>
+                    <TableHead className="text-right pr-8 font-bold">Actividad</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -101,8 +103,8 @@ export default function ConnectionsMonitorPage() {
                     <TableRow key={u.id} className="hover:bg-slate-50/30 h-16">
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9 border">
-                            <AvatarImage src={u.photoUrl || undefined} />
+                          <Avatar className="h-9 w-9 border shadow-sm">
+                            <AvatarImage src={u.photoUrl || undefined} className="object-cover" />
                             <AvatarFallback><User className="h-5 w-5" /></AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col">
@@ -119,8 +121,8 @@ export default function ConnectionsMonitorPage() {
                           <Circle className="h-2 w-2 fill-white border-none" /> En Línea
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right pr-8 text-xs font-medium text-slate-500">
-                        Justo ahora
+                      <TableCell className="text-right pr-8 text-xs font-bold text-green-600">
+                        Activo ahora
                       </TableCell>
                     </TableRow>
                   ))}
@@ -130,52 +132,40 @@ export default function ConnectionsMonitorPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
-          <Card className="border-none shadow-xl bg-white">
-            <CardHeader className="border-b bg-slate-50/50">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Clock className="h-4 w-4 text-orange-500" /> Actividad Reciente
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                {recentUsers.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic text-center py-4">No hay registros de actividad previa.</p>
-                ) : (
-                  recentUsers.map((u: any) => (
-                    <div key={u.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                      <Avatar className="h-8 w-8 grayscale opacity-70">
-                        <AvatarImage src={u.photoUrl || undefined} />
-                        <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-900 truncate">{u.firstName} {u.lastName}</p>
-                        <p className="text-[10px] text-slate-400">
-                          {u.lastSeen ? formatDistanceToNow(u.lastSeen.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen), { addSuffix: true, locale: es }) : "Hace mucho"}
-                        </p>
-                      </div>
+        {/* LISTA DE RECIENTES DEBAJO */}
+        <Card className="border-none shadow-xl bg-white overflow-hidden">
+          <CardHeader className="border-b bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 rounded-lg"><Clock className="h-5 w-5 text-orange-500" /></div>
+              <div>
+                <CardTitle className="text-lg">Últimas Conexiones</CardTitle>
+                <CardDescription>Historial de actividad de los catequistas que cerraron sesión recientemente.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            {recentUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic text-center py-10">No hay registros de actividad previa disponible.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {recentUsers.map((u: any) => (
+                  <div key={u.id} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-orange-200 transition-all group">
+                    <Avatar className="h-12 w-12 grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all border-2 border-white shadow-sm">
+                      <AvatarImage src={u.photoUrl || undefined} className="object-cover" />
+                      <AvatarFallback><User className="h-6 w-6 text-slate-300" /></AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{u.firstName} {u.lastName}</p>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+                        {u.lastSeen ? `Visto ${formatDistanceToNow(u.lastSeen.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen), { addSuffix: true, locale: es })}` : "Sin actividad registrada"}
+                      </p>
                     </div>
-                  ))
-                )}
+                  </div>
+                ))}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden">
-            <CardHeader>
-              <CardTitle className="text-sm">Seguridad del Sistema</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-3 bg-white/5 rounded-xl space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Tiempo de Sesión</p>
-                <p className="text-xs">Las sesiones se mantienen activas mientras la pestaña esté abierta.</p>
-              </div>
-              <p className="text-[10px] text-slate-500 leading-relaxed italic">
-                * El estado "En Línea" se actualiza automáticamente cada 30 segundos.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

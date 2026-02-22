@@ -18,39 +18,39 @@ export default function DashboardLayout({
   const { user } = useUser()
   const db = useFirestore()
 
-  // Sistema de Presencia (Heartbeat)
+  // Sistema de Presencia (Heartbeat) mejorado
   useEffect(() => {
     if (!db || !user?.uid) return
 
     const userRef = doc(db, "users", user.uid)
     
-    // Marcar como online al entrar
-    const markOnline = () => {
+    const updatePresence = (status: "online" | "offline") => {
       updateDoc(userRef, {
-        status: "online",
+        status: status,
         lastSeen: serverTimestamp()
-      }).catch(console.error)
+      }).catch(err => console.error("Presence Error:", err))
     }
 
-    // Marcar como offline al salir (intento de mejor esfuerzo)
-    const markOffline = () => {
-      updateDoc(userRef, {
-        status: "offline",
-        lastSeen: serverTimestamp()
-      }).catch(console.error)
+    // Marcar como online inmediatamente
+    updatePresence("online")
+
+    // Intervalo frecuente para mantener la sesión viva (cada 20 segundos)
+    const interval = setInterval(() => updatePresence("online"), 20000)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        updatePresence("online")
+      }
     }
 
-    markOnline()
-
-    // Intervalo para mantener el estado "online" activo
-    const interval = setInterval(markOnline, 30000) // Cada 30 segundos
-
-    window.addEventListener("beforeunload", markOffline)
+    window.addEventListener("beforeunload", () => updatePresence("offline"))
+    document.addEventListener("visibilitychange", handleVisibilityChange)
     
     return () => {
       clearInterval(interval)
-      window.removeEventListener("beforeunload", markOffline)
-      markOffline()
+      window.removeEventListener("beforeunload", () => updatePresence("offline"))
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      updatePresence("offline")
     }
   }, [db, user?.uid])
 
