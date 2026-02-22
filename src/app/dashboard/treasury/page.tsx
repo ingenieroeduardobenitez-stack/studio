@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -235,7 +236,7 @@ export default function TreasuryPage() {
                                 </Button>
                               )}
                               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setSelectedReg(reg); setIsReceiptOpen(true); }}>
-                                <FileText className="h-4 w-4" />
+                                <FileText className="h-4 w-4 text-slate-400" />
                               </Button>
                             </div>
                           </TableCell>
@@ -449,7 +450,7 @@ export default function TreasuryPage() {
 
       {/* DIALOGO DE RECIBO */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="sr-only">
             <DialogTitle>Recibo de Pago</DialogTitle>
             <DialogDescription>Comprobante oficial de pago para impresión.</DialogDescription>
@@ -458,33 +459,34 @@ export default function TreasuryPage() {
             <div className="flex items-center justify-between border-b pb-6">
               <div className="flex items-center gap-2">
                 <Church className="h-8 w-8 text-primary" />
-                <div><h3 className="font-headline font-bold text-lg">PARROQUIA</h3><p className="text-[10px] text-muted-foreground uppercase tracking-widest">Perpetuo Socorro</p></div>
+                <div><h3 className="font-headline font-bold text-lg leading-none">PARROQUIA</h3><p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Perpetuo Socorro</p></div>
               </div>
-              <div className="text-right"><p className="text-xs font-bold uppercase">Recibo de Pago</p><p className="text-[10px] text-muted-foreground">ID: {selectedReg?.id?.slice(-8)}</p></div>
+              <div className="text-right"><p className="text-xs font-bold uppercase text-primary">Recibo de Pago</p><p className="text-[10px] text-muted-foreground mt-1">ID: {selectedReg?.id?.slice(-8)}</p></div>
             </div>
 
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Concepto</p><p className="text-sm font-bold">Inscripción {selectedReg?.catechesisYear?.replace("_", " ")}</p></div>
-                <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Fecha</p><p className="text-sm font-bold">{new Date().toLocaleDateString()}</p></div>
+                <div><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Concepto</p><p className="text-sm font-bold text-slate-900">Inscripción {selectedReg?.catechesisYear?.replace("_", " ")}</p></div>
+                <div><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Fecha</p><p className="text-sm font-bold text-slate-900">{new Date().toLocaleDateString()}</p></div>
               </div>
-              <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Confirmando</p><p className="text-base font-bold text-primary">{selectedReg?.fullName}</p><p className="text-xs text-muted-foreground">C.I. {selectedReg?.ciNumber}</p></div>
+              <div><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Confirmando</p><p className="text-base font-bold text-primary">{selectedReg?.fullName}</p><p className="text-xs text-slate-500">C.I. {selectedReg?.ciNumber}</p></div>
               
-              <div className="bg-slate-50 p-6 rounded-2xl border space-y-4">
+              <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-300 space-y-4">
                 <div className="flex justify-between text-xs border-b pb-2"><span>Monto Total Arancel</span><span className="font-bold">{selectedReg?.registrationCost?.toLocaleString()} Gs.</span></div>
                 <div className="flex justify-between text-xs border-b pb-2"><span>Monto Abonado</span><span className="font-bold text-green-600">{selectedReg?.amountPaid?.toLocaleString()} Gs.</span></div>
+                <Separator className="bg-slate-200" />
                 <div className="flex justify-between text-sm pt-2 font-bold"><span>Saldo Pendiente</span><span className="text-red-500">{((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString()} Gs.</span></div>
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-4 pt-6 border-t border-dashed">
-              <div className="h-10 w-40 border-b border-slate-300"></div>
-              <p className="text-[10px] text-muted-foreground uppercase">Sello y Firma Tesorería</p>
+            <div className="flex flex-col items-center gap-4 pt-8 border-t border-dashed border-slate-200">
+              <div className="h-px w-40 bg-slate-300"></div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Sello y Firma Tesorería</p>
             </div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t">
-            <Button variant="outline" className="flex-1" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 gap-2" onClick={() => window.print()}><Printer className="h-4 w-4" /> Imprimir Recibo</Button>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 print:hidden">
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
+            <Button className="flex-1 gap-2 rounded-xl shadow-lg" onClick={() => window.print()}><Printer className="h-4 w-4" /> Imprimir Recibo</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

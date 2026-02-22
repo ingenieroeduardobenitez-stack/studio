@@ -108,7 +108,7 @@ export default function UsersAdminPage() {
     setIsSubmitting(true)
     
     const formData = new FormData(e.currentTarget)
-    const email = formData.get("email") as string
+    const email = (formData.get("email") as string).trim()
     const password = formData.get("password") as string
     const firstName = formData.get("firstName") as string
     const lastName = formData.get("lastName") as string
@@ -145,7 +145,16 @@ export default function UsersAdminPage() {
 
     } catch (error: any) {
       console.error("Error creating user:", error)
-      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo completar el registro." })
+      let msg = "No se pudo completar el registro."
+      if (error.code === 'auth/email-already-in-use') {
+        msg = "Este correo electrónico ya está registrado en el sistema."
+      } else if (error.code === 'auth/weak-password') {
+        msg = "La contraseña es muy débil (mínimo 6 caracteres)."
+      } else if (error.code === 'auth/invalid-email') {
+        msg = "El formato del correo electrónico no es válido."
+      }
+      
+      toast({ variant: "destructive", title: "Error de Registro", description: msg })
     } finally {
       setIsSubmitting(false)
       if (secondaryApp) {
@@ -192,7 +201,7 @@ export default function UsersAdminPage() {
 
     try {
       await deleteDoc(doc(db, "users", selectedUser.id))
-      toast({ title: "Usuario eliminado", description: "El perfil ha sido borrado." })
+      toast({ title: "Usuario eliminado", description: "El perfil ha sido borrado de la base de datos." })
       setIsDeleteDialogOpen(false)
     } catch (error: any) {
       console.error("Error deleting user:", error)
