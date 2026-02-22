@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church, User, QrCode, Share2, Printer } from "lucide-react"
+import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection } from "@/firebase"
 import { doc, collection } from "firebase/firestore"
 import { useMemo, useState, useEffect } from "react"
@@ -35,6 +35,11 @@ export default function DashboardPage() {
   const { data: registrations, loading: regsLoading } = useCollection(registrationsQuery)
 
   const registrationUrl = typeof window !== 'undefined' ? `${window.location.origin}/inscripcion` : ""
+
+  const handleShareWhatsApp = () => {
+    const message = encodeURIComponent(`¡Hola! Inscríbete a la Catequesis de Confirmación 2026 de la Parroquia Perpetuo Socorro aquí: ${registrationUrl}`)
+    window.open(`https://wa.me/?text=${message}`, '_blank')
+  }
 
   if (!mounted || userLoading || profileLoading) {
     return (
@@ -177,9 +182,12 @@ export default function DashboardPage() {
               Escanear para inscripción 2026
             </p>
           </CardContent>
-          <CardFooter className="pt-2">
+          <CardFooter className="pt-2 flex flex-col gap-2">
             <Button className="w-full bg-white text-primary hover:bg-white/90 font-bold rounded-xl gap-2 h-11" onClick={() => setIsQrOpen(true)}>
               Ver QR e Imprimir
+            </Button>
+            <Button variant="outline" className="w-full bg-green-500 hover:bg-green-600 text-white border-none font-bold rounded-xl gap-2 h-11" onClick={handleShareWhatsApp}>
+              <MessageCircle className="h-4 w-4" /> Enviar por WhatsApp
             </Button>
           </CardFooter>
         </Card>
@@ -215,10 +223,13 @@ export default function DashboardPage() {
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Secretaría de Catequesis</p>
             </div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3 print:hidden">
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col sm:flex-row gap-3 print:hidden">
             <Button variant="outline" className="flex-1 rounded-xl font-bold h-12" onClick={() => setIsQrOpen(false)}>Cerrar</Button>
+            <Button className="flex-1 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg h-12 gap-2" onClick={handleShareWhatsApp}>
+              <MessageCircle className="h-4 w-4" /> Compartir
+            </Button>
             <Button className="flex-1 rounded-xl bg-primary font-bold shadow-lg h-12 gap-2" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Imprimir Cartel
+              <Printer className="h-4 w-4" /> Imprimir
             </Button>
           </DialogFooter>
         </DialogContent>
