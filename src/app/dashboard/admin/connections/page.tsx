@@ -86,15 +86,31 @@ export default function ConnectionsMonitorPage() {
 
   const formatTimestamp = (ts: any) => {
     if (!ts) return "N/A"
-    const date = ts.toDate ? ts.toDate() : new Date(ts)
-    return date.toLocaleString('es-PY', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
+    try {
+      const date = ts.toDate ? ts.toDate() : new Date(ts)
+      if (isNaN(date.getTime())) return "Fecha Inválida"
+      return date.toLocaleString('es-PY', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+    } catch (e) {
+      return "N/A"
+    }
+  }
+
+  const formatDistance = (ts: any) => {
+    if (!ts) return "nunca"
+    try {
+      const date = ts.toDate ? ts.toDate() : new Date(ts)
+      if (isNaN(date.getTime())) return "fecha desconocida"
+      return formatDistanceToNow(date, { addSuffix: true, locale: es })
+    } catch (e) {
+      return "hace un momento"
+    }
   }
 
   if (!mounted) return null
@@ -196,7 +212,7 @@ export default function ConnectionsMonitorPage() {
                               {formatTimestamp(u.lastSeen)}
                             </div>
                             <span className="text-[9px] text-slate-400 font-medium">
-                              ({formatDistanceToNow(u.lastSeen?.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen || 0), { addSuffix: true, locale: es })})
+                              ({formatDistance(u.lastSeen)})
                             </span>
                           </div>
                         </TableCell>
@@ -245,7 +261,7 @@ export default function ConnectionsMonitorPage() {
                             <Clock className="h-2.5 w-2.5" /> {formatTimestamp(u.lastSeen)}
                           </p>
                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
-                            Visto {formatDistanceToNow(u.lastSeen.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen), { addSuffix: true, locale: es })}
+                            Visto {formatDistance(u.lastSeen)}
                           </p>
                         </div>
                         {lastAction && (
