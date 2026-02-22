@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -16,15 +17,19 @@ import {
   LayoutList, 
   Users,
   ChevronRight,
-  UserCircle
+  UserCircle,
+  UserPlus,
+  Trash2,
+  Check
 } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { collection, doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuLabel, 
+  DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -34,6 +39,27 @@ import {
   AccordionItem, 
   AccordionTrigger 
 } from "@/components/ui/accordion"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from "@/components/ui/dialog"
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
 type ViewMode = "LIST" | "GROUPS"
@@ -42,11 +68,23 @@ export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<ViewMode>("GROUPS")
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [selectedReg, setSelectedReg] = useState<any>(null)
+  const [newGroupId, setNewGroupId] = useState<string>("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const { toast } = useToast()
+  const { user } = useUser()
   const db = useFirestore()
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const userProfileRef = useMemo(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const { data: profile } = useDoc(userProfileRef)
+  const isAdmin = profile?.role === "Administrador"
 
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
@@ -66,13 +104,7 @@ export default function RegistrationsListPage() {
     if (!registrations || !groups) return {}
     
     const grouped: Record<string, any[]> = {}
-    
-    // Inicializar con grupos existentes
-    groups.forEach(g => {
-      grouped[g.id] = []
-    })
-    
-    // Agregar una entrada para "Sin Grupo"
+    groups.forEach(g => { grouped[g.id] = [] })
     grouped["none"] = []
 
     filteredRegistrations.forEach(reg => {
@@ -83,18 +115,63 @@ export default function RegistrationsListPage() {
     return grouped
   }, [filteredRegistrations, groups])
 
+  const handleAssignGroup = async () => {
+    if (!db || !selectedReg || !newGroupId) return
+    setIsSubmitting(true)
+
+    const group = groups?.find(g => g.id === newGroupId)
+    if (!group) return
+
+    try {
+      await updateDoc(doc(db, "confirmations", selectedReg.id), {
+        groupId: newGroupId,
+        attendanceDay: group.attendanceDay,
+        updatedAt: serverTimestamp()
+      })
+      toast({ title: "Grupo asignado", description: `${selectedReg.fullName} ahora pertenece a ${group.name}.` })
+      setIsAssignDialogOpen(false)
+    } catch (error) {
+      console.error(error)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo asignar el grupo." })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteRegistration = async () => {
+    if (!db || !selectedReg) return
+    setIsSubmitting(true)
+
+    try {
+      await deleteDoc(doc(db, "confirmations", selectedReg.id))
+      toast({ title: "Registro eliminado", description: "La inscripción ha sido borrada del sistema." })
+      setIsDeleteDialogOpen(false)
+    } catch (error) {
+      console.error(error)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el registro." })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const openAssignDialog = (reg: any) => {
+    setSelectedReg(reg)
+    setNewGroupId(reg.groupId || "")
+    setIsAssignDialogOpen(true)
+  }
+
+  const openDeleteDialog = (reg: any) => {
+    setSelectedReg(reg)
+    setIsDeleteDialogOpen(true)
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "INSCRITO":
-        return <Badge className="bg-blue-500 hover:bg-blue-600">Inscrito</Badge>
-      case "PENDIENTE":
-        return <Badge variant="secondary">Pendiente</Badge>
-      case "OBSERVADO":
-        return <Badge variant="destructive">Observado</Badge>
-      case "ARCHIVADO":
-        return <Badge variant="outline" className="bg-slate-100">Archivado</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
+      case "INSCRITO": return <Badge className="bg-blue-500 hover:bg-blue-600">Inscrito</Badge>
+      case "PENDIENTE": return <Badge variant="secondary">Pendiente</Badge>
+      case "OBSERVADO": return <Badge variant="destructive">Observado</Badge>
+      case "ARCHIVADO": return <Badge variant="outline" className="bg-slate-100">Archivado</Badge>
+      default: return <Badge variant="outline">{status}</Badge>
     }
   }
 
@@ -261,8 +338,17 @@ export default function RegistrationsListPage() {
                           <DropdownMenuContent align="end" className="rounded-xl p-2 border-none shadow-xl">
                             <DropdownMenuLabel className="text-[10px] uppercase text-slate-400">Gestión</DropdownMenuLabel>
                             <DropdownMenuItem className="rounded-lg h-10 gap-2"><UserCircle className="h-4 w-4" /> Ver Detalles</DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-lg h-10 gap-2">Editar Registro</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive rounded-lg h-10 gap-2">Marcar Observado</DropdownMenuItem>
+                            {isAdmin && (
+                              <>
+                                <DropdownMenuItem className="rounded-lg h-10 gap-2" onClick={() => openAssignDialog(reg)}>
+                                  <UserPlus className="h-4 w-4" /> Asignar Grupo
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive rounded-lg h-10 gap-2" onClick={() => openDeleteDialog(reg)}>
+                                  <Trash2 className="h-4 w-4" /> Eliminar Registro
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -275,7 +361,6 @@ export default function RegistrationsListPage() {
         ) : (
           <div className="space-y-4">
             <Accordion type="multiple" defaultValue={["none", ...(groups?.map(g => g.id) || [])]} className="space-y-4">
-              {/* SECCIÓN SIN GRUPO ASIGNADO */}
               {registrationsByGroup["none"]?.length > 0 && (
                 <AccordionItem value="none" className="border-none">
                   <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -291,16 +376,22 @@ export default function RegistrationsListPage() {
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-0 border-t border-slate-50">
-                      <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} />
+                      <StudentTable 
+                        students={registrationsByGroup["none"]} 
+                        formatYear={formatCatechesisYear} 
+                        getBadge={getStatusBadge} 
+                        isAdmin={isAdmin} 
+                        onAssignGroup={openAssignDialog}
+                        onDelete={openDeleteDialog}
+                      />
                     </AccordionContent>
                   </div>
                 </AccordionItem>
               )}
 
-              {/* GRUPOS CONFIGURADOS */}
               {groups?.map((group: any) => {
                 const groupStudents = registrationsByGroup[group.id] || []
-                if (groupStudents.length === 0 && searchTerm) return null // Ocultar grupos vacíos si hay búsqueda y no coincide
+                if (groupStudents.length === 0 && searchTerm) return null
                 
                 return (
                   <AccordionItem key={group.id} value={group.id} className="border-none">
@@ -327,7 +418,14 @@ export default function RegistrationsListPage() {
                         {groupStudents.length === 0 ? (
                           <div className="p-8 text-center text-slate-400 italic text-sm">No hay alumnos asignados a este grupo aún.</div>
                         ) : (
-                          <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} />
+                          <StudentTable 
+                            students={groupStudents} 
+                            formatYear={formatCatechesisYear} 
+                            getBadge={getStatusBadge} 
+                            isAdmin={isAdmin} 
+                            onAssignGroup={openAssignDialog}
+                            onDelete={openDeleteDialog}
+                          />
                         )}
                       </AccordionContent>
                     </div>
@@ -338,11 +436,83 @@ export default function RegistrationsListPage() {
           </div>
         )}
       </div>
+
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Asignar Grupo</DialogTitle>
+            <DialogDescription>Mueve a {selectedReg?.fullName} a un grupo específico.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Seleccionar Grupo</Label>
+              <Select value={newGroupId} onValueChange={setNewGroupId}>
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Elige un grupo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name} ({g.attendanceDay}s)
+                    </SelectItem>
+                  ))}
+                  {groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).length === 0 && (
+                    <p className="p-4 text-xs text-muted-foreground text-center">No hay grupos creados para este año.</p>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground italic">Solo se muestran grupos del mismo año de catequesis ({formatCatechesisYear(selectedReg?.catechesisYear)}).</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)} disabled={isSubmitting}>Cancelar</Button>
+            <Button onClick={handleAssignGroup} disabled={isSubmitting || !newGroupId}>
+              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+              Guardar Cambio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará definitivamente el registro de <strong>{selectedReg?.fullName}</strong>. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => { e.preventDefault(); handleDeleteRegistration(); }} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Sí, Eliminar Registro"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
 
-function StudentTable({ students, formatYear, getBadge }: { students: any[], formatYear: any, getBadge: any }) {
+function StudentTable({ 
+  students, 
+  formatYear, 
+  getBadge, 
+  isAdmin, 
+  onAssignGroup, 
+  onDelete 
+}: { 
+  students: any[], 
+  formatYear: any, 
+  getBadge: any, 
+  isAdmin: boolean,
+  onAssignGroup: (reg: any) => void,
+  onDelete: (reg: any) => void
+}) {
   return (
     <Table>
       <TableHeader className="bg-slate-50/30">
@@ -400,8 +570,19 @@ function StudentTable({ students, formatYear, getBadge }: { students: any[], for
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="rounded-xl p-2 border-none shadow-xl">
+                  <DropdownMenuLabel className="text-[10px] uppercase text-slate-400">Opciones</DropdownMenuLabel>
                   <DropdownMenuItem className="rounded-lg h-9 gap-2 text-xs font-medium">Ver Detalles</DropdownMenuItem>
-                  <DropdownMenuItem className="rounded-lg h-9 gap-2 text-xs font-medium">Editar</DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem className="rounded-lg h-9 gap-2 text-xs font-medium" onClick={() => onAssignGroup(reg)}>
+                        <UserPlus className="h-4 w-4" /> Asignar Grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive rounded-lg h-9 gap-2 text-xs font-medium" onClick={() => onDelete(reg)}>
+                        <Trash2 className="h-4 w-4" /> Eliminar
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>
