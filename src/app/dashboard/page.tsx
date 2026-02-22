@@ -1,7 +1,6 @@
-
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church, User, QrCode, Share2, Printer } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection } from "@/firebase"
 import { doc, collection } from "firebase/firestore"
