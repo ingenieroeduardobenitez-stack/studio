@@ -28,13 +28,18 @@ export default function ConnectionsMonitorPage() {
   const { data: users, loading } = useCollection(usersQuery)
 
   const isOnline = (user: any) => {
+    // Si el estatus es offline explícitamente, está fuera
     if (user.status !== "online") return false
     if (!user.lastSeen) return false
     
-    // Usamos una ventana de tiempo más amplia (5 minutos) para evitar falsos offline por desincronización de reloj
+    // Calculamos la diferencia entre ahora y la última vez que el sistema "vio" al usuario
     const lastSeenDate = user.lastSeen.toDate ? user.lastSeen.toDate() : new Date(user.lastSeen)
-    const diff = (new Date().getTime() - lastSeenDate.getTime()) / 1000
-    return Math.abs(diff) < 300 
+    const now = new Date()
+    
+    // Ventana de 5 minutos (300 segundos) para considerar a alguien online
+    // Esto previene saltos por lag de red o desincronización de reloj local
+    const diffInSeconds = Math.abs((now.getTime() - lastSeenDate.getTime()) / 1000)
+    return diffInSeconds < 300 
   }
 
   const onlineUsers = useMemo(() => {
@@ -44,6 +49,7 @@ export default function ConnectionsMonitorPage() {
 
   const recentUsers = useMemo(() => {
     if (!users) return []
+    // Solo mostramos en recientes a los que NO están online ahora
     return users
       .filter(u => !isOnline(u))
       .sort((a, b) => {
@@ -52,7 +58,7 @@ export default function ConnectionsMonitorPage() {
         return dateB.getTime() - dateA.getTime()
       })
       .slice(0, 15)
-  }, [users])
+  }, [users, onlineUsers]) // Dependemos de onlineUsers para recalcular cuando alguien entra/sale
 
   if (!mounted) return null
 
@@ -117,8 +123,8 @@ export default function ConnectionsMonitorPage() {
                         <Badge variant="outline" className="text-[10px]"><ShieldCheck className="h-3 w-3 mr-1" /> {u.role}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-green-500 hover:bg-green-600 gap-1.5 h-6">
-                          <Circle className="h-2 w-2 fill-white border-none" /> En Línea
+                        <Badge className="bg-green-500 hover:bg-green-600 gap-1.5 h-6 animate-in fade-in zoom-in-95">
+                          <Circle className="h-2 w-2 fill-white border-none animate-pulse" /> En Línea
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right pr-8 text-xs font-bold text-green-600">

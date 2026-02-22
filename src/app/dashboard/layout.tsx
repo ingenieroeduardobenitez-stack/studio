@@ -6,7 +6,7 @@ import { Bell, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { UserNav } from "@/components/user-nav"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useUser, useFirestore } from "@/firebase"
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
 
@@ -17,25 +17,34 @@ export default function DashboardLayout({
 }) {
   const { user } = useUser()
   const db = useFirestore()
+  const presenceInterval = useRef<NodeJS.Timeout | null>(null)
 
-  // Sistema de Presencia (Heartbeat) mejorado
+  // Sistema de Presencia (Heartbeat) Robusto
   useEffect(() => {
     if (!db || !user?.uid) return
 
     const userRef = doc(db, "users", user.uid)
     
-    const updatePresence = (status: "online" | "offline") => {
-      updateDoc(userRef, {
-        status: status,
-        lastSeen: serverTimestamp()
-      }).catch(err => console.error("Presence Error:", err))
+    const updatePresence = async (status: "online" | "offline") => {
+      try {
+        await updateDoc(userRef, {
+          status: status,
+          lastSeen: serverTimestamp()
+        })
+      } catch (err) {
+        // Silently fail to not interrupt UX
+      }
     }
 
-    // Marcar como online inmediatamente
+    // Marcar como online inmediatamente al montar o al cambiar de ruta
     updatePresence("online")
 
-    // Intervalo frecuente para mantener la sesión viva (cada 20 segundos)
-    const interval = setInterval(() => updatePresence("online"), 20000)
+    // Intervalo de pulso cada 30 segundos
+    presenceInterval.current = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        updatePresence("online")
+      }
+    }, 30000)
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -43,12 +52,18 @@ export default function DashboardLayout({
       }
     }
 
-    window.addEventListener("beforeunload", () => updatePresence("offline"))
+    const handleBeforeUnload = () => {
+      // Intentamos marcar como offline al cerrar la pestaña
+      // Nota: Esto es best-effort, no siempre se garantiza en todos los navegadores
+      updatePresence("offline")
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
     document.addEventListener("visibilitychange", handleVisibilityChange)
     
     return () => {
-      clearInterval(interval)
-      window.removeEventListener("beforeunload", () => updatePresence("offline"))
+      if (presenceInterval.current) clearInterval(presenceInterval.current)
+      window.removeEventListener("beforeunload", handleBeforeUnload)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       updatePresence("offline")
     }

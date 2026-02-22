@@ -77,23 +77,30 @@ export default function UsersAdminPage() {
 
   const { data: users, loading } = useCollection(usersQuery)
 
-  const filteredUsers = useMemo(() => {
-    if (!users) return []
-    return users.filter(u => 
-      `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a, b) => (a.status === 'online' ? -1 : 1))
-  }, [users, searchTerm])
-
   const isOnline = (user: any) => {
     if (user.status !== "online") return false
     if (!user.lastSeen) return false
     
-    // Considerar offline si no hubo señal en los últimos 2 minutos
+    // Lógica robusta de detección online
     const lastSeenDate = user.lastSeen.toDate ? user.lastSeen.toDate() : new Date(user.lastSeen)
-    const diff = (new Date().getTime() - lastSeenDate.getTime()) / 1000
-    return diff < 120 
+    const now = new Date()
+    const diff = Math.abs((now.getTime() - lastSeenDate.getTime()) / 1000)
+    return diff < 300 // Consideramos online si hubo actividad en los últimos 5 minutos
   }
+
+  const filteredUsers = useMemo(() => {
+    if (!users) return []
+    return [...users].filter(u => 
+      `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())
+    ).sort((a, b) => {
+      const aOnline = isOnline(a)
+      const bOnline = isOnline(b)
+      if (aOnline && !bOnline) return -1
+      if (!aOnline && bOnline) return 1
+      return 0
+    })
+  }, [users, searchTerm])
 
   const handleTogglePermission = (moduleId: string, permId: string) => {
     const permissionKey = `${moduleId}:${permId}`
@@ -419,8 +426,8 @@ export default function UsersAdminPage() {
                       </TableCell>
                       <TableCell>
                         {online ? (
-                          <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100 gap-1.5 h-6">
-                            <Circle className="h-2 w-2 fill-green-600 border-none" /> En Línea
+                          <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100 gap-1.5 h-6 animate-in zoom-in-95">
+                            <Circle className="h-2 w-2 fill-green-600 border-none animate-pulse" /> En Línea
                           </Badge>
                         ) : (
                           <span className="text-[10px] text-slate-400 font-medium italic">
