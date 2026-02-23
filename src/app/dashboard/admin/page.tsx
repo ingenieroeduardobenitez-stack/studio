@@ -59,6 +59,7 @@ export default function AdminPage() {
       accountNumber: formData.get("accountNumber") as string || "",
       accountOwner: formData.get("accountOwner") as string || "",
       ownerCi: formData.get("ownerCi") as string || "",
+      alias: formData.get("alias") as string || "",
       updatedAt: serverTimestamp()
     }
 
@@ -201,6 +202,10 @@ export default function AdminPage() {
                   <div className="space-y-2">
                     <Label className="text-xs font-bold text-slate-500">C.I. o RUC del Titular</Label>
                     <Input name="ownerCi" defaultValue={settings?.ownerCi} placeholder="1.234.567-8" className="h-11 rounded-xl" />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-xs font-bold text-slate-500">Alias (Opcional)</Label>
+                    <Input name="alias" defaultValue={settings?.alias} placeholder="Ej. parroquia.ps" className="h-11 rounded-xl font-bold text-primary" />
                   </div>
                 </div>
               </div>

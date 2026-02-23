@@ -144,6 +144,7 @@
         "accountNumber": { "type": "string" },
         "accountOwner": { "type": "string" },
         "ownerCi": { "type": "string" },
+        "alias": { "type": "string" },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
     },

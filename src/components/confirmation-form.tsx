@@ -361,7 +361,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <p className="text-xs font-bold text-slate-700">{costs?.bankName || "Cuenta Bancaria"}</p>
                   <p className="text-sm font-mono font-bold text-primary">{costs?.accountNumber || "---"}</p>
                   <p className="text-xs text-slate-500">{costs?.accountOwner || "---"}</p>
-                  <p className="text-xs text-slate-500">{costs?.ownerCi || "---"}</p>
+                  {costs?.alias && (
+                    <p className="text-xs font-black text-primary uppercase">Alias: {costs.alias}</p>
+                  )}
                 </div>
               </div>
               

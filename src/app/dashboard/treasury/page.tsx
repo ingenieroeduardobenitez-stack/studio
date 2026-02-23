@@ -66,6 +66,7 @@ export default function TreasuryPage() {
       accountNumber: formData.get("accountNumber") as string || "",
       accountOwner: formData.get("accountOwner") as string || "",
       ownerCi: formData.get("ownerCi") as string || "",
+      alias: formData.get("alias") as string || "",
       updatedAt: serverTimestamp()
     }
 
@@ -367,6 +368,10 @@ export default function TreasuryPage() {
                       <Label className="text-xs font-bold">C.I. o RUC del Titular</Label>
                       <Input name="ownerCi" defaultValue={costs?.ownerCi} placeholder="1.234.567-8" className="h-10 rounded-lg" />
                     </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold">Alias (Transferencias Rápidas)</Label>
+                      <Input name="alias" defaultValue={costs?.alias} placeholder="Ej. parroquia.ps" className="h-10 rounded-lg font-bold text-primary" />
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter className="bg-slate-50 p-6 border-t flex justify-end">
@@ -384,20 +389,43 @@ export default function TreasuryPage() {
                 <CardDescription>Así verá el usuario los datos de pago al inscribirse públicamente.</CardDescription>
               </CardHeader>
               <CardContent className="p-8">
-                <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-6">
-                  <div className="flex items-center gap-3 border-b pb-4">
-                    <div className="h-10 w-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center"><Wallet className="h-5 w-5" /></div>
-                    <div><p className="text-[10px] font-bold text-slate-400 uppercase">Información de Pago</p><p className="font-bold text-slate-900">Transferencia Bancaria</p></div>
+                <div className="bg-white p-8 rounded-3xl border shadow-md space-y-8">
+                  <div className="flex items-center gap-4 border-b pb-6">
+                    <div className="h-12 w-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center shadow-sm"><Wallet className="h-6 w-6" /></div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Información de Pago</p>
+                      <p className="font-bold text-lg text-slate-900">Transferencia Bancaria</p>
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-medium">Banco:</span><span className="font-bold">{costs?.bankName || "---"}</span></div>
-                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-medium">Cuenta N°:</span><span className="font-bold font-mono">{costs?.accountNumber || "---"}</span></div>
-                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-medium">Titular:</span><span className="font-bold">{costs?.accountOwner || "---"}</span></div>
-                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-medium">Documento:</span><span className="font-bold">{costs?.ownerCi || "---"}</span></div>
+                  
+                  <div className="space-y-4 px-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500 font-medium">Banco:</span>
+                      <span className="font-bold text-slate-900">{costs?.bankName || "---"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500 font-medium">Cuenta N°:</span>
+                      <span className="font-bold font-mono text-slate-900">{costs?.accountNumber || "---"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500 font-medium">Titular:</span>
+                      <span className="font-bold text-slate-900">{costs?.accountOwner || "---"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500 font-medium">Documento:</span>
+                      <span className="font-bold text-slate-900">{costs?.ownerCi || "---"}</span>
+                    </div>
+                    {costs?.alias && (
+                      <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100">
+                        <span className="text-primary font-bold">Alias:</span>
+                        <span className="font-black text-primary uppercase tracking-tighter">{costs.alias}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-dashed flex flex-col items-center gap-2">
-                    <div className="h-24 w-24 bg-slate-200 rounded-lg flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2">CÓDIGO QR GENERADO</div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold">Escanear para transferir</p>
+
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-dashed flex flex-col items-center gap-4">
+                    <div className="h-28 w-28 bg-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2 shadow-inner">CÓDIGO QR GENERADO</div>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-[0.2em]">Escanear para transferir</p>
                   </div>
                 </div>
               </CardContent>
