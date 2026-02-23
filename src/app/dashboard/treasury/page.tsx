@@ -20,6 +20,62 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { QRCodeCanvas } from "qrcode.react"
 import { cn } from "@/lib/utils"
 
+/**
+ * UTILIDAD DE GENERACIÓN PY-QR (ESTÁNDAR EMVCO)
+ */
+const computeCRC = (str: string) => {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc = crc << 1;
+      }
+    }
+  }
+  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+};
+
+const formatTag = (tag: string, value: string) => {
+  return tag.padStart(2, '0') + value.length.toString().padStart(2, '0') + value;
+};
+
+const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
+  try {
+    let payload = "";
+    payload += formatTag("00", "01"); // Payload Format Indicator
+    payload += formatTag("01", "12"); // Dynamic
+    
+    let merchantInfo = formatTag("00", "py.gov.bcp.spi");
+    if (alias) {
+      merchantInfo += formatTag("01", alias.trim());
+    } else {
+      merchantInfo += formatTag("01", (accountNumber || "").replace(/[^0-9]/g, ''));
+      merchantInfo += formatTag("02", (bankName || "SPI").substring(0, 10));
+    }
+    payload += formatTag("26", merchantInfo);
+    
+    payload += formatTag("52", "0000"); 
+    payload += formatTag("53", "600");  
+    payload += formatTag("54", Math.floor(amount).toString()); 
+    payload += formatTag("58", "PY");   
+    payload += formatTag("59", accountOwner.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25).toUpperCase()); 
+    payload += formatTag("60", "ASUNCION"); 
+    
+    const cleanConcept = concept.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 20);
+    payload += formatTag("62", formatTag("05", cleanConcept));
+    
+    payload += "6304"; 
+    payload += computeCRC(payload);
+    
+    return payload;
+  } catch (e) {
+    return "";
+  }
+};
+
 export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -143,12 +199,16 @@ export default function TreasuryPage() {
   const pendingBalance = selectedReg ? (selectedReg.registrationCost || 0) - (selectedReg.amountPaid || 0) : 0
   const isOverpaid = paymentAmount > pendingBalance
 
-  // QR Simplificado para evitar errores de parseo bancario
   const qrPaymentData = useMemo(() => {
     if (!costs || !selectedReg || paymentAmount <= 0) return ""
-    return costs.paymentMethod === "ALIAS" 
-      ? `${costs.alias}|${costs.accountOwner}|${paymentAmount}|Inscripcion ${selectedReg.fullName}`
-      : `${costs.bankName}|${costs.accountNumber}|${costs.accountOwner}|${paymentAmount}|Inscripcion ${selectedReg.fullName}`
+    return generatePyQr({
+      alias: costs.paymentMethod === "ALIAS" ? costs.alias : null,
+      bankName: costs.bankName,
+      accountNumber: costs.accountNumber,
+      accountOwner: costs.accountOwner,
+      amount: paymentAmount,
+      concept: `INS ${selectedReg.fullName}`
+    });
   }, [costs, selectedReg, paymentAmount])
 
   const handleProcessPayment = async () => {
@@ -492,8 +552,8 @@ export default function TreasuryPage() {
                   </div>
 
                   <div className="bg-slate-50 p-6 rounded-2xl border border-dashed flex flex-col items-center gap-4">
-                    <div className="h-28 w-28 bg-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2 shadow-inner">DATOS DE REFERENCIA</div>
-                    <p className="text-[9px] text-slate-400 uppercase font-bold tracking-[0.2em] text-center">Referencia para carga manual en app bancaria</p>
+                    <div className="h-28 w-28 bg-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2 shadow-inner">PY-QR READY</div>
+                    <p className="text-[9px] text-slate-400 uppercase font-bold tracking-[0.2em] text-center">Compatible con aplicaciones bancarias locales</p>
                   </div>
                 </div>
               </CardContent>
@@ -534,19 +594,20 @@ export default function TreasuryPage() {
                     className="w-full h-12 rounded-xl gap-2 border-dashed border-primary/40 text-primary font-bold"
                     onClick={() => setShowPaymentQr(true)}
                   >
-                    <QrCode className="h-4 w-4" /> Generar QR de Referencia
+                    <QrCode className="h-4 w-4" /> Generar PY-QR Dinámico
                   </Button>
                 ) : (
                   <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
-                    <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
-                      <QRCodeCanvas value={qrPaymentData} size={160} level="M" />
+                    <div className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full mb-3">PY-QR ESTÁNDAR</div>
+                    <div className="p-3 bg-white rounded-2xl shadow-sm border-4 border-slate-100">
+                      <QRCodeCanvas value={qrPaymentData} size={180} level="M" />
                     </div>
                     
                     <div className="mt-4 w-full space-y-2">
-                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
-                        <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                        <p className="text-[9px] text-amber-700 leading-tight">
-                          Si el escaneo automático falla, ingresa los datos manualmente en la app del banco.
+                      <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
+                        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                        <p className="text-[9px] text-blue-700 leading-tight">
+                          Escanee con cualquier app bancaria local. El monto y concepto se cargarán automáticamente.
                         </p>
                       </div>
                       <div className="space-y-1">

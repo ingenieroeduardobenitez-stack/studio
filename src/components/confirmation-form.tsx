@@ -65,6 +65,62 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { QRCodeCanvas } from "qrcode.react"
 
+/**
+ * UTILIDADES PY-QR (ESTÁNDAR EMVCO PARAGUAY)
+ */
+const computeCRC = (str: string) => {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc = crc << 1;
+      }
+    }
+  }
+  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+};
+
+const formatTag = (tag: string, value: string) => {
+  return tag.padStart(2, '0') + value.length.toString().padStart(2, '0') + value;
+};
+
+const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
+  try {
+    let payload = "";
+    payload += formatTag("00", "01"); // Payload Format Indicator
+    payload += formatTag("01", "12"); // Dynamic
+    
+    let merchantInfo = formatTag("00", "py.gov.bcp.spi");
+    if (alias) {
+      merchantInfo += formatTag("01", alias.trim());
+    } else {
+      merchantInfo += formatTag("01", (accountNumber || "").replace(/[^0-9]/g, ''));
+      merchantInfo += formatTag("02", (bankName || "SPI").substring(0, 10));
+    }
+    payload += formatTag("26", merchantInfo);
+    
+    payload += formatTag("52", "0000"); 
+    payload += formatTag("53", "600");  
+    payload += formatTag("54", Math.floor(amount || 0).toString() || "0"); 
+    payload += formatTag("58", "PY");   
+    payload += formatTag("59", accountOwner.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25).toUpperCase()); 
+    payload += formatTag("60", "ASUNCION"); 
+    
+    const cleanConcept = concept.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 20);
+    payload += formatTag("62", formatTag("05", cleanConcept));
+    
+    payload += "6304"; 
+    payload += computeCRC(payload);
+    
+    return payload;
+  } catch (e) {
+    return "";
+  }
+};
+
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
   ciNumber: z.string().min(5, "N° C.I. requerido"),
@@ -246,7 +302,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     try {
       await setDoc(regRef, registrationData)
       
-      // REGISTRO DE AUDITORÍA
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "public",
         userName: profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Usuario Público" : "Sistema"),
@@ -329,11 +384,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     })
   }, [submittedData, profile])
 
-  if (isSubmittedSuccessfully) {
-    const qrValue = costs?.paymentMethod === "ALIAS" 
-      ? `Alias: ${costs?.alias}\nTitular: ${costs?.accountOwner}\nConcepto: Inscripcion ${submittedData?.fullName}`
-      : `Banco: ${costs?.bankName}\nCuenta: ${costs?.accountNumber}\nTitular: ${costs?.accountOwner}\nConcepto: Inscripcion ${submittedData?.fullName}`
+  const qrPyData = useMemo(() => {
+    if (!costs || !submittedData) return "";
+    return generatePyQr({
+      alias: costs.paymentMethod === "ALIAS" ? costs.alias : null,
+      bankName: costs.bankName,
+      accountNumber: costs.accountNumber,
+      accountOwner: costs.accountOwner,
+      amount: totalCost,
+      concept: `INS ${submittedData.fullName}`
+    });
+  }, [costs, submittedData, totalCost]);
 
+  if (isSubmittedSuccessfully) {
     return (
       <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto">
         <Card className="border-none shadow-2xl bg-white rounded-3xl p-10 text-center space-y-6">
@@ -371,32 +434,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       <p className="text-xs font-bold text-slate-700">{costs?.bankName || "Cuenta Bancaria"}</p>
                       <p className="text-sm font-mono font-bold text-primary">{costs?.accountNumber || "---"}</p>
                       <p className="text-xs text-slate-500">{costs?.accountOwner || "---"}</p>
-                      {costs?.alias && (
-                        <p className="text-xs font-black text-primary uppercase">Alias: {costs.alias}</p>
-                      )}
                     </>
                   )}
                 </div>
               </div>
               
               <div className="flex flex-col items-center gap-2 bg-white p-4 rounded-2xl border shadow-sm">
-                <QRCodeCanvas value={qrValue} size={120} level="M" />
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">QR de Referencia</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-primary/10">
-              <div className="text-center space-y-1">
-                <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto text-xs font-bold">1</div>
-                <p className="text-[10px] font-bold uppercase text-slate-500">Realizar Transferencia</p>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto text-xs font-bold">2</div>
-                <p className="text-[10px] font-bold uppercase text-slate-500">Enviar Comprobante</p>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto text-xs font-bold">3</div>
-                <p className="text-[10px] font-bold uppercase text-slate-500">Recibir Recibo Oficial</p>
+                <div className="bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded">PY-QR</div>
+                <QRCodeCanvas value={qrPyData} size={140} level="M" />
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Escaneo Automático</p>
               </div>
             </div>
 
@@ -567,9 +613,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                               )}
                             />
                           </FormControl>
-                          <FormDescription className={isOverpaid ? "text-red-500 font-bold flex items-center gap-1" : ""}>
-                            {isOverpaid ? <><AlertTriangle className="h-3 w-3" /> Excede el total.</> : "Cobro de inscripción."}
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )} />
