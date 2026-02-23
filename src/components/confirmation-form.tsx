@@ -66,8 +66,19 @@ import { cn } from "@/lib/utils"
 import { QRCodeCanvas } from "qrcode.react"
 
 /**
- * UTILIDADES PY-QR (ESTÁNDAR EMVCO PARAGUAY)
+ * UTILIDADES PY-QR (ESTÁNDAR EMVCO PARAGUAY - SIPAP/SPI)
+ * Optimizadas para BNF, Ueno, Familiar, Itaú, etc.
  */
+const cleanString = (str: string) => {
+  if (!str) return "";
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Elimina acentos
+    .replace(/[^a-zA-Z0-9 ]/g, "") // Solo letras, números y espacios
+    .trim()
+    .toUpperCase();
+};
+
 const computeCRC = (str: string) => {
   let crc = 0xFFFF;
   for (let i = 0; i < str.length; i++) {
@@ -91,32 +102,42 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
   try {
     let payload = "";
     payload += formatTag("00", "01"); // Payload Format Indicator
-    payload += formatTag("01", "12"); // Dynamic
+    payload += formatTag("01", "12"); // Dynamic (12) o Static (11)
     
+    // Tag 26: Merchant Account Information (SPI BCP)
+    // Es vital que este tag contenga la identificación py.gov.bcp.spi para interoperabilidad
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      merchantInfo += formatTag("01", alias.trim());
+      merchantInfo += formatTag("01", alias.trim().toUpperCase());
     } else {
       merchantInfo += formatTag("01", (accountNumber || "").replace(/[^0-9]/g, ''));
-      merchantInfo += formatTag("02", (bankName || "SPI").substring(0, 10));
+      if (bankName) {
+        merchantInfo += formatTag("02", cleanString(bankName).substring(0, 10));
+      }
     }
     payload += formatTag("26", merchantInfo);
     
-    payload += formatTag("52", "0000"); 
-    payload += formatTag("53", "600");  
-    payload += formatTag("54", Math.floor(amount || 0).toString() || "0"); 
-    payload += formatTag("58", "PY");   
-    payload += formatTag("59", accountOwner.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25).toUpperCase()); 
+    payload += formatTag("52", "0000"); // Merchant Category Code (General)
+    payload += formatTag("53", "600");  // Transaction Currency (600 = PYG)
+    
+    if (amount && amount > 0) {
+      payload += formatTag("54", Math.floor(amount).toString()); // Amount
+    }
+    
+    payload += formatTag("58", "PY");   // Country Code
+    payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); 
     payload += formatTag("60", "ASUNCION"); 
     
-    const cleanConcept = concept.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 20);
+    // Tag 62: Additional Data Field (Concepto)
+    const cleanConcept = cleanString(concept || "PAGO CATEQUESIS").substring(0, 20);
     payload += formatTag("62", formatTag("05", cleanConcept));
     
-    payload += "6304"; 
+    payload += "6304"; // Tag CRC
     payload += computeCRC(payload);
     
     return payload;
   } catch (e) {
+    console.error("QR Error", e);
     return "";
   }
 };
@@ -146,7 +167,7 @@ const formSchema = z.object({
   baptismBook: z.string().optional(),
   baptismFolio: z.string().optional(),
   initialPayment: z.coerce.number().min(0, "Monto inválido").default(0),
-  generateReceipt: z.boolean().default(true),
+  generateReceipt: z.boolean().default(false),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -195,7 +216,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       baptismBook: "",
       baptismFolio: "",
       initialPayment: 0,
-      generateReceipt: true,
+      generateReceipt: false,
     },
   })
 

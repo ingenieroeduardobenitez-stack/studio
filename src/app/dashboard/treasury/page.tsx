@@ -21,8 +21,19 @@ import { QRCodeCanvas } from "qrcode.react"
 import { cn } from "@/lib/utils"
 
 /**
- * UTILIDAD DE GENERACIÓN PY-QR (ESTÁNDAR EMVCO)
+ * UTILIDAD DE GENERACIÓN PY-QR (ESTÁNDAR EMVCO PARAGUAY - SIPAP/SPI)
+ * Optimizada para BNF, Ueno, Familiar, Continental, etc.
  */
+const cleanString = (str: string) => {
+  if (!str) return "";
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .trim()
+    .toUpperCase();
+};
+
 const computeCRC = (str: string) => {
   let crc = 0xFFFF;
   for (let i = 0; i < str.length; i++) {
@@ -50,21 +61,23 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      merchantInfo += formatTag("01", alias.trim());
+      merchantInfo += formatTag("01", alias.trim().toUpperCase());
     } else {
       merchantInfo += formatTag("01", (accountNumber || "").replace(/[^0-9]/g, ''));
-      merchantInfo += formatTag("02", (bankName || "SPI").substring(0, 10));
+      if (bankName) {
+        merchantInfo += formatTag("02", cleanString(bankName).substring(0, 10));
+      }
     }
     payload += formatTag("26", merchantInfo);
     
     payload += formatTag("52", "0000"); 
     payload += formatTag("53", "600");  
-    payload += formatTag("54", Math.floor(amount).toString()); 
+    payload += formatTag("54", Math.floor(amount || 0).toString()); 
     payload += formatTag("58", "PY");   
-    payload += formatTag("59", accountOwner.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25).toUpperCase()); 
+    payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); 
     payload += formatTag("60", "ASUNCION"); 
     
-    const cleanConcept = concept.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 20);
+    const cleanConcept = cleanString(concept || "INSCRIPCION").substring(0, 20);
     payload += formatTag("62", formatTag("05", cleanConcept));
     
     payload += "6304"; 
@@ -457,7 +470,7 @@ export default function TreasuryPage() {
                         <>
                           <div className="space-y-2">
                             <Label className="text-xs font-bold">Nombre del Banco</Label>
-                            <Input name="bankName" defaultValue={costs?.bankName} placeholder="Ej. Banco Itau" className="h-10 rounded-lg" />
+                            <Input name="bankName" defaultValue={costs?.bankName} placeholder="Ej. Banco Familiar" className="h-10 rounded-lg" />
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-bold">N° de Cuenta</Label>
@@ -473,14 +486,14 @@ export default function TreasuryPage() {
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-bold">Alias (Opcional)</Label>
-                            <Input name="alias" defaultValue={costs?.alias} placeholder="Ej. parroquia.ps" className="h-10 rounded-lg font-bold text-primary" />
+                            <Input name="alias" defaultValue={costs?.alias} placeholder="Ej. PARROQUIA.PS" className="h-10 rounded-lg font-bold text-primary" />
                           </div>
                         </>
                       ) : (
                         <>
                           <div className="space-y-2">
                             <Label className="text-xs font-bold">Alias de Transferencia</Label>
-                            <Input name="alias" defaultValue={costs?.alias} placeholder="Ej. parroquia.ps" className="h-12 rounded-xl font-bold text-primary text-lg" required />
+                            <Input name="alias" defaultValue={costs?.alias} placeholder="Ej. PARROQUIA.PS" className="h-12 rounded-xl font-bold text-primary text-lg" required />
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-bold">Titular de la Cuenta</Label>
@@ -552,8 +565,10 @@ export default function TreasuryPage() {
                   </div>
 
                   <div className="bg-slate-50 p-6 rounded-2xl border border-dashed flex flex-col items-center gap-4">
-                    <div className="h-28 w-28 bg-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2 shadow-inner">PY-QR READY</div>
-                    <p className="text-[9px] text-slate-400 uppercase font-bold tracking-[0.2em] text-center">Compatible con aplicaciones bancarias locales</p>
+                    <div className="h-28 w-28 bg-white rounded-xl flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2 shadow-inner border border-primary/10">
+                      <QrCode className="h-16 w-16 text-primary/20" />
+                    </div>
+                    <p className="text-[9px] text-slate-400 uppercase font-bold tracking-[0.2em] text-center">Compatible con BNF, Ueno, Familiar y otros</p>
                   </div>
                 </div>
               </CardContent>
@@ -607,7 +622,7 @@ export default function TreasuryPage() {
                       <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
                         <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                         <p className="text-[9px] text-blue-700 leading-tight">
-                          Escanee con cualquier app bancaria local. El monto y concepto se cargarán automáticamente.
+                          Compatible con BNF, Ueno, Familiar y todos los bancos. El monto y concepto se cargarán automáticamente.
                         </p>
                       </div>
                       <div className="space-y-1">

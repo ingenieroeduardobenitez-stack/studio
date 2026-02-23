@@ -20,8 +20,19 @@ import { QRCodeCanvas } from "qrcode.react"
 import { cn } from "@/lib/utils"
 
 /**
- * UTILIDAD DE GENERACIÓN PY-QR (ESTÁNDAR EMVCO)
+ * UTILIDAD DE GENERACIÓN PY-QR (ESTÁNDAR EMVCO - SIPAP PARAGUAY)
+ * Optimizada para BNF, Ueno, Familiar, Continental, etc.
  */
+const cleanString = (str: string) => {
+  if (!str) return "";
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .trim()
+    .toUpperCase();
+};
+
 const computeCRC = (str: string) => {
   let crc = 0xFFFF;
   for (let i = 0; i < str.length; i++) {
@@ -50,22 +61,24 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     // Tag 26: Merchant Account Information (SPI BCP)
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      merchantInfo += formatTag("01", alias.trim());
+      merchantInfo += formatTag("01", alias.trim().toUpperCase());
     } else {
       merchantInfo += formatTag("01", (accountNumber || "").replace(/[^0-9]/g, ''));
-      merchantInfo += formatTag("02", (bankName || "SPI").substring(0, 10));
+      if (bankName) {
+        merchantInfo += formatTag("02", cleanString(bankName).substring(0, 10));
+      }
     }
     payload += formatTag("26", merchantInfo);
     
     payload += formatTag("52", "0000"); // Merchant Category Code
     payload += formatTag("53", "600");  // Transaction Currency (600 = PYG)
-    payload += formatTag("54", Math.floor(amount).toString()); // Amount
+    payload += formatTag("54", Math.floor(amount || 0).toString()); // Amount
     payload += formatTag("58", "PY");   // Country Code
-    payload += formatTag("59", accountOwner.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25).toUpperCase()); 
+    payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); 
     payload += formatTag("60", "ASUNCION"); 
     
     // Concepto
-    const cleanConcept = concept.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 20);
+    const cleanConcept = cleanString(concept || "PAGO CATEQUESIS").substring(0, 20);
     payload += formatTag("62", formatTag("05", cleanConcept));
     
     payload += "6304"; // Tag CRC
@@ -422,7 +435,7 @@ export default function PaymentsManagementPage() {
                       <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
                         <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                         <p className="text-[10px] text-blue-700 leading-tight">
-                          Este código incluye firma CRC16 y cumple con el estándar de interoperabilidad de bancos locales.
+                          Compatible con BNF, Ueno, Familiar y todos los bancos. El monto y concepto se cargarán solos.
                         </p>
                       </div>
                       
