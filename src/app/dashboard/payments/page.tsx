@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Search, Loader2, Printer, FileText, User, Church, AlertTriangle, CreditCard, CheckCircle2, QrCode } from "lucide-react"
+import { Wallet, Search, Loader2, Printer, FileText, User, Church, AlertTriangle, CreditCard, CheckCircle2, QrCode, Info, Copy } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -104,12 +104,14 @@ export default function PaymentsManagementPage() {
   const pendingBalance = selectedReg ? calculatePending(selectedReg) : 0
   const isOverpaid = paymentAmount > pendingBalance
 
+  // Datos QR simplificados para evitar errores de parseo en apps bancarias
   const qrPaymentData = useMemo(() => {
     if (!treasurySettings || !selectedReg || paymentAmount <= 0) return ""
     const concept = selectedEventId === 'inscripcion' ? 'Inscripcion' : (selectedEvent?.category || 'Evento')
+    // Formato ultra-simple: solo los datos clave separados por guiones
     return treasurySettings.paymentMethod === "ALIAS" 
-      ? `ALIAS: ${treasurySettings.alias}\nTITULAR: ${treasurySettings.accountOwner}\nMONTO: ${paymentAmount} Gs.\nCONCEPTO: ${concept} ${selectedReg.fullName}`
-      : `BANCO: ${treasurySettings.bankName}\nCUENTA: ${treasurySettings.accountNumber}\nTITULAR: ${treasurySettings.accountOwner}\nMONTO: ${paymentAmount} Gs.\nCONCEPTO: ${concept} ${selectedReg.fullName}`
+      ? `${treasurySettings.alias}|${treasurySettings.accountOwner}|${paymentAmount}|${concept} ${selectedReg.fullName}`
+      : `${treasurySettings.bankName}|${treasurySettings.accountNumber}|${treasurySettings.accountOwner}|${paymentAmount}|${concept} ${selectedReg.fullName}`
   }, [treasurySettings, selectedReg, paymentAmount, selectedEventId, selectedEvent])
 
   const handleProcessPayment = async () => {
@@ -173,6 +175,11 @@ export default function PaymentsManagementPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copiado", description: "Dato copiado al portapapeles." });
   }
 
   if (!mounted) return null
@@ -279,7 +286,7 @@ export default function PaymentsManagementPage() {
             <DialogDescription className="text-white/80">Gestión de pagos para {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
           
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
             <div className="space-y-3">
               <Label className="font-bold text-slate-700">Seleccionar Concepto</Label>
               <Select value={selectedEventId} onValueChange={setSelectedEventId} disabled={isSubmitting}>
@@ -331,22 +338,61 @@ export default function PaymentsManagementPage() {
             </div>
 
             {paymentAmount > 0 && (
-              <div className="pt-2">
+              <div className="pt-2 space-y-4">
                 {!showPaymentQr ? (
                   <Button 
                     variant="outline" 
                     className="w-full h-12 rounded-xl gap-2 border-dashed border-primary/40 text-primary"
                     onClick={() => setShowPaymentQr(true)}
                   >
-                    <QrCode className="h-4 w-4" /> Generar QR para Transferencia
+                    <QrCode className="h-4 w-4" /> Generar QR de Referencia
                   </Button>
                 ) : (
                   <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
                     <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
                       <QRCodeCanvas value={qrPaymentData} size={160} level="M" />
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-4 tracking-[0.2em]">Escanea para pagar {paymentAmount.toLocaleString()} Gs.</p>
-                    <Button variant="ghost" size="sm" className="mt-2 text-[10px] h-6" onClick={() => setShowPaymentQr(false)}>Ocultar QR</Button>
+                    
+                    <div className="mt-4 w-full space-y-2">
+                      <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
+                        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-blue-700 leading-tight">
+                          <strong>Nota:</strong> Si la app de tu banco da error al escanear, usa los datos de abajo para la transferencia manual.
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-1 pt-2">
+                        {treasurySettings?.paymentMethod === "ALIAS" ? (
+                          <div className="flex justify-between items-center text-[11px] p-2 bg-white rounded-lg border">
+                            <span className="font-bold text-slate-500 uppercase">Alias:</span>
+                            <span className="font-black text-primary flex items-center gap-2">
+                              {treasurySettings.alias}
+                              <Copy className="h-3 w-3 cursor-pointer" onClick={() => copyToClipboard(treasurySettings.alias)} />
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex justify-between items-center text-[11px] p-2 bg-white rounded-lg border">
+                              <span className="font-bold text-slate-500 uppercase">Cuenta:</span>
+                              <span className="font-mono font-bold text-slate-900 flex items-center gap-2">
+                                {treasurySettings?.accountNumber}
+                                <Copy className="h-3 w-3 cursor-pointer" onClick={() => copyToClipboard(treasurySettings?.accountNumber)} />
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-[11px] p-2 bg-white rounded-lg border">
+                              <span className="font-bold text-slate-500 uppercase">Banco:</span>
+                              <span className="font-bold text-slate-900">{treasurySettings?.bankName}</span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex justify-between items-center text-[11px] p-2 bg-white rounded-lg border">
+                          <span className="font-bold text-slate-500 uppercase">Titular:</span>
+                          <span className="font-bold text-slate-900 text-right">{treasurySettings?.accountOwner}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Button variant="ghost" size="sm" className="mt-4 text-[10px] h-6" onClick={() => setShowPaymentQr(false)}>Ocultar QR</Button>
                   </div>
                 )}
               </div>

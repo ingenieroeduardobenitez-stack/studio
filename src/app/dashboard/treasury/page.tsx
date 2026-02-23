@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle, Calendar, Plus, Trash2, Building2, QrCode } from "lucide-react"
+import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle, Calendar, Plus, Trash2, Building2, QrCode, Info, Copy } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -143,11 +143,12 @@ export default function TreasuryPage() {
   const pendingBalance = selectedReg ? (selectedReg.registrationCost || 0) - (selectedReg.amountPaid || 0) : 0
   const isOverpaid = paymentAmount > pendingBalance
 
+  // QR Simplificado para evitar errores de parseo bancario
   const qrPaymentData = useMemo(() => {
     if (!costs || !selectedReg || paymentAmount <= 0) return ""
     return costs.paymentMethod === "ALIAS" 
-      ? `ALIAS: ${costs.alias}\nTITULAR: ${costs.accountOwner}\nMONTO: ${paymentAmount} Gs.\nCONCEPTO: Inscripcion ${selectedReg.fullName}`
-      : `BANCO: ${costs.bankName}\nCUENTA: ${costs.accountNumber}\nTITULAR: ${costs.accountOwner}\nMONTO: ${paymentAmount} Gs.\nCONCEPTO: Inscripcion ${selectedReg.fullName}`
+      ? `${costs.alias}|${costs.accountOwner}|${paymentAmount}|Inscripcion ${selectedReg.fullName}`
+      : `${costs.bankName}|${costs.accountNumber}|${costs.accountOwner}|${paymentAmount}|Inscripcion ${selectedReg.fullName}`
   }, [costs, selectedReg, paymentAmount])
 
   const handleProcessPayment = async () => {
@@ -177,6 +178,11 @@ export default function TreasuryPage() {
         setIsReceiptOpen(true)
       })
       .catch(() => toast({ variant: "destructive", title: "Error", description: "No se pudo procesar." }))
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copiado", description: "Dato copiado al portapapeles." });
   }
 
   if (!mounted) return null
@@ -486,8 +492,8 @@ export default function TreasuryPage() {
                   </div>
 
                   <div className="bg-slate-50 p-6 rounded-2xl border border-dashed flex flex-col items-center gap-4">
-                    <div className="h-28 w-28 bg-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2 shadow-inner">CÓDIGO QR DINÁMICO</div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-[0.2em]">Escanear para transferir</p>
+                    <div className="h-28 w-28 bg-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2 shadow-inner">DATOS DE REFERENCIA</div>
+                    <p className="text-[9px] text-slate-400 uppercase font-bold tracking-[0.2em] text-center">Referencia para carga manual en app bancaria</p>
                   </div>
                 </div>
               </CardContent>
@@ -502,7 +508,7 @@ export default function TreasuryPage() {
             <DialogTitle>Registrar Cobro</DialogTitle>
             <DialogDescription className="text-white/80">Abono para {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
             <div className="p-4 bg-slate-50 rounded-xl border space-y-2">
               <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase"><span>Total Deuda</span><span>Pendiente</span></div>
               <div className="flex justify-between text-lg font-bold"><span>{selectedReg?.registrationCost?.toLocaleString()} Gs.</span><span className="text-red-500">{pendingBalance.toLocaleString()} Gs.</span></div>
@@ -521,22 +527,54 @@ export default function TreasuryPage() {
             </div>
 
             {paymentAmount > 0 && (
-              <div className="pt-2">
+              <div className="pt-2 space-y-4">
                 {!showPaymentQr ? (
                   <Button 
                     variant="outline" 
                     className="w-full h-12 rounded-xl gap-2 border-dashed border-primary/40 text-primary font-bold"
                     onClick={() => setShowPaymentQr(true)}
                   >
-                    <QrCode className="h-4 w-4" /> Generar QR para Transferencia
+                    <QrCode className="h-4 w-4" /> Generar QR de Referencia
                   </Button>
                 ) : (
                   <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
                     <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
                       <QRCodeCanvas value={qrPaymentData} size={160} level="M" />
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-4 tracking-[0.2em]">Pagar {paymentAmount.toLocaleString()} Gs.</p>
-                    <Button variant="ghost" size="sm" className="mt-2 text-[10px] h-6" onClick={() => setShowPaymentQr(false)}>Cerrar QR</Button>
+                    
+                    <div className="mt-4 w-full space-y-2">
+                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                        <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                        <p className="text-[9px] text-amber-700 leading-tight">
+                          Si el escaneo automático falla, ingresa los datos manualmente en la app del banco.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        {costs?.paymentMethod === "ALIAS" ? (
+                          <div className="flex justify-between items-center text-[10px] p-2 bg-white rounded-lg border">
+                            <span className="font-bold text-slate-400">ALIAS:</span>
+                            <span className="font-black text-primary flex items-center gap-2">
+                              {costs.alias}
+                              <Copy className="h-3 w-3 cursor-pointer" onClick={() => copyToClipboard(costs.alias)} />
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between items-center text-[10px] p-2 bg-white rounded-lg border">
+                            <span className="font-bold text-slate-400">CUENTA:</span>
+                            <span className="font-mono font-bold text-slate-900 flex items-center gap-2">
+                              {costs?.accountNumber}
+                              <Copy className="h-3 w-3 cursor-pointer" onClick={() => copyToClipboard(costs?.accountNumber || "")} />
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center text-[10px] p-2 bg-white rounded-lg border">
+                          <span className="font-bold text-slate-400">MONTO:</span>
+                          <span className="font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Button variant="ghost" size="sm" className="mt-4 text-[10px] h-6" onClick={() => setShowPaymentQr(false)}>Ocultar QR</Button>
                   </div>
                 )}
               </div>
