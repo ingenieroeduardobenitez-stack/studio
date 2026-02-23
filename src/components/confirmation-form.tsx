@@ -67,14 +67,14 @@ import { QRCodeCanvas } from "qrcode.react"
 
 /**
  * UTILIDADES PY-QR (ESTÁNDAR EMVCO PARAGUAY - SIPAP/SPI)
- * Optimizadas para BNF, Ueno, Familiar, Itaú, etc.
+ * Optimizada para cumplimiento estricto BCP.
  */
 const cleanString = (str: string) => {
   if (!str) return "";
   return str
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Elimina acentos
-    .replace(/[^a-zA-Z0-9 ]/g, "") // Solo letras, números y espacios
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/[^a-zA-Z0-9 ]/g, "") 
     .trim()
     .toUpperCase();
 };
@@ -101,14 +101,14 @@ const formatTag = (tag: string, value: string) => {
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); // Payload Format Indicator
-    payload += formatTag("01", "12"); // Dynamic (12) o Static (11)
+    payload += formatTag("00", "01"); 
+    payload += formatTag("01", "12"); 
     
-    // Tag 26: Merchant Account Information (SPI BCP)
-    // Es vital que este tag contenga la identificación py.gov.bcp.spi para interoperabilidad
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      merchantInfo += formatTag("01", alias.trim().toUpperCase());
+      // Limpiamos el alias de símbolos como + para evitar errores en apps bancarias
+      const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      merchantInfo += formatTag("01", cleanAlias);
     } else {
       merchantInfo += formatTag("01", (accountNumber || "").replace(/[^0-9]/g, ''));
       if (bankName) {
@@ -117,22 +117,21 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     }
     payload += formatTag("26", merchantInfo);
     
-    payload += formatTag("52", "0000"); // Merchant Category Code (General)
-    payload += formatTag("53", "600");  // Transaction Currency (600 = PYG)
+    payload += formatTag("52", "0000"); 
+    payload += formatTag("53", "600");  
     
     if (amount && amount > 0) {
-      payload += formatTag("54", Math.floor(amount).toString()); // Amount
+      payload += formatTag("54", Math.floor(amount).toString()); 
     }
     
-    payload += formatTag("58", "PY");   // Country Code
+    payload += formatTag("58", "PY");   
     payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); 
     payload += formatTag("60", "ASUNCION"); 
     
-    // Tag 62: Additional Data Field (Concepto)
     const cleanConcept = cleanString(concept || "PAGO CATEQUESIS").substring(0, 20);
     payload += formatTag("62", formatTag("05", cleanConcept));
     
-    payload += "6304"; // Tag CRC
+    payload += "6304"; 
     payload += computeCRC(payload);
     
     return payload;
@@ -469,7 +468,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
             <div className="bg-white p-4 rounded-2xl border border-dashed text-xs text-slate-600 space-y-3">
               <p className="font-bold flex items-center gap-2 text-primary"><Info className="h-3 w-3" /> PASO FINAL OBLIGATORIO:</p>
-              <p>Para habilitar tu inscripción, debes enviar la captura de tu transferencia. Una vez validada, el sistema emitirá tu recibo legal.</p>
+              <p>Para habilitar tu inscripción, debes enviar la captura de tu transferencia. Una vez validada, el sistema emitirá tu recibo oficial.</p>
               <Button onClick={handleSendProofWhatsApp} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold h-11 rounded-xl gap-2">
                 <MessageCircle className="h-4 w-4" /> Enviar Comprobante por WhatsApp
               </Button>

@@ -56,12 +56,14 @@ const formatTag = (tag: string, value: string) => {
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); // Payload Format Indicator
-    payload += formatTag("01", "12"); // Dynamic
+    payload += formatTag("00", "01"); 
+    payload += formatTag("01", "12"); 
     
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      merchantInfo += formatTag("01", alias.trim().toUpperCase());
+      // Limpieza estricta del alias para cumplimiento normativo
+      const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      merchantInfo += formatTag("01", cleanAlias);
     } else {
       merchantInfo += formatTag("01", (accountNumber || "").replace(/[^0-9]/g, ''));
       if (bankName) {
