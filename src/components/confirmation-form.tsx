@@ -330,7 +330,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   }, [submittedData, profile])
 
   if (isSubmittedSuccessfully) {
-    const qrValue = `Banco: ${costs?.bankName}\nCuenta: ${costs?.accountNumber}\nTitular: ${costs?.accountOwner}\nConcepto: Inscripcion ${submittedData?.fullName}`
+    const qrValue = costs?.paymentMethod === "ALIAS" 
+      ? `Alias: ${costs?.alias}\nTitular: ${costs?.accountOwner}\nConcepto: Inscripcion ${submittedData?.fullName}`
+      : `Banco: ${costs?.bankName}\nCuenta: ${costs?.accountNumber}\nTitular: ${costs?.accountOwner}\nConcepto: Inscripcion ${submittedData?.fullName}`
 
     return (
       <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto">
@@ -358,11 +360,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <p className="text-2xl font-headline font-bold text-slate-900">{totalCost.toLocaleString()} Gs.</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-700">{costs?.bankName || "Cuenta Bancaria"}</p>
-                  <p className="text-sm font-mono font-bold text-primary">{costs?.accountNumber || "---"}</p>
-                  <p className="text-xs text-slate-500">{costs?.accountOwner || "---"}</p>
-                  {costs?.alias && (
-                    <p className="text-xs font-black text-primary uppercase">Alias: {costs.alias}</p>
+                  {costs?.paymentMethod === "ALIAS" ? (
+                    <>
+                      <p className="text-xs font-bold text-slate-700 uppercase tracking-tighter">Transferir por Alias:</p>
+                      <p className="text-lg font-black text-primary uppercase">{costs?.alias || "---"}</p>
+                      <p className="text-xs text-slate-500">{costs?.accountOwner || "---"}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs font-bold text-slate-700">{costs?.bankName || "Cuenta Bancaria"}</p>
+                      <p className="text-sm font-mono font-bold text-primary">{costs?.accountNumber || "---"}</p>
+                      <p className="text-xs text-slate-500">{costs?.accountOwner || "---"}</p>
+                      {costs?.alias && (
+                        <p className="text-xs font-black text-primary uppercase">Alias: {costs.alias}</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

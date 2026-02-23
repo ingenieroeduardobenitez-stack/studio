@@ -16,6 +16,7 @@ import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 
 export default function TreasuryPage() {
@@ -28,6 +29,7 @@ export default function TreasuryPage() {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
 
   const { toast } = useToast()
   const db = useFirestore()
@@ -38,6 +40,12 @@ export default function TreasuryPage() {
 
   const treasuryRef = useMemo(() => db ? doc(db, "settings", "treasury") : null, [db])
   const { data: costs, loading: loadingCosts } = useDoc(treasuryRef)
+
+  useEffect(() => {
+    if (costs?.paymentMethod) {
+      setPaymentMethod(costs.paymentMethod)
+    }
+  }, [costs])
 
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
@@ -59,15 +67,24 @@ export default function TreasuryPage() {
     setIsCostSaving(true)
 
     const formData = new FormData(e.currentTarget)
-    const data = {
+    const data: any = {
       juvenileCost: Number(formData.get("juvenile")),
       adultCost: Number(formData.get("adult")),
-      bankName: formData.get("bankName") as string || "",
-      accountNumber: formData.get("accountNumber") as string || "",
+      paymentMethod: paymentMethod,
       accountOwner: formData.get("accountOwner") as string || "",
-      ownerCi: formData.get("ownerCi") as string || "",
-      alias: formData.get("alias") as string || "",
       updatedAt: serverTimestamp()
+    }
+
+    if (paymentMethod === "ACCOUNT") {
+      data.bankName = formData.get("bankName") as string || ""
+      data.accountNumber = formData.get("accountNumber") as string || ""
+      data.ownerCi = formData.get("ownerCi") as string || ""
+      data.alias = formData.get("alias") as string || ""
+    } else {
+      data.alias = formData.get("alias") as string || ""
+      data.bankName = ""
+      data.accountNumber = ""
+      data.ownerCi = ""
     }
 
     setDoc(treasuryRef, data, { merge: true })
@@ -326,51 +343,75 @@ export default function TreasuryPage() {
           <div className="grid gap-8 lg:grid-cols-2">
             <Card className="border-none shadow-xl">
               <CardHeader className="bg-primary text-white">
-                <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5" /> Aranceles Base</CardTitle>
-                <CardDescription className="text-white/80">Define los costos que verán los postulantes al inscribirse.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5" /> Aranceles y Pagos</CardTitle>
+                <CardDescription className="text-white/80">Define costos y medios de transferencia.</CardDescription>
               </CardHeader>
               <form onSubmit={handleUpdateCosts}>
                 <CardContent className="p-8 space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="juvenile" className="font-bold">Confirmación Juvenil (Gs)</Label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="juvenile" name="juvenile" type="number" defaultValue={costs?.juvenileCost || 35000} className="pl-10 h-12 rounded-xl" required />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="juvenile" className="font-bold">Juvenil (Gs)</Label>
+                      <Input id="juvenile" name="juvenile" type="number" defaultValue={costs?.juvenileCost || 35000} className="h-11 rounded-xl" required />
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="adult" className="font-bold">Catequesis Adultos (Gs)</Label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="adult" name="adult" type="number" defaultValue={costs?.adultCost || 50000} className="pl-10 h-12 rounded-xl" required />
+                    <div className="space-y-2">
+                      <Label htmlFor="adult" className="font-bold">Adultos (Gs)</Label>
+                      <Input id="adult" name="adult" type="number" defaultValue={costs?.adultCost || 50000} className="h-11 rounded-xl" required />
                     </div>
                   </div>
 
-                  <Separator className="my-6" />
+                  <Separator />
                   
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-bold text-primary flex items-center gap-2"><Building2 className="h-4 w-4" /> Datos de Cuenta Bancaria</h3>
-                    <p className="text-xs text-muted-foreground italic">Estos datos se mostrarán a los postulantes que se inscriban vía web para que realicen sus transferencias.</p>
-                    
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold">Nombre del Banco</Label>
-                      <Input name="bankName" defaultValue={costs?.bankName} placeholder="Ej. Banco Itau, Sudameris, etc." className="h-10 rounded-lg" />
+                  <div className="space-y-6">
+                    <div className="flex flex-col space-y-3">
+                      <Label className="text-primary font-bold uppercase tracking-wider text-xs">Modo de Pago Público</Label>
+                      <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="flex gap-6 p-4 bg-slate-50 rounded-2xl border">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="ACCOUNT" id="treasury-mode-account" />
+                          <Label htmlFor="treasury-mode-account" className="font-bold cursor-pointer text-sm">Cuenta Bancaria</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="ALIAS" id="treasury-mode-alias" />
+                          <Label htmlFor="treasury-mode-alias" className="font-bold cursor-pointer text-sm">Solo Alias</Label>
+                        </div>
+                      </RadioGroup>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold">N° de Cuenta</Label>
-                      <Input name="accountNumber" defaultValue={costs?.accountNumber} placeholder="000000000" className="h-10 rounded-lg" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold">Titular de la Cuenta</Label>
-                      <Input name="accountOwner" defaultValue={costs?.accountOwner} placeholder="Nombre completo o Parroquia" className="h-10 rounded-lg" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold">C.I. o RUC del Titular</Label>
-                      <Input name="ownerCi" defaultValue={costs?.ownerCi} placeholder="1.234.567-8" className="h-10 rounded-lg" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold">Alias (Transferencias Rápidas)</Label>
-                      <Input name="alias" defaultValue={costs?.alias} placeholder="Ej. parroquia.ps" className="h-10 rounded-lg font-bold text-primary" />
+
+                    <div className="grid gap-4 p-6 border rounded-2xl bg-white shadow-sm">
+                      {paymentMethod === "ACCOUNT" ? (
+                        <>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold">Nombre del Banco</Label>
+                            <Input name="bankName" defaultValue={costs?.bankName} placeholder="Ej. Banco Itau" className="h-10 rounded-lg" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold">N° de Cuenta</Label>
+                            <Input name="accountNumber" defaultValue={costs?.accountNumber} placeholder="000000000" className="h-10 rounded-lg" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold">Titular</Label>
+                            <Input name="accountOwner" defaultValue={costs?.accountOwner} placeholder="Nombre completo" className="h-10 rounded-lg" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold">C.I. o RUC</Label>
+                            <Input name="ownerCi" defaultValue={costs?.ownerCi} placeholder="1.234.567-8" className="h-10 rounded-lg" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold">Alias (Opcional)</Label>
+                            <Input name="alias" defaultValue={costs?.alias} placeholder="Ej. parroquia.ps" className="h-10 rounded-lg font-bold text-primary" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold">Alias de Transferencia</Label>
+                            <Input name="alias" defaultValue={costs?.alias} placeholder="Ej. parroquia.ps" className="h-12 rounded-xl font-bold text-primary text-lg" required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold">Titular de la Cuenta</Label>
+                            <Input name="accountOwner" defaultValue={costs?.accountOwner} placeholder="Nombre completo" className="h-12 rounded-xl" required />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -386,7 +427,7 @@ export default function TreasuryPage() {
             <Card className="border-none shadow-xl bg-slate-50">
               <CardHeader>
                 <CardTitle className="text-lg">Vista Previa para el Postulante</CardTitle>
-                <CardDescription>Así verá el usuario los datos de pago al inscribirse públicamente.</CardDescription>
+                <CardDescription>Visualización del medio de pago seleccionado.</CardDescription>
               </CardHeader>
               <CardContent className="p-8">
                 <div className="bg-white p-8 rounded-3xl border shadow-md space-y-8">
@@ -394,37 +435,48 @@ export default function TreasuryPage() {
                     <div className="h-12 w-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center shadow-sm"><Wallet className="h-6 w-6" /></div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Información de Pago</p>
-                      <p className="font-bold text-lg text-slate-900">Transferencia Bancaria</p>
+                      <p className="font-bold text-lg text-slate-900">{paymentMethod === "ACCOUNT" ? "Transferencia Bancaria" : "Pago por Alias"}</p>
                     </div>
                   </div>
                   
                   <div className="space-y-4 px-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500 font-medium">Banco:</span>
-                      <span className="font-bold text-slate-900">{costs?.bankName || "---"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500 font-medium">Cuenta N°:</span>
-                      <span className="font-bold font-mono text-slate-900">{costs?.accountNumber || "---"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500 font-medium">Titular:</span>
-                      <span className="font-bold text-slate-900">{costs?.accountOwner || "---"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500 font-medium">Documento:</span>
-                      <span className="font-bold text-slate-900">{costs?.ownerCi || "---"}</span>
-                    </div>
-                    {costs?.alias && (
-                      <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100">
-                        <span className="text-primary font-bold">Alias:</span>
-                        <span className="font-black text-primary uppercase tracking-tighter">{costs.alias}</span>
-                      </div>
+                    {paymentMethod === "ACCOUNT" ? (
+                      <>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-500 font-medium">Banco:</span>
+                          <span className="font-bold text-slate-900">{costs?.bankName || "---"}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-500 font-medium">Cuenta N°:</span>
+                          <span className="font-bold font-mono text-slate-900">{costs?.accountNumber || "---"}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-500 font-medium">Titular:</span>
+                          <span className="font-bold text-slate-900">{costs?.accountOwner || "---"}</span>
+                        </div>
+                        {costs?.alias && (
+                          <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100">
+                            <span className="text-primary font-bold">Alias:</span>
+                            <span className="font-black text-primary uppercase">{costs.alias}</span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-primary font-bold text-lg uppercase tracking-widest">ALIAS:</span>
+                          <span className="font-black text-primary text-xl tracking-tighter">{costs?.alias || "---"}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm pt-4 border-t">
+                          <span className="text-slate-500 font-medium">Titular:</span>
+                          <span className="font-bold text-slate-900">{costs?.accountOwner || "---"}</span>
+                        </div>
+                      </>
                     )}
                   </div>
 
                   <div className="bg-slate-50 p-6 rounded-2xl border border-dashed flex flex-col items-center gap-4">
-                    <div className="h-28 w-28 bg-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2 shadow-inner">CÓDIGO QR GENERADO</div>
+                    <div className="h-28 w-28 bg-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400 text-center font-bold px-2 shadow-inner">CÓDIGO QR DINÁMICO</div>
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-[0.2em]">Escanear para transferir</p>
                   </div>
                 </div>
@@ -434,55 +486,27 @@ export default function TreasuryPage() {
         </TabsContent>
       </Tabs>
 
-      {/* DIALOGO DE COBRO */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Registrar Cobro</DialogTitle>
-            <DialogDescription>Abono para {selectedReg?.fullName}</DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Registrar Cobro</DialogTitle><DialogDescription>Abono para {selectedReg?.fullName}</DialogDescription></DialogHeader>
           <div className="py-6 space-y-4">
             <div className="p-4 bg-slate-50 rounded-xl border space-y-2">
               <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase"><span>Total Deuda</span><span>Pendiente</span></div>
-              <div className="flex justify-between text-lg font-bold">
-                <span>{selectedReg?.registrationCost?.toLocaleString()} Gs.</span>
-                <span className="text-red-500">{pendingBalance.toLocaleString()} Gs.</span>
-              </div>
+              <div className="flex justify-between text-lg font-bold"><span>{selectedReg?.registrationCost?.toLocaleString()} Gs.</span><span className="text-red-500">{pendingBalance.toLocaleString()} Gs.</span></div>
             </div>
             <div className="space-y-2">
               <Label className="font-bold">Monto a cobrar ahora</Label>
-              <Input 
-                type="number" 
-                className={cn(
-                  "h-12 text-xl font-bold rounded-xl",
-                  isOverpaid ? "border-red-500 bg-red-50" : ""
-                )}
-                value={paymentAmount} 
-                onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                max={pendingBalance}
-                autoFocus
-              />
-              {isOverpaid && (
-                <p className="text-[10px] text-red-500 font-bold flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" /> No puede superar el saldo pendiente.
-                </p>
-              )}
+              <Input type="number" className={cn("h-12 text-xl font-bold rounded-xl", isOverpaid ? "border-red-500 bg-red-50" : "")} value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} max={pendingBalance} autoFocus />
+              {isOverpaid && <p className="text-[10px] text-red-500 font-bold flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> No puede superar el saldo pendiente.</p>}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" className="flex-1" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
-            <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isOverpaid}>Confirmar Cobro</Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="outline" className="flex-1" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button><Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isOverpaid}>Confirmar Cobro</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* DIALOGO DE RECIBO */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Recibo de Pago</DialogTitle>
-            <DialogDescription>Comprobante oficial de pago para impresión.</DialogDescription>
-          </DialogHeader>
+          <DialogHeader className="sr-only"><DialogTitle>Recibo de Pago</DialogTitle><DialogDescription>Comprobante oficial de pago para impresión.</DialogDescription></DialogHeader>
           <div className="p-10 bg-white space-y-8" id="receipt-content">
             <div className="flex items-center justify-between border-b pb-6">
               <div className="flex items-center gap-2">
@@ -491,14 +515,12 @@ export default function TreasuryPage() {
               </div>
               <div className="text-right"><p className="text-xs font-bold uppercase text-primary">Recibo de Pago</p><p className="text-[10px] text-muted-foreground mt-1">ID: {selectedReg?.id?.slice(-8)}</p></div>
             </div>
-
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Concepto</p><p className="text-sm font-bold text-slate-900">Inscripción {selectedReg?.catechesisYear?.replace("_", " ")}</p></div>
                 <div><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Fecha</p><p className="text-sm font-bold text-slate-900">{new Date().toLocaleDateString()}</p></div>
               </div>
               <div><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Confirmando</p><p className="text-base font-bold text-primary">{selectedReg?.fullName}</p><p className="text-xs text-slate-500">C.I. {selectedReg?.ciNumber}</p></div>
-              
               <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-300 space-y-4">
                 <div className="flex justify-between text-xs border-b pb-2"><span>Monto Total Arancel</span><span className="font-bold">{selectedReg?.registrationCost?.toLocaleString()} Gs.</span></div>
                 <div className="flex justify-between text-xs border-b pb-2"><span>Monto Abonado</span><span className="font-bold text-green-600">{selectedReg?.amountPaid?.toLocaleString()} Gs.</span></div>
@@ -506,16 +528,9 @@ export default function TreasuryPage() {
                 <div className="flex justify-between text-sm pt-2 font-bold"><span>Saldo Pendiente</span><span className="text-red-500">{((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString()} Gs.</span></div>
               </div>
             </div>
-
-            <div className="flex flex-col items-center gap-4 pt-8 border-t border-dashed border-slate-200">
-              <div className="h-px w-40 bg-slate-300"></div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Sello y Firma Tesorería</p>
-            </div>
+            <div className="flex flex-col items-center gap-4 pt-8 border-t border-dashed border-slate-200"><div className="h-px w-40 bg-slate-300"></div><p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Sello y Firma Tesorería</p></div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 print:hidden">
-            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 gap-2 rounded-xl shadow-lg" onClick={() => window.print()}><Printer className="h-4 w-4" /> Imprimir Recibo</Button>
-          </DialogFooter>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 print:hidden"><Button variant="outline" className="flex-1 rounded-xl" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button><Button className="flex-1 gap-2 rounded-xl shadow-lg" onClick={() => window.print()}><Printer className="h-4 w-4" /> Imprimir Recibo</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

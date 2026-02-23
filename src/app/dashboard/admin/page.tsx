@@ -15,7 +15,9 @@ import {
   CreditCard, 
   Building2,
   Shapes,
-  UserCheck
+  UserCheck,
+  CheckCircle2,
+  Wallet
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc } from "@/firebase"
 import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore"
@@ -24,10 +26,13 @@ import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 export default function AdminPage() {
   const [mounted, setMounted] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
+  
   const db = useFirestore()
   const { toast } = useToast()
 
@@ -46,21 +51,39 @@ export default function AdminPage() {
   const { data: catechists, loading: loadingUsers } = useCollection(usersQuery)
   const { data: settings, loading: loadingSettings } = useDoc(treasuryRef)
 
+  useEffect(() => {
+    if (settings?.paymentMethod) {
+      setPaymentMethod(settings.paymentMethod)
+    }
+  }, [settings])
+
   const handleSaveSettings = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!db || !treasuryRef) return
     setIsSaving(true)
 
     const formData = new FormData(e.currentTarget)
-    const data = {
+    
+    // Solo guardamos los datos relevantes según el método seleccionado
+    const data: any = {
       juvenileCost: Number(formData.get("juvenile")),
       adultCost: Number(formData.get("adult")),
-      bankName: formData.get("bankName") as string || "",
-      accountNumber: formData.get("accountNumber") as string || "",
+      paymentMethod: paymentMethod,
       accountOwner: formData.get("accountOwner") as string || "",
-      ownerCi: formData.get("ownerCi") as string || "",
-      alias: formData.get("alias") as string || "",
       updatedAt: serverTimestamp()
+    }
+
+    if (paymentMethod === "ACCOUNT") {
+      data.bankName = formData.get("bankName") as string || ""
+      data.accountNumber = formData.get("accountNumber") as string || ""
+      data.ownerCi = formData.get("ownerCi") as string || ""
+      data.alias = formData.get("alias") as string || ""
+    } else {
+      data.alias = formData.get("alias") as string || ""
+      // En modo alias, los campos de cuenta se limpian o se ignoran
+      data.bankName = ""
+      data.accountNumber = ""
+      data.ownerCi = ""
     }
 
     try {
@@ -105,7 +128,6 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* TARJETAS DE ESTADÍSTICAS */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-none shadow-sm bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -150,14 +172,13 @@ export default function AdminPage() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* CARGA DE DATOS DE LA PARROQUIA */}
         <Card className="lg:col-span-2 border-none shadow-xl bg-white overflow-hidden">
           <CardHeader className="bg-primary text-white p-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/10 rounded-lg"><Settings className="h-5 w-5" /></div>
               <div>
                 <CardTitle className="text-lg">Configuración de la Parroquia</CardTitle>
-                <CardDescription className="text-white/70">Carga aquí los costos y datos bancarios para el público.</CardDescription>
+                <CardDescription className="text-white/70">Define cómo los postulantes verán los datos de pago.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -182,44 +203,74 @@ export default function AdminPage() {
 
               <Separator />
 
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-primary flex items-center gap-2 uppercase tracking-wider">
-                  <Building2 className="h-4 w-4" /> Datos de Cuenta Bancaria
-                </h3>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-500">Nombre del Banco</Label>
-                    <Input name="bankName" defaultValue={settings?.bankName} placeholder="Ej. Banco Familiar" className="h-11 rounded-xl" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-500">N° de Cuenta</Label>
-                    <Input name="accountNumber" defaultValue={settings?.accountNumber} placeholder="00000000" className="h-11 rounded-xl font-mono" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-500">Titular de la Cuenta</Label>
-                    <Input name="accountOwner" defaultValue={settings?.accountOwner} placeholder="Nombre completo" className="h-11 rounded-xl" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-500">C.I. o RUC del Titular</Label>
-                    <Input name="ownerCi" defaultValue={settings?.ownerCi} placeholder="1.234.567-8" className="h-11 rounded-xl" />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label className="text-xs font-bold text-slate-500">Alias (Opcional)</Label>
-                    <Input name="alias" defaultValue={settings?.alias} placeholder="Ej. parroquia.ps" className="h-11 rounded-xl font-bold text-primary" />
-                  </div>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-primary flex items-center gap-2 uppercase tracking-wider">
+                    <Wallet className="h-4 w-4" /> Método de Pago Preferido
+                  </h3>
+                  <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="flex gap-4">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="ACCOUNT" id="mode-account" />
+                      <Label htmlFor="mode-account" className="text-xs font-bold cursor-pointer">Cuenta Completa</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="ALIAS" id="mode-alias" />
+                      <Label htmlFor="mode-alias" className="text-xs font-bold cursor-pointer">Solo Alias</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 bg-slate-50/50 p-6 rounded-2xl border border-dashed border-slate-200">
+                  {paymentMethod === "ACCOUNT" ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-slate-500">Nombre del Banco</Label>
+                        <Input name="bankName" defaultValue={settings?.bankName} placeholder="Ej. Banco Familiar" className="h-11 rounded-xl bg-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-slate-500">N° de Cuenta</Label>
+                        <Input name="accountNumber" defaultValue={settings?.accountNumber} placeholder="00000000" className="h-11 rounded-xl font-mono bg-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-slate-500">Titular de la Cuenta</Label>
+                        <Input name="accountOwner" defaultValue={settings?.accountOwner} placeholder="Nombre completo" className="h-11 rounded-xl bg-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-slate-500">C.I. o RUC del Titular</Label>
+                        <Input name="ownerCi" defaultValue={settings?.ownerCi} placeholder="1.234.567-8" className="h-11 rounded-xl bg-white" />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label className="text-xs font-bold text-slate-500">Alias (Opcional)</Label>
+                        <Input name="alias" defaultValue={settings?.alias} placeholder="Ej. parroquia.ps" className="h-11 rounded-xl font-bold text-primary bg-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-slate-500">Alias de Transferencia</Label>
+                        <Input name="alias" defaultValue={settings?.alias} placeholder="Ej. parroquia.ps" className="h-12 rounded-xl font-bold text-primary bg-white text-lg" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-slate-500">Titular de la Cuenta</Label>
+                        <Input name="accountOwner" defaultValue={settings?.accountOwner} placeholder="Nombre completo o Parroquia" className="h-12 rounded-xl bg-white" required />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground italic md:col-span-2 mt-2">
+                        * En este modo, el postulante solo verá el Alias y el Nombre del Titular para realizar transferencias rápidas.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
             <CardFooter className="bg-slate-50 p-6 border-t flex justify-end">
               <Button type="submit" disabled={isSaving} className="rounded-xl h-12 px-8 font-bold shadow-lg gap-2">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
-                Guardar Datos de la Parroquia
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Guardar Configuración
               </Button>
             </CardFooter>
           </form>
         </Card>
 
-        {/* ACCESOS RÁPIDOS */}
         <div className="space-y-6">
           <Card className="border-none shadow-xl bg-white">
             <CardHeader>
@@ -263,7 +314,7 @@ export default function AdminPage() {
             </CardContent>
             <CardFooter>
               <Button variant="ghost" className="w-full text-white/50 text-[10px] hover:text-white" disabled>
-                Versión 1.2.0 • Estable
+                Versión 1.2.5 • Estable
               </Button>
             </CardFooter>
           </Card>

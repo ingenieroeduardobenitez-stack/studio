@@ -140,6 +140,7 @@
       "properties": {
         "juvenileCost": { "type": "number" },
         "adultCost": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["ACCOUNT", "ALIAS"] },
         "bankName": { "type": "string" },
         "accountNumber": { "type": "string" },
         "accountOwner": { "type": "string" },
