@@ -10,13 +10,14 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle, Calendar, Plus, Trash2, Building2 } from "lucide-react"
+import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle, Calendar, Plus, Trash2, Building2, QrCode } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { QRCodeCanvas } from "qrcode.react"
 import { cn } from "@/lib/utils"
 
 export default function TreasuryPage() {
@@ -27,6 +28,7 @@ export default function TreasuryPage() {
   const [paymentAmount, setPaymentAmount] = useState(0)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [showPaymentQr, setShowPaymentQr] = useState(false)
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
@@ -134,11 +136,19 @@ export default function TreasuryPage() {
   const handleOpenPayment = (reg: any) => {
     setSelectedReg(reg)
     setPaymentAmount(0)
+    setShowPaymentQr(false)
     setIsPaymentDialogOpen(true)
   }
 
   const pendingBalance = selectedReg ? (selectedReg.registrationCost || 0) - (selectedReg.amountPaid || 0) : 0
   const isOverpaid = paymentAmount > pendingBalance
+
+  const qrPaymentData = useMemo(() => {
+    if (!costs || !selectedReg || paymentAmount <= 0) return ""
+    return costs.paymentMethod === "ALIAS" 
+      ? `ALIAS: ${costs.alias}\nTITULAR: ${costs.accountOwner}\nMONTO: ${paymentAmount} Gs.\nCONCEPTO: Inscripcion ${selectedReg.fullName}`
+      : `BANCO: ${costs.bankName}\nCUENTA: ${costs.accountNumber}\nTITULAR: ${costs.accountOwner}\nMONTO: ${paymentAmount} Gs.\nCONCEPTO: Inscripcion ${selectedReg.fullName}`
+  }, [costs, selectedReg, paymentAmount])
 
   const handleProcessPayment = async () => {
     if (!db || !selectedReg) return
@@ -487,20 +497,55 @@ export default function TreasuryPage() {
       </Tabs>
 
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader><DialogTitle>Registrar Cobro</DialogTitle><DialogDescription>Abono para {selectedReg?.fullName}</DialogDescription></DialogHeader>
-          <div className="py-6 space-y-4">
+        <DialogContent className="sm:max-w-[400px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <DialogTitle>Registrar Cobro</DialogTitle>
+            <DialogDescription className="text-white/80">Abono para {selectedReg?.fullName}</DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
             <div className="p-4 bg-slate-50 rounded-xl border space-y-2">
               <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase"><span>Total Deuda</span><span>Pendiente</span></div>
               <div className="flex justify-between text-lg font-bold"><span>{selectedReg?.registrationCost?.toLocaleString()} Gs.</span><span className="text-red-500">{pendingBalance.toLocaleString()} Gs.</span></div>
             </div>
             <div className="space-y-2">
               <Label className="font-bold">Monto a cobrar ahora</Label>
-              <Input type="number" className={cn("h-12 text-xl font-bold rounded-xl", isOverpaid ? "border-red-500 bg-red-50" : "")} value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} max={pendingBalance} autoFocus />
+              <Input 
+                type="number" 
+                className={cn("h-14 text-2xl font-bold rounded-xl", isOverpaid ? "border-red-500 bg-red-50" : "bg-slate-50")} 
+                value={paymentAmount} 
+                onChange={(e) => setPaymentAmount(Number(e.target.value))} 
+                max={pendingBalance} 
+                autoFocus 
+              />
               {isOverpaid && <p className="text-[10px] text-red-500 font-bold flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> No puede superar el saldo pendiente.</p>}
             </div>
+
+            {paymentAmount > 0 && (
+              <div className="pt-2">
+                {!showPaymentQr ? (
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-12 rounded-xl gap-2 border-dashed border-primary/40 text-primary font-bold"
+                    onClick={() => setShowPaymentQr(true)}
+                  >
+                    <QrCode className="h-4 w-4" /> Generar QR para Transferencia
+                  </Button>
+                ) : (
+                  <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
+                    <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
+                      <QRCodeCanvas value={qrPaymentData} size={160} level="M" />
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-4 tracking-[0.2em]">Pagar {paymentAmount.toLocaleString()} Gs.</p>
+                    <Button variant="ghost" size="sm" className="mt-2 text-[10px] h-6" onClick={() => setShowPaymentQr(false)}>Cerrar QR</Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <DialogFooter><Button variant="outline" className="flex-1" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button><Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isOverpaid}>Confirmar Cobro</Button></DialogFooter>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
+            <Button className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700 font-bold shadow-lg" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isOverpaid}>Confirmar Cobro</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -523,9 +568,9 @@ export default function TreasuryPage() {
               <div><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Confirmando</p><p className="text-base font-bold text-primary">{selectedReg?.fullName}</p><p className="text-xs text-slate-500">C.I. {selectedReg?.ciNumber}</p></div>
               <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-300 space-y-4">
                 <div className="flex justify-between text-xs border-b pb-2"><span>Monto Total Arancel</span><span className="font-bold">{selectedReg?.registrationCost?.toLocaleString()} Gs.</span></div>
-                <div className="flex justify-between text-xs border-b pb-2"><span>Monto Abonado</span><span className="font-bold text-green-600">{selectedReg?.amountPaid?.toLocaleString()} Gs.</span></div>
+                <div className="flex justify-between text-xs border-b pb-2"><span>Monto Abonado Ahora</span><span className="font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</span></div>
                 <Separator className="bg-slate-200" />
-                <div className="flex justify-between text-sm pt-2 font-bold"><span>Saldo Pendiente</span><span className="text-red-500">{((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString()} Gs.</span></div>
+                <div className="flex justify-between text-sm pt-2 font-bold"><span>Saldo Pendiente</span><span className="text-red-500">{(pendingBalance - paymentAmount).toLocaleString()} Gs.</span></div>
               </div>
             </div>
             <div className="flex flex-col items-center gap-4 pt-8 border-t border-dashed border-slate-200"><div className="h-px w-40 bg-slate-300"></div><p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Sello y Firma Tesorería</p></div>

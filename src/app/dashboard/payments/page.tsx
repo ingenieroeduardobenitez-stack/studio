@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Search, Loader2, Printer, FileText, User, Church, AlertTriangle, CreditCard, CheckCircle2 } from "lucide-react"
+import { Wallet, Search, Loader2, Printer, FileText, User, Church, AlertTriangle, CreditCard, CheckCircle2, QrCode } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { QRCodeCanvas } from "qrcode.react"
 import { cn } from "@/lib/utils"
 
 export default function PaymentsManagementPage() {
@@ -26,6 +27,7 @@ export default function PaymentsManagementPage() {
   const [selectedEventId, setSelectedEventId] = useState<string>("inscripcion")
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [showPaymentQr, setShowPaymentQr] = useState(false)
   const [lastPaymentType, setLastPaymentType] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -39,6 +41,9 @@ export default function PaymentsManagementPage() {
 
   const userProfileRef = useMemo(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
   const { data: profile } = useDoc(userProfileRef)
+
+  const treasurySettingsRef = useMemo(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const { data: treasurySettings } = useDoc(treasurySettingsRef)
 
   const myGroupsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
@@ -78,6 +83,7 @@ export default function PaymentsManagementPage() {
     setSelectedReg(reg)
     setPaymentAmount(0)
     setSelectedEventId("inscripcion")
+    setShowPaymentQr(false)
     setIsPaymentDialogOpen(true)
   }
 
@@ -97,6 +103,14 @@ export default function PaymentsManagementPage() {
 
   const pendingBalance = selectedReg ? calculatePending(selectedReg) : 0
   const isOverpaid = paymentAmount > pendingBalance
+
+  const qrPaymentData = useMemo(() => {
+    if (!treasurySettings || !selectedReg || paymentAmount <= 0) return ""
+    const concept = selectedEventId === 'inscripcion' ? 'Inscripcion' : (selectedEvent?.category || 'Evento')
+    return treasurySettings.paymentMethod === "ALIAS" 
+      ? `ALIAS: ${treasurySettings.alias}\nTITULAR: ${treasurySettings.accountOwner}\nMONTO: ${paymentAmount} Gs.\nCONCEPTO: ${concept} ${selectedReg.fullName}`
+      : `BANCO: ${treasurySettings.bankName}\nCUENTA: ${treasurySettings.accountNumber}\nTITULAR: ${treasurySettings.accountOwner}\nMONTO: ${paymentAmount} Gs.\nCONCEPTO: ${concept} ${selectedReg.fullName}`
+  }, [treasurySettings, selectedReg, paymentAmount, selectedEventId, selectedEvent])
 
   const handleProcessPayment = async () => {
     if (!db || !selectedReg || isSubmitting) return
@@ -315,6 +329,28 @@ export default function PaymentsManagementPage() {
                 </p>
               )}
             </div>
+
+            {paymentAmount > 0 && (
+              <div className="pt-2">
+                {!showPaymentQr ? (
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-12 rounded-xl gap-2 border-dashed border-primary/40 text-primary"
+                    onClick={() => setShowPaymentQr(true)}
+                  >
+                    <QrCode className="h-4 w-4" /> Generar QR para Transferencia
+                  </Button>
+                ) : (
+                  <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
+                    <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
+                      <QRCodeCanvas value={qrPaymentData} size={160} level="M" />
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-4 tracking-[0.2em]">Escanea para pagar {paymentAmount.toLocaleString()} Gs.</p>
+                    <Button variant="ghost" size="sm" className="mt-2 text-[10px] h-6" onClick={() => setShowPaymentQr(false)}>Ocultar QR</Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
