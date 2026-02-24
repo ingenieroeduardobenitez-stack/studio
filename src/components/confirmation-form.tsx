@@ -406,12 +406,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
-  // FUNCIÓN DE IMPRESIÓN ROBUSTA CON RETRASO
   const handlePrint = () => {
-    toast({ title: "Generando PDF...", description: "Por favor espere un momento." });
-    setTimeout(() => {
-      window.print();
-    }, 500);
+    window.print();
   }
 
   if (isSubmittedSuccessfully) {
@@ -522,7 +518,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <Button 
               type="button"
               variant="outline" 
-              className="h-12 rounded-xl font-bold gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95" 
+              className="h-12 rounded-xl font-bold gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95 shadow-md" 
               onClick={handlePrint}
             >
               <Printer className="h-4 w-4" /> Imprimir / PDF
@@ -744,8 +740,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                                   <ImageIcon className="h-8 w-8 text-slate-300 mb-1" />
                                   <span className="text-[10px] text-slate-400 font-bold uppercase">Subir Foto de Constancia</span>
                                   <div className="flex gap-2 mt-2">
-                                    <Button type="button" size="xs" variant="outline" className="h-6 text-[8px]" onClick={(e) => { e.stopPropagation(); startCamera("BAPTISM_CERT"); }}>CÁMARA</Button>
-                                    <Button type="button" size="xs" variant="outline" className="h-6 text-[8px]" onClick={(e) => { e.stopPropagation(); baptismInputRef.current?.click(); }}>ARCHIVO</Button>
+                                    <Button type="button" size="sm" variant="outline" className="h-6 text-[8px]" onClick={(e) => { e.stopPropagation(); startCamera("BAPTISM_CERT"); }}>CÁMARA</Button>
+                                    <Button type="button" size="sm" variant="outline" className="h-6 text-[8px]" onClick={(e) => { e.stopPropagation(); baptismInputRef.current?.click(); }}>ARCHIVO</Button>
                                   </div>
                                 </div>
                               )}
