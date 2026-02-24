@@ -46,7 +46,6 @@ import { useUser, useDoc, useFirestore } from "@/firebase"
 import { doc } from "firebase/firestore"
 import { useMemo, useState, useEffect } from "react"
 import Image from "next/image"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 const operationsItems = [
   { id: "inicio", name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
@@ -94,17 +93,27 @@ export function DashboardSidebar() {
   const isTesorero = profile?.role === "Tesorero"
   const allowedModules = profile?.allowedModules || []
 
-  const filterItems = (items: any[]) => {
-    if (!profile?.allowedModules || profile.allowedModules.length === 0) {
-      if (isAdmin || isTesorero) return items;
-      return items.filter(item => !adminItems.find(ai => ai.id === item.id) && !treasuryItems.find(ti => ti.id === item.id));
+  // Lógica mejorada de filtrado: Admins y Tesoreros ven sus módulos por defecto
+  const filterItems = (items: any[], type: 'ops' | 'treasury' | 'admin') => {
+    if (isAdmin) return items;
+    if (isTesorero && (type === 'ops' || type === 'treasury')) return items;
+    
+    // Para Catequistas o usuarios con allowedModules específicos
+    if (allowedModules.length > 0) {
+      return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));
     }
-    return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));
+
+    // Fallback: Catequistas ven operaciones básicas si no hay configuración
+    if (type === 'ops') {
+      return items.filter(i => ["inicio", "asistencia", "inscripcion", "confirmandos"].includes(i.id));
+    }
+    
+    return [];
   }
 
-  const filteredOperations = filterItems(operationsItems);
-  const filteredTreasury = filterItems(treasuryItems);
-  const filteredAdmin = filterItems(adminItems);
+  const filteredOperations = filterItems(operationsItems, 'ops');
+  const filteredTreasury = filterItems(treasuryItems, 'treasury');
+  const filteredAdmin = filterItems(adminItems, 'admin');
 
   if (!mounted) return null
 
