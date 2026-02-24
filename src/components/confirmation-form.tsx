@@ -305,7 +305,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!db || !ciValue || ciValue.length < 5) return;
     setIsSearchingCi(true);
     const cleanCi = ciValue.replace(/\./g, "").trim();
-    const cedulaRef = doc(db, "cedulas", cleanCi);
+    const cleanCiForDoc = cleanCi.replace(/[^0-9]/g, '');
+    const cedulaRef = doc(db, "cedulas", cleanCiForDoc);
     getDoc(cedulaRef)
       .then((docSnap) => {
         if (docSnap.exists()) {
@@ -415,15 +416,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     return (
       <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto">
         <Card className="border-none shadow-2xl bg-white rounded-3xl p-8 text-center space-y-6 overflow-hidden">
-          <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner">
+          <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner no-print">
             <CheckCircle2 className="h-10 w-10 text-green-600" />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 no-print">
             <h2 className="text-3xl font-headline font-bold text-slate-900 uppercase tracking-tight">¡Registro Exitoso!</h2>
             <p className="text-slate-500 font-medium">Se ha generado la ficha de <span className="text-primary font-bold">{submittedData?.fullName}</span>.</p>
           </div>
 
-          <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden" id="receipt-area">
+          <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden print:bg-white print:border-solid print:border print:rounded-none" id="receipt-area">
              <div className="flex justify-between items-start border-b border-slate-200 pb-4">
                 <div className="space-y-1">
                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Comprobante de Inscripción</p>
@@ -458,9 +459,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </div>
              </div>
 
-             <div className="bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center">
+             <div className="bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center print:border-slate-300">
                 <div className="flex items-center gap-3">
-                   <div className="p-2 bg-green-50 rounded-lg"><Wallet className="h-4 w-4 text-green-600" /></div>
+                   <div className="p-2 bg-green-50 rounded-lg no-print"><Wallet className="h-4 w-4 text-green-600" /></div>
                    <div className="flex flex-col">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Entregado</span>
                       <span className="text-lg font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString('es-PY') || 0} Gs.</span>
@@ -478,16 +479,18 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
              )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 no-print">
             <Button 
+              type="button"
               variant="outline" 
-              className="h-12 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary/5" 
+              className="h-12 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary/5 active:scale-95" 
               onClick={() => window.print()}
             >
               <Printer className="h-4 w-4" /> Imprimir / PDF
             </Button>
             <Button 
-              className="h-12 rounded-xl font-bold bg-green-600 hover:bg-green-700 text-white gap-2 shadow-lg" 
+              type="button"
+              className="h-12 rounded-xl font-bold bg-green-600 hover:bg-green-700 text-white gap-2 shadow-lg active:scale-95" 
               onClick={handleShareReceipt}
             >
               <MessageCircle className="h-4 w-4" /> Enviar WhatsApp

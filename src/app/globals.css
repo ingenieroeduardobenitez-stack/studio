@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -86,5 +85,54 @@
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
+  }
+}
+
+@media print {
+  .no-print,
+  button,
+  header,
+  [data-sidebar="sidebar"],
+  .sidebar-trigger,
+  nav,
+  .fixed,
+  .absolute.top-4.left-4 {
+    display: none !important;
+  }
+
+  body {
+    background-color: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  main,
+  .max-w-6xl,
+  .max-w-4xl,
+  .max-w-2xl {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .card, 
+  .rounded-3xl,
+  .rounded-\[2\.5rem\] {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  #receipt-area,
+  #receipt-print,
+  #receipt-content-official,
+  #certificate-print {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 20px !important;
+    border: 1px solid #eee !important;
   }
 }
