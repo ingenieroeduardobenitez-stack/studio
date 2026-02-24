@@ -22,7 +22,8 @@ import {
   CreditCard,
   MessageCircle,
   Printer,
-  Share2
+  Share2,
+  AlertTriangle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -216,6 +217,20 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: any) => {
     const formatted = formatPhone(e.target.value);
     setValue(fieldName, formatted);
+  };
+
+  const handleAmountChange = (val: string) => {
+    const num = Number(val);
+    if (num > totalCost) {
+      setCustomPaymentAmount(totalCost);
+      toast({
+        variant: "destructive",
+        title: "Monto excedido",
+        description: `El monto no puede superar el arancel de ${totalCost.toLocaleString()} Gs.`,
+      });
+    } else {
+      setCustomPaymentAmount(num);
+    }
   };
 
   const startCamera = async (target: CaptureTarget, deviceId?: string) => {
@@ -825,10 +840,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       <Input 
                         type="number" 
                         value={customPaymentAmount} 
-                        onChange={(e) => setCustomPaymentAmount(Number(e.target.value))}
-                        className="h-14 rounded-2xl pl-10 text-lg font-black text-primary border-primary/20 bg-white"
+                        onChange={(e) => handleAmountChange(e.target.value)}
+                        max={totalCost}
+                        className={cn(
+                          "h-14 rounded-2xl pl-10 text-lg font-black text-primary transition-all bg-white",
+                          customPaymentAmount > totalCost ? "border-red-500 ring-2 ring-red-100" : "border-primary/20"
+                        )}
                       />
                     </div>
+                    {customPaymentAmount >= totalCost && (
+                      <p className="text-[9px] text-green-600 font-bold text-center uppercase tracking-tighter flex items-center justify-center gap-1">
+                        <CheckCircle2 className="h-2 w-2" /> Arancel cubierto al 100%
+                      </p>
+                    )}
                   </div>
                 )}
 
