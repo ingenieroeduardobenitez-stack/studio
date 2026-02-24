@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -35,7 +34,8 @@
         "paymentStatus": { "type": "string" },
         "amountPaid": { "type": "number" },
         "registrationCost": { "type": "number" },
-        "paymentProofUrl": { "type": "string", "format": "uri" }
+        "paymentProofUrl": { "type": "string", "format": "uri" },
+        "eventPayments": { "type": "object" }
       }
     },
     "Group": {
@@ -48,6 +48,17 @@
         "catequistaIds": { "type": "array", "items": { "type": "string" } },
         "attendanceDay": { "type": "string" },
         "catechesisYear": { "type": "string" }
+      }
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Eventos especiales con costo (Retiros, Jornadas, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "cost": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -62,9 +73,19 @@
         "path": "/confirmations/{confirmationId}",
         "definition": {
           "entityName": "Confirmation",
-          "description": "Colección principal de inscritos a la confirmación",
+          "description": "Colección principal de inscritos",
           "params": [
-            { "name": "confirmationId", "description": "ID único del registro" }
+            { "name": "confirmationId", "description": "ID del registro" }
+          ]
+        }
+      },
+      {
+        "path": "/events/{eventId}",
+        "definition": {
+          "entityName": "Event",
+          "description": "Eventos parroquiales con arancel",
+          "params": [
+            { "name": "eventId", "description": "ID del evento" }
           ]
         }
       },
@@ -72,28 +93,9 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "User",
-          "description": "Perfiles de usuario del sistema",
+          "description": "Perfiles de usuario",
           "params": [
-            { "name": "userId", "description": "UID de Firebase Auth" }
-          ]
-        }
-      },
-      {
-        "path": "/groups/{groupId}",
-        "definition": {
-          "entityName": "Group",
-          "description": "Grupos de catequesis",
-          "params": [
-            { "name": "groupId", "description": "ID del grupo" }
-          ]
-        }
-      },
-      {
-        "path": "/settings/{settingId}",
-        "definition": {
-          "description": "Configuraciones globales (tesorería, costos, etc.)",
-          "params": [
-            { "name": "settingId", "description": "ID del ajuste" }
+            { "name": "userId", "description": "UID" }
           ]
         }
       }

@@ -9,11 +9,11 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Settings, Search, Loader2, CreditCard, FileText, User, Church, Info, Copy, Printer } from "lucide-react"
+import { Wallet, Settings, Search, Loader2, CreditCard, FileText, User, Church, Plus, Trash2, CalendarDays, CheckCircle2, Info } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore"
+import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
@@ -22,10 +22,12 @@ export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [isCostSaving, setIsCostSaving] = useState(false)
+  const [isEventSubmitting, setIsEventSubmitting] = useState(false)
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState(0)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
 
   const { toast } = useToast()
@@ -37,6 +39,9 @@ export default function TreasuryPage() {
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   const { data: costs, loading: loadingCosts } = useDoc(treasuryRef)
+
+  const eventsQuery = useMemoFirebase(() => db ? collection(db, "events") : null, [db])
+  const { data: events, loading: loadingEvents } = useCollection(eventsQuery)
 
   useEffect(() => {
     if (costs?.paymentMethod) {
@@ -81,12 +86,48 @@ export default function TreasuryPage() {
       data.ownerCi = ""
     }
 
-    setDoc(treasuryRef, data, { merge: true })
-      .then(() => {
-        toast({ title: "Configuración de pagos actualizada" })
+    try {
+      await setDoc(treasuryRef, data, { merge: true })
+      toast({ title: "Configuración de pagos actualizada" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al guardar" })
+    } finally {
+      setIsCostSaving(false)
+    }
+  }
+
+  const handleCreateEvent = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!db) return
+    setIsEventSubmitting(true)
+
+    const formData = new FormData(e.currentTarget)
+    const category = formData.get("category") as string
+    const cost = Number(formData.get("cost"))
+
+    try {
+      await addDoc(collection(db, "events"), {
+        category,
+        cost,
+        createdAt: serverTimestamp()
       })
-      .catch(() => toast({ variant: "destructive", title: "Error al guardar" }))
-      .finally(() => setIsCostSaving(false))
+      toast({ title: "Evento creado", description: `${category} ha sido añadido.` })
+      setIsEventDialogOpen(false)
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al crear evento" })
+    } finally {
+      setIsEventSubmitting(false)
+    }
+  }
+
+  const handleDeleteEvent = async (id: string) => {
+    if (!db) return
+    try {
+      await deleteDoc(doc(db, "events", id))
+      toast({ title: "Evento eliminado" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al eliminar" })
+    }
   }
 
   const handleOpenPayment = (reg: any) => {
@@ -107,18 +148,19 @@ export default function TreasuryPage() {
     const newPaid = (selectedReg.amountPaid || 0) + paymentAmount
     const status = newPaid >= (selectedReg.registrationCost || 0) ? "PAGADO" : "PARCIAL"
     
-    updateDoc(doc(db, "confirmations", selectedReg.id), {
-      amountPaid: newPaid,
-      paymentStatus: status,
-      status: "INSCRITO",
-      lastPaymentDate: serverTimestamp()
-    })
-      .then(() => {
-        toast({ title: "Pago registrado correctamente" })
-        setIsPaymentDialogOpen(false)
-        setIsReceiptOpen(true)
+    try {
+      await updateDoc(doc(db, "confirmations", selectedReg.id), {
+        amountPaid: newPaid,
+        paymentStatus: status,
+        status: "INSCRITO",
+        lastPaymentDate: serverTimestamp()
       })
-      .catch(() => toast({ variant: "destructive", title: "Error al registrar" }))
+      toast({ title: "Pago registrado correctamente" })
+      setIsPaymentDialogOpen(false)
+      setIsReceiptOpen(true)
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al registrar" })
+    }
   }
 
   const formatYear = (year: string) => {
@@ -137,24 +179,28 @@ export default function TreasuryPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Tesorería Parroquial</h1>
-          <p className="text-muted-foreground">Administración de aranceles y configuración de pagos.</p>
+          <p className="text-muted-foreground">Administración de aranceles, eventos y configuración de cobros.</p>
         </div>
       </div>
 
       <Tabs defaultValue="pagos" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-6">
-          <TabsTrigger value="pagos" className="gap-2"><CreditCard className="h-4 w-4" /> Pagos Recibidos</TabsTrigger>
-          <TabsTrigger value="config" className="gap-2"><Settings className="h-4 w-4" /> Configuración</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 max-w-[600px] mb-6 h-12 bg-slate-100 p-1 rounded-xl">
+          <TabsTrigger value="pagos" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"><CreditCard className="h-4 w-4" /> Pagos Recibidos</TabsTrigger>
+          <TabsTrigger value="eventos" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"><CalendarDays className="h-4 w-4" /> Eventos Especiales</TabsTrigger>
+          <TabsTrigger value="config" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"><Settings className="h-4 w-4" /> Configuración</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pagos">
-          <Card className="border-none shadow-xl overflow-hidden">
+          <Card className="border-none shadow-xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-50/50 border-b">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <CardTitle>Control de Inscripciones</CardTitle>
+                <div>
+                  <CardTitle>Control de Inscripciones</CardTitle>
+                  <CardDescription>Saldos pendientes de la etapa de registro.</CardDescription>
+                </div>
                 <div className="relative w-full md:w-72">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Buscar por nombre o C.I..." className="pl-9 bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <Input placeholder="Buscar confirmando..." className="pl-9 bg-white border-slate-200" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
               </div>
             </CardHeader>
@@ -179,7 +225,7 @@ export default function TreasuryPage() {
                         <TableRow key={reg.id} className="hover:bg-slate-50/30 h-16">
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8 border"><AvatarImage src={reg.photoUrl} /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar>
+                              <Avatar className="h-9 w-9 border"><AvatarImage src={reg.photoUrl} /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar>
                               <div className="flex flex-col"><span className="font-bold text-sm text-slate-900">{reg.fullName}</span><span className="text-[10px] text-muted-foreground">{reg.ciNumber}</span></div>
                             </div>
                           </TableCell>
@@ -207,6 +253,87 @@ export default function TreasuryPage() {
                         </TableRow>
                       )
                     })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="eventos">
+          <Card className="border-none shadow-xl overflow-hidden bg-white">
+            <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Eventos Especiales</CardTitle>
+                <CardDescription>Crea conceptos de cobro para retiros o encuentros.</CardDescription>
+              </div>
+              <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-primary hover:bg-primary/90 font-bold gap-2">
+                    <Plus className="h-4 w-4" /> Nuevo Evento
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <form onSubmit={handleCreateEvent}>
+                    <DialogHeader>
+                      <DialogTitle>Añadir Concepto de Cobro</DialogTitle>
+                      <DialogDescription>Define el nombre y el monto del arancel.</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-6 space-y-4">
+                      <div className="space-y-2">
+                        <Label>Nombre del Evento</Label>
+                        <Input name="category" placeholder="Ej. Retiro de 1er Año" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Costo (Gs)</Label>
+                        <Input name="cost" type="number" placeholder="30000" required />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsEventDialogOpen(false)}>Cancelar</Button>
+                      <Button type="submit" disabled={isEventSubmitting}>
+                        {isEventSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Evento"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loadingEvents ? (
+                <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              ) : events?.length === 0 ? (
+                <div className="py-20 text-center text-slate-400 italic">No hay eventos especiales creados.</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50/50">
+                      <TableHead className="font-bold pl-8">Concepto / Categoría</TableHead>
+                      <TableHead className="font-bold text-center">Arancel</TableHead>
+                      <TableHead className="font-bold text-center">Fecha Creación</TableHead>
+                      <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {events?.map((ev: any) => (
+                      <TableRow key={ev.id} className="hover:bg-slate-50/30 h-16">
+                        <TableCell className="pl-8 font-bold text-slate-900">{ev.category}</TableCell>
+                        <TableCell className="text-center font-bold text-primary">{ev.cost?.toLocaleString()} Gs.</TableCell>
+                        <TableCell className="text-center text-xs text-slate-500">
+                          {ev.createdAt?.toDate ? ev.createdAt.toDate().toLocaleDateString() : '---'}
+                        </TableCell>
+                        <TableCell className="text-right pr-8">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleDeleteEvent(ev.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               )}
@@ -263,7 +390,7 @@ export default function TreasuryPage() {
                 <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-inner"><Wallet className="h-8 w-8 text-green-600" /></div>
                 <div className="space-y-2">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Vista Previa para Postulantes</p>
-                  <p className="text-2xl font-black text-primary uppercase break-all">{paymentMethod === "ALIAS" ? costs?.alias : costs?.accountNumber || "---"}</p>
+                  <p className="text-2xl font-black text-primary uppercase break-all">{paymentMethod === "ALIAS" ? (costs?.alias || "---") : (costs?.accountNumber || "---")}</p>
                   <p className="text-xs text-slate-500 font-bold">{costs?.accountOwner || "---"}</p>
                 </div>
                 <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-[10px] text-blue-700 italic">
