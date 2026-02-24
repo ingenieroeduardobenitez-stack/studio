@@ -2,22 +2,31 @@
 "use client"
 
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
-import { Menu } from "lucide-react"
+import { Menu, Loader2 } from "lucide-react"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { UserNav } from "@/components/user-nav"
 import { NotificationBell } from "@/components/notification-bell"
 import { useEffect, useRef } from "react"
 import { useUser, useFirestore } from "@/firebase"
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { useRouter } from "next/navigation"
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
   const db = useFirestore()
+  const router = useRouter()
   const presenceInterval = useRef<NodeJS.Timeout | null>(null)
+
+  // Guardia de Autenticación
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push("/")
+    }
+  }, [user, isUserLoading, router])
 
   // Sistema de Presencia (Heartbeat) Robusto
   useEffect(() => {
@@ -26,19 +35,16 @@ export default function DashboardLayout({
     const userRef = doc(db, "users", user.uid)
     
     const updatePresence = (status: "online" | "offline") => {
-      // Usamos updateDoc sin await para ejecución inmediata y optimismo UI
       updateDoc(userRef, {
         status: status,
         lastSeen: serverTimestamp()
       }).catch(() => {
-        // Silencio en caso de error para no interrumpir la navegación
+        // Silencio en caso de error
       })
     }
 
-    // Marcar como online inmediatamente al entrar
     updatePresence("online")
 
-    // Intervalo de pulso frecuente (cada 15 segundos) para mantener la sesión viva
     presenceInterval.current = setInterval(() => {
       if (document.visibilityState === 'visible') {
         updatePresence("online")
@@ -66,12 +72,22 @@ export default function DashboardLayout({
     }
   }, [db, user?.uid])
 
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Verificando Credenciales...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen bg-slate-50/50 w-full relative">
         <DashboardSidebar />
         
-        {/* Botón de Menú Circular Flotante */}
         <div className="fixed top-4 left-4 z-50">
           <SidebarTrigger className="h-12 w-12 rounded-full border border-slate-200 bg-white shadow-xl hover:bg-slate-50 text-slate-600 flex items-center justify-center transition-all duration-300 active:scale-95">
             <Menu className="h-6 w-6" />
@@ -82,7 +98,7 @@ export default function DashboardLayout({
           <header className="h-16 bg-white/80 backdrop-blur-md border-b px-6 flex items-center justify-between sticky top-0 z-30 ml-0">
             <div className="flex items-center gap-4 pl-14">
               <div className="h-6 w-px bg-border hidden sm:block"></div>
-              <h2 className="text-sm font-bold text-slate-600 hidden sm:block uppercase tracking-widest">SISTEMA DE GESTIÓN CONFIRMACIÓN JUVENIL</h2>
+              <h2 className="text-sm font-bold text-slate-600 hidden sm:block uppercase tracking-widest">SISTEMA DE GESTIÓN CONFIRMACIÓN</h2>
             </div>
             <div className="flex items-center gap-6">
               <NotificationBell />

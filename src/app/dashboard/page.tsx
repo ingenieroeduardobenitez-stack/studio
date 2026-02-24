@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download } from "lucide-react"
+import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { doc, collection } from "firebase/firestore"
 import { useState, useEffect } from "react"
@@ -15,7 +15,7 @@ import { QRCodeCanvas } from "qrcode.react"
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const [isQrOpen, setIsQrOpen] = useState(false)
-  const { user, loading: userLoading } = useUser()
+  const { user, isUserLoading } = useUser()
   const db = useFirestore()
 
   useEffect(() => {
@@ -30,9 +30,9 @@ export default function DashboardPage() {
   const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
 
   const registrationsQuery = useMemoFirebase(() => {
-    if (!db) return null
+    if (!db || !user) return null
     return collection(db, "confirmations")
-  }, [db])
+  }, [db, user])
 
   const { data: registrations, loading: regsLoading } = useCollection(registrationsQuery)
 
@@ -54,7 +54,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (!mounted || userLoading || profileLoading) {
+  if (!mounted || isUserLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -206,7 +206,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* DIALOGO QR */}
       <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-slate-50 border-b">

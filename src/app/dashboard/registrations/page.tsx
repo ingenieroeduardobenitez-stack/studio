@@ -11,7 +11,6 @@ import {
   Search, 
   Loader2, 
   Download, 
-  Filter, 
   MoreHorizontal, 
   User, 
   LayoutList, 
@@ -20,17 +19,13 @@ import {
   UserPlus,
   Trash2,
   Check,
-  Calendar,
-  Phone,
   CreditCard,
-  Church,
   BookOpen,
-  Info,
-  X,
   Eye,
   CheckCircle2,
   AlertCircle,
-  UserMinus
+  UserMinus,
+  X
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc } from "firebase/firestore"
@@ -104,15 +99,21 @@ export default function RegistrationsListPage() {
   const isAdmin = profile?.role === "Administrador"
   const isTesorero = profile?.role === "Tesorero"
 
-  const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
-  const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
+  const regsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null
+    return collection(db, "confirmations")
+  }, [db, user])
+
+  const groupsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null
+    return collection(db, "groups")
+  }, [db, user])
 
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
   const { data: groups, loading: loadingGroups } = useCollection(groupsQuery)
 
   const filteredRegistrations = useMemo(() => {
     if (!registrations) return []
-    // Solo mostrar los NO archivados en la lista de gestión activa
     return registrations.filter(reg => 
       !reg.isArchived && (
         reg.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -420,7 +421,6 @@ export default function RegistrationsListPage() {
         )}
       </div>
 
-      {/* DIALOGO DE DETALLES Y VALIDACIÓN */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -520,7 +520,6 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIALOGO DE DAR DE BAJA (JUSTIFICAR BAJA) */}
       <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -563,7 +562,6 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* VISTA AMPLIADA DEL COMPROBANTE */}
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
           <DialogHeader className="sr-only">
@@ -584,7 +582,6 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIALOGOS DE GESTIÓN */}
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>

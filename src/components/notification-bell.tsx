@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
 import { collection } from "firebase/firestore"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 
 export function NotificationBell() {
   const [mounted, setMounted] = useState(false)
+  const { user } = useUser()
   const db = useFirestore()
 
   useEffect(() => {
@@ -28,9 +29,9 @@ export function NotificationBell() {
   }, [])
 
   const regsQuery = useMemoFirebase(() => {
-    if (!db) return null
+    if (!db || !user) return null
     return collection(db, "confirmations")
-  }, [db])
+  }, [db, user])
 
   const { data: registrations, loading } = useCollection(regsQuery)
 
@@ -41,7 +42,6 @@ export function NotificationBell() {
     const todayMonthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
     registrations.filter(r => !r.isArchived).forEach(reg => {
-      // 1. Alerta de Ausencias (3 o más)
       if ((reg.absenceCount || 0) >= 3) {
         items.push({
           id: `abs-${reg.id}`,
@@ -55,7 +55,6 @@ export function NotificationBell() {
         })
       }
 
-      // 2. Alerta de Documentos Faltantes
       const needsCert = reg.hasBaptism && !reg.baptismCertificatePhotoUrl
       const noBaptism = !reg.hasBaptism
       const noCommunion = !reg.hasFirstCommunion
@@ -78,7 +77,6 @@ export function NotificationBell() {
         })
       }
 
-      // 3. Cumpleaños de hoy
       if (reg.birthDate && reg.birthDate.includes(`-${todayMonthDay}`)) {
         items.push({
           id: `bday-${reg.id}`,
@@ -96,7 +94,7 @@ export function NotificationBell() {
     return items
   }, [registrations])
 
-  if (!mounted) return null
+  if (!mounted || !user) return null
 
   return (
     <DropdownMenu>
