@@ -29,6 +29,7 @@ const AVAILABLE_MODULES = [
   { id: "inicio", name: "Inicio", category: "Operaciones" },
   { id: "asistencia", name: "Mi Lista (Asistencia)", category: "Operaciones" },
   { id: "asistencia_control", name: "Control de Asistencia", category: "Operaciones" },
+  { id: "documentacion", name: "Control de Documentos", category: "Operaciones" },
   { id: "confirmandos", name: "Confirmandos", category: "Operaciones" },
   { id: "inscripcion", name: "Nueva Inscripción", category: "Operaciones" },
   { id: "cambio_grupo", name: "Cambio de Grupo", category: "Operaciones" },

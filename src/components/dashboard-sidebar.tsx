@@ -22,7 +22,8 @@ import {
   Contact,
   BarChart3,
   Receipt,
-  CalendarCheck
+  CalendarCheck,
+  FileWarning
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -51,6 +52,7 @@ const operationsItems = [
   { id: "inicio", name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
   { id: "asistencia", name: "Mi Lista (Asistencia)", href: "/dashboard/my-list", icon: UserCheck },
   { id: "asistencia_control", name: "Control Asistencia", href: "/dashboard/attendance-control", icon: CalendarCheck },
+  { id: "documentacion", name: "Control Documentos", href: "/dashboard/documentation", icon: FileWarning },
   { id: "confirmandos", name: "Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { id: "inscripcion", name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
   { id: "cambio_grupo", name: "Cambio de Grupo", href: "/dashboard/group-change", icon: ArrowLeftRight },
@@ -106,7 +108,7 @@ export function DashboardSidebar() {
 
     // Fallback: Catequistas ven operaciones básicas si no hay configuración
     if (type === 'ops') {
-      return items.filter(i => ["inicio", "asistencia", "asistencia_control", "inscripcion", "confirmandos"].includes(i.id));
+      return items.filter(i => ["inicio", "asistencia", "asistencia_control", "documentacion", "inscripcion", "confirmandos"].includes(i.id));
     }
     
     return [];
