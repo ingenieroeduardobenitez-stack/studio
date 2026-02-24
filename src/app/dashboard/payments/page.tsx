@@ -139,7 +139,7 @@ export default function PaymentsManagementPage() {
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Catequista",
         action: "Cobro Directo",
         module: "pagos",
-        details: `Cobro manual de ${paymentAmount.toLocaleString()} Gs. a ${selectedReg.fullName}`,
+        details: `Cobro manual de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}`,
         timestamp: serverTimestamp()
       })
       
@@ -224,7 +224,7 @@ export default function PaymentsManagementPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         <span className={cn("font-bold text-sm", pendingIns > 0 ? "text-red-500" : "text-green-600")}>
-                          {pendingIns > 0 ? `${pendingIns.toLocaleString()} Gs.` : "Al día"}
+                          {pendingIns > 0 ? `${pendingIns.toLocaleString('es-PY')} Gs.` : "Al día"}
                         </span>
                       </TableCell>
                       <TableCell className="text-right pr-8">
@@ -255,14 +255,14 @@ export default function PaymentsManagementPage() {
                 <SelectTrigger className="h-12 rounded-xl bg-slate-50"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="inscripcion">Inscripción Base</SelectItem>
-                  {events?.map((ev) => <SelectItem key={ev.id} value={ev.id}>{ev.category} ({ev.cost.toLocaleString()} Gs.)</SelectItem>)}
+                  {events?.map((ev) => <SelectItem key={ev.id} value={ev.id}>{ev.category} ({ev.cost.toLocaleString('es-PY')} Gs.)</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center">
               <p className="text-xs font-bold text-slate-400 uppercase">Saldo Pendiente:</p>
-              <p className="text-xl font-bold text-slate-900">{pendingBalance.toLocaleString()} Gs.</p>
+              <p className="text-xl font-bold text-slate-900">{pendingBalance.toLocaleString('es-PY')} Gs.</p>
             </div>
 
             <div className="space-y-3">
@@ -313,9 +313,9 @@ export default function PaymentsManagementPage() {
             <div className="space-y-4">
               <div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">A nombre de</p><p className="text-lg font-bold text-slate-900">{selectedReg?.fullName}</p></div>
               <div className="bg-slate-50 p-6 rounded-2xl border border-dashed space-y-2">
-                <div className="flex justify-between text-sm"><span>Monto Cobrado</span><span className="font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</span></div>
+                <div className="flex justify-between text-sm"><span>Monto Cobrado</span><span className="font-bold text-green-600">{paymentAmount.toLocaleString('es-PY')} Gs.</span></div>
                 <Separator />
-                <div className="flex justify-between text-xs"><span>Saldo Pendiente</span><span className="font-bold text-red-500">{(pendingBalance - paymentAmount).toLocaleString()} Gs.</span></div>
+                <div className="flex justify-between text-xs"><span>Saldo Pendiente</span><span className="font-bold text-red-500">{(pendingBalance - paymentAmount).toLocaleString('es-PY')} Gs.</span></div>
               </div>
               <p className="text-[9px] text-slate-400 text-center italic">Este es un comprobante interno de la Catequesis de Confirmación.</p>
             </div>

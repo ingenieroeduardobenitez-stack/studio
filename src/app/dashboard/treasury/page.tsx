@@ -164,7 +164,7 @@ export default function TreasuryPage() {
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero",
         action: "Confirmación de Pago (Tesorería)",
         module: "tesoreria",
-        details: `Cobro confirmado de ${paymentAmount.toLocaleString()} Gs. a ${selectedReg.fullName}`,
+        details: `Cobro confirmado de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}`,
         timestamp: serverTimestamp()
       })
       
@@ -181,7 +181,7 @@ export default function TreasuryPage() {
 
   const handleShareReceipt = () => {
     if (!selectedReg) return
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString()} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\n_Secretaría de Tesorería_`)
+    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -234,7 +234,7 @@ export default function TreasuryPage() {
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero",
         action: "Registro de Egreso",
         module: "tesoreria",
-        details: `Gasto registrado por ${formData.get("concept")} de ${(Number(formData.get("amount"))).toLocaleString()} Gs.`,
+        details: `Gasto registrado por ${formData.get("concept")} de ${(Number(formData.get("amount"))).toLocaleString('es-PY')} Gs.`,
         timestamp: serverTimestamp()
       })
 
@@ -331,7 +331,7 @@ export default function TreasuryPage() {
                           </TableCell>
                           <TableCell className="text-center"><Badge variant="secondary" className="text-[10px] uppercase tracking-tighter">{formatYear(reg.catechesisYear)}</Badge></TableCell>
                           <TableCell className="text-center"><Badge variant={reg.paymentStatus === "PAGADO" ? "default" : "outline"} className={cn(reg.paymentStatus === "PAGADO" && "bg-green-500")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
-                          <TableCell className="text-center"><span className={cn("font-bold text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? `${pending.toLocaleString()} Gs.` : "Saldado"}</span></TableCell>
+                          <TableCell className="text-center"><span className={cn("font-bold text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? `${pending.toLocaleString('es-PY')} Gs.` : "Saldado"}</span></TableCell>
                           <TableCell className="text-right pr-8">
                             <div className="flex justify-end gap-2">
                               <Button 
@@ -395,7 +395,7 @@ export default function TreasuryPage() {
                     {events?.map((ev: any) => (
                       <TableRow key={ev.id} className="hover:bg-slate-50/30 h-16">
                         <TableCell className="pl-8 font-bold text-slate-900">{ev.category}</TableCell>
-                        <TableCell className="text-center font-bold text-primary">{ev.cost?.toLocaleString()} Gs.</TableCell>
+                        <TableCell className="text-center font-bold text-primary">{ev.cost?.toLocaleString('es-PY')} Gs.</TableCell>
                         <TableCell className="text-right pr-8"><Button variant="ghost" size="icon" className="text-red-400 hover:text-red-600 rounded-full" onClick={() => deleteDoc(doc(db!, "events", ev.id))}><Trash2 className="h-4 w-4" /></Button></TableCell>
                       </TableRow>
                     ))}
@@ -458,7 +458,7 @@ export default function TreasuryPage() {
                       <TableRow key={ex.id} className="hover:bg-slate-50/30 h-16">
                         <TableCell className="pl-8 text-xs font-medium text-slate-500">{ex.date?.toDate ? ex.date.toDate().toLocaleDateString() : '---'}</TableCell>
                         <TableCell className="font-bold text-slate-900">{ex.concept}</TableCell>
-                        <TableCell className="text-center font-bold text-red-500">{ex.amount?.toLocaleString()} Gs.</TableCell>
+                        <TableCell className="text-center font-bold text-red-500">{ex.amount?.toLocaleString('es-PY')} Gs.</TableCell>
                         <TableCell className="text-xs text-slate-500">{ex.registeredBy}</TableCell>
                         <TableCell className="text-right pr-8">
                           <Button variant="outline" size="sm" className="gap-2 rounded-xl h-8" onClick={() => { setSelectedProof(ex.proofUrl); setIsProofViewOpen(true); }}><Eye className="h-3 w-3" /> Ver</Button>
@@ -534,7 +534,7 @@ export default function TreasuryPage() {
           <div className="p-6 space-y-6">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Saldo Pendiente:</p>
-              <p className="text-xl font-black text-slate-900">{((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString()} Gs.</p>
+              <p className="text-xl font-black text-slate-900">{((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.</p>
             </div>
 
             <div className="space-y-3">
@@ -603,12 +603,12 @@ export default function TreasuryPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-medium text-slate-500">Inscripción {formatYear(selectedReg?.catechesisYear)}</span>
-                    <span className="text-xl font-black text-green-600">{paymentAmount.toLocaleString()} Gs.</span>
+                    <span className="text-xl font-black text-green-600">{paymentAmount.toLocaleString('es-PY')} Gs.</span>
                   </div>
                   <Separator className="bg-slate-200" />
                   <div className="flex justify-between items-center text-[10px] italic text-slate-400 font-bold uppercase">
                     <span>Saldo Pendiente</span>
-                    <span>{((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString()} Gs.</span>
+                    <span>{((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.</span>
                   </div>
                 </div>
               </div>

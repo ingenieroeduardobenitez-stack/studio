@@ -112,7 +112,7 @@ export default function FinancialStatsPage() {
                 <TrendingUp className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-black text-slate-900">{totals.totalIncome.toLocaleString()} Gs.</div>
+                <div className="text-2xl font-black text-slate-900">{totals.totalIncome.toLocaleString('es-PY')} Gs.</div>
                 <div className="flex items-center gap-1 mt-1 text-[10px] text-green-600 font-bold">
                   <ArrowUpRight className="h-3 w-3" /> 100% Recaudado
                 </div>
@@ -125,7 +125,7 @@ export default function FinancialStatsPage() {
                 <TrendingDown className="h-4 w-4 text-red-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-black text-slate-900">{totals.totalExpenses.toLocaleString()} Gs.</div>
+                <div className="text-2xl font-black text-slate-900">{totals.totalExpenses.toLocaleString('es-PY')} Gs.</div>
                 <div className="flex items-center gap-1 mt-1 text-[10px] text-red-600 font-bold">
                   <ArrowDownRight className="h-3 w-3" /> Comprobantes registrados
                 </div>
@@ -138,7 +138,7 @@ export default function FinancialStatsPage() {
                 <Wallet className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-black">{totals.balance.toLocaleString()} Gs.</div>
+                <div className="text-2xl font-black">{totals.balance.toLocaleString('es-PY')} Gs.</div>
                 <p className="text-[10px] text-slate-400 mt-1">Disponible en caja</p>
               </CardContent>
             </Card>
@@ -156,7 +156,10 @@ export default function FinancialStatsPage() {
                     <BarChart data={chartData}>
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 'bold' }} />
                       <YAxis hide />
-                      <RechartsTooltip cursor={{ fill: 'transparent' }} />
+                      <RechartsTooltip 
+                        cursor={{ fill: 'transparent' }} 
+                        formatter={(value: number) => [value.toLocaleString('es-PY') + " Gs.", "Monto"]}
+                      />
                       <Bar dataKey="total" radius={[8, 8, 0, 0]} barSize={60}>
                         {chartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -190,7 +193,7 @@ export default function FinancialStatsPage() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <RechartsTooltip />
+                      <RechartsTooltip formatter={(value: number) => value.toLocaleString('es-PY') + " Gs."} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -228,17 +231,17 @@ export default function FinancialStatsPage() {
                   <TableRow>
                     <TableCell className="font-bold">Inscripciones Confirmandos</TableCell>
                     <TableCell className="text-center"><Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ingreso</Badge></TableCell>
-                    <TableCell className="text-right font-black pr-8 text-green-600">+{totals.incomeRegs.toLocaleString()} Gs.</TableCell>
+                    <TableCell className="text-right font-black pr-8 text-green-600">+{totals.incomeRegs.toLocaleString('es-PY')} Gs.</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-bold">Cobros a Catequistas (Eventos)</TableCell>
                     <TableCell className="text-center"><Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ingreso</Badge></TableCell>
-                    <TableCell className="text-right font-black pr-8 text-green-600">+{totals.incomeEvents.toLocaleString()} Gs.</TableCell>
+                    <TableCell className="text-right font-black pr-8 text-green-600">+{totals.incomeEvents.toLocaleString('es-PY')} Gs.</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-bold">Gastos Operativos e Insumos</TableCell>
                     <TableCell className="text-center"><Badge variant="destructive" className="bg-red-100 text-red-700 hover:bg-red-100">Egreso</Badge></TableCell>
-                    <TableCell className="text-right font-black pr-8 text-red-600">-{totals.totalExpenses.toLocaleString()} Gs.</TableCell>
+                    <TableCell className="text-right font-black pr-8 text-red-600">-{totals.totalExpenses.toLocaleString('es-PY')} Gs.</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

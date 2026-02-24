@@ -226,7 +226,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       toast({
         variant: "destructive",
         title: "Monto excedido",
-        description: `El monto no puede superar el arancel de ${totalCost.toLocaleString()} Gs.`,
+        description: `El monto no puede superar el arancel de ${totalCost.toLocaleString('es-PY')} Gs.`,
       });
     } else {
       setCustomPaymentAmount(num);
@@ -372,7 +372,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         userName: profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Usuario Público" : "Sistema"),
         action: immediatePayment ? "Inscripción con Pago" : "Envío de Inscripción",
         module: "inscripcion",
-        details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString()} Gs. confirmado. ` : ''}Inscripción completa de ${values.fullName}`,
+        details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString('es-PY')} Gs. confirmado. ` : ''}Inscripción completa de ${values.fullName}`,
         timestamp: serverTimestamp()
       })
       
@@ -406,7 +406,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!submittedData) return
     const amount = submittedData.amountPaid || 0;
     const pending = (submittedData.registrationCost || 0) - amount;
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo de Pago N°:* ${submittedData.id?.slice(-6).toUpperCase()}\n*Monto entregado:* ${amount.toLocaleString()} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString()} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
+    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo de Pago N°:* ${submittedData.id?.slice(-6).toUpperCase()}\n*Monto entregado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString('es-PY')} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -462,7 +462,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                    <div className="p-2 bg-green-50 rounded-lg"><Wallet className="h-4 w-4 text-green-600" /></div>
                    <div className="flex flex-col">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Entregado</span>
-                      <span className="text-lg font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString() || 0} Gs.</span>
+                      <span className="text-lg font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString('es-PY') || 0} Gs.</span>
                    </div>
                 </div>
                 <Badge className={cn("rounded-lg h-7 font-black text-[10px]", submittedData?.paymentStatus === 'PAGADO' ? 'bg-green-500' : 'bg-orange-500 text-white')}>
@@ -472,7 +472,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
              
              {(submittedData?.registrationCost - submittedData?.amountPaid) > 0 && (
                <p className="text-[10px] font-bold text-red-500 text-right uppercase italic">
-                 Saldo Pendiente: {((submittedData?.registrationCost || 0) - (submittedData?.amountPaid || 0)).toLocaleString()} Gs.
+                 Saldo Pendiente: {((submittedData?.registrationCost || 0) - (submittedData?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
                </p>
              )}
           </div>
@@ -767,7 +767,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <div className="space-y-4">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Arancel del Nivel</p>
-                      <p className="text-3xl font-black text-primary">{mounted ? totalCost.toLocaleString() : "..."} Gs.</p>
+                      <p className="text-3xl font-black text-primary">{mounted ? totalCost.toLocaleString('es-PY') : "..."} Gs.</p>
                     </div>
                     
                     <div className="space-y-3 pt-2">

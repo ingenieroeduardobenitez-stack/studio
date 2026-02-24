@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -95,7 +94,7 @@ export default function CatechistPaymentsPage() {
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero",
         action: "Cobro a Catequista",
         module: "pagos",
-        details: `Cobro de ${paymentAmount.toLocaleString()} Gs. a ${selectedUser.firstName} ${selectedUser.lastName} por ${selectedEvent?.category}`,
+        details: `Cobro de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${selectedUser.firstName} ${selectedUser.lastName} por ${selectedEvent?.category}`,
         timestamp: serverTimestamp()
       })
       
@@ -195,7 +194,7 @@ export default function CatechistPaymentsPage() {
                 <SelectTrigger className="h-12 rounded-xl bg-slate-50"><SelectValue placeholder="Elige un evento..." /></SelectTrigger>
                 <SelectContent>
                   {events?.map((ev) => (
-                    <SelectItem key={ev.id} value={ev.id}>{ev.category} ({ev.cost.toLocaleString()} Gs.)</SelectItem>
+                    <SelectItem key={ev.id} value={ev.id}>{ev.category} ({ev.cost.toLocaleString('es-PY')} Gs.)</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -204,7 +203,7 @@ export default function CatechistPaymentsPage() {
             {selectedEvent && (
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center">
                 <p className="text-xs font-bold text-slate-400 uppercase">Saldo Pendiente:</p>
-                <p className="text-xl font-bold text-slate-900">{calculatePending(selectedUser).toLocaleString()} Gs.</p>
+                <p className="text-xl font-bold text-slate-900">{calculatePending(selectedUser).toLocaleString('es-PY')} Gs.</p>
               </div>
             )}
 
@@ -259,12 +258,12 @@ export default function CatechistPaymentsPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>{selectedEvent?.category}</span>
-                  <span className="font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</span>
+                  <span className="font-bold text-green-600">{paymentAmount.toLocaleString('es-PY')} Gs.</span>
                 </div>
                 <Separator className="my-2" />
                 <div className="flex justify-between text-xs italic text-slate-400">
                   <span>Saldo Pendiente</span>
-                  <span>{(calculatePending(selectedUser) - paymentAmount).toLocaleString()} Gs.</span>
+                  <span>{(calculatePending(selectedUser) - paymentAmount).toLocaleString('es-PY')} Gs.</span>
                 </div>
               </div>
               <p className="text-[9px] text-slate-400 text-center italic pt-4">
