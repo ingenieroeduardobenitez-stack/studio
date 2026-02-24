@@ -2,10 +2,10 @@
 "use client"
 
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
-import { Bell, Menu } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Menu } from "lucide-react"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { UserNav } from "@/components/user-nav"
+import { NotificationBell } from "@/components/notification-bell"
 import { useEffect, useRef } from "react"
 import { useUser, useFirestore } from "@/firebase"
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
@@ -85,10 +85,7 @@ export default function DashboardLayout({
               <h2 className="text-sm font-bold text-slate-600 hidden sm:block uppercase tracking-widest">SISTEMA DE GESTIÓN CONFIRMACIÓN JUVENIL</h2>
             </div>
             <div className="flex items-center gap-6">
-              <Button variant="ghost" size="icon" className="relative rounded-full hover:bg-slate-100">
-                <Bell className="h-5 w-5 text-slate-500" />
-                <span className="absolute top-2 right-2 h-2 w-2 bg-accent rounded-full border-2 border-white"></span>
-              </Button>
+              <NotificationBell />
               <UserNav />
             </div>
           </header>
