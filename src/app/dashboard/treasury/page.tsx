@@ -98,6 +98,13 @@ export default function TreasuryPage() {
     )
   }, [registrations, searchTerm])
 
+  const handlePrint = () => {
+    // Pequeño retraso para asegurar que los estilos de impresión se carguen
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
   const handleUpdateCosts = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!db || !treasuryRef) return
@@ -549,8 +556,9 @@ export default function TreasuryPage() {
           </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
-            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
             <Button 
+              type="button"
               className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700 font-bold shadow-lg gap-2" 
               onClick={handleProcessPayment} 
               disabled={paymentAmount <= 0 || isSubmittingPayment}
@@ -570,7 +578,12 @@ export default function TreasuryPage() {
           </DialogHeader>
           <div className="p-10 bg-white space-y-8" id="receipt-content-official">
             <div className="flex items-center justify-between border-b-2 border-slate-100 pb-6">
-              <img src="/logo.png" alt="Logo" className="h-16 w-16 object-contain" />
+              <img 
+                src="/logo.png" 
+                alt="Logo" 
+                className="h-16 w-16 object-contain" 
+                onError={(e) => (e.currentTarget.style.display = 'none')}
+              />
               <div className="text-right">
                 <p className="text-xs font-black text-primary uppercase tracking-widest">Recibo de Pago</p>
                 <p className="text-[10px] font-bold text-slate-400">N° {selectedReg?.id?.slice(-6).toUpperCase()}</p>
@@ -617,11 +630,15 @@ export default function TreasuryPage() {
             </div>
           </div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 print:hidden">
-            <Button variant="outline" className="flex-1 rounded-2xl h-12 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 gap-2 rounded-2xl bg-green-600 hover:bg-green-700 text-white h-12 font-bold shadow-lg" onClick={handleShareReceipt}>
+            <Button type="button" variant="outline" className="flex-1 rounded-2xl h-12 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
+            <Button type="button" className="flex-1 gap-2 rounded-2xl bg-green-600 hover:bg-green-700 text-white h-12 font-bold shadow-lg" onClick={handleShareReceipt}>
               <MessageCircle className="h-4 w-4" /> Enviar WhatsApp
             </Button>
-            <Button className="flex-1 gap-2 rounded-2xl bg-primary text-white h-12 font-bold shadow-lg" onClick={() => window.print()}>
+            <Button 
+              type="button"
+              className="flex-1 gap-2 rounded-2xl bg-primary text-white h-12 font-bold shadow-lg" 
+              onClick={handlePrint}
+            >
               <Printer className="h-4 w-4" /> Imprimir
             </Button>
           </DialogFooter>
@@ -633,7 +650,7 @@ export default function TreasuryPage() {
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
           <DialogHeader className="sr-only"><DialogTitle>Comprobante de Egreso</DialogTitle></DialogHeader>
           <div className="relative flex items-center justify-center">
-            <Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full h-10 w-10 bg-white/20 text-white" onClick={() => setIsProofViewOpen(false)}><X className="h-6 w-6" /></Button>
+            <Button type="button" variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full h-10 w-10 bg-white/20 text-white" onClick={() => setIsProofViewOpen(false)}><X className="h-6 w-6" /></Button>
             <img src={selectedProof || ""} className="max-h-[90vh] rounded-xl shadow-2xl" />
           </div>
         </DialogContent>
