@@ -7,29 +7,21 @@ import * as z from "zod"
 import { 
   Loader2, 
   User,
-  BookOpen,
   Church,
-  ArrowRight,
-  ShieldCheck,
-  Users,
   Camera,
-  Search,
   CheckCircle2,
-  Printer,
-  AlertTriangle,
-  CreditCard,
-  Home,
-  Info,
   Wallet,
   MessageCircle,
-  Building2,
   FileText,
-  Fingerprint,
   QrCode,
-  Shield,
   Check,
-  X,
-  Copy
+  Info,
+  Copy,
+  ChevronRight,
+  CreditCard,
+  UserCircle,
+  BookOpen,
+  Phone
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -50,7 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFirestore, useUser, useDoc } from "@/firebase"
 import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection } from "firebase/firestore"
@@ -58,7 +49,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import Link from "next/link"
@@ -71,8 +62,8 @@ import { QRCodeCanvas } from "qrcode.react"
 const cleanS = (s: string) => {
   if (!s) return "";
   return s.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+    .replace(/[^a-zA-Z0-9 ]/g, "") // Solo alfanumérico
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
@@ -86,10 +77,11 @@ const formatTag = (tag: string, value: string) => {
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); 
-    payload += formatTag("01", "12"); 
+    payload += formatTag("00", "01"); // Payload Format Indicator
+    payload += formatTag("01", "12"); // Method (12 = Dynamic with amount)
 
     // Tag 26: Merchant Account Information (SIPAP/SPI Paraguay)
+    // Estructura: 00 (Global ID) + 01 (Alias/Account)
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
       const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -103,23 +95,23 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     }
     payload += formatTag("26", merchantInfo);
 
-    payload += formatTag("52", "0000"); // MCC
-    payload += formatTag("53", "600");  // PYG
+    payload += formatTag("52", "8661"); // MCC: Organizaciones Religiosas
+    payload += formatTag("53", "600");  // Currency PYG
     
     if (amount > 0) {
       payload += formatTag("54", Math.floor(amount).toString()); 
     }
 
-    payload += formatTag("58", "PY");   
-    payload += formatTag("59", cleanS(accountOwner || "PARROQUIA").substring(0, 25)); 
-    payload += formatTag("60", "ASUNCION"); 
+    payload += formatTag("58", "PY"); // Country
+    payload += formatTag("59", cleanS(accountOwner || "PARROQUIA").substring(0, 25)); // Name
+    payload += formatTag("60", "ASUNCION"); // City
 
     const cleanConcept = cleanS(concept || "PAGO CATEQUESIS").substring(0, 20);
-    payload += formatTag("62", formatTag("05", cleanConcept));
+    payload += formatTag("62", formatTag("05", cleanConcept)); // Transaction Content
 
-    payload += "6304"; 
+    payload += "6304"; // Tag CRC prefix
 
-    // CRC-16/CCITT-FALSE
+    // Cálculo CRC-16/CCITT-FALSE (Polinomial 0x1021, Inicial 0xFFFF)
     let crc = 0xFFFF;
     for (let i = 0; i < payload.length; i++) {
       crc ^= payload.charCodeAt(i) << 8;

@@ -9,11 +9,11 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Settings, Search, Loader2, CreditCard, Printer, FileText, CheckCircle2, User, Church, AlertTriangle, Calendar, Plus, Trash2, Building2, QrCode, Info, Copy } from "lucide-react"
+import { Wallet, Settings, Search, Loader2, CreditCard, FileText, User, Church, QrCode, Info, Copy } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { QRCodeCanvas } from "qrcode.react"
@@ -25,8 +25,8 @@ import { cn } from "@/lib/utils"
 const cleanS = (s: string) => {
   if (!s) return "";
   return s.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+    .replace(/[^a-zA-Z0-9 ]/g, "") // Solo alfanumérico
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
@@ -40,10 +40,10 @@ const formatTag = (tag: string, value: string) => {
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); 
-    payload += formatTag("01", "12"); 
+    payload += formatTag("00", "01"); // Payload Format Indicator
+    payload += formatTag("01", "12"); // Method (12 = Dynamic with amount)
 
-    // Tag 26: Merchant Account Information
+    // Tag 26: Merchant Account Information (SIPAP/SPI Paraguay)
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
       const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -57,7 +57,7 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     }
     payload += formatTag("26", merchantInfo);
 
-    payload += formatTag("52", "0000"); // MCC
+    payload += formatTag("52", "8661"); // MCC: Organizaciones Religiosas
     payload += formatTag("53", "600");  // Currency PYG
     
     if (amount > 0) {
@@ -99,8 +99,6 @@ export default function TreasuryPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   const [showPaymentQr, setShowPaymentQr] = useState(false)
-  const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
-  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
 
   const { toast } = useToast()
@@ -121,9 +119,6 @@ export default function TreasuryPage() {
 
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
-
-  const eventsQuery = useMemoFirebase(() => db ? collection(db, "events") : null, [db])
-  const { data: events, loading: loadingEvents } = useCollection(eventsQuery)
 
   const filteredRegs = useMemo(() => {
     if (!registrations) return []
@@ -165,35 +160,6 @@ export default function TreasuryPage() {
       })
       .catch(() => toast({ variant: "destructive", title: "Error" }))
       .finally(() => setIsCostSaving(false))
-  }
-
-  const handleCreateEvent = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!db) return
-    setIsSubmittingEvent(true)
-    const formData = new FormData(e.currentTarget)
-    const eventCost = Number(formData.get("eventCost"))
-    const eventCategory = formData.get("eventCategory") as string
-    const eventId = `event_${Date.now()}`
-    setDoc(doc(db, "events", eventId), {
-      name: eventCategory,
-      category: eventCategory,
-      cost: eventCost,
-      createdAt: serverTimestamp(),
-    })
-      .then(() => {
-        toast({ title: "Evento creado" })
-        setIsEventDialogOpen(false)
-      })
-      .catch(() => toast({ variant: "destructive", title: "Error" }))
-      .finally(() => setIsSubmittingEvent(false))
-  }
-
-  const handleDeleteEvent = async (id: string) => {
-    if (!db) return
-    deleteDoc(doc(db, "events", id))
-      .then(() => toast({ title: "Evento eliminado" }))
-      .catch(() => toast({ variant: "destructive", title: "Error" }))
   }
 
   const handleOpenPayment = (reg: any) => {
@@ -258,7 +224,7 @@ export default function TreasuryPage() {
       <Tabs defaultValue="pagos" className="w-full">
         <TabsList className="grid w-full grid-cols-3 max-w-[600px] mb-6">
           <TabsTrigger value="pagos" className="gap-2"><CreditCard className="h-4 w-4" /> Pagos</TabsTrigger>
-          <TabsTrigger value="eventos" className="gap-2"><Calendar className="h-4 w-4" /> Eventos</TabsTrigger>
+          <TabsTrigger value="eventos" className="gap-2"><Wallet className="h-4 w-4" /> Otros Ingresos</TabsTrigger>
           <TabsTrigger value="config" className="gap-2"><Settings className="h-4 w-4" /> Configuración</TabsTrigger>
         </TabsList>
 
@@ -345,7 +311,7 @@ export default function TreasuryPage() {
                     <div className="grid gap-4 p-6 border rounded-2xl bg-white shadow-sm">
                       {paymentMethod === "ALIAS" ? (
                         <>
-                          <div className="space-y-2"><Label>Alias de Transferencia</Label><Input name="alias" defaultValue={costs?.alias} placeholder="Ej. PARROQUIA.PS" className="h-12 rounded-xl font-bold text-primary" required /></div>
+                          <div className="space-y-2"><Label>Alias de Transferencia</Label><Input name="alias" defaultValue={costs?.alias} placeholder="Ej. 0981123456" className="h-12 rounded-xl font-bold text-primary" required /></div>
                           <div className="space-y-2"><Label>Titular</Label><Input name="accountOwner" defaultValue={costs?.accountOwner} className="h-12 rounded-xl" required /></div>
                         </>
                       ) : (
@@ -377,7 +343,7 @@ export default function TreasuryPage() {
                 </div>
                 <div className="p-4 border-2 border-dashed rounded-2xl flex flex-col items-center gap-2">
                   <QrCode className="h-20 w-20 text-slate-200" />
-                  <p className="text-[9px] font-bold text-slate-400">QR INTEROPERABLE HABILITADO</p>
+                  <p className="text-[9px] font-bold text-slate-400">QR SPI NACIONAL HABILITADO</p>
                 </div>
               </div>
             </Card>

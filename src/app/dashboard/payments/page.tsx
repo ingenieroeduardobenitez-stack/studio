@@ -22,10 +22,10 @@ import { cn } from "@/lib/utils"
  * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR / ITAU)
  */
 const cleanS = (s: string) => {
-  if (!str) return "";
+  if (!s) return "";
   return s.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+    .replace(/[^a-zA-Z0-9 ]/g, "") // Solo alfanumérico
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
@@ -39,10 +39,10 @@ const formatTag = (tag: string, value: string) => {
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); 
-    payload += formatTag("01", "12"); 
+    payload += formatTag("00", "01"); // Payload Format Indicator
+    payload += formatTag("01", "12"); // Method (12 = Dynamic with amount)
 
-    // Tag 26: Merchant Account Information
+    // Tag 26: Merchant Account Information (SIPAP/SPI Paraguay)
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
       const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -56,7 +56,7 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     }
     payload += formatTag("26", merchantInfo);
 
-    payload += formatTag("52", "0000"); // MCC
+    payload += formatTag("52", "8661"); // MCC: Religioso
     payload += formatTag("53", "600");  // Currency PYG
     
     if (amount > 0) {
