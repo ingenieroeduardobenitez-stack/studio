@@ -44,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase"
 import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection } from "firebase/firestore"
@@ -465,7 +466,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       <span className="text-lg font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString('es-PY') || 0} Gs.</span>
                    </div>
                 </div>
-                <Badge className={cn("rounded-lg h-7 font-black text-[10px]", submittedData?.paymentStatus === 'PAGADO' ? 'bg-green-500' : 'bg-orange-500 text-white')}>
+                <Badge className={cn("rounded-lg h-7 font-black text-[10px]", submittedData?.paymentStatus === 'PAGADO' ? 'bg-green-500 text-white' : 'bg-orange-500 text-white')}>
                    {submittedData?.paymentStatus}
                 </Badge>
              </div>
