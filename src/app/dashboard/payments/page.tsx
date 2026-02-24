@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -155,9 +154,13 @@ export default function PaymentsManagementPage() {
     }
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copiado" });
+  const formatYear = (year: string) => {
+    switch (year) {
+      case "PRIMER_AÑO": return "1° Año"
+      case "SEGUNDO_AÑO": return "2° Año"
+      case "ADULTOS": return "Adultos"
+      default: return year?.replace("_", " ")
+    }
   }
 
   if (!mounted) return null
@@ -167,7 +170,7 @@ export default function PaymentsManagementPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Cobros</h1>
-          <p className="text-muted-foreground">Registra pagos manuales o transferencias de alumnos.</p>
+          <p className="text-muted-foreground">Registra pagos manuales o transferencias de confirmandos.</p>
         </div>
       </div>
 
@@ -180,7 +183,7 @@ export default function PaymentsManagementPage() {
             </div>
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar alumno..." className="pl-9 bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <Input placeholder="Buscar confirmando..." className="pl-9 bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>
@@ -191,7 +194,8 @@ export default function PaymentsManagementPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50/50">
-                  <TableHead className="font-bold">Alumno</TableHead>
+                  <TableHead className="font-bold">Confirmando</TableHead>
+                  <TableHead className="font-bold text-center">Nivel</TableHead>
                   <TableHead className="font-bold text-center">Estado Pago</TableHead>
                   <TableHead className="font-bold text-center">Saldo Restante</TableHead>
                   <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
@@ -207,6 +211,11 @@ export default function PaymentsManagementPage() {
                           <Avatar className="h-9 w-9 border"><AvatarImage src={reg.photoUrl} /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar>
                           <div className="flex flex-col"><span className="font-bold text-sm">{reg.fullName}</span><span className="text-[10px] text-slate-500">{reg.ciNumber}</span></div>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="text-[10px] uppercase tracking-tighter">
+                          {formatYear(reg.catechesisYear)}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant={reg.paymentStatus === "PAGADO" ? "default" : "outline"} className={cn(reg.paymentStatus === "PAGADO" && "bg-green-500")}>

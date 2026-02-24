@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -159,12 +158,12 @@ export default function GroupChangePage() {
           {loadingRegs || loadingGroups ? (
             <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : filteredConfirmands.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground italic">Ingresa un término de búsqueda para encontrar alumnos.</div>
+            <div className="text-center py-20 text-muted-foreground italic">Ingresa un término de búsqueda para encontrar confirmandos.</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50/50">
-                  <TableHead className="font-bold">Alumno</TableHead>
+                  <TableHead className="font-bold">Confirmando</TableHead>
                   <TableHead className="font-bold">Año</TableHead>
                   <TableHead className="font-bold">Grupo Actual</TableHead>
                   <TableHead className="font-bold">Día</TableHead>

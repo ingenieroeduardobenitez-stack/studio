@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -122,9 +121,13 @@ export default function TreasuryPage() {
       .catch(() => toast({ variant: "destructive", title: "Error al registrar" }))
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copiado" });
+  const formatYear = (year: string) => {
+    switch (year) {
+      case "PRIMER_AÑO": return "1° Año"
+      case "SEGUNDO_AÑO": return "2° Año"
+      case "ADULTOS": return "Adultos"
+      default: return year?.replace("_", " ")
+    }
   }
 
   if (!mounted) return null
@@ -162,7 +165,8 @@ export default function TreasuryPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50/50">
-                      <TableHead className="font-bold">Alumno</TableHead>
+                      <TableHead className="font-bold">Confirmando</TableHead>
+                      <TableHead className="font-bold text-center">Nivel</TableHead>
                       <TableHead className="font-bold text-center">Estado</TableHead>
                       <TableHead className="font-bold text-center">Saldo Pendiente</TableHead>
                       <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
@@ -178,6 +182,11 @@ export default function TreasuryPage() {
                               <Avatar className="h-8 w-8 border"><AvatarImage src={reg.photoUrl} /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar>
                               <div className="flex flex-col"><span className="font-bold text-sm text-slate-900">{reg.fullName}</span><span className="text-[10px] text-muted-foreground">{reg.ciNumber}</span></div>
                             </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="secondary" className="text-[10px] uppercase tracking-tighter">
+                              {formatYear(reg.catechesisYear)}
+                            </Badge>
                           </TableCell>
                           <TableCell className="text-center">
                             <Badge variant={reg.paymentStatus === "PAGADO" ? "default" : "outline"} className={cn(reg.paymentStatus === "PAGADO" && "bg-green-500")}>
@@ -258,7 +267,7 @@ export default function TreasuryPage() {
                   <p className="text-xs text-slate-500 font-bold">{costs?.accountOwner || "---"}</p>
                 </div>
                 <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-[10px] text-blue-700 italic">
-                  * Estos datos aparecerán al finalizar la inscripción para que el alumno realice su transferencia.
+                  * Estos datos aparecerán al finalizar la inscripción para que el confirmando realice su transferencia.
                 </div>
               </div>
             </Card>

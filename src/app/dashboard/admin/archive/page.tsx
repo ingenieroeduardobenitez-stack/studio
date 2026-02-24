@@ -129,13 +129,13 @@ export default function ArchiveAdminPage() {
               <div className="p-2 bg-blue-50 rounded-xl"><ArrowUpCircle className="h-6 w-6 text-blue-500" /></div>
               <div>
                 <CardTitle>Promoción de 1° a 2° Año</CardTitle>
-                <CardDescription>Mueve a todos los alumnos de primer año al siguiente nivel.</CardDescription>
+                <CardDescription>Mueve a todos los confirmandos de primer año al siguiente nivel.</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border mb-4">
-              <span className="text-sm font-bold text-slate-600 uppercase tracking-widest">Alumnos Candidatos</span>
+              <span className="text-sm font-bold text-slate-600 uppercase tracking-widest">Confirmandos Candidatos</span>
               <span className="text-2xl font-bold text-blue-600">{stats.firstYear}</span>
             </div>
             <p className="text-xs text-slate-500 italic">
@@ -165,11 +165,11 @@ export default function ArchiveAdminPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border mb-4">
-              <span className="text-sm font-bold text-slate-600 uppercase tracking-widest">Alumnos por Graduarse</span>
+              <span className="text-sm font-bold text-slate-600 uppercase tracking-widest">Confirmandos por Graduarse</span>
               <span className="text-2xl font-bold text-accent">{stats.secondYear + stats.adults}</span>
             </div>
             <p className="text-xs text-slate-500 italic">
-              * Los alumnos seleccionados serán marcados como "Graduados" y no aparecerán en las listas activas el próximo año.
+              * Los confirmandos seleccionados serán marcados como "Graduados" y no aparecerán en las listas activas el próximo año.
             </p>
           </CardContent>
           <CardFooter>
@@ -190,13 +190,13 @@ export default function ArchiveAdminPage() {
             <CardTitle className="text-lg">Generación de Certificados</CardTitle>
             <CardDescription>Imprime las constancias de fin de año de forma individual.</CardDescription>
           </div>
-          <Badge variant="outline" className="bg-white">{activeStudents.length} alumnos activos</Badge>
+          <Badge variant="outline" className="bg-white">{activeStudents.length} activos</Badge>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/50">
-                <TableHead className="font-bold">Alumno</TableHead>
+                <TableHead className="font-bold">Confirmando</TableHead>
                 <TableHead className="font-bold">Año Actual</TableHead>
                 <TableHead className="font-bold">Estado</TableHead>
                 <TableHead className="text-right font-bold pr-8">Documento</TableHead>
@@ -206,7 +206,7 @@ export default function ArchiveAdminPage() {
               {loading ? (
                 <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto h-6 w-6 text-primary" /></TableCell></TableRow>
               ) : activeStudents.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">No hay alumnos activos para procesar.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">No hay confirmandos activos para procesar.</TableCell></TableRow>
               ) : (
                 activeStudents.map((student) => (
                   <TableRow key={student.id} className="hover:bg-slate-50/30">
