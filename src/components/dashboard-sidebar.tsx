@@ -20,7 +20,9 @@ import {
   Archive,
   Globe,
   ShieldCheck,
-  Contact
+  Contact,
+  BarChart3,
+  Receipt
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -58,6 +60,7 @@ const operationsItems = [
 
 const treasuryItems = [
   { id: "tesoreria", name: "Gestión Tesorería", href: "/dashboard/treasury", icon: Wallet },
+  { id: "estadisticas", name: "Estadísticas Financieras", href: "/dashboard/financial-stats", icon: BarChart3 },
 ]
 
 const adminItems = [
@@ -86,14 +89,14 @@ export function DashboardSidebar() {
   }, [db, user?.uid])
 
   const { data: profile } = useDoc(userProfileRef)
-  const logoData = PlaceHolderImages.find(img => img.id === "parish-logo")
 
   const isAdmin = profile?.role === "Administrador"
+  const isTesorero = profile?.role === "Tesorero"
   const allowedModules = profile?.allowedModules || []
 
   const filterItems = (items: any[]) => {
     if (!profile?.allowedModules || profile.allowedModules.length === 0) {
-      if (isAdmin) return items;
+      if (isAdmin || isTesorero) return items;
       return items.filter(item => !adminItems.find(ai => ai.id === item.id) && !treasuryItems.find(ti => ti.id === item.id));
     }
     return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));

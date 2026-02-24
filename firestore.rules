@@ -3,76 +3,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- FUNCIONES DE AYUDA ---
-
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
     function isAdmin() {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Administrador"
-      );
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Administrador";
     }
 
     function isTesorero() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Tesorero";
     }
 
-    // --- REGLAS DE COLECCIONES ---
-
-    // Perfiles de usuario
     match /users/{userId} {
       allow read: if isSignedIn();
-      // Tesorero puede escribir para registrar pagos de eventos en el perfil
-      allow write: if isOwner(userId) || isAdmin() || isTesorero();
+      allow write: if request.auth.uid == userId || isAdmin() || isTesorero();
     }
 
-    // Inscripciones (Confirmaciones)
     match /confirmations/{id} {
       allow create: if true;
       allow read, update, delete: if isSignedIn();
     }
 
-    // Grupos de catequesis
-    match /groups/{groupId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // Eventos especiales (Retiros, Jornadas, etc.)
     match /events/{eventId} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || isTesorero();
     }
 
-    // Ajustes de tesorería y costos
+    match /expenses/{expenseId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isTesorero();
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin() || isTesorero();
     }
 
-    // Auditoría
     match /audit_logs/{logId} {
       allow read: if isAdmin() || isTesorero();
       allow create: if isSignedIn();
     }
 
-    // Consulta de cédulas (Importación)
     match /cedulas/{cedulaId} {
       allow get: if true;
-    }
-
-    // Marcador de Administradores (DBAC)
-    match /roles_admin/{adminUid} {
-      allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow write: if false;
     }
   }
 }

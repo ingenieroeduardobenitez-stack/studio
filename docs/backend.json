@@ -40,16 +40,17 @@
         "eventPayments": { "type": "object" }
       }
     },
-    "Group": {
-      "title": "Group",
-      "description": "Grupo de catequesis",
+    "Expense": {
+      "title": "Expense",
+      "description": "Registro de egresos y compras de la parroquia",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "name": { "type": "string" },
-        "catequistaIds": { "type": "array", "items": { "type": "string" } },
-        "attendanceDay": { "type": "string" },
-        "catechesisYear": { "type": "string" }
+        "concept": { "type": "string" },
+        "amount": { "type": "number" },
+        "proofUrl": { "type": "string", "format": "uri" },
+        "date": { "type": "string", "format": "date-time" },
+        "registeredBy": { "type": "string" }
       }
     },
     "Event": {
@@ -88,6 +89,16 @@
           "description": "Eventos parroquiales con arancel",
           "params": [
             { "name": "eventId", "description": "ID del evento" }
+          ]
+        }
+      },
+      {
+        "path": "/expenses/{expenseId}",
+        "definition": {
+          "entityName": "Expense",
+          "description": "Registro de gastos",
+          "params": [
+            { "name": "expenseId", "description": "ID del gasto" }
           ]
         }
       },
