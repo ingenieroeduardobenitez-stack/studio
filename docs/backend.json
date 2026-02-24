@@ -37,7 +37,21 @@
         "amountPaid": { "type": "number" },
         "registrationCost": { "type": "number" },
         "paymentProofUrl": { "type": "string", "format": "uri" },
-        "eventPayments": { "type": "object" }
+        "eventPayments": { "type": "object" },
+        "groupId": { "type": "string" }
+      }
+    },
+    "Group": {
+      "title": "Group",
+      "description": "Grupo de catequesis asignado a catequistas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "catequistaIds": { "type": "array", "items": { "type": "string" } },
+        "attendanceDay": { "type": "string" },
+        "catechesisYear": { "type": "string" },
+        "schedule": { "type": "string" }
       }
     },
     "Expense": {
@@ -71,47 +85,25 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/confirmations/{confirmationId}",
-        "definition": {
-          "entityName": "Confirmation",
-          "description": "Colección principal de inscritos",
-          "params": [
-            { "name": "confirmationId", "description": "ID del registro" }
-          ]
-        }
-      },
-      {
-        "path": "/events/{eventId}",
-        "definition": {
-          "entityName": "Event",
-          "description": "Eventos parroquiales con arancel",
-          "params": [
-            { "name": "eventId", "description": "ID del evento" }
-          ]
-        }
-      },
-      {
-        "path": "/expenses/{expenseId}",
-        "definition": {
-          "entityName": "Expense",
-          "description": "Registro de gastos",
-          "params": [
-            { "name": "expenseId", "description": "ID del gasto" }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "description": "Perfiles de usuario",
-          "params": [
-            { "name": "userId", "description": "UID" }
-          ]
-        }
-      }
-    ]
+    "/confirmations/{confirmationId}": {
+      "schema": { "$ref": "#/entities/Confirmation" },
+      "description": "Colección principal de inscritos"
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/Event" },
+      "description": "Eventos parroquiales con arancel"
+    },
+    "/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Registro de gastos"
+    },
+    "/groups/{groupId}": {
+      "schema": { "$ref": "#/entities/Group" },
+      "description": "Grupos de catequesis"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Perfiles de usuario"
+    }
   }
 }

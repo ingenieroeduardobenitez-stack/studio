@@ -35,6 +35,11 @@ service cloud.firestore {
       allow write: if isAdmin() || isTesorero();
     }
 
+    match /groups/{groupId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin() || isTesorero();
