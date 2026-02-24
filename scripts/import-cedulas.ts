@@ -1,10 +1,9 @@
-
 /**
  * SCRIPT DE IMPORTACIÓN MASIVA DE EXCEL A FIRESTORE
  * 
  * Este script lee todos los archivos Excel de la carpeta /scripts (cedula1.xlsx, cedula2.xlsx, etc.)
  * y los sube a la colección 'cedulas' mapeando los campos específicos proporcionados por el usuario.
- * Optimizado para manejar cientos de miles de registros mediante batches.
+ * Optimizado para manejar cientos de miles de registros mediante batches y esperas controladas.
  */
 
 import * as XLSX from 'xlsx';
@@ -53,6 +52,11 @@ function formatDate(val: any): string {
   return String(val).trim();
 }
 
+/**
+ * Espera controlada para evitar saturar el flujo de escritura de Firestore
+ */
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function importExcel() {
   const scriptsDir = path.join(process.cwd(), 'scripts');
   
@@ -73,7 +77,7 @@ async function importExcel() {
 
   if (files.length === 0) {
     console.log("❌ No se encontraron archivos Excel (cedula1.xlsx, etc.) en la carpeta /scripts");
-    console.log("💡 Instrucciones: Sube tus 17 archivos a la carpeta 'scripts' y vuelve a ejecutar.");
+    console.log("💡 Instrucciones: Sube tus archivos a la carpeta 'scripts' y vuelve a ejecutar.");
     return;
   }
 
@@ -102,7 +106,7 @@ async function importExcel() {
         // Mapeo exacto según los campos del usuario
         const cedulaNumber = String(row.NUMERO_CED || "").trim();
         
-        if (!cedulaNumber || cedulaNumber === "undefined" || cedulaNumber === "") continue;
+        if (!cedulaNumber || cedulaNumber === "undefined" || cedulaNumber === "" || cedulaNumber === "null") continue;
 
         const docRef = doc(db, 'cedulas', cedulaNumber);
         
@@ -124,29 +128,41 @@ async function importExcel() {
         batch.set(docRef, cedulaData, { merge: true });
 
         count++;
-        totalProcessed++;
 
         // Firestore limita batches a 500 operaciones
         if (count % 500 === 0) {
           await batch.commit();
+          totalProcessed += 500;
           batch = writeBatch(db);
+          
           const elapsed = (Date.now() - startTime) / 1000;
           process.stdout.write(`\r🚀 Progreso Global: ${totalProcessed} registros | Tiempo: ${elapsed.toFixed(1)}s`);
+          
+          // Pequeña pausa cada 2500 registros para no saturar los límites de Firestore en ráfagas grandes
+          if (totalProcessed % 2500 === 0) {
+            await sleep(200); 
+          }
         }
       }
 
       // Subir el remanente del archivo actual
-      await batch.commit();
-      console.log(`\n🎉 Finalizado archivo ${file}. Registros subidos: ${count}.`);
+      if (count % 500 !== 0) {
+        await batch.commit();
+        totalProcessed += (count % 500);
+      }
+      
+      console.log(`\n🎉 Finalizado archivo ${file}. Registros subidos en este archivo: ${count}.`);
 
     } catch (error) {
       console.error(`\n❌ Error crítico procesando el archivo ${file}:`, error);
+      console.log("💡 Verificando si las reglas de Firestore permiten escritura en la colección 'cedulas'...");
+      break; // Detener si hay un error de permisos
     }
   }
 
   const totalTime = (Date.now() - startTime) / 1000;
-  console.log(`\n✨ PROCESO COMPLETO ✨`);
-  console.log(`📊 Total global de registros importados: ${totalProcessed}`);
+  console.log(`\n✨ PROCESO FINALIZADO ✨`);
+  console.log(`📊 Total global de registros procesados con éxito: ${totalProcessed}`);
   console.log(`⏱️ Tiempo total de ejecución: ${totalTime.toFixed(1)} segundos`);
   process.exit(0);
 }
