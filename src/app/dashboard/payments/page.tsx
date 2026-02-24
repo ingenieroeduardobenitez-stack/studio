@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -289,6 +288,10 @@ export default function PaymentsManagementPage() {
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Recibo de Cobro</DialogTitle>
+            <DialogDescription>Comprobante de pago para el confirmando.</DialogDescription>
+          </DialogHeader>
           <div className="p-10 bg-white space-y-8" id="receipt-print">
             <div className="flex items-center justify-between border-b pb-6">
               <Church className="h-10 w-10 text-primary" />

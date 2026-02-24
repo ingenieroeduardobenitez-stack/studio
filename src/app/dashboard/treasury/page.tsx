@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -298,6 +297,10 @@ export default function TreasuryPage() {
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Recibo de Pago</DialogTitle>
+            <DialogDescription>Comprobante de cobro de inscripción parroquial.</DialogDescription>
+          </DialogHeader>
           <div className="p-10 bg-white space-y-8" id="receipt-content">
             <div className="flex items-center justify-between border-b pb-6">
               <Church className="h-10 w-10 text-primary" />

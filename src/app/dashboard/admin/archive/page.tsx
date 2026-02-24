@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -20,7 +19,7 @@ import {
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
@@ -253,6 +252,10 @@ export default function ArchiveAdminPage() {
 
       <Dialog open={isCertificateOpen} onOpenChange={setIsCertificateOpen}>
         <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Certificado de Catequesis</DialogTitle>
+            <DialogDescription>Documento oficial de finalización de etapa.</DialogDescription>
+          </DialogHeader>
           <div className="p-16 bg-white space-y-12 relative print:p-8" id="certificate-print">
             <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
               <Church className="h-96 w-96 text-primary" />
