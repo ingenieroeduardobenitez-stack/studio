@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -38,7 +39,10 @@
         "paymentProofUrl": { "type": "string", "format": "uri" },
         "eventPayments": { "type": "object" },
         "groupId": { "type": "string" },
-        "absenceCount": { "type": "number", "default": 0 }
+        "absenceCount": { "type": "number", "default": 0 },
+        "isArchived": { "type": "boolean", "default": false },
+        "withdrawalReason": { "type": "string" },
+        "withdrawalDate": { "type": "string", "format": "date-time" }
       }
     },
     "Attendance": {
@@ -122,6 +126,9 @@
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
       "description": "Perfiles de usuario"
+    },
+    "/audit_logs/{logId}": {
+      "description": "Registros de auditoría de acciones del personal"
     }
   }
 }

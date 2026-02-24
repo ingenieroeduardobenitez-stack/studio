@@ -29,7 +29,8 @@ import {
   X,
   Eye,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  UserMinus
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc } from "firebase/firestore"
@@ -72,6 +73,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 
 type ViewMode = "LIST" | "GROUPS"
 
@@ -82,9 +84,11 @@ export default function RegistrationsListPage() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
+  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false)
   const [isProofViewOpen, setIsProofViewOpen] = useState(false)
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [newGroupId, setNewGroupId] = useState<string>("")
+  const [withdrawalReason, setWithdrawalReason] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { toast } = useToast()
@@ -108,9 +112,12 @@ export default function RegistrationsListPage() {
 
   const filteredRegistrations = useMemo(() => {
     if (!registrations) return []
+    // Solo mostrar los NO archivados en la lista de gestión activa
     return registrations.filter(reg => 
-      reg.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reg.ciNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+      !reg.isArchived && (
+        reg.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        reg.ciNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
     )
   }, [registrations, searchTerm])
 
@@ -184,6 +191,42 @@ export default function RegistrationsListPage() {
     }
   }
 
+  const handleWithdrawConfirmand = async () => {
+    if (!db || !selectedReg || !withdrawalReason) {
+      toast({ variant: "destructive", title: "Atención", description: "Debes ingresar un motivo de baja." })
+      return
+    }
+    
+    setIsSubmitting(true)
+    try {
+      await updateDoc(doc(db, "confirmations", selectedReg.id), {
+        status: "BAJA",
+        isArchived: true,
+        withdrawalReason: withdrawalReason,
+        withdrawalDate: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Baja de Confirmando",
+        module: "inscripcion",
+        details: `Baja de ${selectedReg.fullName}. Motivo: ${withdrawalReason}`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Confirmando dado de baja", description: "El ciclo ha sido cerrado correctamente." })
+      setIsWithdrawDialogOpen(false)
+      setWithdrawalReason("")
+    } catch (error) {
+      console.error(error)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar la baja." })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleDeleteRegistration = async () => {
     if (!db || !selectedReg) return
     setIsSubmitting(true)
@@ -206,6 +249,12 @@ export default function RegistrationsListPage() {
     setIsAssignDialogOpen(true)
   }
 
+  const openWithdrawDialog = (reg: any) => {
+    setSelectedReg(reg)
+    setWithdrawalReason("")
+    setIsWithdrawDialogOpen(true)
+  }
+
   const openDeleteDialog = (reg: any) => {
     setSelectedReg(reg)
     setIsDeleteDialogOpen(true)
@@ -222,6 +271,7 @@ export default function RegistrationsListPage() {
       case "POR_VALIDAR": return <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">Por Validar</Badge>
       case "PENDIENTE_PAGO": return <Badge variant="outline" className="text-blue-500 border-blue-200">Pendiente Pago</Badge>
       case "OBSERVADO": return <Badge variant="destructive">Observado</Badge>
+      case "BAJA": return <Badge variant="destructive" className="bg-slate-900">Baja</Badge>
       case "ARCHIVADO": return <Badge variant="outline" className="bg-slate-100">Archivado</Badge>
       default: return <Badge variant="outline">{status}</Badge>
     }
@@ -289,7 +339,7 @@ export default function RegistrationsListPage() {
         ) : filteredRegistrations.length === 0 ? (
           <div className="py-20 text-center bg-white rounded-3xl border shadow-sm">
             <User className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-500 font-medium">No se encontraron inscripciones.</p>
+            <p className="text-slate-500 font-medium">No se encontraron inscripciones activas.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -313,8 +363,9 @@ export default function RegistrationsListPage() {
                         students={registrationsByGroup["none"]} 
                         formatYear={formatCatechesisYear} 
                         getBadge={getStatusBadge} 
-                        isAdmin={isAdmin || isTesorero} 
+                        isAdmin={isAdmin} 
                         onAssignGroup={openAssignDialog}
+                        onWithdraw={openWithdrawDialog}
                         onDelete={openDeleteDialog}
                         onViewDetails={openDetailsDialog}
                       />
@@ -343,7 +394,7 @@ export default function RegistrationsListPage() {
                               </Badge>
                             </div>
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                              {group.attendanceDay}s • {groupStudents.length} alumnos
+                              {group.attendanceDay}s • {groupStudents.length} confirmandos
                             </p>
                           </div>
                         </div>
@@ -353,8 +404,9 @@ export default function RegistrationsListPage() {
                           students={groupStudents} 
                           formatYear={formatCatechesisYear} 
                           getBadge={getStatusBadge} 
-                          isAdmin={isAdmin || isTesorero} 
+                          isAdmin={isAdmin} 
                           onAssignGroup={openAssignDialog}
+                          onWithdraw={openWithdrawDialog}
                           onDelete={openDeleteDialog}
                           onViewDetails={openDetailsDialog}
                         />
@@ -468,6 +520,49 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
+      {/* DIALOGO DE DAR DE BAJA (JUSTIFICAR BAJA) */}
+      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <UserMinus className="h-6 w-6 text-red-400" />
+              <DialogTitle>Dar de Baja a Confirmando</DialogTitle>
+            </div>
+            <DialogDescription className="text-slate-400">
+              Cerrar el ciclo para: <span className="font-bold text-white">{selectedReg?.fullName}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-orange-800 leading-relaxed font-medium">
+                Esta acción cerrará el ciclo del confirmando para el año actual. No podrá registrar asistencia ni aparecerá en las listas regulares.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <Label className="font-bold text-slate-700">Justificar Baja (Motivo)</Label>
+              <Textarea 
+                placeholder="Ej. Abandono voluntario, mudanza, cambio de parroquia, etc." 
+                className="rounded-xl min-h-[120px] bg-slate-50 border-slate-200 resize-none"
+                value={withdrawalReason}
+                onChange={(e) => setWithdrawalReason(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button>
+            <Button 
+              className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 font-bold shadow-lg"
+              onClick={handleWithdrawConfirmand}
+              disabled={isSubmitting || !withdrawalReason}
+            >
+              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Confirmar Baja"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* VISTA AMPLIADA DEL COMPROBANTE */}
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
@@ -502,13 +597,13 @@ export default function RegistrationsListPage() {
       </Dialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="bg-destructive">Eliminar</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer y borrará permanentemente la ficha.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="bg-destructive text-white">Eliminar Definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
     </div>
   )
 }
 
-function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, onDelete, onViewDetails }: any) {
+function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, onWithdraw, onDelete, onViewDetails }: any) {
   return (
     <Table>
       <TableHeader className="bg-slate-50/30"><TableRow><TableHead className="w-[60px] pl-6"></TableHead><TableHead className="font-bold text-xs uppercase">Confirmando</TableHead><TableHead className="font-bold text-xs uppercase">C.I. N°</TableHead><TableHead className="font-bold text-xs uppercase">Año</TableHead><TableHead className="font-bold text-xs uppercase">Estado</TableHead><TableHead className="text-right font-bold text-xs uppercase pr-8">Acciones</TableHead></TableRow></TableHeader>
@@ -523,12 +618,20 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
             <TableCell className="text-right pr-8">
               <div className="flex justify-end gap-2">
                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onViewDetails(reg)}><Eye className="h-4 w-4 text-slate-400" /></Button>
-                {isAdmin && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-xl p-2 shadow-xl border-none"><DropdownMenuItem onClick={() => onAssignGroup(reg)} className="gap-2"><UserPlus className="h-4 w-4" /> Asignar Grupo</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => onDelete(reg)} className="text-destructive gap-2"><Trash2 className="h-4 w-4" /> Eliminar</DropdownMenuItem></DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="rounded-xl p-2 shadow-xl border-none">
+                    <DropdownMenuLabel className="text-[10px] uppercase text-slate-400 px-3 py-2">Opciones de Gestión</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => onAssignGroup(reg)} className="gap-2 h-10 rounded-lg"><UserPlus className="h-4 w-4" /> Asignar Grupo</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {isAdmin && (
+                      <>
+                        <DropdownMenuItem onClick={() => onWithdraw(reg)} className="text-orange-600 gap-2 h-10 rounded-lg"><UserMinus className="h-4 w-4" /> Dar de Baja</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDelete(reg)} className="text-destructive gap-2 h-10 rounded-lg"><Trash2 className="h-4 w-4" /> Eliminar Ficha</DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </TableCell>
           </TableRow>
