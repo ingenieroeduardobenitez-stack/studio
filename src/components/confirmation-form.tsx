@@ -54,6 +54,7 @@ import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { Label } from "@/components/ui/label"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -105,6 +106,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
+  
+  const [customPaymentAmount, setCustomPaymentAmount] = useState<number>(0)
   
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -182,6 +185,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const hasBaptism = watch("hasBaptism")
   const catechesisYear = watch("catechesisYear")
 
+  const totalCost = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
+
   useEffect(() => {
     if (birthDate) {
       const birth = new Date(birthDate)
@@ -194,6 +199,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       setValue("age", calculatedAge >= 0 ? calculatedAge : 0)
     }
   }, [birthDate, setValue])
+
+  useEffect(() => {
+    if (!isPublic && totalCost > 0) {
+      setCustomPaymentAmount(totalCost)
+    }
+  }, [totalCost, isPublic])
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -308,9 +319,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }
 
-  const totalCost = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
-
-  const handleRegistration = async (values: FormValues, immediatePayment = false) => {
+  const handleRegistration = async (values: FormValues, immediatePayment = false, amount = 0) => {
     if (!db) return;
     
     if (isPublic && !values.paymentProofUrl) {
@@ -324,6 +333,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const regId = `conf_${Date.now()}`
     const regRef = doc(db, "confirmations", regId)
     
+    const amountToRegister = immediatePayment ? amount : 0
+    const paymentStatus = amountToRegister >= totalCost ? "PAGADO" : (amountToRegister > 0 ? "PARCIAL" : "PENDIENTE")
+    
     const registrationData = {
       userId: user?.uid || "public_registration",
       ...values,
@@ -331,8 +343,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       attendanceStatus: "PENDIENTE",
       needsRecovery: false,
       registrationCost: totalCost,
-      amountPaid: immediatePayment ? totalCost : 0,
-      paymentStatus: immediatePayment ? "PAGADO" : "PENDIENTE",
+      amountPaid: amountToRegister,
+      paymentStatus: paymentStatus,
       validatedAt: immediatePayment ? serverTimestamp() : null,
       validatedBy: immediatePayment && profile ? `${profile.firstName} ${profile.lastName}` : null,
       createdAt: serverTimestamp()
@@ -343,9 +355,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "public",
         userName: profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Usuario Público" : "Sistema"),
-        action: immediatePayment ? "Inscripción con Pago Directo" : "Envío de Inscripción",
+        action: immediatePayment ? "Inscripción con Pago" : "Envío de Inscripción",
         module: "inscripcion",
-        details: `${immediatePayment ? 'Pago confirmado en el acto. ' : ''}Inscripción completa de ${values.fullName}`,
+        details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString()} Gs. confirmado. ` : ''}Inscripción completa de ${values.fullName}`,
         timestamp: serverTimestamp()
       })
       
@@ -377,8 +389,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const handleShareReceipt = () => {
     if (!submittedData) return
-    const amount = submittedData.registrationCost || 0;
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada con éxito.\n\n*Recibo de Pago N°:* ${submittedData.id?.slice(-6).toUpperCase()}\n*Monto:* ${amount.toLocaleString()} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PENDIENTE'}\n\n_Secretaría de Catequesis_`)
+    const amount = submittedData.amountPaid || 0;
+    const pending = (submittedData.registrationCost || 0) - amount;
+    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo de Pago N°:* ${submittedData.id?.slice(-6).toUpperCase()}\n*Monto entregado:* ${amount.toLocaleString()} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString()} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -394,7 +407,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <p className="text-slate-500 font-medium">Se ha generado la ficha de <span className="text-primary font-bold">{submittedData?.fullName}</span>.</p>
           </div>
 
-          {/* COMPROBANTE VISUAL / IMPRIMIBLE */}
           <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden" id="receipt-area">
              <div className="flex justify-between items-start border-b border-slate-200 pb-4">
                 <div className="space-y-1">
@@ -434,7 +446,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="flex items-center gap-3">
                    <div className="p-2 bg-green-50 rounded-lg"><Wallet className="h-4 w-4 text-green-600" /></div>
                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Recibido</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Entregado</span>
                       <span className="text-lg font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString() || 0} Gs.</span>
                    </div>
                 </div>
@@ -442,6 +454,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                    {submittedData?.paymentStatus}
                 </Badge>
              </div>
+             
+             {(submittedData?.registrationCost - submittedData?.amountPaid) > 0 && (
+               <p className="text-[10px] font-bold text-red-500 text-right uppercase italic">
+                 Saldo Pendiente: {((submittedData?.registrationCost || 0) - (submittedData?.amountPaid || 0)).toLocaleString()} Gs.
+               </p>
+             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -733,7 +751,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="grid gap-6 md:grid-cols-2 bg-slate-50 p-8 rounded-[2rem] border border-slate-200">
                   <div className="space-y-4">
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Monto a Transferir</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Arancel del Nivel</p>
                       <p className="text-3xl font-black text-primary">{mounted ? totalCost.toLocaleString() : "..."} Gs.</p>
                     </div>
                     
@@ -788,7 +806,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </CardContent>
 
-            <CardFooter className="bg-slate-50 p-10 border-t flex flex-col md:flex-row items-center justify-end gap-4">
+            <CardFooter className="bg-slate-50 p-10 border-t flex flex-col md:flex-row items-center justify-end gap-6">
               <div className="flex items-center gap-4 flex-1">
                 <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100 shrink-0">
                   <Info className="h-6 w-6 text-blue-500" />
@@ -798,26 +816,43 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
                 {!isPublic && (
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    disabled={loading || loadingWithPayment} 
-                    className="h-14 border-green-600 text-green-700 hover:bg-green-50 rounded-2xl px-8 font-bold gap-2 transition-all active:scale-95"
-                    onClick={form.handleSubmit((v) => handleRegistration(v, true))}
-                  >
-                    {loadingWithPayment ? <Loader2 className="animate-spin h-5 w-5" /> : <><CheckCircle2 className="h-5 w-5" /> Confirmar Pago y Registrar</>}
-                  </Button>
+                  <div className="flex flex-col gap-2 min-w-[180px]">
+                    <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Monto Recibido (Gs.)</Label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input 
+                        type="number" 
+                        value={customPaymentAmount} 
+                        onChange={(e) => setCustomPaymentAmount(Number(e.target.value))}
+                        className="h-14 rounded-2xl pl-10 text-lg font-black text-primary border-primary/20 bg-white"
+                      />
+                    </div>
+                  </div>
                 )}
-                
-                <Button 
-                  type="submit" 
-                  disabled={loading || loadingWithPayment} 
-                  className="h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl px-12 font-bold shadow-xl transition-all active:scale-95"
-                >
-                  {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <span>Completar Inscripción</span>}
-                </Button>
+
+                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                  {!isPublic && (
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      disabled={loading || loadingWithPayment} 
+                      className="h-14 border-green-600 text-green-700 hover:bg-green-50 rounded-2xl px-8 font-bold gap-2 transition-all active:scale-95 shadow-sm"
+                      onClick={form.handleSubmit((v) => handleRegistration(v, true, customPaymentAmount))}
+                    >
+                      {loadingWithPayment ? <Loader2 className="animate-spin h-5 w-5" /> : <><CheckCircle2 className="h-5 w-5" /> Confirmar Pago y Registrar</>}
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    type="submit" 
+                    disabled={loading || loadingWithPayment} 
+                    className="h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl px-12 font-bold shadow-xl transition-all active:scale-95"
+                  >
+                    {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <span>Completar Inscripción</span>}
+                  </Button>
+                </div>
               </div>
             </CardFooter>
           </form>
