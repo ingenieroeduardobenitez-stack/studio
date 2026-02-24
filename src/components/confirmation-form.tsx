@@ -118,11 +118,22 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setMounted(true)
   }, [])
 
-  // Callback Ref para asegurar la conexión del stream al video apenas aparezca en el DOM
+  // Callback Ref optimizado para evitar interrupciones de carga (play() interrupted)
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
-      node.srcObject = currentStream;
-      node.play().catch(err => console.error("Error auto-playing video:", err));
+      // Solo asignar si el stream ha cambiado realmente
+      if (node.srcObject !== currentStream) {
+        node.srcObject = currentStream;
+        const playPromise = node.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            // Silenciar AbortError que es normal cuando el stream se cierra o cambia rápido
+            if (err.name !== 'AbortError') {
+              console.error("Error auto-playing video:", err);
+            }
+          });
+        }
+      }
     }
     videoRef.current = node;
   }, [currentStream]);
