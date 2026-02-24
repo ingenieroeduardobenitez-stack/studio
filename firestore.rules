@@ -22,6 +22,10 @@ service cloud.firestore {
       );
     }
 
+    function isTesorero() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Tesorero";
+    }
+
     // --- REGLAS DE COLECCIONES ---
 
     // Perfiles de usuario
@@ -44,10 +48,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Eventos especiales (Retiros, Jornadas, etc.)
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isTesorero();
+    }
+
     // Ajustes de tesorería y costos
     match /settings/{settingId} {
       allow read: if true; // Público para ver costos en el formulario
-      allow write: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Tesorero");
+      allow write: if isAdmin() || isTesorero();
     }
 
     // Auditoría
