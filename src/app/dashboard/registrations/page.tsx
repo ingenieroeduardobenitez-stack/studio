@@ -291,7 +291,7 @@ export default function RegistrationsListPage() {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Recibo-PS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
+      pdf.save(`Recibo-Santuario-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
       
       toast({ title: "Descarga completada", description: "El PDF ha sido generado correctamente." });
     } catch (err) {
@@ -307,7 +307,7 @@ export default function RegistrationsListPage() {
     const amount = selectedReg.amountPaid || 0;
     const pending = (selectedReg.registrationCost || 0) - amount;
     const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${selectedReg.fullName}*! Comprobante de *Catequesis de Confirmación 2026*.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto registrado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo:* ${pending === 0 ? '✅ CANCELADO' : `${pending.toLocaleString('es-PY')} Gs. PENDIENTE`}\n\n_Secretaría de Tesorería_`)
+    const message = encodeURIComponent(`⛪ *Santuario Nacional Nuestra Señora del Perpetuo Socorro*\n\n¡Hola *${selectedReg.fullName}*! Comprobante de *Catequesis de Confirmación 2026*.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto registrado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo:* ${pending === 0 ? '✅ CANCELADO' : `${pending.toLocaleString('es-PY')} Gs. PENDIENTE`}\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -368,7 +368,7 @@ export default function RegistrationsListPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Lista de Confirmandos</h1>
-          <p className="text-muted-foreground">Consulta y valida los registros de la parroquia.</p>
+          <p className="text-muted-foreground">Consulta y valida los registros del Santuario Nacional.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
@@ -524,11 +524,11 @@ export default function RegistrationsListPage() {
                     <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
                       <img 
                         src="/logo-recibo.png" 
-                        alt="Parroquia Perpetuo Socorro" 
+                        alt="Santuario Nacional NSPS" 
                         className="max-h-24 object-contain"
                         onError={(e) => { e.currentTarget.src = "/logo.png" }}
                       />
-                      <div className="absolute top-1 right-2 text-[8px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
+                      <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right leading-tight">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
                     </div>
                     <div className="flex flex-col gap-2 h-full justify-between">
                       <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
@@ -594,14 +594,14 @@ export default function RegistrationsListPage() {
                     <div className="flex flex-col items-center md:items-end gap-3">
                       <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
                         <QRCodeCanvas 
-                          value={`VERIFICADO-PS-${selectedReg?.id}-${selectedReg?.amountPaid}-${selectedReg?.receiptNumber}`}
+                          value={`VERIFICADO-NSPS-${selectedReg?.id}-${selectedReg?.amountPaid}-${selectedReg?.receiptNumber}`}
                           size={80}
                           level="H"
                         />
                       </div>
                       <div className="text-right">
                         <p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
-                        <p className="text-xs font-bold text-slate-900 uppercase mt-1">{selectedReg?.validatedBy || 'Secretaría Parroquial'}</p>
+                        <p className="text-xs font-bold text-slate-900 uppercase mt-1">{selectedReg?.validatedBy || 'Secretaría del Santuario'}</p>
                         <p className="text-[8px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p>
                       </div>
                     </div>
@@ -695,7 +695,7 @@ export default function RegistrationsListPage() {
             <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
               <p className="text-xs text-orange-800 leading-relaxed font-medium">
-                Esta acción cerrará el ciclo del confirmando para el año actual. No podrá registrar asistencia ni aparecerá en las listas regulares.
+                Esta acción cerrará el ciclo del confirmando para el año actual en el Santuario Nacional. No podrá registrar asistencia ni aparecerá en las listas regulares.
               </p>
             </div>
             <div className="space-y-3">
@@ -754,7 +754,7 @@ export default function RegistrationsListPage() {
       </Dialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer y borrará permanentemente la ficha.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="bg-destructive text-white">Eliminar Definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer y borrará permanentemente la ficha del Santuario Nacional.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="bg-destructive text-white">Eliminar Definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
     </div>
   )

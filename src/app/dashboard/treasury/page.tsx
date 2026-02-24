@@ -168,7 +168,7 @@ export default function TreasuryPage() {
     
     setIsSubmittingPayment(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero Parroquial"
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero del Santuario"
     
     try {
       await runTransaction(db, async (transaction) => {
@@ -204,9 +204,7 @@ export default function TreasuryPage() {
       });
       
       toast({ title: "Pago confirmado exitosamente" })
-      // Necesitamos actualizar el selectedReg localmente para que el recibo muestre el número recién generado
       const updatedReg = { ...selectedReg };
-      // El número asignado es el que estaba antes del incremento
       const assignedNum = costs?.nextReceiptNumber || 1;
       updatedReg.receiptNumber = `001-001-${String(assignedNum).padStart(7, '0')}`;
       updatedReg.amountPaid = (selectedReg.amountPaid || 0) + paymentAmount;
@@ -226,7 +224,7 @@ export default function TreasuryPage() {
   const handleShareReceipt = () => {
     if (!selectedReg) return
     const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\nRecibo Oficial N°: ${receiptNum}\n\n_Secretaría de Tesorería_`)
+    const message = encodeURIComponent(`⛪ *Santuario Nacional Ntra. Sra. del Perpetuo Socorro*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\nRecibo Oficial N°: ${receiptNum}\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -256,7 +254,7 @@ export default function TreasuryPage() {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Recibo-Tesoreria-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
+      pdf.save(`Recibo-Tesorería-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
       
       toast({ title: "PDF Generado", description: "El recibo se ha descargado correctamente." });
     } catch (err) {
@@ -363,8 +361,8 @@ export default function TreasuryPage() {
             <Church className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Tesorería Parroquial</h1>
-            <p className="text-muted-foreground font-medium">Registro de Confirmación 2026 • Perpetuo Socorro</p>
+            <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Tesorería Institucional</h1>
+            <p className="text-muted-foreground font-medium">Santuario Nacional Nuestra Señora del Perpetuo Socorro • 2026</p>
           </div>
         </div>
       </div>
@@ -383,7 +381,7 @@ export default function TreasuryPage() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <CardTitle>Control de Cobros de Inscripción</CardTitle>
-                  <CardDescription>Valida los pagos y genera recibos oficiales.</CardDescription>
+                  <CardDescription>Valida los pagos y genera recibos oficiales del Santuario.</CardDescription>
                 </div>
                 <div className="relative w-full md:w-72">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -459,7 +457,7 @@ export default function TreasuryPage() {
             <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Eventos Especiales</CardTitle>
-                <CardDescription>Crea conceptos de cobro para retiros o encuentros.</CardDescription>
+                <CardDescription>Crea conceptos de cobro para encuentros del Santuario.</CardDescription>
               </div>
               <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
                 <DialogTrigger asChild><Button className="bg-primary hover:bg-primary/90 font-bold gap-2 h-11 rounded-xl shadow-lg"><Plus className="h-4 w-4" /> Nuevo Evento</Button></DialogTrigger>
@@ -503,7 +501,7 @@ export default function TreasuryPage() {
             <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Gestión de Egresos</CardTitle>
-                <CardDescription>Registro de compras, insumos y gastos generales.</CardDescription>
+                <CardDescription>Registro de compras e insumos del Santuario Nacional.</CardDescription>
               </div>
               <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
                 <DialogTrigger asChild><Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold gap-2 h-11 rounded-xl shadow-lg"><Plus className="h-4 w-4" /> Registrar Gasto</Button></DialogTrigger>
@@ -511,7 +509,7 @@ export default function TreasuryPage() {
                   <form onSubmit={handleCreateExpense} className="space-y-6">
                     <DialogHeader>
                       <DialogTitle>Nuevo Comprobante de Egreso</DialogTitle>
-                      <DialogDescription>Ingresa los detalles de la compra y adjunta el comprobante legal.</DialogDescription>
+                      <DialogDescription>Ingresa los detalles de la compra institucional.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2"><Label>Concepto / Detalle de Compra</Label><Input name="concept" placeholder="Ej. Compra de Merienda para Retiro" required className="h-12 rounded-xl" /></div>
@@ -642,7 +640,6 @@ export default function TreasuryPage() {
         </TabsContent>
       </Tabs>
 
-      {/* DIALOGO CONFIRMAR PAGO */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -682,12 +679,11 @@ export default function TreasuryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* RECIBO OFICIAL ACTUALIZADO */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-xl">
           <DialogHeader className="sr-only">
             <DialogTitle>Recibo de Pago Oficial</DialogTitle>
-            <DialogDescription>Comprobante de cobro parroquial.</DialogDescription>
+            <DialogDescription>Comprobante de cobro del Santuario Nacional.</DialogDescription>
           </DialogHeader>
           
           <ScrollArea className="max-h-[85vh]">
@@ -696,16 +692,15 @@ export default function TreasuryPage() {
                 className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-6 shadow-sm transform scale-[0.95] origin-top" 
                 id="receipt-content-official"
               >
-                {/* Cabecera con Logo y Nro de Recibo */}
                 <div className="grid grid-cols-3 gap-4 items-center mb-6">
                   <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
                     <img 
                       src="/logo-recibo.png" 
-                      alt="Logo Parroquia" 
+                      alt="Logo Santuario" 
                       className="max-h-24 object-contain" 
                       onError={(e) => { e.currentTarget.src = "/logo.png" }}
                     />
-                    <div className="absolute top-1 right-2 text-[8px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
+                    <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right leading-tight">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
                   </div>
                   <div className="flex flex-col gap-2 h-full justify-between">
                     <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
@@ -771,15 +766,15 @@ export default function TreasuryPage() {
                   <div className="flex flex-col items-center md:items-end gap-3">
                     <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
                       <QRCodeCanvas 
-                        value={`RECIBO-PS-${selectedReg?.id}-${paymentAmount}-${selectedReg?.receiptNumber}`}
+                        value={`RECIBO-NSPS-${selectedReg?.id}-${paymentAmount}-${selectedReg?.receiptNumber}`}
                         size={80}
                         level="H"
                       />
                     </div>
                     <div className="text-right">
                       <p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
-                      <p className="text-xs font-bold text-slate-900 uppercase mt-1">{selectedReg?.validatedBy || (profile ? `${profile.firstName} ${profile.lastName}` : 'Tesorero')}</p>
-                      <p className="text-[8px] text-slate-500 font-bold uppercase">{profile?.role || 'Personal Parroquial'}</p>
+                      <p className="text-xs font-bold text-slate-900 uppercase mt-1">{selectedReg?.validatedBy || (profile ? `${profile.firstName} ${profile.lastName}` : 'Secretaría del Santuario')}</p>
+                      <p className="text-[8px] text-slate-500 font-bold uppercase">{profile?.role || 'Personal Institucional'}</p>
                     </div>
                   </div>
                 </div>

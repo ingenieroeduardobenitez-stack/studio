@@ -1,3 +1,4 @@
+
 "use client"
 
 import { ConfirmationForm } from "@/components/confirmation-form"
@@ -29,8 +30,8 @@ export default function PublicRegistrationPage() {
           </Link>
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Parroquia</p>
-              <p className="text-xs font-bold text-primary uppercase">Perpetuo Socorro</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Santuario Nacional</p>
+              <p className="text-[9px] font-black text-primary uppercase leading-tight">Ntra. Sra. del Perpetuo Socorro</p>
             </div>
             <div className="bg-white p-2 rounded-xl border shadow-sm">
               <Church className="h-6 w-6 text-primary" />
@@ -40,8 +41,8 @@ export default function PublicRegistrationPage() {
 
         <div className="text-center space-y-3">
           <h1 className="text-4xl font-headline font-bold text-primary tracking-tight md:text-5xl">Formulario de Inscripción</h1>
-          <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto">
-            Bienvenido al proceso de inscripción para la Catequesis de Confirmación 2026. Por favor, completa los datos con cuidado.
+          <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto italic">
+            Bienvenido al proceso de inscripción para la Catequesis de Confirmación 2026. Santuario Nacional Nuestra Señora del Perpetuo Socorro.
           </p>
         </div>
 
@@ -49,7 +50,7 @@ export default function PublicRegistrationPage() {
         
         <div className="text-center pt-8">
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-            Sistema de Gestión Parroquial • © {new Date().getFullYear()}
+            Sistema de Gestión de Santuarios • © {new Date().getFullYear()}
           </p>
         </div>
       </div>

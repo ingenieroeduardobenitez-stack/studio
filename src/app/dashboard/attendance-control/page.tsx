@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
@@ -58,7 +59,10 @@ export default function AttendanceControlPage() {
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
   const { data: groups } = useCollection(groupsQuery)
 
-  const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
+  const regsQuery = useMemoFirebase(() => {
+    if (!db || !currentUser) return null
+    return collection(db, "confirmations")
+  }, [db, currentUser])
   const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery)
 
   const filteredStudents = useMemo(() => {
@@ -86,7 +90,6 @@ export default function AttendanceControlPage() {
         timestamp: serverTimestamp()
       }, { merge: true })
 
-      // Si es ausente, incrementamos el contador global para la alerta
       if (status === "AUSENTE") {
         await updateDoc(studentRef, {
           absenceCount: increment(1),
@@ -144,7 +147,7 @@ export default function AttendanceControlPage() {
   }
 
   const openWhatsApp = (phone: string, name: string) => {
-    const msg = encodeURIComponent(`Hola, le escribimos de la Parroquia Perpetuo Socorro sobre la asistencia de ${name} a la catequesis de Confirmación...`)
+    const msg = encodeURIComponent(`Hola, le escribimos del Santuario Nacional Nuestra Señora del Perpetuo Socorro sobre la asistencia de ${name} a la catequesis de Confirmación...`)
     window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${msg}`, '_blank')
   }
 
@@ -155,7 +158,7 @@ export default function AttendanceControlPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Control de Asistencia</h1>
-          <p className="text-muted-foreground">Registro de presentismo y alertas de inasistencias.</p>
+          <p className="text-muted-foreground">Registro de presentismo y alertas de inasistencias del Santuario.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border shadow-sm">
@@ -317,7 +320,6 @@ export default function AttendanceControlPage() {
         </div>
       </div>
 
-      {/* DIALOGO DE JUSTIFICACIÓN */}
       <Dialog open={isJustifyDialogOpen} onOpenChange={setIsJustifyDialogOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -366,7 +368,6 @@ export default function AttendanceControlPage() {
         </DialogContent>
       </Dialog>
 
-      {/* VISTA AMPLIADA DE COMPROBANTE */}
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
           <DialogHeader className="sr-only"><DialogTitle>Vista de Justificante</DialogTitle></DialogHeader>

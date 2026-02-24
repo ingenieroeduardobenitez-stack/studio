@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from "next/link"
@@ -96,17 +97,14 @@ export function DashboardSidebar() {
   const isTesorero = profile?.role === "Tesorero"
   const allowedModules = profile?.allowedModules || []
 
-  // Lógica mejorada de filtrado: Admins y Tesoreros ven sus módulos por defecto
   const filterItems = (items: any[], type: 'ops' | 'treasury' | 'admin') => {
     if (isAdmin) return items;
     if (isTesorero && (type === 'ops' || type === 'treasury')) return items;
     
-    // Para Catequistas o usuarios con allowedModules específicos
     if (allowedModules.length > 0) {
       return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));
     }
 
-    // Fallback: Catequistas ven operaciones básicas si no hay configuración
     if (type === 'ops') {
       return items.filter(i => ["inicio", "asistencia", "asistencia_control", "documentacion", "inscripcion", "confirmandos"].includes(i.id));
     }
@@ -128,7 +126,7 @@ export function DashboardSidebar() {
             <div className="relative h-10 w-10 bg-white rounded-xl shadow-md border flex items-center justify-center overflow-hidden">
               <Image 
                 src="/logo.png" 
-                alt="Logo Parroquia" 
+                alt="Logo Santuario" 
                 fill
                 className="object-contain p-1"
                 onError={(e) => {
@@ -138,8 +136,8 @@ export function DashboardSidebar() {
               />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-lg font-headline font-bold text-primary tracking-tight">Confir NSPS</span>
-              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Parroquia PS</span>
+              <span className="text-sm font-headline font-bold text-primary tracking-tight">Santuario NSPS</span>
+              <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Gesti&oacute;n Institucional</span>
             </div>
           </Link>
           <button 

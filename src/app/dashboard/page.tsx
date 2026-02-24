@@ -43,7 +43,7 @@ export default function DashboardPage() {
   const registrationUrl = typeof window !== 'undefined' ? `${window.location.origin}/inscripcion` : ""
 
   const handleShareWhatsApp = () => {
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola! Te comparto el acceso para la *Inscripción Digital de Confirmación 2026*.\n\nPuedes inscribirte directamente aquí:\n${registrationUrl}\n\n_Secretaría de Catequesis_`)
+    const message = encodeURIComponent(`⛪ *Santuario Nacional Nuestra Señora del Perpetuo Socorro*\n\n¡Hola! Te comparto el acceso para la *Inscripción Digital de Confirmación 2026*.\n\nPuedes inscribirte directamente aquí:\n${registrationUrl}\n\n_Secretaría de Catequesis_`)
     window.open(`https://wa.me/?text=${message}`, '_blank')
   }
 
@@ -52,7 +52,7 @@ export default function DashboardPage() {
     if (canvas) {
       const url = canvas.toDataURL("image/png")
       const link = document.createElement("a")
-      link.download = "QR-Inscripcion-Perpetuo-Socorro-2026.png"
+      link.download = "QR-Inscripcion-NSPS-2026.png"
       link.href = url
       link.click()
     }
@@ -84,7 +84,7 @@ export default function DashboardPage() {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Cartel-QR-Inscripcion-2026.pdf`);
+      pdf.save(`Cartel-QR-Inscripcion-NSPS-2026.pdf`);
       
       toast({ title: "PDF Generado", description: "El cartel QR se ha descargado correctamente." });
     } catch (err) {
@@ -110,7 +110,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">
             Bienvenido, {profile?.firstName || "Catequista"}
           </h1>
-          <p className="text-muted-foreground">Sistema de Gestión de Confirmaciones - Parroquia Perpetuo Socorro</p>
+          <p className="text-muted-foreground">Sistema de Gestión de Confirmaciones - Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
@@ -251,7 +251,7 @@ export default function DashboardPage() {
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
             <DialogTitle>Código QR de Inscripción</DialogTitle>
-            <DialogDescription>Genera el cartel oficial para exhibir en la parroquia.</DialogDescription>
+            <DialogDescription>Genera el cartel oficial para exhibir en el santuario.</DialogDescription>
           </DialogHeader>
           
           <ScrollArea className="max-h-[70vh]">
@@ -261,11 +261,11 @@ export default function DashboardPage() {
                 id="qr-print-area"
               >
                 <div className="text-center space-y-3">
-                  <div className="flex items-center justify-center gap-3 mb-2">
+                  <div className="flex flex-col items-center justify-center gap-3 mb-2">
                     <div className="bg-primary/10 p-2 rounded-xl">
                       <Church className="h-6 w-6 text-primary" />
                     </div>
-                    <h2 className="font-headline font-bold text-lg uppercase tracking-tighter text-slate-800">Parroquia Perpetuo Socorro</h2>
+                    <h2 className="font-headline font-bold text-sm uppercase tracking-tight text-slate-800 leading-tight px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</h2>
                   </div>
                   <h3 className="text-4xl font-headline font-black text-slate-900 leading-none tracking-tighter">INSCRIBITE AQUÍ</h3>
                   <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Ciclo de Catequesis 2026</p>

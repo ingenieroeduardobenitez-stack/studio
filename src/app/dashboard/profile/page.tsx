@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react"
@@ -59,16 +60,13 @@ export default function ProfilePage() {
     }
   }, [profile])
 
-  // Callback Ref optimizado para evitar interrupciones de carga (play() interrupted)
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
-      // Solo asignar si el stream ha cambiado realmente
       if (node.srcObject !== currentStream) {
         node.srcObject = currentStream;
         const playPromise = node.play();
         if (playPromise !== undefined) {
           playPromise.catch(err => {
-            // Silenciar AbortError que es normal cuando el stream se cierra o cambia rápido
             if (err.name !== 'AbortError') {
               console.error("Error al reproducir video:", err);
             }
@@ -267,7 +265,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-3 text-sm text-slate-600 px-4">
                   <MapPin className="h-4 w-4 text-slate-400" /> 
-                  <span className="font-medium">Parroquia Perpetuo Socorro</span>
+                  <span className="font-medium text-xs">Santuario Nacional Ntra. Sra. del Perpetuo Socorro</span>
                 </div>
               </div>
             </CardContent>

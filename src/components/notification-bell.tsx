@@ -123,7 +123,7 @@ export function NotificationBell() {
               <div className="h-12 w-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
                 <Info className="h-6 w-6 text-slate-300" />
               </div>
-              <p className="text-xs text-slate-400 font-medium italic">No hay alertas pendientes por ahora.</p>
+              <p className="text-xs text-slate-400 font-medium italic">No hay alertas institucionales por ahora.</p>
             </div>
           ) : (
             <div className="py-2">
@@ -147,7 +147,7 @@ export function NotificationBell() {
         
         <DropdownMenuSeparator className="m-0" />
         <div className="p-3 bg-slate-50/50 text-center">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Catequesis de Confirmación 2026</p>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -53,7 +54,6 @@ export default function DocumentationControlPage() {
     )
   }, [activeConfirmands, searchTerm])
 
-  // Estadísticas de documentación
   const stats = useMemo(() => {
     const missingCert = activeConfirmands.filter(r => r.hasBaptism && !r.baptismCertificatePhotoUrl).length
     const noBaptism = activeConfirmands.filter(r => !r.hasBaptism).length
@@ -64,11 +64,11 @@ export default function DocumentationControlPage() {
   const openWhatsApp = (student: any, reason: string) => {
     let msg = ""
     if (reason === "CERTIFICADO") {
-      msg = `Hola ${student.fullName}, te contactamos de la Parroquia Perpetuo Socorro. Notamos que en tu ficha de Confirmación falta la foto de tu Certificado de Bautismo. ¿Podrías enviárnosla por este medio?`
+      msg = `Hola ${student.fullName}, te contactamos del Santuario Nacional Nuestra Señora del Perpetuo Socorro. Notamos que en tu ficha de Confirmación falta la foto de tu Certificado de Bautismo. ¿Podrías enviárnosla por este medio?`
     } else if (reason === "BAUTISMO") {
-      msg = `Hola ${student.fullName}, te contactamos de la Parroquia. Vimos que no tienes el sacramento del Bautismo. Te informaremos pronto sobre el curso especial de preparación.`
+      msg = `Hola ${student.fullName}, te contactamos del Santuario Nacional. Vimos que no tienes el sacramento del Bautismo. Te informaremos pronto sobre el curso especial de preparación.`
     } else {
-      msg = `Hola ${student.fullName}, te contactamos de la Parroquia. Vimos que aún no tienes la Primera Comunión. Te informaremos sobre el curso de nivelación obligatorio.`
+      msg = `Hola ${student.fullName}, te contactamos del Santuario. Vimos que aún no tienes la Primera Comunión. Te informaremos sobre el curso de nivelación obligatorio.`
     }
     window.open(`https://wa.me/${student.phone?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank')
   }
@@ -80,7 +80,7 @@ export default function DocumentationControlPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Control de Documentación</h1>
-          <p className="text-muted-foreground">Seguimiento de certificados y sacramentos pendientes.</p>
+          <p className="text-muted-foreground">Seguimiento de certificados y sacramentos pendientes en el Santuario.</p>
         </div>
       </div>
 

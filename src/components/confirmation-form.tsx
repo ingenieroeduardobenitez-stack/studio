@@ -439,7 +439,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           timestamp: serverTimestamp()
         });
 
-        // Guardamos los datos para la pantalla de éxito
         setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() });
       });
       
@@ -468,7 +467,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const amount = submittedData.amountPaid || 0;
     const pending = (submittedData.registrationCost || 0) - amount;
     const receiptNum = submittedData.receiptNumber || `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto entregado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString('es-PY')} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
+    const message = encodeURIComponent(`⛪ *Santuario Nacional Ntra. Sra. del Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto entregado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString('es-PY')} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -499,7 +498,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Recibo-PS-${submittedData?.fullName?.replace(/\s+/g, '-')}.pdf`);
+      pdf.save(`Recibo-Santuario-NSPS-${submittedData?.fullName?.replace(/\s+/g, '-')}.pdf`);
       
       toast({ title: "Descarga completada", description: "El PDF ha sido generado correctamente." });
     } catch (err) {
@@ -546,11 +545,11 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
                   <img 
                     src="/logo-recibo.png" 
-                    alt="Parroquia Perpetuo Socorro" 
+                    alt="Santuario Nacional NSPS" 
                     className="max-h-24 object-contain"
                     onError={(e) => { e.currentTarget.src = "/logo.png" }}
                   />
-                  <div className="absolute top-1 right-2 text-[8px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
+                  <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
                 </div>
                 <div className="flex flex-col gap-2 h-full justify-between">
                   <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
@@ -614,14 +613,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="flex flex-col items-center md:items-end gap-3">
                   <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
                     <QRCodeCanvas 
-                      value={`VERIFICADO-PS-${submittedData?.id}-${amount}-${receiptNum}`}
+                      value={`VERIFICADO-NSPS-${submittedData?.id}-${amount}-${receiptNum}`}
                       size={80}
                       level="H"
                     />
                   </div>
                   <div className="text-right">
                     <p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
-                    <p className="text-xs font-bold text-slate-900 uppercase mt-1">{submittedData?.validatedBy || 'Secretaría Parroquial'}</p>
+                    <p className="text-xs font-bold text-slate-900 uppercase mt-1">{submittedData?.validatedBy || 'Secretaría del Santuario'}</p>
                     <p className="text-[8px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p>
                   </div>
                 </div>
@@ -665,7 +664,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <Church className="h-8 w-8 text-white/80" />
                 <div>
                   <CardTitle className="text-2xl font-headline font-bold">Registro de Confirmación 2026</CardTitle>
-                  <CardDescription className="text-white/80 font-medium">Parroquia Perpetuo Socorro</CardDescription>
+                  <CardDescription className="text-white/80 font-medium">Santuario Nacional Nuestra Señora del Perpetuo Socorro</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -823,7 +822,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <div className="animate-in slide-in-from-right duration-300 space-y-4 p-6 border-2 border-dashed border-primary/20 rounded-3xl bg-primary/[0.02]">
                       <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Datos del Acta de Bautismo</p>
                       <FormField control={form.control} name="baptismParish" render={({ field }) => (
-                        <FormItem><FormLabel>Parroquia de Bautismo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" placeholder="Ej. Parroquia San Lorenzo" /></FormControl></FormItem>
+                        <FormItem><FormLabel>Parroquia de Bautismo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" placeholder="Ej. Santuario Nacional NSPS" /></FormControl></FormItem>
                       )} />
                       <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="baptismBook" render={({ field }) => (

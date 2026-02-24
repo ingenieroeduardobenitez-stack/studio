@@ -61,7 +61,7 @@ export default function RootPage() {
       await signInWithEmailAndPassword(auth, formData.email, formData.password)
       toast({
         title: "¡Bienvenido de nuevo!",
-        description: "Acceso concedido al sistema parroquial.",
+        description: "Acceso concedido al sistema institucional.",
       })
       router.push("/dashboard")
     } catch (error: any) {
@@ -102,20 +102,19 @@ export default function RootPage() {
           <div className="relative h-24 w-24 bg-white p-2 rounded-3xl shadow-xl flex items-center justify-center border-2 border-primary/10 overflow-hidden">
             <Image 
               src="/logo.png" 
-              alt="Logo Parroquia" 
+              alt="Logo Santuario" 
               fill
               className="object-contain p-2"
               priority
               onError={(e) => {
-                // Si falla la carga del logo local, mostrar icono por defecto
                 const target = e.target as HTMLImageElement;
                 target.style.display = 'none';
               }}
             />
           </div>
           <div className="space-y-1">
-            <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Portal de Gestión</h1>
-            <p className="text-slate-500 text-sm font-medium uppercase tracking-widest">Parroquia Perpetuo Socorro</p>
+            <h1 className="text-2xl font-headline font-bold text-primary tracking-tight">Portal de Gestión</h1>
+            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-tight px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
           </div>
         </div>
 
@@ -180,7 +179,7 @@ export default function RootPage() {
             </CardContent>
             <CardFooter className="bg-slate-50/80 p-6 flex flex-col gap-4 border-t">
               <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-                Uso exclusivo para personal autorizado de la Parroquia Perpetuo Socorro.
+                Uso exclusivo para personal autorizado del Santuario Nacional.
               </p>
             </CardFooter>
           </form>

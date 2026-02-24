@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -93,7 +94,7 @@ export default function FinancialStatsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Estadísticas Financieras</h1>
-          <p className="text-muted-foreground">Visión general de ingresos, egresos y flujo de caja de la parroquia.</p>
+          <p className="text-muted-foreground">Visión general del flujo de caja del Santuario Nacional.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="rounded-xl gap-2 h-11"><Filter className="h-4 w-4" /> Filtros</Button>
@@ -139,7 +140,7 @@ export default function FinancialStatsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-black">{totals.balance.toLocaleString('es-PY')} Gs.</div>
-                <p className="text-[10px] text-slate-400 mt-1">Disponible en caja</p>
+                <p className="text-[10px] text-slate-400 mt-1">Disponible en caja institucional</p>
               </CardContent>
             </Card>
           </div>
@@ -174,7 +175,7 @@ export default function FinancialStatsPage() {
             <Card className="border-none shadow-xl bg-white overflow-hidden">
               <CardHeader className="bg-slate-50/50 border-b">
                 <CardTitle className="text-lg flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-primary" /> Distribución de Ingresos</CardTitle>
-                <CardDescription>Origen de los fondos recaudados.</CardDescription>
+                <CardDescription>Origen de los fondos recaudados por el Santuario.</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="h-[300px] w-full relative">
@@ -216,7 +217,7 @@ export default function FinancialStatsPage() {
           <Card className="border-none shadow-xl bg-white overflow-hidden">
             <CardHeader className="bg-slate-50/50 border-b">
               <CardTitle className="text-lg">Desglose Detallado</CardTitle>
-              <CardDescription>Resumen de fuentes de ingreso y tipos de gasto.</CardDescription>
+              <CardDescription>Resumen de fuentes de ingreso y tipos de gasto institucional.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <Table>

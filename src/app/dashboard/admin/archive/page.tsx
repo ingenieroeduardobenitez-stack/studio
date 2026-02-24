@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -118,7 +119,7 @@ export default function ArchiveAdminPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Cierre de Año y Archivo</h1>
-          <p className="text-muted-foreground">Gestiona el paso de año y la culminación de catequesis.</p>
+          <p className="text-muted-foreground">Gestiona el paso de año y la culminación de catequesis en el Santuario.</p>
         </div>
       </div>
 
@@ -264,8 +265,8 @@ export default function ArchiveAdminPage() {
             <div className="flex flex-col items-center text-center space-y-6">
               <Church className="h-20 w-20 text-primary" />
               <div className="space-y-1">
-                <h2 className="text-2xl font-headline font-bold uppercase tracking-[0.2em] text-slate-900">Parroquia Perpetuo Socorro</h2>
-                <p className="text-xs font-bold text-primary uppercase tracking-widest">Diócesis de San Lorenzo • Catequesis de Confirmación</p>
+                <h2 className="text-xl font-headline font-bold uppercase tracking-[0.1em] text-slate-900">Santuario Nacional Nuestra Señora del Perpetuo Socorro</h2>
+                <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Arquidiócesis de Asunción • Catequesis de Confirmación</p>
               </div>
             </div>
 
@@ -289,7 +290,7 @@ export default function ArchiveAdminPage() {
               </div>
               <div className="flex flex-col items-center gap-2">
                 <div className="h-px w-full bg-slate-300"></div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sello de la Parroquia</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sello del Santuario</p>
               </div>
             </div>
 

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -116,7 +117,7 @@ export default function CatechistPaymentsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Cobro a Catequistas</h1>
-          <p className="text-muted-foreground">Registra los pagos del personal para retiros y jornadas especiales.</p>
+          <p className="text-muted-foreground">Registra los pagos del personal del Santuario Nacional.</p>
         </div>
       </div>
 
@@ -267,7 +268,7 @@ export default function CatechistPaymentsPage() {
                 </div>
               </div>
               <p className="text-[9px] text-slate-400 text-center italic pt-4">
-                Comprobante interno de la Parroquia Perpetuo Socorro.
+                Comprobante interno del Santuario Nacional Nuestra Señora del Perpetuo Socorro.
               </p>
             </div>
           </div>
