@@ -25,7 +25,9 @@ import {
   CheckCircle2,
   AlertCircle,
   UserMinus,
-  X
+  X,
+  MessageCircle,
+  FileText
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -305,7 +307,7 @@ export default function RegistrationsListPage() {
     const amount = selectedReg.amountPaid || 0;
     const pending = (selectedReg.registrationCost || 0) - amount;
     const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${selectedReg.fullName}*! Comprobante de *Catequesis de Confirmación 2026*.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto registrado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo:* ${pending === 0 ? 'CANCELADO' : `${pending.toLocaleString('es-PY')} Gs. PENDIENTE`}\n\n_Secretaría de Tesorería_`)
+    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${selectedReg.fullName}*! Comprobante de *Catequesis de Confirmación 2026*.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto registrado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo:* ${pending === 0 ? '✅ CANCELADO' : `${pending.toLocaleString('es-PY')} Gs. PENDIENTE`}\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -356,7 +358,6 @@ export default function RegistrationsListPage() {
 
   const loading = loadingRegs || loadingGroups
 
-  // Datos para el recibo en el modal de detalles
   const today = new Date();
   const dayNum = today.getDate();
   const monthStr = today.toLocaleString('es-PY', { month: 'long' });
@@ -514,7 +515,6 @@ export default function RegistrationsListPage() {
           
           <ScrollArea className="max-h-[80vh]">
             <div className="p-6 space-y-8 bg-slate-50">
-              {/* VISTA DEL RECIBO OFICIAL PARA DESCARGA */}
               <div className="flex justify-center bg-white p-4 rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                 <div 
                   className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-6 shadow-sm transform scale-[0.95] origin-top" 
@@ -680,7 +680,6 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE BAJA */}
       <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -723,7 +722,6 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* VISTA AMPLIADA DE COMPROBANTE */}
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
           <DialogHeader className="sr-only">
