@@ -413,19 +413,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
-  // FUNCIÓN DE DESCARGA DIRECTA DE PDF DEL SISTEMA
   const handleDownloadPDF = async () => {
     const element = document.getElementById("receipt-area");
     if (!element) return;
     
     setIsGeneratingPDF(true);
     try {
-      // Importación dinámica para evitar errores de SSR
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
 
       const canvas = await html2canvas(element, {
-        scale: 2, // Mayor calidad
+        scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
@@ -438,17 +436,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         format: "a4",
       });
       
-      const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Recibo-PS-${submittedData?.fullName?.replace(/\s+/g, '-')}-${Date.now()}.pdf`);
+      pdf.save(`Recibo-PS-${submittedData?.fullName?.replace(/\s+/g, '-')}.pdf`);
       
-      toast({ title: "Descarga completada", description: "El PDF ha sido generado por el sistema." });
+      toast({ title: "Descarga completada", description: "El PDF ha sido generado correctamente." });
     } catch (err) {
       console.error("PDF Error:", err);
-      toast({ variant: "destructive", title: "Error al generar PDF", description: "Intente usar la función de impresión del navegador." });
+      toast({ variant: "destructive", title: "Error al generar PDF" });
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -473,7 +470,11 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           
           <div className="space-y-2 text-center no-print">
             <h2 className="text-2xl font-headline font-bold text-slate-900 uppercase">Inscripción Completada</h2>
-            <p className="text-sm text-slate-500">Se ha generado el recibo oficial de <b>{submittedData?.fullName}</b>.</p>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <Badge className={cn("rounded-lg h-7 font-black text-[10px]", submittedData?.paymentStatus === 'PAGADO' ? 'bg-green-500' : 'bg-orange-500 text-white')}>
+                {submittedData?.paymentStatus}
+              </Badge>
+            </div>
           </div>
 
           <ScrollArea className="max-h-[70vh] md:max-h-none print:overflow-visible">
