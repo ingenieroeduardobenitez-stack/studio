@@ -1,193 +1,276 @@
-
 {
   "entities": {
-    "UserProfile": {
-      "title": "Perfil de Usuario",
-      "description": "Información del catequista o administrador de la parroquia.",
+    "RegistrantProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RegistrantProfile",
       "type": "object",
+      "description": "Represents a single individual registering for Confir NSPS, containing their personal details, contact information, sacrament status, and parental/guardian details.",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the RegistrantProfile entity."
+        },
         "firstName": {
-          "type": "string"
+          "type": "string",
+          "description": "The registrant's given name."
         },
         "lastName": {
-          "type": "string"
+          "type": "string",
+          "description": "The registrant's family name."
+        },
+        "dateOfBirth": {
+          "type": "string",
+          "description": "The registrant's date of birth.",
+          "format": "date"
+        },
+        "gender": {
+          "type": "string",
+          "description": "The registrant's gender (e.g., 'Male', 'Female', 'Other')."
+        },
+        "addressStreet": {
+          "type": "string",
+          "description": "The street address of the registrant."
+        },
+        "addressCity": {
+          "type": "string",
+          "description": "The city of the registrant's address."
+        },
+        "addressStateProvince": {
+          "type": "string",
+          "description": "The state or province of the registrant's address."
+        },
+        "addressZipPostalCode": {
+          "type": "string",
+          "description": "The zip or postal code of the registrant's address."
+        },
+        "addressCountry": {
+          "type": "string",
+          "description": "The country of the registrant's address."
         },
         "email": {
           "type": "string",
+          "description": "The registrant's email address for communication.",
           "format": "email"
         },
-        "role": {
-          "type": "string"
-        },
-        "allowedModules": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Lista de IDs de módulos a los que el usuario tiene acceso."
-        },
-        "photoUrl": {
-          "type": "string"
-        },
-        "createdAt": {
+        "phoneNumber": {
           "type": "string",
+          "description": "The registrant's phone number."
+        },
+        "registrantPhotoUrl": {
+          "type": "string",
+          "description": "URL to the registrant's profile photo, uploaded from their device.",
+          "format": "uri"
+        },
+        "fatherFirstName": {
+          "type": "string",
+          "description": "The given name of the registrant's father."
+        },
+        "fatherLastName": {
+          "type": "string",
+          "description": "The family name of the registrant's father."
+        },
+        "fatherIdentificationNumber": {
+          "type": "string",
+          "description": "The identification number (e.g., 'cédula') of the registrant's father."
+        },
+        "motherFirstName": {
+          "type": "string",
+          "description": "The given name of the registrant's mother."
+        },
+        "motherLastName": {
+          "type": "string",
+          "description": "The family name of the registrant's mother."
+        },
+        "motherIdentificationNumber": {
+          "type": "string",
+          "description": "The identification number (e.g., 'cédula') of the registrant's mother."
+        },
+        "guardianFirstName": {
+          "type": "string",
+          "description": "The given name of the registrant's legal guardian, if applicable and different from parents."
+        },
+        "guardianLastName": {
+          "type": "string",
+          "description": "The family name of the registrant's legal guardian, if applicable and different from parents."
+        },
+        "guardianIdentificationNumber": {
+          "type": "string",
+          "description": "The identification number (e.g., 'cédula') of the registrant's legal guardian, if applicable."
+        },
+        "hasBaptism": {
+          "type": "boolean",
+          "description": "Indicates whether the registrant has received the sacrament of Baptism."
+        },
+        "baptismCertificateBookNumber": {
+          "type": "string",
+          "description": "The book number from the registrant's Baptism certificate. Applicable if 'hasBaptism' is true."
+        },
+        "baptismCertificateFolioNumber": {
+          "type": "string",
+          "description": "The folio number from the registrant's Baptism certificate. Applicable if 'hasBaptism' is true."
+        },
+        "baptismCertificatePhotoUrl": {
+          "type": "string",
+          "description": "URL to an uploaded photo of the Baptism certificate. Applicable if 'hasBaptism' is true.",
+          "format": "uri"
+        },
+        "hasFirstCommunion": {
+          "type": "boolean",
+          "description": "Indicates whether the registrant has received the sacrament of First Communion."
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "The date and time when the registrant completed their registration.",
           "format": "date-time"
-        }
-      },
-      "required": ["firstName", "lastName", "email"]
-    },
-    "ConfirmationRegistration": {
-      "title": "Inscripción de Confirmación",
-      "description": "Detalles completos del postulante a la confirmación.",
-      "type": "object",
-      "properties": {
-        "userId": {
-          "type": "string"
-        },
-        "fullName": {
-          "type": "string"
-        },
-        "photoUrl": {
-          "type": "string"
-        },
-        "paymentProofUrl": {
-          "type": "string",
-          "description": "Foto del comprobante de transferencia bancaria."
-        },
-        "ciNumber": {
-          "type": "string"
-        },
-        "phone": {
-          "type": "string"
-        },
-        "motherName": { "type": "string" },
-        "motherPhone": { "type": "string" },
-        "fatherName": { "type": "string" },
-        "fatherPhone": { "type": "string" },
-        "tutorName": { "type": "string" },
-        "tutorPhone": { "type": "string" },
-        "catechesisYear": {
-          "type": "string",
-          "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS", "COMPLETADO"]
-        },
-        "attendanceDay": {
-          "type": "string",
-          "enum": ["SABADO", "DOMINGO"]
-        },
-        "groupId": {
-          "type": "string",
-          "description": "ID del grupo asignado."
-        },
-        "attendanceStatus": {
-          "type": "string",
-          "enum": ["PRESENTE", "AUSENTE", "PENDIENTE"]
-        },
-        "needsRecovery": {
-          "type": "boolean"
         },
         "status": {
           "type": "string",
-          "enum": ["INSCRITO", "PENDIENTE_PAGO", "POR_VALIDAR", "OBSERVADO", "ARCHIVADO"]
+          "description": "The current status of the registrant's application (e.g., 'Pending', 'Confirmed', 'Rejected')."
         },
-        "registrationCost": {
-          "type": "number"
-        },
-        "amountPaid": {
-          "type": "number"
-        },
-        "paymentStatus": {
-          "type": "string",
-          "enum": ["PAGADO", "PENDIENTE", "PARCIAL"]
-        },
-        "isArchived": {
-          "type": "boolean"
-        },
-        "archiveYear": {
-          "type": "number"
-        },
-        "changeHistory": {
+        "catechesisSessionIds": {
           "type": "array",
+          "description": "References to CatechesisSession entities the registrant is enrolled in. (Relationship: RegistrantProfile N:N CatechesisSession)",
           "items": {
-            "type": "object",
-            "properties": {
-              "oldGroupId": { "type": "string" },
-              "newGroupId": { "type": "string" },
-              "reason": { "type": "string" },
-              "date": { "type": "string", "format": "date-time" },
-              "authorizedBy": { "type": "string" }
-            }
+            "type": "string"
           }
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
         }
-      }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "dateOfBirth",
+        "addressStreet",
+        "addressCity",
+        "addressStateProvince",
+        "addressZipPostalCode",
+        "addressCountry",
+        "email",
+        "phoneNumber",
+        "fatherFirstName",
+        "fatherLastName",
+        "fatherIdentificationNumber",
+        "motherFirstName",
+        "motherLastName",
+        "motherIdentificationNumber",
+        "hasBaptism",
+        "hasFirstCommunion",
+        "registrationDate",
+        "status"
+      ]
     },
-    "Group": {
-      "title": "Grupo de Catequesis",
-      "description": "Agrupación de alumnos con sus respectivos catequistas.",
+    "CatechesisSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CatechesisSession",
       "type": "object",
+      "description": "Defines a specific catechesis class session, including its schedule, location, and capacity. Registrants can enroll in one or more sessions.",
       "properties": {
-        "name": { "type": "string" },
-        "catequistaIds": { "type": "array", "items": { "type": "string" } },
-        "attendanceDay": { "type": "string", "enum": ["SABADO", "DOMINGO"] },
-        "catechesisYear": { "type": "string", "enum": ["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"] },
-        "schedule": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "TreasurySettings": {
-      "title": "Configuración de Tesorería",
-      "description": "Montos globales y datos bancarios definidos por el tesorero.",
-      "type": "object",
-      "properties": {
-        "juvenileCost": { "type": "number" },
-        "adultCost": { "type": "number" },
-        "paymentMethod": { "type": "string", "enum": ["ACCOUNT", "ALIAS"] },
-        "bankName": { "type": "string" },
-        "accountNumber": { "type": "string" },
-        "accountOwner": { "type": "string" },
-        "ownerCi": { "type": "string" },
-        "alias": { "type": "string" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "Event": {
-      "title": "Evento Parroquial",
-      "description": "Evento con costo asociado para cobro en tesorería.",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "cost": { "type": "number" },
-        "category": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the CatechesisSession entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "A descriptive name for the session (e.g., 'Saturday Morning Beginners Class')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the session's content or focus."
+        },
+        "dayOfWeek": {
+          "type": "string",
+          "description": "The day of the week the session takes place (e.g., 'Monday', 'Saturday')."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "The scheduled start time of the session (e.g., '09:00').",
+          "format": "time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "The scheduled end time of the session (e.g., '10:30').",
+          "format": "time"
+        },
+        "location": {
+          "type": "string",
+          "description": "The physical location where the session is held (e.g., 'Main Hall', 'Room 3A')."
+        },
+        "maxCapacity": {
+          "type": "number",
+          "description": "The maximum number of registrants that can attend this session."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dayOfWeek",
+        "startTime",
+        "endTime",
+        "location"
+      ]
     }
   },
   "auth": {
-    "providers": ["password"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": "UserProfile",
-      "description": "Datos de los catequistas."
-    },
-    "/confirmations/{registrationId}": {
-      "schema": "ConfirmationRegistration",
-      "description": "Inscripciones detalladas."
-    },
-    "/groups/{groupId}": {
-      "schema": "Group",
-      "description": "Grupos de catequesis."
-    },
-    "/settings/treasury": {
-      "schema": "TreasurySettings",
-      "description": "Configuración de costos de inscripción y datos bancarios."
-    },
-    "/events/{eventId}": {
-      "schema": "Event",
-      "description": "Eventos y jornadas configuradas."
-    }
+    "structure": [
+      {
+        "path": "/users/{userId}/registrantProfiles/{registrantProfileId}",
+        "definition": {
+          "entityName": "RegistrantProfile",
+          "schema": {
+            "$ref": "#/backend/entities/RegistrantProfile"
+          },
+          "description": "Stores the detailed profile of a single registrant, including personal information, parental/guardian details, sacrament status, and photo URLs. This path ensures direct ownership by the `userId` in the path, facilitating simple and atomic ownership-based security rules. It includes fields for parent/guardian identification numbers, Baptism and First Communion status, and related certificate details and photos, as per the user's request. The `registrantPhotoUrl` field is also included for the confirmando's photo.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user (authenticated Firebase user UID) who owns or manages this registrant profile."
+            },
+            {
+              "name": "registrantProfileId",
+              "description": "The unique identifier for a specific registrant profile."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/catechesisSessions/{catechesisSessionId}",
+        "definition": {
+          "entityName": "CatechesisSession",
+          "schema": {
+            "$ref": "#/backend/entities/CatechesisSession"
+          },
+          "description": "Stores information about available catechesis class sessions, including schedule details (day, start/end times), location, and capacity. These documents are publicly readable to allow registrants to view available options and are managed by administrators. The 'dayOfWeek', 'startTime', and 'endTime' fields represent the days and times of catechesis.",
+          "params": [
+            {
+              "name": "catechesisSessionId",
+              "description": "The unique identifier for a specific catechesis session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{adminUid}",
+        "definition": {
+          "entityName": "AdminRole",
+          "schema": {
+            "$ref": "#/backend/entities/AdminRole"
+          },
+          "description": "A collection used for Database Access Control (DBAC) to designate administrators. The existence of a document at `/roles_admin/{adminUid}` grants administrative privileges to the corresponding user UID. This allows for clear, independent, and performant admin role checks in security rules.",
+          "params": [
+            {
+              "name": "adminUid",
+              "description": "The unique identifier of a user who has been granted administrator privileges."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure for Confir NSPS prioritizes security, scalability, and debuggability by adhering to the core design principles, especially Authorization Independence and the ability to support Query-Able Paths (QAPs). The design utilizes a hierarchical structure for user-owned data and top-level collections for shared or globally managed entities, complemented by a simple Database Access Control (DBAC) model.\n\n**Authorization Independence:**\n1.  **Registrant Profiles:** Registrant profiles are stored under `/users/{userId}/registrantProfiles/{registrantProfileId}`. This path directly embeds the owner's `userId` (which corresponds to `request.auth.uid`) into the document's location. This structural ownership means that security rules can determine access rights (e.g., `allow read, write: if request.auth.uid == userId;`) purely by inspecting the path and the request context, without needing `get()` calls to retrieve parent user documents. This eliminates hierarchical authorization dependencies, enabling atomic operations and simplifying rule logic.\n2.  **Catechesis Sessions:** Catechesis sessions are placed in a top-level collection `/catechesisSessions/{catechesisSessionId}`. These sessions are designed to be independent entities with uniform access requirements (e.g., publicly readable, admin-editable). Their authorization does not rely on any parent documents or complex data relationships within the database.\n3.  **Admin Roles:** A dedicated collection `/roles_admin/{adminUid}` is used for DBAC. Admin authorization is determined by the *existence* of a document at `/roles_admin/$(request.auth.uid)`, which is an atomic and independent check (`exists()`) that does not require fetching other documents or complex data. \n\n**Query-Able Paths (QAPs):**\n1.  **Registrant Profiles:**\n    *   **User-Specific Access:** For registrants (or their managing parent/guardian), the structure `/users/{userId}/registrantProfiles` allows for efficient and secure `list` operations. Users can query their own `registrantProfiles` (i.e., `/users/{request.auth.uid}/registrantProfiles`), and security rules can easily ensure that only documents owned by the `request.auth.uid` are returned. This prevents rules from acting as filters, as the query is intrinsically scoped to the user's data.\n    *   **Admin Access:** For administrators, a Collection Group query on `registrantProfiles` can be used. With appropriate security rules (`allow list: if exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));`), administrators can efficiently list all registrant profiles across all users without violating QAPs. The broad `list` permission for admins is granted at the collection group level.\n2.  **Catechesis Sessions:** The `/catechesisSessions` top-level collection is inherently QAP-friendly. All users can `list` available sessions (read-only access), and administrators can `list` and manage them, without rules filtering results. The security rules will simply grant `read` to all (or authenticated users) and `write` to admins, ensuring that `list` operations always return the full set of allowed documents based on the caller's permissions."
   }
 }

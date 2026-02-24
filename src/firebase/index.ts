@@ -1,64 +1,50 @@
 'use client';
 
+import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { firebaseConfig } from './config';
-import { useMemo, useRef } from 'react';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore'
 
-/**
- * Inicializa los servicios de Firebase de forma segura.
- */
+// IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  try {
-    const isConfigValid = firebaseConfig.apiKey && 
-                          firebaseConfig.apiKey !== "undefined" && 
-                          firebaseConfig.apiKey.length > 10;
-
-    if (!isConfigValid) {
-      return { 
-        app: null as unknown as FirebaseApp, 
-        auth: null as unknown as Auth, 
-        firestore: null as unknown as Firestore 
-      };
+  if (!getApps().length) {
+    // Important! initializeApp() is called without any arguments because Firebase App Hosting
+    // integrates with the initializeApp() function to provide the environment variables needed to
+    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
+    // without arguments.
+    let firebaseApp;
+    try {
+      // Attempt to initialize via Firebase App Hosting environment variables
+      firebaseApp = initializeApp();
+    } catch (e) {
+      // Only warn in production because it's normal to use the firebaseConfig to initialize
+      // during development
+      if (process.env.NODE_ENV === "production") {
+        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
+      }
+      firebaseApp = initializeApp(firebaseConfig);
     }
 
-    const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const firestore = getFirestore(app);
-    
-    return { app, auth, firestore };
-  } catch (error) {
-    console.error("Error al inicializar Firebase:", error);
-    return { 
-      app: null as unknown as FirebaseApp, 
-      auth: null as unknown as Auth, 
-      firestore: null as unknown as Firestore 
-    };
+    return getSdks(firebaseApp);
   }
+
+  // If already initialized, return the SDKs with the already initialized App
+  return getSdks(getApp());
 }
 
-/**
- * Hook especializado para memoizar referencias o consultas de Firebase.
- * Garantiza la estabilidad del objeto incluso si el componente se re-renderiza,
- * evitando bucles infinitos en useCollection o useDoc.
- */
-export function useMemoFirebase<T>(factory: () => T, deps: any[]): T {
-  const ref = useRef<T | null>(null);
-  const depsRef = useRef<any[]>([]);
-
-  const depsChanged = deps.length !== depsRef.current.length || 
-                      deps.some((dep, i) => dep !== depsRef.current[i]);
-
-  if (depsChanged) {
-    ref.current = factory();
-    depsRef.current = deps;
-  }
-
-  return ref.current as T;
+export function getSdks(firebaseApp: FirebaseApp) {
+  return {
+    firebaseApp,
+    auth: getAuth(firebaseApp),
+    firestore: getFirestore(firebaseApp)
+  };
 }
 
 export * from './provider';
-export * from './auth/use-user';
+export * from './client-provider';
 export * from './firestore/use-collection';
 export * from './firestore/use-doc';
+export * from './non-blocking-updates';
+export * from './non-blocking-login';
+export * from './errors';
+export * from './error-emitter';
