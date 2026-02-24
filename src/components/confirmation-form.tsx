@@ -18,7 +18,8 @@ import {
   UserPlus,
   FlipHorizontal,
   X,
-  Info
+  Info,
+  CreditCard
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -58,7 +59,7 @@ const formSchema = z.object({
   birthDate: z.string().min(1, "Fecha de nacimiento requerida"),
   age: z.coerce.number().optional(),
   photoUrl: z.string().optional(),
-  paymentProofUrl: z.string().min(1, "Debe adjuntar la foto de su comprobante"),
+  paymentProofUrl: z.string().optional(),
   motherName: z.string().optional(),
   motherPhone: z.string().optional(),
   fatherName: z.string().optional(),
@@ -85,9 +86,9 @@ type CaptureTarget = "STUDENT_PHOTO" | "PAYMENT_PROOF" | "BAPTISM_CERT"
 export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadingWithPayment, setLoadingWithPayment] = useState(false)
   const [isSearchingCi, setIsSearchingCi] = useState(false)
   
-  // Previews
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [proofPreview, setProofPreview] = useState<string | null>(null)
   const [baptismPreview, setBaptismPreview] = useState<string | null>(null)
@@ -95,7 +96,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false)
   const [submittedData, setSubmittedData] = useState<any>(null)
 
-  // Camera State
   const [showCamera, setShowCamera] = useState(false)
   const [captureTarget, setCaptureTarget] = useState<CaptureTarget>("STUDENT_PHOTO")
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
@@ -118,16 +118,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setMounted(true)
   }, [])
 
-  // Callback Ref optimizado para evitar interrupciones de carga (play() interrupted)
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
-      // Solo asignar si el stream ha cambiado realmente
       if (node.srcObject !== currentStream) {
         node.srcObject = currentStream;
         const playPromise = node.play();
         if (playPromise !== undefined) {
           playPromise.catch(err => {
-            // Silenciar AbortError que es normal cuando el stream se cierra o cambia rápido
             if (err.name !== 'AbortError') {
               console.error("Error auto-playing video:", err);
             }
@@ -310,21 +307,32 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const totalCost = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
 
-  const onSubmit = async (values: FormValues) => {
+  const handleRegistration = async (values: FormValues, immediatePayment = false) => {
     if (!db) return;
-    setLoading(true)
+    
+    // Validación manual de comprobante para público
+    if (isPublic && !values.paymentProofUrl) {
+      form.setError("paymentProofUrl", { type: "manual", message: "Debe adjuntar la foto de su comprobante" });
+      return;
+    }
+
+    if (immediatePayment) setLoadingWithPayment(true);
+    else setLoading(true);
+
     const regId = `conf_${Date.now()}`
     const regRef = doc(db, "confirmations", regId)
     
     const registrationData = {
       userId: user?.uid || "public_registration",
       ...values,
-      status: "POR_VALIDAR",
+      status: immediatePayment ? "INSCRITO" : "POR_VALIDAR",
       attendanceStatus: "PENDIENTE",
       needsRecovery: false,
       registrationCost: totalCost,
-      amountPaid: 0,
-      paymentStatus: "PENDIENTE",
+      amountPaid: immediatePayment ? totalCost : 0,
+      paymentStatus: immediatePayment ? "PAGADO" : "PENDIENTE",
+      validatedAt: immediatePayment ? serverTimestamp() : null,
+      validatedBy: immediatePayment && profile ? `${profile.firstName} ${profile.lastName}` : null,
       createdAt: serverTimestamp()
     }
 
@@ -333,12 +341,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "public",
         userName: profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Usuario Público" : "Sistema"),
-        action: "Envío de Inscripción",
+        action: immediatePayment ? "Inscripción con Pago Directo" : "Envío de Inscripción",
         module: "inscripcion",
-        details: `Inscripción completa de ${values.fullName}`,
+        details: `${immediatePayment ? 'Pago confirmado en el acto. ' : ''}Inscripción completa de ${values.fullName}`,
         timestamp: serverTimestamp()
       })
-      toast({ title: "Inscripción registrada", description: "Tus datos han sido enviados correctamente." });
+      
+      toast({ 
+        title: immediatePayment ? "Inscripción y Pago registrados" : "Inscripción registrada", 
+        description: "Los datos han sido guardados correctamente." 
+      });
+      
       setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() })
       setIsSubmittedSuccessfully(true)
     } catch (error: any) {
@@ -350,6 +363,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       errorEmitter.emit('permission-error', permissionError)
     } finally {
       setLoading(false)
+      setLoadingWithPayment(false)
     }
   }
 
@@ -367,28 +381,25 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <CheckCircle2 className="h-10 w-10 text-green-600" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-headline font-bold text-slate-900">¡Inscripción Recibida!</h2>
-            <p className="text-slate-500 font-medium">Hola <span className="text-primary font-bold">{submittedData?.fullName}</span>, hemos recibido tus datos.</p>
+            <h2 className="text-3xl font-headline font-bold text-slate-900">¡Registro Completado!</h2>
+            <p className="text-slate-500 font-medium">Hola <span className="text-primary font-bold">{submittedData?.fullName}</span>, el proceso ha finalizado con éxito.</p>
           </div>
 
           <div className="bg-blue-50 p-8 rounded-3xl border border-blue-100 text-left space-y-4">
             <div className="flex items-center gap-3 border-b border-blue-100 pb-4">
               <Clock className="h-6 w-6 text-blue-600" />
-              <h3 className="font-bold text-blue-800 uppercase tracking-wider text-sm">Próximos Pasos</h3>
+              <h3 className="font-bold text-blue-800 uppercase tracking-wider text-sm">Estado de Ficha</h3>
             </div>
             <p className="text-sm text-blue-700 leading-relaxed">
-              Tu inscripción se encuentra en estado <span className="font-bold">PENDIENTE DE VALIDACIÓN</span>. 
-              Un catequista revisará el comprobante de pago en breve.
-            </p>
-            <p className="text-sm font-bold text-blue-900 italic">
-              * En un plazo no mayor a 24 horas te remitiremos tu recibo oficial vía WhatsApp.
+              La inscripción está marcada como <span className="font-bold uppercase">{submittedData?.status}</span>.
+              {submittedData?.paymentStatus === "PAGADO" ? " El pago ya ha sido validado y registrado en caja." : " Pendiente de validación de comprobante por tesorería."}
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => window.print()}>Imprimir Ficha</Button>
             <Button asChild className="flex-1 h-12 rounded-xl font-bold shadow-lg">
-              <Link href="/">Volver al Inicio</Link>
+              <Link href={isPublic ? "/" : "/dashboard"}>Volver al Inicio</Link>
             </Button>
           </div>
         </Card>
@@ -400,7 +411,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     <div className="w-full max-w-4xl mx-auto pb-12">
       <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={form.handleSubmit((v) => handleRegistration(v, false))}>
             <CardHeader className="bg-primary text-white p-8">
               <div className="flex items-center gap-3">
                 <Church className="h-8 w-8 text-white/80" />
@@ -526,30 +537,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         </FormControl>
                       </FormItem>
                     )} />
-                  </div>
-
-                  <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border md:col-span-2">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información del Encargado / Tutor</p>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <FormField control={form.control} name="tutorName" render={({ field }) => (
-                        <FormItem><FormLabel>Nombre del Tutor</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
-                      )} />
-                      <FormField control={form.control} name="tutorPhone" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Celular Tutor</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              className="h-10 bg-white" 
-                              placeholder="09XX-XXX-XXX"
-                              inputMode="numeric"
-                              type="tel"
-                              onChange={(e) => handlePhoneChange(e, "tutorPhone")}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )} />
-                    </div>
                   </div>
                 </div>
               </div>
@@ -741,18 +728,37 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </CardContent>
 
-            <CardFooter className="bg-slate-50 p-10 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100">
+            <CardFooter className="bg-slate-50 p-10 border-t flex flex-col md:flex-row items-center justify-end gap-4">
+              <div className="flex items-center gap-4 flex-1">
+                <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100 shrink-0">
                   <Info className="h-6 w-6 text-blue-500" />
                 </div>
                 <p className="text-xs text-blue-700 max-w-xs font-medium italic">
-                  Al pulsar "Completar Inscripción", declaras que los datos ingresados son veraces y corresponden a la documentación oficial.
+                  Al pulsar "Completar Inscripción", declaras que los datos ingresados son veraces.
                 </p>
               </div>
-              <Button type="submit" disabled={loading} className="h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl px-12 font-bold shadow-xl w-full md:w-auto text-lg transition-all active:scale-95">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <span>Completar Inscripción</span>}
-              </Button>
+              
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                {!isPublic && (
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    disabled={loading || loadingWithPayment} 
+                    className="h-14 border-green-600 text-green-700 hover:bg-green-50 rounded-2xl px-8 font-bold gap-2 transition-all active:scale-95"
+                    onClick={form.handleSubmit((v) => handleRegistration(v, true))}
+                  >
+                    {loadingWithPayment ? <Loader2 className="animate-spin h-5 w-5" /> : <><CheckCircle2 className="h-5 w-5" /> Confirmar Pago y Registrar</>}
+                  </Button>
+                )}
+                
+                <Button 
+                  type="submit" 
+                  disabled={loading || loadingWithPayment} 
+                  className="h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl px-12 font-bold shadow-xl transition-all active:scale-95"
+                >
+                  {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <span>Completar Inscripción</span>}
+                </Button>
+              </div>
             </CardFooter>
           </form>
         </Form>
