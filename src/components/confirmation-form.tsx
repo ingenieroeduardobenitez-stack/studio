@@ -82,6 +82,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>
 
 export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
+  const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isSearchingCi, setIsSearchingCi] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -104,6 +105,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const db = useFirestore()
   const { user } = useUser()
   const { toast } = useToast()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
@@ -571,7 +576,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <div className="space-y-4">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Monto a Transferir</p>
-                      <p className="text-3xl font-black text-primary">{totalCost.toLocaleString()} Gs.</p>
+                      <p className="text-3xl font-black text-primary">{mounted ? totalCost.toLocaleString() : "..."} Gs.</p>
                     </div>
                     
                     <div className="space-y-3 pt-2">

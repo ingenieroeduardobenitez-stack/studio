@@ -1,11 +1,25 @@
-
 "use client"
 
 import { ConfirmationForm } from "@/components/confirmation-form"
-import { Church, ArrowLeft } from "lucide-react"
+import { Church, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { useState, useEffect } from "react"
 
 export default function PublicRegistrationPage() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-body">
       <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-700">

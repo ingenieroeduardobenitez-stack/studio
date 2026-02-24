@@ -1,10 +1,24 @@
-
 "use client"
 
 import { ConfirmationForm } from "@/components/confirmation-form"
-import { Church } from "lucide-react"
+import { Church, Loader2 } from "lucide-react"
+import { useState, useEffect } from "react"
 
 export default function RegistrationPage() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center max-w-2xl mx-auto space-y-3">
