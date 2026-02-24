@@ -95,7 +95,10 @@ export default function ProfilePage() {
       }
 
       const constraints = {
-        video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }
+        video: {
+          ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" },
+          aspectRatio: { ideal: 0.75 } // Vertical 3:4
+        }
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
       setCurrentStream(stream)
@@ -131,11 +134,29 @@ export default function ProfilePage() {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current
       const canvas = canvasRef.current
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
+      
+      const targetRatio = 3 / 4;
+      let sourceWidth = video.videoWidth;
+      let sourceHeight = video.videoHeight;
+      let sourceX = 0;
+      let sourceY = 0;
+
+      if (sourceWidth / sourceHeight > targetRatio) {
+        const newWidth = sourceHeight * targetRatio;
+        sourceX = (sourceWidth - newWidth) / 2;
+        sourceWidth = newWidth;
+      } else {
+        const newHeight = sourceWidth / targetRatio;
+        sourceY = (sourceHeight - newHeight) / 2;
+        sourceHeight = newHeight;
+      }
+
+      canvas.width = 480;
+      canvas.height = 640;
+      
       const ctx = canvas.getContext('2d')
       if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
         setFormData(prev => ({ ...prev, photoUrl: dataUrl }))
         stopCamera()
@@ -359,12 +380,12 @@ export default function ProfilePage() {
       </div>
 
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
-        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
             <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto de Perfil</DialogTitle>
           </DialogHeader>
           
-          <div className="relative bg-black aspect-video flex items-center justify-center">
+          <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
             <video 
               ref={onVideoRef} 
               autoPlay 
