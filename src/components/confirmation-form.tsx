@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -80,25 +80,32 @@ const formSchema = z.object({
 })
 
 type FormValues = z.infer<typeof formSchema>
+type CaptureTarget = "STUDENT_PHOTO" | "PAYMENT_PROOF" | "BAPTISM_CERT"
 
 export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isSearchingCi, setIsSearchingCi] = useState(false)
+  
+  // Previews
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [proofPreview, setProofPreview] = useState<string | null>(null)
   const [baptismPreview, setBaptismPreview] = useState<string | null>(null)
+  
   const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false)
   const [submittedData, setSubmittedData] = useState<any>(null)
 
+  // Camera State
   const [showCamera, setShowCamera] = useState(false)
+  const [captureTarget, setCaptureTarget] = useState<CaptureTarget>("STUDENT_PHOTO")
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
   
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
   const proofInputRef = useRef<HTMLInputElement>(null)
   const baptismInputRef = useRef<HTMLInputElement>(null)
@@ -111,13 +118,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setMounted(true)
   }, [])
 
-  // Sincronización del stream con el elemento video cuando el diálogo se abre
-  useEffect(() => {
-    if (showCamera && videoRef.current && currentStream) {
-      videoRef.current.srcObject = currentStream;
-      videoRef.current.play().catch(err => console.error("Error al reproducir video:", err));
+  // Callback Ref para asegurar la conexión del stream al video apenas aparezca en el DOM
+  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node && currentStream) {
+      node.srcObject = currentStream;
+      node.play().catch(err => console.error("Error auto-playing video:", err));
     }
-  }, [showCamera, currentStream]);
+    videoRef.current = node;
+  }, [currentStream]);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
@@ -188,9 +196,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setValue(fieldName, formatted);
   };
 
-  const startCamera = async (deviceId?: string) => {
+  const startCamera = async (target: CaptureTarget, deviceId?: string) => {
+    setCaptureTarget(target)
     try {
-      // Detener cualquier stream previo
       if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
@@ -238,8 +246,18 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-        setPhotoPreview(dataUrl)
-        setValue("photoUrl", dataUrl)
+        
+        if (captureTarget === "STUDENT_PHOTO") {
+          setPhotoPreview(dataUrl)
+          setValue("photoUrl", dataUrl)
+        } else if (captureTarget === "PAYMENT_PROOF") {
+          setProofPreview(dataUrl)
+          setValue("paymentProofUrl", dataUrl)
+        } else if (captureTarget === "BAPTISM_CERT") {
+          setBaptismPreview(dataUrl)
+          setValue("baptismCertificatePhotoUrl", dataUrl)
+        }
+        
         stopCamera()
       }
     }
@@ -390,7 +408,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-20 w-20" /></AvatarFallback>
                   </Avatar>
                   <div className="absolute -bottom-2 -right-2 flex gap-2">
-                    <button type="button" onClick={() => startCamera()} className="h-10 w-10 bg-primary rounded-full flex items-center justify-center text-white border-4 border-white shadow-lg hover:scale-110 transition-transform"><Camera className="h-5 w-5" /></button>
+                    <button type="button" onClick={() => startCamera("STUDENT_PHOTO")} className="h-10 w-10 bg-primary rounded-full flex items-center justify-center text-white border-4 border-white shadow-lg hover:scale-110 transition-transform"><Camera className="h-5 w-5" /></button>
                     <button type="button" onClick={() => fileInputRef.current?.click()} className="h-10 w-10 bg-accent rounded-full flex items-center justify-center text-white border-4 border-white shadow-lg hover:scale-110 transition-transform"><ImageIcon className="h-5 w-5" /></button>
                   </div>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "photoUrl")} />
@@ -575,18 +593,27 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                           <FormControl>
                             <div 
                               className={cn(
-                                "border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden",
+                                "border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden",
                                 field.value ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
                               )}
-                              onClick={() => baptismInputRef.current?.click()}
                             >
                               {baptismPreview ? (
-                                <img src={baptismPreview} alt="Certificado" className="w-full h-full object-cover" />
-                              ) : (
                                 <>
+                                  <img src={baptismPreview} alt="Certificado" className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                    <Button type="button" size="icon" variant="secondary" className="rounded-full h-8 w-8" onClick={() => startCamera("BAPTISM_CERT")}><Camera className="h-4 w-4" /></Button>
+                                    <Button type="button" size="icon" variant="secondary" className="rounded-full h-8 w-8" onClick={() => baptismInputRef.current?.click()}><ImageIcon className="h-4 w-4" /></Button>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="flex flex-col items-center" onClick={() => startCamera("BAPTISM_CERT")}>
                                   <ImageIcon className="h-8 w-8 text-slate-300 mb-1" />
                                   <span className="text-[10px] text-slate-400 font-bold uppercase">Subir Foto de Constancia</span>
-                                </>
+                                  <div className="flex gap-2 mt-2">
+                                    <Button type="button" size="xs" variant="outline" className="h-6 text-[8px]" onClick={(e) => { e.stopPropagation(); startCamera("BAPTISM_CERT"); }}>CÁMARA</Button>
+                                    <Button type="button" size="xs" variant="outline" className="h-6 text-[8px]" onClick={(e) => { e.stopPropagation(); baptismInputRef.current?.click(); }}>ARCHIVO</Button>
+                                  </div>
+                                </div>
                               )}
                             </div>
                           </FormControl>
@@ -671,18 +698,26 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormControl>
                           <div 
                             className={cn(
-                              "border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden",
+                              "border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden",
                               field.value ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
                             )}
-                            onClick={() => proofInputRef.current?.click()}
                           >
                             {proofPreview ? (
-                              <img src={proofPreview} alt="Comprobante" className="w-full h-full object-cover" />
-                            ) : (
                               <>
-                                <ImageIcon className="h-10 w-10 text-slate-300 mb-2" />
-                                <span className="text-xs text-slate-400 font-medium">Pulsa para subir foto de transferencia</span>
+                                <img src={proofPreview} alt="Comprobante" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                  <Button type="button" variant="secondary" className="rounded-xl h-10 gap-2 font-bold" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> RECAPTURAR</Button>
+                                </div>
                               </>
+                            ) : (
+                              <div className="flex flex-col items-center text-center p-4">
+                                <ImageIcon className="h-10 w-10 text-slate-300 mb-2" />
+                                <span className="text-xs text-slate-400 font-medium mb-4">Adjunta el comprobante SIPAP/Transferencia</span>
+                                <div className="flex gap-2">
+                                  <Button type="button" className="h-10 rounded-xl font-bold gap-2" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> CÁMARA</Button>
+                                  <Button type="button" variant="outline" className="h-10 rounded-xl font-bold gap-2" onClick={() => proofInputRef.current?.click()}><ImageIcon className="h-4 w-4" /> ARCHIVO</Button>
+                                </div>
+                              </div>
                             )}
                           </div>
                         </FormControl>
@@ -720,7 +755,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           
           <div className="relative bg-black aspect-video flex items-center justify-center">
             <video 
-              ref={videoRef} 
+              ref={onVideoRef} 
               autoPlay 
               muted 
               playsInline 
@@ -741,7 +776,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             {devices.length > 1 && (
               <div className="flex items-center gap-2 w-full">
                 <FlipHorizontal className="h-4 w-4 text-slate-400" />
-                <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(val); }}>
+                <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}>
                   <SelectTrigger className="h-9 rounded-lg"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
                   <SelectContent>
                     {devices.map((device) => (<SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Cámara ${device.deviceId.slice(0, 5)}`}</SelectItem>))}

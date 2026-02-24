@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,7 +31,7 @@ export default function ProfilePage() {
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const userProfileRef = useMemoFirebase(() => {
@@ -59,13 +59,14 @@ export default function ProfilePage() {
     }
   }, [profile])
 
-  // Sincronización del stream con el elemento video cuando el diálogo se abre
-  useEffect(() => {
-    if (showCamera && videoRef.current && currentStream) {
-      videoRef.current.srcObject = currentStream;
-      videoRef.current.play().catch(err => console.error("Error al reproducir video:", err));
+  // Callback Ref para asegurar la conexión del stream al video apenas aparezca en el DOM
+  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node && currentStream) {
+      node.srcObject = currentStream;
+      node.play().catch(err => console.error("Error al reproducir video:", err));
     }
-  }, [showCamera, currentStream]);
+    videoRef.current = node;
+  }, [currentStream]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -80,7 +81,6 @@ export default function ProfilePage() {
 
   const startCamera = async (deviceId?: string) => {
     try {
-      // Detener cualquier stream previo
       if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
@@ -357,7 +357,7 @@ export default function ProfilePage() {
           
           <div className="relative bg-black aspect-video flex items-center justify-center">
             <video 
-              ref={videoRef} 
+              ref={onVideoRef} 
               autoPlay 
               muted 
               playsInline 
