@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -56,51 +57,55 @@
 }
 
 @media print {
-  /* OCULTAMIENTO TOTAL DE LA UI DEL SISTEMA */
-  body > * {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
+  /* RESET TOTAL */
+  body * {
     visibility: hidden !important;
   }
 
-  /* MOSTRAR EXCLUSIVAMENTE EL ÁREA DEL RECIBO */
+  /* MOSTRAR EXCLUSIVAMENTE EL DOCUMENTO */
+  #receipt-area, 
+  #receipt-content-official,
+  #receipt-content-official *,
+  #receipt-content-catechist,
+  #receipt-content-catechist *,
+  #certificate-print,
+  #certificate-print *,
+  #qr-print-area,
+  #qr-print-area * {
+    visibility: visible !important;
+  }
+
   #receipt-area, 
   #receipt-content-official,
   #receipt-content-catechist,
   #certificate-print,
   #qr-print-area {
-    visibility: visible !important;
-    position: fixed !important;
+    position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
-    height: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 10mm !important;
     background: white !important;
     z-index: 9999 !important;
-    display: block !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
-  /* ASEGURAR QUE TODO DENTRO DEL RECIBO SEA VISIBLE */
-  #receipt-area *, 
-  #receipt-content-official *,
-  #receipt-content-catechist * {
-    visibility: visible !important;
-  }
-
-  /* ELIMINAR BOTONES Y OVERLAYS */
-  .no-print, button, [role="dialog"] > button {
+  /* ELIMINAR INTERFAZ DINÁMICA */
+  .no-print, button, [role="dialog"] > button, header, aside {
     display: none !important;
   }
 
-  /* FORZAR COLORES Y LOGO */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
-  }
-
-  @page {
-    margin: 1cm;
-    size: auto;
   }
 }

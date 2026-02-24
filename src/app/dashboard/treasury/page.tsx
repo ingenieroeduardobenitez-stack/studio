@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
@@ -50,6 +51,7 @@ export default function TreasuryPage() {
   const [isEventSubmitting, setIsEventSubmitting] = useState(false)
   const [isExpenseSubmitting, setIsEventSubmittingExpense] = useState(false)
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState(0)
@@ -101,12 +103,6 @@ export default function TreasuryPage() {
       )
     )
   }, [registrations, searchTerm])
-
-  const handlePrintPDF = () => {
-    setTimeout(() => {
-      window.print();
-    }, 500);
-  };
 
   const handleUpdateCosts = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -194,6 +190,43 @@ export default function TreasuryPage() {
     if (!selectedReg) return
     const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\nRecibo Oficial N°: ${selectedReg.id?.slice(-8).toUpperCase()}\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
+  }
+
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById("receipt-content-official");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Recibo-Tesoreria-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
+      
+      toast({ title: "PDF Generado", description: "El recibo se ha descargado correctamente." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al generar PDF" });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   }
 
   const handleCreateEvent = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -589,7 +622,6 @@ export default function TreasuryPage() {
           
           <ScrollArea className="max-h-[90vh]">
             <div className="p-8 md:p-12 bg-white text-slate-900 font-serif border-2 border-slate-900 m-4 print:m-0 print:border-slate-900" id="receipt-content-official">
-              {/* Cabecera Logo Recuadro */}
               <div className="border-2 border-slate-900 p-6 min-h-[160px] flex items-center justify-center mb-10 relative bg-white">
                 <img 
                   src="/logo-recibo.png" 
@@ -600,7 +632,6 @@ export default function TreasuryPage() {
                 <div className="absolute top-2 right-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
               </div>
 
-              {/* RECIBO y MONTO */}
               <div className="flex justify-between items-end border-b-2 border-slate-900 pb-4 mb-8">
                 <h1 className="text-5xl font-black italic tracking-tighter">RECIBO</h1>
                 <div className="flex items-center gap-3">
@@ -611,7 +642,6 @@ export default function TreasuryPage() {
                 </div>
               </div>
 
-              {/* Campos de Recibo con Líneas Punteadas */}
               <div className="space-y-10 text-xl">
                 <div className="flex items-baseline gap-4">
                   <span className="whitespace-nowrap font-bold">Recibí(mos) de:</span>
@@ -648,7 +678,6 @@ export default function TreasuryPage() {
                 <div className="w-full border-b border-dotted border-slate-400 h-8"></div>
               </div>
 
-              {/* Fecha y Firma QR */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-16">
                 <div className="flex flex-col justify-end space-y-4">
                   <p className="text-xl italic font-medium">
@@ -687,15 +716,15 @@ export default function TreasuryPage() {
             <Button 
               type="button"
               className="flex-1 gap-2 rounded-2xl bg-slate-900 text-white h-14 font-black shadow-xl group" 
-              onClick={handlePrintPDF}
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPDF}
             >
-              <Download className="h-5 w-5 group-hover:scale-110 transition-transform" /> DESCARGAR PDF
+              {isGeneratingPDF ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5 group-hover:scale-110 transition-transform" />} DESCARGAR PDF
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* VISTA AMPLIADA DE COMPROBANTE DE GASTO */}
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
           <DialogHeader className="sr-only"><DialogTitle>Comprobante de Egreso</DialogTitle></DialogHeader>

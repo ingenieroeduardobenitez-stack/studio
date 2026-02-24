@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -98,6 +99,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [loading, setLoading] = useState(false)
   const [loadingWithPayment, setLoadingWithPayment] = useState(false)
   const [isSearchingCi, setIsSearchingCi] = useState(false)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [proofPreview, setProofPreview] = useState<string | null>(null)
@@ -411,10 +413,45 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
-  const handlePrintPDF = () => {
-    setTimeout(() => {
-      window.print();
-    }, 500);
+  // FUNCIÓN DE DESCARGA DIRECTA DE PDF DEL SISTEMA
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById("receipt-area");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      // Importación dinámica para evitar errores de SSR
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const canvas = await html2canvas(element, {
+        scale: 2, // Mayor calidad
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Recibo-PS-${submittedData?.fullName?.replace(/\s+/g, '-')}-${Date.now()}.pdf`);
+      
+      toast({ title: "Descarga completada", description: "El PDF ha sido generado por el sistema." });
+    } catch (err) {
+      console.error("PDF Error:", err);
+      toast({ variant: "destructive", title: "Error al generar PDF", description: "Intente usar la función de impresión del navegador." });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   }
 
   if (isSubmittedSuccessfully) {
@@ -439,10 +476,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <p className="text-sm text-slate-500">Se ha generado el recibo oficial de <b>{submittedData?.fullName}</b>.</p>
           </div>
 
-          {/* ÁREA DE RECIBO MODELO ACTUALIZADO */}
           <ScrollArea className="max-h-[70vh] md:max-h-none print:overflow-visible">
             <div className="bg-white p-8 md:p-12 border-2 border-slate-900 text-slate-900 space-y-8 font-serif print:border-slate-900 print:p-12 m-2" id="receipt-area">
-              {/* Cabecera Logo Recuadro */}
               <div className="border-2 border-slate-900 p-6 min-h-[160px] flex items-center justify-center relative bg-white">
                 <img 
                   src="/logo-recibo.png" 
@@ -453,7 +488,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="absolute top-2 right-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
               </div>
 
-              {/* Titulo y Monto en Recuadro */}
               <div className="flex justify-between items-end border-b-2 border-slate-900 pb-4 mb-8">
                 <h1 className="text-5xl font-black italic tracking-tighter">RECIBO</h1>
                 <div className="flex items-center gap-3">
@@ -464,7 +498,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </div>
               </div>
 
-              {/* Campos del Recibo */}
               <div className="space-y-10 text-xl">
                 <div className="flex items-baseline gap-4">
                   <span className="whitespace-nowrap font-bold">Recibí(mos) de:</span>
@@ -499,7 +532,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="w-full border-b border-dotted border-slate-400 h-8"></div>
               </div>
 
-              {/* Pie de Recibo con QR Signature */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-16">
                 <div className="flex flex-col justify-end space-y-4">
                   <p className="text-xl italic font-medium">
@@ -530,14 +562,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             </div>
           </ScrollArea>
 
-          {/* Botones de Acción */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 no-print mt-6">
             <Button 
               type="button"
               className="h-14 rounded-2xl font-black bg-slate-900 hover:bg-slate-800 text-white gap-3 shadow-xl transition-all active:scale-95 group" 
-              onClick={handlePrintPDF}
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPDF}
             >
-              <Download className="h-6 w-6 transition-transform group-hover:scale-110" /> DESCARGAR PDF
+              {isGeneratingPDF ? <Loader2 className="h-6 w-6 animate-spin" /> : <Download className="h-6 w-6 transition-transform group-hover:scale-110" />} 
+              DESCARGAR PDF DIRECTO
             </Button>
             <Button 
               type="button"
