@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
@@ -29,6 +28,7 @@ export default function ProfilePage() {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
+  const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -59,6 +59,14 @@ export default function ProfilePage() {
     }
   }, [profile])
 
+  // Sincronización del stream con el elemento video cuando el diálogo se abre
+  useEffect(() => {
+    if (showCamera && videoRef.current && currentStream) {
+      videoRef.current.srcObject = currentStream;
+      videoRef.current.play().catch(err => console.error("Error al reproducir video:", err));
+    }
+  }, [showCamera, currentStream]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -72,20 +80,23 @@ export default function ProfilePage() {
 
   const startCamera = async (deviceId?: string) => {
     try {
+      // Detener cualquier stream previo
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+
       const constraints = {
         video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      setCurrentStream(stream)
       setHasCameraPermission(true)
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-      }
       
       const availableDevices = await navigator.mediaDevices.enumerateDevices()
       const videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
       setDevices(videoDevices)
       if (!selectedDeviceId && videoDevices.length > 0) {
-        setSelectedDeviceId(videoDevices[0].deviceId)
+        setSelectedDeviceId(deviceId || videoDevices[0].deviceId)
       }
       setShowCamera(true)
     } catch (error) {
@@ -100,9 +111,9 @@ export default function ProfilePage() {
   }
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
-      tracks.forEach(track => track.stop())
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop())
+      setCurrentStream(null)
     }
     setShowCamera(false)
   }
@@ -345,7 +356,13 @@ export default function ProfilePage() {
           </DialogHeader>
           
           <div className="relative bg-black aspect-video flex items-center justify-center">
-            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              muted 
+              playsInline 
+              className="w-full h-full object-cover" 
+            />
             <canvas ref={canvasRef} className="hidden" />
             
             {hasCameraPermission === false && (
@@ -361,7 +378,7 @@ export default function ProfilePage() {
             {devices.length > 1 && (
               <div className="flex items-center gap-2 w-full">
                 <FlipHorizontal className="h-4 w-4 text-slate-400" />
-                <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); stopCamera(); startCamera(val); }}>
+                <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(val); }}>
                   <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
                   <SelectContent>
                     {devices.map((device) => (
