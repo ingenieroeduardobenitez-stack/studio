@@ -19,7 +19,10 @@ import {
   FlipHorizontal,
   X,
   Info,
-  CreditCard
+  CreditCard,
+  MessageCircle,
+  Printer,
+  Share2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -310,7 +313,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const handleRegistration = async (values: FormValues, immediatePayment = false) => {
     if (!db) return;
     
-    // Validación manual de comprobante para público
     if (isPublic && !values.paymentProofUrl) {
       form.setError("paymentProofUrl", { type: "manual", message: "Debe adjuntar la foto de su comprobante" });
       return;
@@ -373,33 +375,91 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     toast({ title: "Copiado al portapapeles" });
   }
 
+  const handleShareReceipt = () => {
+    if (!submittedData) return
+    const amount = submittedData.registrationCost || 0;
+    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada con éxito.\n\n*Recibo de Pago N°:* ${submittedData.id?.slice(-6).toUpperCase()}\n*Monto:* ${amount.toLocaleString()} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PENDIENTE'}\n\n_Secretaría de Catequesis_`)
+    window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
+  }
+
   if (isSubmittedSuccessfully) {
     return (
       <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto">
-        <Card className="border-none shadow-2xl bg-white rounded-3xl p-10 text-center space-y-6">
+        <Card className="border-none shadow-2xl bg-white rounded-3xl p-8 text-center space-y-6 overflow-hidden">
           <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner">
             <CheckCircle2 className="h-10 w-10 text-green-600" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-headline font-bold text-slate-900">¡Registro Completado!</h2>
-            <p className="text-slate-500 font-medium">Hola <span className="text-primary font-bold">{submittedData?.fullName}</span>, el proceso ha finalizado con éxito.</p>
+            <h2 className="text-3xl font-headline font-bold text-slate-900 uppercase tracking-tight">¡Registro Exitoso!</h2>
+            <p className="text-slate-500 font-medium">Se ha generado la ficha de <span className="text-primary font-bold">{submittedData?.fullName}</span>.</p>
           </div>
 
-          <div className="bg-blue-50 p-8 rounded-3xl border border-blue-100 text-left space-y-4">
-            <div className="flex items-center gap-3 border-b border-blue-100 pb-4">
-              <Clock className="h-6 w-6 text-blue-600" />
-              <h3 className="font-bold text-blue-800 uppercase tracking-wider text-sm">Estado de Ficha</h3>
-            </div>
-            <p className="text-sm text-blue-700 leading-relaxed">
-              La inscripción está marcada como <span className="font-bold uppercase">{submittedData?.status}</span>.
-              {submittedData?.paymentStatus === "PAGADO" ? " El pago ya ha sido validado y registrado en caja." : " Pendiente de validación de comprobante por tesorería."}
-            </p>
+          {/* COMPROBANTE VISUAL / IMPRIMIBLE */}
+          <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden" id="receipt-area">
+             <div className="flex justify-between items-start border-b border-slate-200 pb-4">
+                <div className="space-y-1">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Comprobante de Inscripción</p>
+                   <p className="text-sm font-black text-primary">PERPETUO SOCORRO 2026</p>
+                </div>
+                <div className="text-right">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase">N° DE FICHA</p>
+                   <p className="text-xs font-bold text-slate-900">#{submittedData?.id?.slice(-8).toUpperCase()}</p>
+                </div>
+             </div>
+
+             <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                   <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Confirmando</p>
+                      <p className="text-xs font-bold text-slate-800">{submittedData?.fullName}</p>
+                   </div>
+                   <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">C.I. N°</p>
+                      <p className="text-xs font-bold text-slate-800">{submittedData?.ciNumber}</p>
+                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Nivel</p>
+                      <p className="text-xs font-bold text-slate-800">{submittedData?.catechesisYear?.replace('_', ' ')}</p>
+                   </div>
+                   <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Fecha</p>
+                      <p className="text-xs font-bold text-slate-800">{new Date(submittedData?.createdAt).toLocaleDateString()}</p>
+                   </div>
+                </div>
+             </div>
+
+             <div className="bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                   <div className="p-2 bg-green-50 rounded-lg"><Wallet className="h-4 w-4 text-green-600" /></div>
+                   <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Recibido</span>
+                      <span className="text-lg font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString() || 0} Gs.</span>
+                   </div>
+                </div>
+                <Badge className={cn("rounded-lg h-7 font-black text-[10px]", submittedData?.paymentStatus === 'PAGADO' ? 'bg-green-500' : 'bg-orange-500 text-white')}>
+                   {submittedData?.paymentStatus}
+                </Badge>
+             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => window.print()}>Imprimir Ficha</Button>
-            <Button asChild className="flex-1 h-12 rounded-xl font-bold shadow-lg">
-              <Link href={isPublic ? "/" : "/dashboard"}>Volver al Inicio</Link>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Button 
+              variant="outline" 
+              className="h-12 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary/5" 
+              onClick={() => window.print()}
+            >
+              <Printer className="h-4 w-4" /> Imprimir / PDF
+            </Button>
+            <Button 
+              className="h-12 rounded-xl font-bold bg-green-600 hover:bg-green-700 text-white gap-2 shadow-lg" 
+              onClick={handleShareReceipt}
+            >
+              <MessageCircle className="h-4 w-4" /> Enviar WhatsApp
+            </Button>
+            <Button asChild variant="ghost" className="h-12 rounded-xl font-bold col-span-1 sm:col-span-2 mt-2">
+              <Link href={isPublic ? "/" : "/dashboard"}>Finalizar y Salir</Link>
             </Button>
           </div>
         </Card>
