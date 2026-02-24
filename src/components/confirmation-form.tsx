@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState, useRef, useEffect, useMemo } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -12,20 +11,16 @@ import {
   Camera,
   CheckCircle2,
   Wallet,
-  FileText,
-  Check,
-  Info,
   Copy,
   Image as ImageIcon,
   Clock,
   BookOpen,
   UserPlus,
-  RefreshCcw,
   FlipHorizontal,
-  X
+  X,
+  Info
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
   Form,
   FormControl,
@@ -48,7 +43,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase"
 import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -66,13 +60,10 @@ const formSchema = z.object({
   photoUrl: z.string().optional(),
   paymentProofUrl: z.string().min(1, "Debe adjuntar la foto de su comprobante"),
   motherName: z.string().optional(),
-  motherCi: z.string().optional(),
   motherPhone: z.string().optional(),
   fatherName: z.string().optional(),
-  fatherCi: z.string().optional(),
   fatherPhone: z.string().optional(),
   tutorName: z.string().optional(),
-  tutorCi: z.string().optional(),
   tutorPhone: z.string().optional(),
   catechesisYear: z.enum(["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"], {
     required_error: "Debe seleccionar un año de catequesis",
@@ -86,7 +77,6 @@ const formSchema = z.object({
   baptismBook: z.string().optional(),
   baptismFolio: z.string().optional(),
   baptismCertificatePhotoUrl: z.string().optional(),
-  initialPayment: z.coerce.number().min(0, "Monto inválido").default(0),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -115,10 +105,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const { user } = useUser()
   const { toast } = useToast()
 
-  const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null
+    return doc(db, "users", user.uid)
+  }, [db, user?.uid])
   const { data: profile } = useDoc(userProfileRef)
 
-  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const treasuryRef = useMemoFirebase(() => {
+    if (!db) return null
+    return doc(db, "settings", "treasury")
+  }, [db])
   const { data: costs } = useDoc(treasuryRef)
 
   const form = useForm<FormValues>({
@@ -132,13 +128,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       photoUrl: "",
       paymentProofUrl: "",
       motherName: "",
-      motherCi: "",
       motherPhone: "",
       fatherName: "",
-      fatherCi: "",
       fatherPhone: "",
       tutorName: "",
-      tutorCi: "",
       tutorPhone: "",
       catechesisYear: undefined,
       attendanceDay: undefined,
@@ -148,7 +141,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       baptismBook: "",
       baptismFolio: "",
       baptismCertificatePhotoUrl: "",
-      initialPayment: 0,
     },
   })
 
@@ -258,13 +250,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }
 
-  const calculateCost = () => {
-    if (!catechesisYear) return 0
-    if (catechesisYear === "ADULTOS") return costs?.adultCost || 50000
-    return costs?.juvenileCost || 35000
-  }
-
-  const totalCost = calculateCost()
+  const totalCost = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
 
   const onSubmit = async (values: FormValues) => {
     if (!db) return;
@@ -432,14 +418,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <FormField control={form.control} name="motherName" render={({ field }) => (
                       <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
                     )} />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField control={form.control} name="motherCi" render={({ field }) => (
-                        <FormItem><FormLabel>C.I. N°</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
-                      )} />
-                      <FormField control={form.control} name="motherPhone" render={({ field }) => (
-                        <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
-                      )} />
-                    </div>
+                    <FormField control={form.control} name="motherPhone" render={({ field }) => (
+                      <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
+                    )} />
                   </div>
 
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border">
@@ -447,24 +428,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <FormField control={form.control} name="fatherName" render={({ field }) => (
                       <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
                     )} />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField control={form.control} name="fatherCi" render={({ field }) => (
-                        <FormItem><FormLabel>C.I. N°</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
-                      )} />
-                      <FormField control={form.control} name="fatherPhone" render={({ field }) => (
-                        <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
-                      )} />
-                    </div>
+                    <FormField control={form.control} name="fatherPhone" render={({ field }) => (
+                      <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
+                    )} />
                   </div>
 
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border md:col-span-2">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información del Encargado / Tutor (Si no vive con los padres)</p>
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información del Encargado / Tutor</p>
+                    <div className="grid gap-4 md:grid-cols-2">
                       <FormField control={form.control} name="tutorName" render={({ field }) => (
                         <FormItem><FormLabel>Nombre del Tutor</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
-                      )} />
-                      <FormField control={form.control} name="tutorCi" render={({ field }) => (
-                        <FormItem><FormLabel>C.I. N° Tutor</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
                       )} />
                       <FormField control={form.control} name="tutorPhone" render={({ field }) => (
                         <FormItem><FormLabel>Celular Tutor</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
