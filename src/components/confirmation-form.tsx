@@ -66,17 +66,21 @@ import { cn } from "@/lib/utils"
 import { QRCodeCanvas } from "qrcode.react"
 
 /**
- * UTILIDADES PY-QR (ESTÁNDAR EMVCO PARAGUAY - SIPAP/SPI)
- * Optimizada para cumplimiento estricto BCP.
+ * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR)
  */
 const cleanString = (str: string) => {
   if (!str) return "";
   return str
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") 
-    .replace(/[^a-zA-Z0-9 ]/g, "") 
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 ]/g, "")
     .trim()
     .toUpperCase();
+};
+
+const formatTag = (tag: string, value: string) => {
+  const len = value.length.toString().padStart(2, '0');
+  return tag + len + value;
 };
 
 const computeCRC = (str: string) => {
@@ -94,37 +98,34 @@ const computeCRC = (str: string) => {
   return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
 };
 
-const formatTag = (tag: string, value: string) => {
-  return tag.padStart(2, '0') + value.length.toString().padStart(2, '0') + value;
-};
-
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); 
-    payload += formatTag("01", "12"); 
+    payload += formatTag("00", "01"); // Format
+    payload += formatTag("01", "12"); // Dynamic
     
+    // Tag 26: Merchant Account Information
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      // Limpiamos el alias de símbolos como + para evitar errores en apps bancarias
-      const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const cleanAlias = alias.replace(/[^a-zA-Z0-9.@]/g, '').toUpperCase();
       merchantInfo += formatTag("01", cleanAlias);
     } else {
-      merchantInfo += formatTag("01", (accountNumber || "").replace(/[^0-9]/g, ''));
+      const cleanAcc = (accountNumber || "").replace(/[^0-9]/g, '');
+      merchantInfo += formatTag("01", cleanAcc);
       if (bankName) {
-        merchantInfo += formatTag("02", cleanString(bankName).substring(0, 10));
+        merchantInfo += formatTag("02", cleanString(bankName).substring(0, 15));
       }
     }
     payload += formatTag("26", merchantInfo);
     
-    payload += formatTag("52", "0000"); 
-    payload += formatTag("53", "600");  
+    payload += formatTag("52", "0000"); // Category
+    payload += formatTag("53", "600");  // Currency PYG
     
-    if (amount && amount > 0) {
+    if (amount > 0) {
       payload += formatTag("54", Math.floor(amount).toString()); 
     }
     
-    payload += formatTag("58", "PY");   
+    payload += formatTag("58", "PY");   // Country
     payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); 
     payload += formatTag("60", "ASUNCION"); 
     
@@ -136,7 +137,6 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     
     return payload;
   } catch (e) {
-    console.error("QR Error", e);
     return "";
   }
 };
@@ -294,7 +294,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       toast({
         variant: "destructive",
         title: "Monto inválido",
-        description: `El pago inicial no puede ser mayor al costo total (${totalCost.toLocaleString()} Gs).`
+        description: `El pago inicial no puede ser mayor al costo total.`
       })
       return
     }
@@ -359,32 +359,25 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const handleSendReceiptWhatsApp = () => {
     if (!submittedData) return
-    
     const phone = submittedData.phone || submittedData.motherPhone || submittedData.fatherPhone;
-    if (!phone) {
-      toast({ variant: "destructive", title: "Sin número", description: "No hay un número de contacto para enviar." })
-      return
-    }
+    if (!phone) { toast({ variant: "destructive", title: "Sin número" }); return; }
 
     const message = encodeURIComponent(
       `⛪ *RECIBO OFICIAL - CATEQUESIS*\n` +
       `*Parroquia Perpetuo Socorro*\n\n` +
       `Hola *${submittedData.fullName}*,\n` +
       `Confirmamos el cobro de tu arancel de inscripción.\n\n` +
-      `*Detalles:* \n` +
       `• *Concepto:* Inscripción ${submittedData.catechesisYear.replace("_", " ")}\n` +
-      `• *Monto Cobrado:* ${submittedData.initialPayment.toLocaleString()} Gs.\n` +
-      `• *Saldo Pendiente:* ${(submittedData.registrationCost - submittedData.initialPayment).toLocaleString()} Gs.\n` +
-      `• *Fecha:* ${new Date().toLocaleDateString()}\n\n` +
-      `_Gracias por tu compromiso. ¡Te esperamos!_`
+      `• *Monto:* ${submittedData.initialPayment.toLocaleString()} Gs.\n` +
+      `• *Saldo:* ${(submittedData.registrationCost - submittedData.initialPayment).toLocaleString()} Gs.\n\n` +
+      `_Gracias por tu compromiso._`
     )
-    
     window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
   const handleSendProofWhatsApp = () => {
     if (!submittedData) return
-    const message = encodeURIComponent(`⛪ *Comprobante de Inscripción*\n\nHola, adjunto el comprobante de transferencia para mi inscripción.\n\n*Nombre:* ${submittedData.fullName}\n*C.I.:* ${submittedData.ciNumber}\n*Nivel:* ${submittedData.catechesisYear.replace("_", " ")}\n\n_Quedo atento a la validación para recibir mi recibo oficial._`)
+    const message = encodeURIComponent(`⛪ *Comprobante de Inscripción*\n\nHola, adjunto mi comprobante.\n\n*Nombre:* ${submittedData.fullName}\n*C.I.:* ${submittedData.ciNumber}\n*Nivel:* ${submittedData.catechesisYear.replace("_", " ")}`)
     window.open(`https://wa.me/?text=${message}`, '_blank')
   }
 
@@ -399,10 +392,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       id: submittedData.id,
       student: submittedData.fullName,
       amount: submittedData.initialPayment,
-      catechist: profile ? `${profile.firstName} ${profile.lastName}` : "Catequista",
       date: new Date().toISOString()
     })
-  }, [submittedData, profile])
+  }, [submittedData])
 
   const qrPyData = useMemo(() => {
     if (!costs || !submittedData) return "";
@@ -425,9 +417,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </div>
           <div className="space-y-2">
             <h2 className="text-3xl font-headline font-bold text-slate-900">¡Inscripción Enviada!</h2>
-            <p className="text-slate-500 font-medium">
-              Hola <span className="text-primary font-bold">{submittedData?.fullName}</span>, tus datos han sido recibidos.
-            </p>
+            <p className="text-slate-500 font-medium">Hola <span className="text-primary font-bold">{submittedData?.fullName}</span>, tus datos han sido recibidos.</p>
           </div>
 
           <div className="bg-primary/5 p-8 rounded-3xl border border-primary/10 text-left space-y-6">
@@ -462,13 +452,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="flex flex-col items-center gap-2 bg-white p-4 rounded-2xl border shadow-sm">
                 <div className="bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded">PY-QR</div>
                 <QRCodeCanvas value={qrPyData} size={140} level="M" />
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Escaneo Automático</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Escaneo Ueno/BNF/Familiar</p>
               </div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-dashed text-xs text-slate-600 space-y-3">
-              <p className="font-bold flex items-center gap-2 text-primary"><Info className="h-3 w-3" /> PASO FINAL OBLIGATORIO:</p>
-              <p>Para habilitar tu inscripción, debes enviar la captura de tu transferencia. Una vez validada, el sistema emitirá tu recibo oficial.</p>
+              <p className="font-bold flex items-center gap-2 text-primary"><Info className="h-3 w-3" /> PASO FINAL:</p>
+              <p>Envía tu captura de transferencia. Una vez validada, recibirás tu recibo oficial.</p>
               <Button onClick={handleSendProofWhatsApp} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold h-11 rounded-xl gap-2">
                 <MessageCircle className="h-4 w-4" /> Enviar Comprobante por WhatsApp
               </Button>
@@ -500,9 +490,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <Church className="h-8 w-8 text-white/80" />
                 <div>
                   <CardTitle className="text-2xl font-headline font-bold">Registro de Postulante</CardTitle>
-                  <CardDescription className="text-white/80 font-medium">
-                    Parroquia Perpetuo Socorro • Ciclo 2026
-                  </CardDescription>
+                  <CardDescription className="text-white/80 font-medium">Parroquia Perpetuo Socorro • Ciclo 2026</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -511,9 +499,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="relative group">
                   <Avatar className="h-32 w-32 border-4 border-slate-100">
                     <AvatarImage src={photoPreview || undefined} className="object-cover" />
-                    <AvatarFallback className="bg-slate-50 text-slate-300">
-                      <User className="h-16 w-16" />
-                    </AvatarFallback>
+                    <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-16 w-16" /></AvatarFallback>
                   </Avatar>
                   <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute bottom-0 right-0 h-10 w-10 bg-primary rounded-full flex items-center justify-center text-white border-4 border-white"><Camera className="h-5 w-5" /></button>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
@@ -530,30 +516,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       <FormLabel className="font-semibold">N° de Cédula de Identidad</FormLabel>
                       <div className="relative">
                         <FormControl>
-                          <Input 
-                            placeholder="Ej. 1234567" 
-                            {...field} 
-                            className="h-12 rounded-xl bg-slate-50 border-slate-200 pr-12" 
-                            onBlur={(e) => {
-                              field.onBlur();
-                              handleLookupCi(e.target.value);
-                            }}
-                          />
+                          <Input placeholder="Ej. 1234567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200 pr-12" onBlur={(e) => { field.onBlur(); handleLookupCi(e.target.value); }} />
                         </FormControl>
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          {isSearchingCi ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                          ) : (
-                            <Button 
-                              type="button" 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 hover:bg-slate-200 rounded-full"
-                              onClick={() => handleLookupCi(form.getValues("ciNumber"))}
-                            >
-                              <Search className="h-4 w-4 text-slate-400" />
-                            </Button>
-                          )}
+                          {isSearchingCi ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Button type="button" variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-200 rounded-full" onClick={() => handleLookupCi(form.getValues("ciNumber"))}><Search className="h-4 w-4 text-slate-400" /></Button>}
                         </div>
                       </div>
                       <FormMessage />
@@ -621,120 +587,23 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   {!isPublic && (
                     <div className="space-y-4">
                       <FormField control={form.control} name="initialPayment" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-semibold text-primary">Monto Cobrado (Gs)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              {...field} 
-                              className={cn(
-                                "h-12 rounded-xl font-bold border-2 transition-colors",
-                                isOverpaid ? 'bg-red-50 border-red-300 text-red-900' : 'bg-green-50 border-green-200 text-slate-900'
-                              )}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                        <FormItem><FormLabel className="font-semibold text-primary">Monto Cobrado (Gs)</FormLabel><FormControl><Input type="number" {...field} className={cn("h-12 rounded-xl font-bold border-2", isOverpaid ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-200')} /></FormControl></FormItem>
                       )} />
                       
                       <FormField control={form.control} name="generateReceipt" render={({ field }) => (
                         <FormItem className="w-full">
                           <FormControl>
-                            <Button 
-                              type="button"
-                              variant={field.value ? "default" : "outline"}
-                              onClick={() => field.onChange(!field.value)}
-                              className={cn(
-                                "w-full h-12 rounded-xl font-bold gap-2 transition-all shadow-sm",
-                                !field.value && "text-slate-400 border-slate-200 hover:text-primary hover:border-primary/30"
-                              )}
-                            >
+                            <Button type="button" variant={field.value ? "default" : "outline"} onClick={() => field.onChange(!field.value)} className={cn("w-full h-12 rounded-xl font-bold gap-2", !field.value && "text-slate-400")}>
                               <FileText className="h-4 w-4" />
-                              <span className="text-[10px] font-bold uppercase tracking-tight">
-                                {field.value ? "RECIBO DIGITAL ACTIVADO" : "GENERAR RECIBO DIGITAL"}
-                              </span>
+                              <span className="text-[10px] font-bold uppercase">{field.value ? "RECIBO ACTIVADO" : "GENERAR RECIBO"}</span>
                               {field.value && <Check className="h-4 w-4" />}
                             </Button>
                           </FormControl>
-                          <FormMessage />
                         </FormItem>
                       )} />
                     </div>
                   )}
-
-                  {isPublic && catechesisYear && (
-                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><Info className="h-4 w-4 text-primary" /></div>
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase">Costo de Arancel</p>
-                        <p className="text-sm font-bold text-primary">{totalCost.toLocaleString()} Gs.</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-4"><ShieldCheck className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Vida Cristiana</h3></div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField control={form.control} name="hasBaptism" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="text-base font-bold cursor-pointer">Cuento con Bautismo</FormLabel>
-                        <p className="text-[10px] text-slate-500">Marcar si ya recibió este sacramento.</p>
-                      </div>
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="hasFirstCommunion" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 p-5 border rounded-2xl bg-slate-50/50">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="text-base font-bold cursor-pointer">Cuento con 1ra Comunión</FormLabel>
-                        <p className="text-[10px] text-slate-500">Marcar si ya recibió este sacramento.</p>
-                      </div>
-                    </FormItem>
-                  )} />
-                </div>
-
-                {hasBaptism && (
-                  <div className="grid gap-6 md:grid-cols-3 p-6 bg-primary/5 rounded-3xl border border-primary/10 animate-in zoom-in-95 duration-300">
-                    <div className="md:col-span-3 flex items-center gap-2 mb-2">
-                      <Church className="h-4 w-4 text-primary" />
-                      <h4 className="text-sm font-bold text-primary uppercase tracking-wider">Datos de la Fe de Bautismo</h4>
-                    </div>
-                    <FormField control={form.control} name="baptismParish" render={({ field }) => (
-                      <FormItem className="md:col-span-1">
-                        <FormLabel className="text-xs font-bold text-slate-600">Lugar de Bautismo</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nombre de la Parroquia" {...field} className="h-10 rounded-xl bg-white border-slate-200" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="baptismBook" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-bold text-slate-600">Libro</FormLabel>
-                        <FormControl>
-                          <Input placeholder="N° Libro" {...field} className="h-10 rounded-xl bg-white border-slate-200" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="baptismFolio" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-bold text-slate-600">Folio</FormLabel>
-                        <FormControl>
-                          <Input placeholder="N° Folio" {...field} className="h-10 rounded-xl bg-white border-slate-200" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                  </div>
-                )}
               </div>
             </CardContent>
 
@@ -754,100 +623,49 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       {!isPublic && (
         <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
           <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl bg-white">
-            <DialogHeader className="sr-only">
-              <DialogTitle>Recibo de Pago con Certificación Digital</DialogTitle>
-              <DialogDescription>Comprobante oficial generado con firma digital y validación QR.</DialogDescription>
-            </DialogHeader>
             <div className="p-12 space-y-10 print:p-8 bg-white" id="receipt-print">
               <div className="flex items-center justify-between border-b pb-8">
                 <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
-                    <Church className="h-8 w-8 text-white" />
-                  </div>
+                  <div className="h-14 w-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg"><Church className="h-8 w-8 text-white" /></div>
                   <div>
-                    <h3 className="font-headline font-bold text-2xl leading-none text-slate-900">PARROQUIA</h3>
-                    <p className="text-xs text-muted-foreground uppercase tracking-[0.3em] mt-1 font-bold">Perpetuo Socorro</p>
+                    <h3 className="font-headline font-bold text-2xl leading-none">PARROQUIA</h3>
+                    <p className="text-xs text-muted-foreground uppercase mt-1 font-bold">Perpetuo Socorro</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <Badge variant="outline" className="text-[10px] uppercase font-bold border-primary text-primary px-3 py-1 mb-2">Comprobante de Pago</Badge>
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold border-primary text-primary px-3 py-1 mb-2">Comprobante Oficial</Badge>
                   <p className="text-sm font-bold text-slate-900">ID: {submittedData?.id?.slice(-10)}</p>
-                  <p className="text-[10px] text-slate-400 font-medium">EMITIDO: {new Date().toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-400">EMITIDO: {new Date().toLocaleString()}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div className="space-y-6">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-1">Confirmando</p>
-                    <p className="text-xl font-headline font-bold text-slate-900">{submittedData?.fullName}</p>
-                    <p className="text-sm text-slate-500 font-medium">Documento: {submittedData?.ciNumber}</p>
-                  </div>
-                  
-                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-slate-500 font-bold uppercase">Concepto</span>
-                      <span className="text-sm font-bold text-slate-900">Inscripción {submittedData?.catechesisYear?.replace("_", " ")}</span>
-                    </div>
-                    <Separator className="bg-slate-200" />
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-slate-500 font-bold uppercase">Monto Arancel</span>
-                      <span className="text-sm font-bold text-slate-900">{submittedData?.registrationCost?.toLocaleString()} Gs.</span>
-                    </div>
-                    <div className="flex justify-between items-center text-green-600">
-                      <span className="text-xs font-bold uppercase">Abonado Ahora</span>
-                      <span className="text-lg font-bold">{submittedData?.initialPayment?.toLocaleString()} Gs.</span>
-                    </div>
-                    <Separator className="bg-slate-200" />
-                    <div className="flex justify-between items-center text-red-500">
-                      <span className="text-xs font-bold uppercase">Saldo Pendiente</span>
-                      <span className="text-sm font-bold">{(submittedData?.registrationCost - submittedData?.initialPayment).toLocaleString()} Gs.</span>
-                    </div>
+                  <div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Confirmando</p><p className="text-xl font-headline font-bold text-slate-900">{submittedData?.fullName}</p><p className="text-sm text-slate-500">C.I. N° {submittedData?.ciNumber}</p></div>
+                  <div className="p-5 rounded-2xl bg-slate-50 border space-y-4">
+                    <div className="flex justify-between text-xs"><span className="text-slate-500 uppercase">Concepto</span><span className="font-bold">Inscripción {submittedData?.catechesisYear?.replace("_", " ")}</span></div>
+                    <div className="flex justify-between text-green-600"><span className="text-xs font-bold uppercase">Abonado</span><span className="text-lg font-bold">{submittedData?.initialPayment?.toLocaleString()} Gs.</span></div>
+                    <Separator />
+                    <div className="flex justify-between text-red-500"><span className="text-xs font-bold uppercase">Saldo</span><span className="text-sm font-bold">{(submittedData?.registrationCost - submittedData?.initialPayment).toLocaleString()} Gs.</span></div>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-center justify-between border-l border-slate-100 pl-10">
+                <div className="flex flex-col items-center justify-between border-l pl-10">
                   <div className="text-center space-y-3">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Validación Digital</p>
-                    <div className="p-3 bg-white border-2 border-primary/10 rounded-3xl shadow-sm inline-block">
-                      <QRCodeCanvas value={receiptVerificationData} size={140} level="H" />
-                    </div>
-                    <p className="text-[8px] text-slate-400 leading-tight max-w-[150px] mx-auto">
-                      Escanee este código para verificar la autenticidad del recibo en el portal parroquial.
-                    </p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">Validación Digital</p>
+                    <div className="p-3 bg-white border-2 rounded-3xl shadow-sm inline-block"><QRCodeCanvas value={receiptVerificationData} size={140} level="H" /></div>
                   </div>
-
-                  <div className="w-full space-y-4 mt-6">
-                    <div className="relative pt-8 border-t-2 border-dashed border-slate-200 text-center">
-                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-white px-4">
-                        <Fingerprint className="h-8 w-8 text-primary opacity-20" />
-                      </div>
-                      <p className="text-[11px] font-bold text-slate-900 uppercase">{profile?.firstName} {profile?.lastName}</p>
-                      <p className="text-[9px] text-primary font-bold uppercase tracking-widest">{profile?.role || 'Catequista'}</p>
-                      <div className="mt-2 flex items-center justify-center gap-1">
-                        <Shield className="h-3 w-3 text-green-500" />
-                        <span className="text-[8px] text-green-600 font-bold uppercase tracking-tighter">Certificación Digital Verificada</span>
-                      </div>
-                    </div>
+                  <div className="w-full space-y-4 mt-6 text-center border-t-2 border-dashed pt-8">
+                    <p className="text-[11px] font-bold uppercase">{profile?.firstName} {profile?.lastName}</p>
+                    <div className="mt-2 flex items-center justify-center gap-1"><Shield className="h-3 w-3 text-green-500" /><span className="text-[8px] text-green-600 font-bold uppercase">Certificación Digital Verificada</span></div>
                   </div>
                 </div>
-              </div>
-
-              <div className="text-center pt-8 border-t border-slate-100">
-                <p className="text-[9px] text-slate-400 font-medium italic">
-                  Este documento es un comprobante oficial de pago para la Catequesis de Confirmación Ciclo 2026. 
-                  Consérvelo para cualquier reclamo o trámite posterior.
-                </p>
               </div>
             </div>
             <DialogFooter className="p-8 bg-slate-50 border-t grid grid-cols-1 sm:grid-cols-2 gap-4 print:hidden">
-              <Button variant="outline" className="rounded-2xl h-14 font-bold text-slate-600 border-slate-200" onClick={handleCloseReceipt}>Cerrar</Button>
-              <Button className="rounded-2xl h-14 bg-primary hover:bg-primary/90 text-white font-bold shadow-xl gap-2" onClick={() => window.print()}>
-                <Printer className="h-5 w-5" /> Imprimir Recibo (PDF)
-              </Button>
-              <Button className="rounded-2xl h-14 bg-green-600 hover:bg-green-700 text-white font-bold shadow-xl gap-2 sm:col-span-2" onClick={handleSendReceiptWhatsApp}>
-                <MessageCircle className="h-5 w-5" /> Enviar por WhatsApp
-              </Button>
+              <Button variant="outline" className="rounded-2xl h-14 font-bold" onClick={handleCloseReceipt}>Cerrar</Button>
+              <Button className="rounded-2xl h-14 bg-primary text-white font-bold" onClick={() => window.print()}><Printer className="h-5 w-5" /> Imprimir Recibo</Button>
+              <Button className="rounded-2xl h-14 bg-green-600 text-white font-bold sm:col-span-2" onClick={handleSendReceiptWhatsApp}><MessageCircle className="h-5 w-5" /> Enviar por WhatsApp</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

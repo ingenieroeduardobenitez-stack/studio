@@ -20,8 +20,7 @@ import { QRCodeCanvas } from "qrcode.react"
 import { cn } from "@/lib/utils"
 
 /**
- * UTILIDAD DE GENERACIÓN PY-QR (ESTÁNDAR EMVCO - SIPAP PARAGUAY)
- * Optimizada para BNF, Ueno, Familiar, Continental, etc.
+ * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR)
  */
 const cleanString = (str: string) => {
   if (!str) return "";
@@ -31,6 +30,11 @@ const cleanString = (str: string) => {
     .replace(/[^a-zA-Z0-9 ]/g, "")
     .trim()
     .toUpperCase();
+};
+
+const formatTag = (tag: string, value: string) => {
+  const len = value.length.toString().padStart(2, '0');
+  return tag + len + value;
 };
 
 const computeCRC = (str: string) => {
@@ -48,37 +52,39 @@ const computeCRC = (str: string) => {
   return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
 };
 
-const formatTag = (tag: string, value: string) => {
-  return tag.padStart(2, '0') + value.length.toString().padStart(2, '0') + value;
-};
-
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); 
-    payload += formatTag("01", "12"); 
+    payload += formatTag("00", "01"); // Format
+    payload += formatTag("01", "12"); // Dynamic
     
+    // Tag 26: Merchant Account Information (Standard SPI Paraguay)
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      // Limpieza estricta de alias para evitar caracteres especiales que bloquean el proceso bancario
-      const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      // Limpieza estricta de alias: sin símbolos para Ueno/BNF
+      const cleanAlias = alias.replace(/[^a-zA-Z0-9.@]/g, '').toUpperCase();
       merchantInfo += formatTag("01", cleanAlias);
     } else {
-      merchantInfo += formatTag("01", (accountNumber || "").replace(/[^0-9]/g, ''));
+      const cleanAcc = (accountNumber || "").replace(/[^0-9]/g, '');
+      merchantInfo += formatTag("01", cleanAcc);
       if (bankName) {
-        merchantInfo += formatTag("02", cleanString(bankName).substring(0, 10));
+        merchantInfo += formatTag("02", cleanString(bankName).substring(0, 15));
       }
     }
     payload += formatTag("26", merchantInfo);
     
-    payload += formatTag("52", "0000"); 
-    payload += formatTag("53", "600");  
-    payload += formatTag("54", Math.floor(amount || 0).toString()); 
-    payload += formatTag("58", "PY");   
+    payload += formatTag("52", "0000"); // Category
+    payload += formatTag("53", "600");  // Currency (PYG)
+    
+    if (amount > 0) {
+      payload += formatTag("54", Math.floor(amount).toString()); 
+    }
+    
+    payload += formatTag("58", "PY");   // Country
     payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); 
     payload += formatTag("60", "ASUNCION"); 
     
-    const cleanConcept = cleanString(concept || "PAGO CATEQUESIS").substring(0, 20);
+    const cleanConcept = cleanString(concept || "COBRO").substring(0, 20);
     payload += formatTag("62", formatTag("05", cleanConcept));
     
     payload += "6304"; 
@@ -86,7 +92,6 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     
     return payload;
   } catch (e) {
-    console.error("QR Error", e);
     return "";
   }
 };
@@ -418,7 +423,7 @@ export default function PaymentsManagementPage() {
                     className="w-full h-12 rounded-xl gap-2 border-dashed border-primary/40 text-primary"
                     onClick={() => setShowPaymentQr(true)}
                   >
-                    <QrCode className="h-4 w-4" /> Generar PY-QR Estándar
+                    <QrCode className="h-4 w-4" /> Generar PY-QR Interoperable
                   </Button>
                 ) : (
                   <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
@@ -435,7 +440,7 @@ export default function PaymentsManagementPage() {
                       <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
                         <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                         <p className="text-[10px] text-blue-700 leading-tight">
-                          Compatible con BNF, Ueno, Familiar y todos los bancos. El monto y concepto se cargarán solos.
+                          Compatible con Ueno, BNF, Familiar y todos los bancos. Si falla, usa los datos manuales abajo.
                         </p>
                       </div>
                       
