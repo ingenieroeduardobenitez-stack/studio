@@ -1,4 +1,3 @@
-
 "use client"
 
 import Link from "next/link"
@@ -22,7 +21,8 @@ import {
   ShieldCheck,
   Contact,
   BarChart3,
-  Receipt
+  Receipt,
+  CalendarCheck
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -50,6 +50,7 @@ import Image from "next/image"
 const operationsItems = [
   { id: "inicio", name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
   { id: "asistencia", name: "Mi Lista (Asistencia)", href: "/dashboard/my-list", icon: UserCheck },
+  { id: "asistencia_control", name: "Control Asistencia", href: "/dashboard/attendance-control", icon: CalendarCheck },
   { id: "confirmandos", name: "Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { id: "inscripcion", name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
   { id: "cambio_grupo", name: "Cambio de Grupo", href: "/dashboard/group-change", icon: ArrowLeftRight },
@@ -105,7 +106,7 @@ export function DashboardSidebar() {
 
     // Fallback: Catequistas ven operaciones básicas si no hay configuración
     if (type === 'ops') {
-      return items.filter(i => ["inicio", "asistencia", "inscripcion", "confirmandos"].includes(i.id));
+      return items.filter(i => ["inicio", "asistencia", "asistencia_control", "inscripcion", "confirmandos"].includes(i.id));
     }
     
     return [];
