@@ -23,7 +23,8 @@ import {
   MessageCircle,
   FileText,
   Share2,
-  AlertTriangle
+  AlertTriangle,
+  Download
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -407,134 +408,123 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   }
 
   const handlePrintPDF = () => {
-    // Timeout para asegurar que el navegador maneje el evento fuera del modal
     setTimeout(() => {
       window.print();
-    }, 300);
+    }, 500);
   }
 
   if (isSubmittedSuccessfully) {
+    const amount = submittedData?.amountPaid || 0;
+    const pending = (submittedData?.registrationCost || 0) - amount;
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.toLocaleString('es-PY', { month: 'long' });
+    const year = today.getFullYear();
+
     return (
-      <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto print:max-w-none print:m-0">
-        <Card className="border-none shadow-2xl bg-white rounded-3xl p-8 text-center space-y-6 overflow-hidden print:shadow-none print:p-0">
-          <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner no-print">
-            <CheckCircle2 className="h-10 w-10 text-green-600" />
+      <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-3xl mx-auto print:max-w-none print:m-0">
+        <Card className="border-none shadow-2xl bg-white rounded-3xl p-8 space-y-6 overflow-hidden print:shadow-none print:p-0">
+          <div className="flex justify-center no-print">
+            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center shadow-inner">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
           </div>
-          <div className="space-y-2 no-print">
-            <h2 className="text-3xl font-headline font-bold text-slate-900 uppercase tracking-tight">¡Registro Exitoso!</h2>
-            <p className="text-slate-500 font-medium">Se ha generado la ficha de <span className="text-primary font-bold">{submittedData?.fullName}</span>.</p>
-          </div>
-
-          <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden print:bg-white print:border-solid print:border print:rounded-none print:p-10" id="receipt-area">
-             <div className="hidden print:flex items-center justify-between border-b-2 border-slate-100 pb-6 mb-6">
-                <div className="flex items-center gap-4">
-                   <img 
-                    src="/logo-recibo.png" 
-                    alt="Logo Parroquia" 
-                    className="h-24 w-24 object-contain" 
-                    onError={(e) => {
-                      e.currentTarget.src = "/logo.png";
-                    }}
-                   />
-                   <div className="flex flex-col">
-                      <span className="text-2xl font-headline font-bold text-slate-900 uppercase">PARROQUIA PERPETUO SOCORRO</span>
-                      <span className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">Diócesis de San Lorenzo • Catequesis de Confirmación</span>
-                   </div>
-                </div>
-                <div className="text-right">
-                   <p className="text-xs font-black text-primary uppercase tracking-widest">Recibo de Inscripción</p>
-                   <p className="text-[10px] text-slate-400 font-bold uppercase">Ciclo 2026</p>
-                   <p className="text-[10px] text-slate-400">{new Date().toLocaleDateString('es-PY')}</p>
-                </div>
-             </div>
-
-             <div className="flex justify-between items-start border-b border-slate-200 pb-4 print:border-slate-300">
-                <div className="space-y-1">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Documento de Registro</p>
-                   <p className="text-sm font-black text-primary uppercase">CATEQUESIS DE CONFIRMACIÓN</p>
-                </div>
-                <div className="text-right">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase">N° DE RECIBO</p>
-                   <p className="text-xs font-bold text-slate-900">#{submittedData?.id?.slice(-8).toUpperCase()}</p>
-                </div>
-             </div>
-
-             <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                   <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Nombre del Postulante</p>
-                      <p className="text-xs font-bold text-slate-800 uppercase">{submittedData?.fullName}</p>
-                   </div>
-                   <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Cédula de Identidad</p>
-                      <p className="text-xs font-bold text-slate-800">{submittedData?.ciNumber}</p>
-                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                   <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Nivel de Formación</p>
-                      <p className="text-xs font-bold text-slate-800">{submittedData?.catechesisYear?.replace('_', ' ')}</p>
-                   </div>
-                   <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Día y Horario</p>
-                      <p className="text-xs font-bold text-slate-800 uppercase">{submittedData?.attendanceDay}S</p>
-                   </div>
-                </div>
-             </div>
-
-             <div className="bg-white p-6 rounded-2xl shadow-sm border flex justify-between items-center print:border-slate-300 print:shadow-none">
-                <div className="flex items-center gap-3">
-                   <div className="p-2 bg-green-50 rounded-lg no-print"><Wallet className="h-5 w-5 text-green-600" /></div>
-                   <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Percibido</span>
-                      <span className="text-xl font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString('es-PY') || 0} Gs.</span>
-                   </div>
-                </div>
-                <Badge className={cn("rounded-lg h-8 font-black text-[10px] uppercase", submittedData?.paymentStatus === 'PAGADO' ? 'bg-green-500 text-white' : 'bg-orange-500 text-white')}>
-                   {submittedData?.paymentStatus}
-                </Badge>
-             </div>
-             
-             {(submittedData?.registrationCost - submittedData?.amountPaid) > 0 && (
-               <p className="text-[10px] font-black text-red-500 text-right uppercase italic tracking-wider">
-                 Saldo Restante a Abonar: {((submittedData?.registrationCost || 0) - (submittedData?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
-               </p>
-             )}
-
-             <div className="hidden print:block pt-20">
-                <div className="flex justify-around items-end">
-                   <div className="flex flex-col items-center gap-2">
-                      <div className="h-px w-48 bg-slate-400"></div>
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Firma del Catequista</p>
-                   </div>
-                   <div className="flex flex-col items-center gap-2">
-                      <div className="h-px w-48 bg-slate-400"></div>
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Sello de Secretaría</p>
-                   </div>
-                </div>
-                <div className="mt-16 text-center">
-                   <p className="text-[8px] text-slate-300 uppercase tracking-[0.4em] font-medium italic">Parroquia Perpetuo Socorro • Sistema Administrativo</p>
-                </div>
-             </div>
+          
+          <div className="space-y-2 text-center no-print">
+            <h2 className="text-2xl font-headline font-bold text-slate-900 uppercase">Inscripción Completada</h2>
+            <p className="text-sm text-slate-500">Se ha generado el recibo oficial de <b>{submittedData?.fullName}</b>.</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 no-print">
+          {/* MODELO DE RECIBO CLÁSICO */}
+          <div className="bg-white p-10 border-2 border-slate-900 text-slate-900 space-y-8 font-serif print:border-slate-900 print:p-12" id="receipt-area">
+            {/* Cabecera Logo */}
+            <div className="border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative">
+              <img 
+                src="/logo-recibo.png" 
+                alt="Parroquia Perpetuo Socorro" 
+                className="max-h-24 object-contain"
+                onError={(e) => { e.currentTarget.src = "/logo.png" }}
+              />
+              <div className="absolute top-2 right-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
+            </div>
+
+            {/* Titulo y Monto */}
+            <div className="flex justify-between items-end border-b-2 border-slate-900 pb-2">
+              <h1 className="text-4xl font-black italic tracking-tighter">RECIBO</h1>
+              <div className="flex items-center gap-2">
+                <span className="text-3xl font-bold">Gs.</span>
+                <div className="border-2 border-slate-900 px-6 py-2 min-w-[180px] text-right font-black text-2xl bg-slate-50">
+                  {amount.toLocaleString('es-PY')}
+                </div>
+              </div>
+            </div>
+
+            {/* Cuerpo del Recibo */}
+            <div className="space-y-8 py-4 text-lg">
+              <div className="flex items-baseline gap-4">
+                <span className="whitespace-nowrap font-bold">Recibí(mos) de:</span>
+                <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-2">
+                  {submittedData?.fullName}
+                </div>
+              </div>
+
+              <div className="flex items-baseline gap-4">
+                <span className="whitespace-nowrap font-bold">la cantidad de:</span>
+                <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 italic">
+                  {amount.toLocaleString('es-PY')} Guaraníes
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-baseline gap-4">
+                  <span className="whitespace-nowrap font-bold">en concepto de:</span>
+                  <div className="flex-1 border-2 border-slate-900 px-4 py-2 font-bold text-base bg-slate-50 uppercase">
+                    Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}
+                  </div>
+                </div>
+                <div className="w-full border-b border-dotted border-slate-400 h-6"></div>
+              </div>
+
+              <div className="flex items-baseline gap-4">
+                <span className="whitespace-nowrap font-bold">y en contraprestación de:</span>
+                <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 text-sm text-slate-500">
+                  {pending > 0 ? `Saldo Pendiente: ${pending.toLocaleString('es-PY')} Gs.` : 'Totalmente cancelado.'}
+                </div>
+              </div>
+              <div className="w-full border-b border-dotted border-slate-400 h-6"></div>
+            </div>
+
+            {/* Pie de Recibo */}
+            <div className="flex flex-col items-end space-y-12 pt-10">
+              <p className="text-lg italic font-medium">
+                Asunción, a los {day} días de {month} de {year}
+              </p>
+              
+              <div className="flex flex-col items-center">
+                <div className="w-64 border-t-2 border-slate-900"></div>
+                <p className="text-xs font-bold uppercase mt-2">(Firma y aclaración)</p>
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Recibo N° {submittedData?.id?.slice(-8).toUpperCase()}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Botones de Acción */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 no-print">
             <Button 
               type="button"
-              variant="outline" 
-              className="h-14 rounded-2xl font-bold gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95 shadow-md group" 
+              className="h-14 rounded-2xl font-black bg-slate-900 hover:bg-slate-800 text-white gap-3 shadow-xl transition-all active:scale-95 group" 
               onClick={handlePrintPDF}
             >
-              <FileText className="h-5 w-5 transition-transform group-hover:scale-110" /> Descargar PDF
+              <Download className="h-6 w-6 transition-transform group-hover:scale-110" /> GENERAR PDF / IMPRIMIR
             </Button>
             <Button 
               type="button"
-              className="h-14 rounded-2xl font-bold bg-green-600 hover:bg-green-700 text-white gap-2 shadow-lg active:scale-95 group" 
+              className="h-14 rounded-2xl font-black bg-green-600 hover:bg-green-700 text-white gap-3 shadow-xl active:scale-95 group" 
               onClick={handleShareReceipt}
             >
-              <MessageCircle className="h-5 w-5 transition-transform group-hover:scale-110" /> Enviar WhatsApp
+              <MessageCircle className="h-6 w-6 transition-transform group-hover:scale-110" /> ENVIAR WHATSAPP
             </Button>
-            <Button asChild variant="ghost" className="h-12 rounded-xl font-bold col-span-1 sm:col-span-2 mt-4 text-slate-400 hover:text-primary">
+            <Button asChild variant="ghost" className="h-12 rounded-xl font-bold col-span-1 sm:col-span-2 text-slate-400 hover:text-primary">
               <Link href={isPublic ? "/" : "/dashboard"}>Finalizar Gestión</Link>
             </Button>
           </div>
