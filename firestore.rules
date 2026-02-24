@@ -1,114 +1,77 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * CONFIR NSPS - FIRESTORE SECURITY RULES
-     * 
-     * CORE PHILOSOPHY:
-     * This ruleset implements a robust ownership-based security model combined with 
-     * Database Access Control (DBAC) for administrative overrides. It prioritizes 
-     * "Authorization Independence," where the path itself often determines access 
-     * rights without requiring additional document lookups.
-     * 
-     * DATA STRUCTURE:
-     * 1. User Data: Nested under `/users/{userId}/...` to ensure path-based ownership.
-     * 2. Public Data: Top-level collections like `/catechesisSessions` for shared availability.
-     * 3. Admin Roles: A dedicated `/roles_admin` collection stores user UIDs that grant global permissions.
-     * 
-     * KEY SECURITY DECISIONS:
-     * - Ownership Enforcement: Users can only manage their own registrant profiles.
-     * - Admin Overrides: Users present in the `roles_admin` collection bypass standard ownership 
-     *   checks to facilitate application management.
-     * - Public Read: Catechesis sessions are publicly readable to allow prospective registrants 
-     *   to see schedules without needing an account (or while signed in anonymously).
-     * - Relational Integrity: On document creation, the internal ID field must match the 
-     *   document path ID, and IDs are immutable during updates.
-     * 
-     * PROTOTYPING MODE NOTICE:
-     * Authorization is strictly enforced. However, data schema validation (types, 
-     * required fields like 'cedula' or 'baptism photos') is currently relaxed to 
-     * allow for rapid frontend iteration.
-     */
+    // --- FUNCIONES DE AYUDA ---
 
-    // --- HELPER FUNCTIONS ---
-
-    /** @description Checks if the user is authenticated. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the user's UID matches the provided userId from the path. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** @description Checks if the user is the owner of an existing document. */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /** @description Checks if the authenticated user has an entry in the admin roles collection. */
+    // Un admin es alguien que tiene el rol explícito en su documento de usuario
+    // o está en la colección roles_admin por compatibilidad
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Administrador"
+      );
     }
 
-    // --- COLLECTION RULES ---
+    // --- REGLAS DE COLECCIONES ---
 
-    /**
-     * @description Rules for the admin roles marker collection.
-     * @path /roles_admin/{adminUid}
-     * @allow (get) Any signed-in user can check if a UID is an admin.
-     * @deny (write) No client-side writes; admin roles must be assigned via Backend/Console.
-     * @principle Database Access Control (DBAC) for administrative privileges.
-     */
+    // Perfiles de usuario
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // Inscripciones (Confirmaciones)
+    match /confirmations/{id} {
+      // Cualquier persona puede inscribirse (público)
+      allow create: if true;
+      // Solo personal autorizado puede ver y gestionar las listas
+      allow read, update, delete: if isSignedIn();
+    }
+
+    // Grupos de catequesis
+    match /groups/{groupId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Ajustes de tesorería y costos
+    match /settings/{settingId} {
+      allow read: if true; // Público para ver costos en el formulario
+      allow write: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Tesorero");
+    }
+
+    // Auditoría
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+    }
+
+    // Consulta de cédulas (Importación)
+    match /cedulas/{cedulaId} {
+      allow get: if true; // Permitir búsqueda pública por C.I.
+    }
+
+    // Marcador de Administradores (DBAC)
     match /roles_admin/{adminUid} {
       allow get: if isSignedIn();
       allow list: if isAdmin();
-      allow create, update, delete: if false;
+      allow write: if false;
     }
 
-    /**
-     * @description Rules for available catechesis class sessions.
-     * @path /catechesisSessions/{catechesisSessionId}
-     * @allow (get, list) Publicly readable for all users to view schedules.
-     * @allow (create, update, delete) Restricted to admin users.
-     * @principle Publicly accessible reference data with restricted administrative writes.
-     */
-    match /catechesisSessions/{catechesisSessionId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
+    // Compatibilidad con el blueprint antiguo
+    match /catechesisSessions/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
-
-    /**
-     * @description Rules for individual registrant profiles managed by users.
-     * @path /users/{userId}/registrantProfiles/{registrantProfileId}
-     * @allow (create) Owners can create profiles; data 'id' must match the path 'registrantProfileId'.
-     * @allow (read, update, delete) Owners and Admins can access and manage profiles.
-     * @principle Path-based ownership with relational integrity and admin override.
-     */
-    match /users/{userId}/registrantProfiles/{registrantProfileId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      
-      allow create: if isOwner(userId) 
-        && request.resource.data.id == registrantProfileId;
-      
-      allow update: if (isExistingOwner(userId) || isAdmin()) 
-        && request.resource.data.id == resource.data.id;
-      
-      allow delete: if isExistingOwner(userId) || isAdmin();
-    }
-
-    /**
-     * @description Collection Group rules for Registrant Profiles.
-     * @path /{path=**}/registrantProfiles/{registrantProfileId}
-     * @allow (list) Admins can query all profiles across all users for management purposes.
-     * @deny (list) Standard users cannot perform cross-user queries.
-     * @principle Secured Collection Group queries for administrative oversight.
-     */
-    match /{path=**}/registrantProfiles/{registrantProfileId} {
-      allow read: if isAdmin();
-    }
-
   }
 }
