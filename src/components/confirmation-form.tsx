@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -50,7 +49,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase"
-import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection } from "firebase/firestore"
+import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -307,24 +306,51 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }
 
-  const handleLookupCi = (ciValue: string) => {
+  const handleLookupCi = async (ciValue: string) => {
     if (!db || !ciValue || ciValue.length < 5) return;
+    
     setIsSearchingCi(true);
     const cleanCi = ciValue.replace(/\./g, "").trim();
     const cleanCiForDoc = cleanCi.replace(/[^0-9]/g, '');
-    const cedulaRef = doc(db, "cedulas", cleanCiForDoc);
-    getDoc(cedulaRef)
-      .then((docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.NOMBRE && data.APELLIDO) setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim());
-          if (data.NOM_MADRE) setValue("motherName", data.NOM_MADRE);
-          if (data.NOM_PADRE) setValue("fatherName", data.NOM_PADRE);
-          if (data.FECHA_NACI) setValue("birthDate", data.FECHA_NACI);
-          toast({ title: "Datos encontrados", description: "Campos precargados con éxito." });
-        }
-      })
-      .finally(() => setIsSearchingCi(false));
+
+    try {
+      // 1. Verificar si YA ESTÁ INSCRITO en la colección de confirmaciones
+      const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue));
+      const existingSnap = await getDocs(existingQuery);
+      
+      if (!existingSnap.empty) {
+        form.setError("ciNumber", { 
+          type: "manual", 
+          message: "Esa persona ya se encuentra inscripta" 
+        });
+        toast({
+          variant: "destructive",
+          title: "Inscripción Duplicada",
+          description: "Esta persona ya se encuentra registrada en el sistema."
+        });
+        setIsSearchingCi(false);
+        return;
+      } else {
+        form.clearErrors("ciNumber");
+      }
+
+      // 2. Si no está inscrito, proceder a buscar datos en la base de identificaciones
+      const cedulaRef = doc(db, "cedulas", cleanCiForDoc);
+      const docSnap = await getDoc(cedulaRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.NOMBRE && data.APELLIDO) setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim());
+        if (data.NOM_MADRE) setValue("motherName", data.NOM_MADRE);
+        if (data.NOM_PADRE) setValue("fatherName", data.NOM_PADRE);
+        if (data.FECHA_NACI) setValue("birthDate", data.FECHA_NACI);
+        toast({ title: "Datos encontrados", description: "Campos precargados con éxito." });
+      }
+    } catch (error) {
+      console.error("Error al buscar C.I:", error);
+    } finally {
+      setIsSearchingCi(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, fieldName: "photoUrl" | "paymentProofUrl" | "baptismCertificatePhotoUrl") => {
@@ -353,28 +379,43 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (immediatePayment) setLoadingWithPayment(true);
     else setLoading(true);
 
-    const regId = `conf_${Date.now()}`
-    const regRef = doc(db, "confirmations", regId)
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Secretaría Parroquial" : "Sistema")
-    
-    const amountToRegister = immediatePayment ? amount : 0
-    const paymentStatus = amountToRegister >= totalCost ? "PAGADO" : (amountToRegister > 0 ? "PARCIAL" : "PENDIENTE")
-    
-    const registrationData = {
-      userId: user?.uid || "public_registration",
-      ...values,
-      status: immediatePayment ? "INSCRITO" : "POR_VALIDAR",
-      attendanceStatus: "PENDIENTE",
-      needsRecovery: false,
-      registrationCost: totalCost,
-      amountPaid: amountToRegister,
-      paymentStatus: paymentStatus,
-      validatedAt: immediatePayment ? serverTimestamp() : null,
-      validatedBy: catechistName,
-      createdAt: serverTimestamp()
-    }
-
     try {
+      // Verificación final de duplicados antes de guardar
+      const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", values.ciNumber));
+      const existingSnap = await getDocs(existingQuery);
+      
+      if (!existingSnap.empty) {
+        toast({
+          variant: "destructive",
+          title: "Error de Duplicidad",
+          description: "Esta persona ya se encuentra inscripta. No se puede duplicar el registro."
+        });
+        setLoading(false);
+        setLoadingWithPayment(false);
+        return;
+      }
+
+      const regId = `conf_${Date.now()}`
+      const regRef = doc(db, "confirmations", regId)
+      const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Secretaría Parroquial" : "Sistema")
+      
+      const amountToRegister = immediatePayment ? amount : 0
+      const paymentStatus = amountToRegister >= totalCost ? "PAGADO" : (amountToRegister > 0 ? "PARCIAL" : "PENDIENTE")
+      
+      const registrationData = {
+        userId: user?.uid || "public_registration",
+        ...values,
+        status: immediatePayment ? "INSCRITO" : "POR_VALIDAR",
+        attendanceStatus: "PENDIENTE",
+        needsRecovery: false,
+        registrationCost: totalCost,
+        amountPaid: amountToRegister,
+        paymentStatus: paymentStatus,
+        validatedAt: immediatePayment ? serverTimestamp() : null,
+        validatedBy: catechistName,
+        createdAt: serverTimestamp()
+      }
+
       await setDoc(regRef, registrationData)
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "public",
@@ -393,10 +434,11 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() })
       setIsSubmittedSuccessfully(true)
     } catch (error: any) {
+      console.error("Error en registro:", error);
       const permissionError = new FirestorePermissionError({
-        path: regRef.path,
+        path: "confirmations",
         operation: 'create',
-        requestResourceData: registrationData,
+        requestResourceData: values,
       })
       errorEmitter.emit('permission-error', permissionError)
     } finally {
@@ -484,7 +526,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               className="bg-white p-6 md:p-10 border-2 border-slate-900 text-slate-900 space-y-6 font-serif print:border-slate-900 print:p-12 m-2 w-full max-w-[700px] transform scale-[0.95] md:scale-100 origin-top" 
               id="receipt-area"
             >
-              {/* Cabecera compacta */}
               <div className="grid grid-cols-3 gap-4 items-center mb-4">
                 <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
                   <img 
