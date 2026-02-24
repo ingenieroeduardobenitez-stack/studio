@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useMemo } from "react"
@@ -29,7 +28,8 @@ import {
   QrCode,
   Shield,
   Check,
-  X
+  X,
+  Copy
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -66,13 +66,11 @@ import { cn } from "@/lib/utils"
 import { QRCodeCanvas } from "qrcode.react"
 
 /**
- * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR)
- * Versión Optimizada para Ueno Bank y SPI Paraguay
+ * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR / ITAU)
  */
-const cleanString = (str: string) => {
-  if (!str) return "";
-  return str
-    .normalize("NFD")
+const cleanS = (s: string) => {
+  if (!s) return "";
+  return s.normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9 ]/g, "")
     .replace(/\s+/g, " ")
@@ -85,58 +83,53 @@ const formatTag = (tag: string, value: string) => {
   return tag + len + value;
 };
 
-const computeCRC = (str: string) => {
-  let crc = 0xFFFF;
-  for (let i = 0; i < str.length; i++) {
-    crc ^= str.charCodeAt(i) << 8;
-    for (let j = 0; j < 8; j++) {
-      if ((crc & 0x8000) !== 0) {
-        crc = (crc << 1) ^ 0x1021;
-      } else {
-        crc = crc << 1;
-      }
-    }
-  }
-  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-};
-
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); // Format
-    payload += formatTag("01", "12"); // Dynamic
-    
-    // Tag 26: Merchant Account Information
+    payload += formatTag("00", "01"); 
+    payload += formatTag("01", "12"); 
+
+    // Tag 26: Merchant Account Information (SIPAP/SPI Paraguay)
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
       const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       merchantInfo += formatTag("01", cleanAlias);
-    } else {
-      const cleanAcc = (accountNumber || "").replace(/[^0-9]/g, '');
+    } else if (accountNumber) {
+      const cleanAcc = accountNumber.replace(/[^0-9]/g, '');
       merchantInfo += formatTag("01", cleanAcc);
       if (bankName) {
-        merchantInfo += formatTag("02", cleanString(bankName).substring(0, 15));
+        merchantInfo += formatTag("02", cleanS(bankName).substring(0, 10));
       }
     }
     payload += formatTag("26", merchantInfo);
-    
-    payload += formatTag("52", "8661"); // Merchant Category Code: Organizations, Religious
-    payload += formatTag("53", "600");  // Currency PYG
+
+    payload += formatTag("52", "0000"); // MCC
+    payload += formatTag("53", "600");  // PYG
     
     if (amount > 0) {
       payload += formatTag("54", Math.floor(amount).toString()); 
     }
-    
-    payload += formatTag("58", "PY");   // Country
-    payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); 
+
+    payload += formatTag("58", "PY");   
+    payload += formatTag("59", cleanS(accountOwner || "PARROQUIA").substring(0, 25)); 
     payload += formatTag("60", "ASUNCION"); 
-    
-    const cleanConcept = cleanString(concept || "PAGO CATEQUESIS").substring(0, 20);
+
+    const cleanConcept = cleanS(concept || "PAGO CATEQUESIS").substring(0, 20);
     payload += formatTag("62", formatTag("05", cleanConcept));
-    
+
     payload += "6304"; 
-    payload += computeCRC(payload);
-    
+
+    // CRC-16/CCITT-FALSE
+    let crc = 0xFFFF;
+    for (let i = 0; i < payload.length; i++) {
+      crc ^= payload.charCodeAt(i) << 8;
+      for (let j = 0; j < 8; j++) {
+        crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
+      }
+    }
+    const finalCrc = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+    payload += finalCrc;
+
     return payload;
   } catch (e) {
     return "";
@@ -223,7 +216,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const catechesisYear = form.watch("catechesisYear")
   const initialPayment = form.watch("initialPayment")
-  const hasBaptism = form.watch("hasBaptism")
   const birthDate = form.watch("birthDate")
 
   useEffect(() => {
@@ -241,31 +233,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const handleLookupCi = (ciValue: string) => {
     if (!db || !ciValue || ciValue.length < 5) return;
-    
     setIsSearchingCi(true);
     const cleanCi = ciValue.replace(/\./g, "").trim();
-    
     const cedulaRef = doc(db, "cedulas", cleanCi);
     getDoc(cedulaRef)
       .then((docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (data.NOMBRE && data.APELLIDO) {
-            form.setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim());
-          }
+          if (data.NOMBRE && data.APELLIDO) form.setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim());
           if (data.NOM_MADRE) form.setValue("motherName", data.NOM_MADRE);
           if (data.NOM_PADRE) form.setValue("fatherName", data.NOM_PADRE);
           if (data.FECHA_NACI) form.setValue("birthDate", data.FECHA_NACI);
-
-          toast({
-            title: "Datos encontrados",
-            description: `Se han cargado los datos de ${data.NOMBRE || 'la persona'}.`,
-          });
+          toast({ title: "Datos encontrados" });
         }
       })
-      .finally(() => {
-        setIsSearchingCi(false);
-      });
+      .finally(() => setIsSearchingCi(false));
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,19 +274,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const onSubmit = async (values: FormValues) => {
     if (!db) return;
-    if (!isPublic && isOverpaid) {
-      toast({
-        variant: "destructive",
-        title: "Monto inválido",
-        description: `El pago inicial no puede ser mayor al costo total.`
-      })
-      return
-    }
-
     setLoading(true)
     const regId = `conf_${Date.now()}`
     const regRef = doc(db, "confirmations", regId)
-    
     const amountPaid = isPublic ? 0 : values.initialPayment
     const paymentStatus = amountPaid >= totalCost ? "PAGADO" : amountPaid > 0 ? "PARCIAL" : "PENDIENTE"
 
@@ -323,30 +295,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
     try {
       await setDoc(regRef, registrationData)
-      
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "public",
         userName: profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Usuario Público" : "Sistema"),
         action: "Registro de Confirmando",
         module: "inscripcion",
-        details: `Nueva inscripción: ${values.fullName} (CI: ${values.ciNumber}) - Nivel: ${values.catechesisYear}`,
+        details: `Nueva inscripción: ${values.fullName} (CI: ${values.ciNumber})`,
         timestamp: serverTimestamp()
       })
-
-      toast({
-        title: isPublic ? "Datos enviados" : "Inscripción Realizada",
-        description: `Se ha registrado a ${values.fullName} correctamente.`,
-      })
-
+      toast({ title: isPublic ? "Datos enviados" : "Inscripción Realizada" });
       setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() })
-      
-      if (isPublic) {
-        setIsSubmittedSuccessfully(true)
-      } else if (amountPaid > 0 && values.generateReceipt) {
-        setIsReceiptOpen(true)
-      } else {
-        router.push("/dashboard")
-      }
+      if (isPublic) setIsSubmittedSuccessfully(true)
+      else if (amountPaid > 0 && values.generateReceipt) setIsReceiptOpen(true)
+      else router.push("/dashboard")
     } catch (error: any) {
       const permissionError = new FirestorePermissionError({
         path: regRef.path,
@@ -362,24 +323,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const handleSendReceiptWhatsApp = () => {
     if (!submittedData) return
     const phone = submittedData.phone || submittedData.motherPhone || submittedData.fatherPhone;
-    if (!phone) { toast({ variant: "destructive", title: "Sin número" }); return; }
-
-    const message = encodeURIComponent(
-      `⛪ *RECIBO OFICIAL - CATEQUESIS*\n` +
-      `*Parroquia Perpetuo Socorro*\n\n` +
-      `Hola *${submittedData.fullName}*,\n` +
-      `Confirmamos el cobro de tu arancel de inscripción.\n\n` +
-      `• *Concepto:* Inscripción ${submittedData.catechesisYear.replace("_", " ")}\n` +
-      `• *Monto:* ${submittedData.initialPayment.toLocaleString()} Gs.\n` +
-      `• *Saldo:* ${(submittedData.registrationCost - submittedData.initialPayment).toLocaleString()} Gs.\n\n` +
-      `_Gracias por tu compromiso._`
-    )
+    if (!phone) return;
+    const message = encodeURIComponent(`⛪ *RECIBO OFICIAL*\n*Parroquia Perpetuo Socorro*\n\nHola *${submittedData.fullName}*,\nConfirmamos el cobro de *${submittedData.initialPayment.toLocaleString()} Gs.* por inscripción.`)
     window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
   const handleSendProofWhatsApp = () => {
     if (!submittedData) return
-    const message = encodeURIComponent(`⛪ *Comprobante de Inscripción*\n\nHola, adjunto mi comprobante.\n\n*Nombre:* ${submittedData.fullName}\n*C.I.:* ${submittedData.ciNumber}\n*Nivel:* ${submittedData.catechesisYear.replace("_", " ")}`)
+    const message = encodeURIComponent(`⛪ *Comprobante de Inscripción*\n\nHola, adjunto mi comprobante.\n*Nombre:* ${submittedData.fullName}\n*C.I.:* ${submittedData.ciNumber}`)
     window.open(`https://wa.me/?text=${message}`, '_blank')
   }
 
@@ -387,16 +338,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setIsReceiptOpen(false)
     router.push("/dashboard")
   }
-
-  const receiptVerificationData = useMemo(() => {
-    if (!submittedData) return ""
-    return JSON.stringify({
-      id: submittedData.id,
-      student: submittedData.fullName,
-      amount: submittedData.initialPayment,
-      date: new Date().toISOString()
-    })
-  }, [submittedData])
 
   const qrPyData = useMemo(() => {
     if (!costs || !submittedData) return "";
@@ -409,6 +350,11 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       concept: `INS ${submittedData.fullName}`
     });
   }, [costs, submittedData, totalCost]);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copiado" });
+  }
 
   if (isSubmittedSuccessfully) {
     return (
@@ -437,14 +383,20 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="space-y-1">
                   {costs?.paymentMethod === "ALIAS" ? (
                     <>
-                      <p className="text-xs font-bold text-slate-700 uppercase tracking-tighter">Transferir por Alias:</p>
-                      <p className="text-lg font-black text-primary uppercase">{costs?.alias || "---"}</p>
+                      <p className="text-xs font-bold text-slate-700 uppercase tracking-tighter">Alias:</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-black text-primary uppercase">{costs?.alias || "---"}</p>
+                        <Copy className="h-4 w-4 text-slate-400 cursor-pointer" onClick={() => copyToClipboard(costs?.alias || "")} />
+                      </div>
                       <p className="text-xs text-slate-500">{costs?.accountOwner || "---"}</p>
                     </>
                   ) : (
                     <>
                       <p className="text-xs font-bold text-slate-700">{costs?.bankName || "Cuenta Bancaria"}</p>
-                      <p className="text-sm font-mono font-bold text-primary">{costs?.accountNumber || "---"}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-mono font-bold text-primary">{costs?.accountNumber || "---"}</p>
+                        <Copy className="h-4 w-4 text-slate-400 cursor-pointer" onClick={() => copyToClipboard(costs?.accountNumber || "")} />
+                      </div>
                       <p className="text-xs text-slate-500">{costs?.accountOwner || "---"}</p>
                     </>
                   )}
@@ -460,7 +412,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
             <div className="bg-white p-4 rounded-2xl border border-dashed text-xs text-slate-600 space-y-3">
               <p className="font-bold flex items-center gap-2 text-primary"><Info className="h-3 w-3" /> PASO FINAL:</p>
-              <p>Envía tu captura de transferencia. Una vez validada, recibirás tu recibo oficial.</p>
+              <p>Envía tu captura de transferencia para validar tu inscripción.</p>
               <Button onClick={handleSendProofWhatsApp} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold h-11 rounded-xl gap-2">
                 <MessageCircle className="h-4 w-4" /> Enviar Comprobante por WhatsApp
               </Button>
@@ -468,13 +420,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold gap-2" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Imprimir Ficha
-            </Button>
-            <Button asChild className="flex-1 h-12 rounded-xl font-bold shadow-lg gap-2">
-              <Link href="/">
-                <Home className="h-4 w-4" /> Volver al Inicio
-              </Link>
+            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => window.print()}>Imprimir Ficha</Button>
+            <Button asChild className="flex-1 h-12 rounded-xl font-bold shadow-lg">
+              <Link href="/">Volver al Inicio</Link>
             </Button>
           </div>
         </Card>
@@ -492,7 +440,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <Church className="h-8 w-8 text-white/80" />
                 <div>
                   <CardTitle className="text-2xl font-headline font-bold">Registro de Postulante</CardTitle>
-                  <CardDescription className="text-white/80 font-medium">Parroquia Perpetuo Socorro • Ciclo 2026</CardDescription>
+                  <CardDescription className="text-white/80 font-medium">Ciclo 2026</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -506,172 +454,113 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute bottom-0 right-0 h-10 w-10 bg-primary rounded-full flex items-center justify-center text-white border-4 border-white"><Camera className="h-5 w-5" /></button>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sube una foto tipo carnet</p>
               </div>
 
               <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-4"><User className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Identificación Personal</h3></div>
-                
-                <div className="grid gap-6">
-                  <FormField control={form.control} name="ciNumber" render={({ field }) => (
-                    <FormItem className="max-w-xs">
-                      <FormLabel className="font-semibold">N° de Cédula de Identidad</FormLabel>
-                      <div className="relative">
-                        <FormControl>
-                          <Input placeholder="Ej. 1234567" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200 pr-12" onBlur={(e) => { field.onBlur(); handleLookupCi(e.target.value); }} />
-                        </FormControl>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          {isSearchingCi ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Button type="button" variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-200 rounded-full" onClick={() => handleLookupCi(form.getValues("ciNumber"))}><Search className="h-4 w-4 text-slate-400" /></Button>}
-                        </div>
+                <FormField control={form.control} name="ciNumber" render={({ field }) => (
+                  <FormItem className="max-w-xs">
+                    <FormLabel className="font-semibold">N° de C.I.</FormLabel>
+                    <div className="relative">
+                      <FormControl><Input placeholder="1234567" {...field} className="h-12 rounded-xl" onBlur={(e) => handleLookupCi(e.target.value)} /></FormControl>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {isSearchingCi && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
                       </div>
-                      <FormMessage />
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  <FormField control={form.control} name="fullName" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="phone" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold">Celular</FormLabel><FormControl><Input placeholder="09..." {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  <FormField control={form.control} name="birthDate" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold">Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="age" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold">Edad</FormLabel><FormControl><Input type="number" readOnly {...field} className="h-12 rounded-xl bg-slate-50" /></FormControl></FormItem>
+                  )} />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <FormField control={form.control} name="catechesisYear" render={({ field }) => (
+                  <FormItem><FormLabel className="font-semibold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1er Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2do Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="attendanceDay" render={({ field }) => (
+                  <FormItem><FormLabel className="font-semibold">Día de Asistencia *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                )} />
+              </div>
+
+              {!isPublic && (
+                <div className="grid gap-6 md:grid-cols-2 items-end">
+                  <FormField control={form.control} name="initialPayment" render={({ field }) => (
+                    <FormItem><FormLabel className="font-semibold text-primary">Monto Cobrado (Gs)</FormLabel><FormControl><Input type="number" {...field} className={cn("h-12 rounded-xl font-bold border-2", isOverpaid ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-200')} /></FormControl></FormItem>
+                  )} />
+                  <FormField control={form.control} name="generateReceipt" render={({ field }) => (
+                    <FormItem className="w-full">
+                      <FormControl>
+                        <Button type="button" variant={field.value ? "default" : "outline"} onClick={() => field.onChange(!field.value)} className={cn("w-full h-12 rounded-xl font-bold gap-2", !field.value && "text-slate-400")}>
+                          <FileText className="h-4 w-4" />
+                          <span className="text-[10px] font-bold uppercase">{field.value ? "RECIBO ACTIVADO" : "GENERAR RECIBO"}</span>
+                          {field.value && <Check className="h-4 w-4" />}
+                        </Button>
+                      </FormControl>
                     </FormItem>
                   )} />
-
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <FormField control={form.control} name="fullName" render={({ field }) => (
-                      <FormItem><FormLabel className="font-semibold">Nombres y Apellidos Completos</FormLabel><FormControl><Input placeholder="Como figura en la cédula" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="phone" render={({ field }) => (
-                      <FormItem><FormLabel className="font-semibold">Teléfono Celular</FormLabel><FormControl><Input placeholder="Ej. 0981 123 456" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                  </div>
-
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <FormField control={form.control} name="birthDate" render={({ field }) => (
-                      <FormItem><FormLabel className="font-semibold">Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} className="h-12 rounded-xl bg-slate-50 border-slate-200" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="age" render={({ field }) => (
-                      <FormItem><FormLabel className="font-semibold">Edad Calculada</FormLabel><FormControl><Input type="number" readOnly {...field} className="h-12 rounded-xl bg-slate-100 border-slate-200 cursor-not-allowed" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                  </div>
                 </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-4"><Users className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Familia y Contacto</h3></div>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/30 space-y-4">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Referencia Materna</p>
-                    <FormField control={form.control} name="motherName" render={({ field }) => (
-                      <FormItem><FormLabel className="text-xs font-semibold">Nombre de la Madre</FormLabel><FormControl><Input placeholder="Nombre Completos" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
-                    )} />
-                    <FormField control={form.control} name="motherPhone" render={({ field }) => (
-                      <FormItem><FormLabel className="text-xs font-semibold">Celular de la Madre</FormLabel><FormControl><Input placeholder="Ej. 09..." {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
-                    )} />
-                  </div>
-                  <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/30 space-y-4">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Referencia Paterna</p>
-                    <FormField control={form.control} name="fatherName" render={({ field }) => (
-                      <FormItem><FormLabel className="text-xs font-semibold">Nombre del Padre</FormLabel><FormControl><Input placeholder="Nombre Completo" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
-                    )} />
-                    <FormField control={form.control} name="fatherPhone" render={({ field }) => (
-                      <FormItem><FormLabel className="text-xs font-semibold">Celular del Padre</FormLabel><FormControl><Input placeholder="Ej. 09..." {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>
-                    )} />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-4"><BookOpen className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Preferencias de Catequesis</h3></div>
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-end">
-                  <FormField control={form.control} name="catechesisYear" render={({ field }) => (
-                    <FormItem><FormLabel className="font-semibold">Nivel a Cursar *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione Nivel" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">Primer Año (Iniciación)</SelectItem><SelectItem value="SEGUNDO_AÑO">Segundo Año (Candidatos)</SelectItem><SelectItem value="ADULTOS">Catequesis de Adultos</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="attendanceDay" render={({ field }) => (
-                    <FormItem><FormLabel className="font-semibold">Día de Asistencia *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Seleccione Día" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 - 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 - 11:00)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                  )} />
-                  
-                  {!isPublic && (
-                    <div className="space-y-4">
-                      <FormField control={form.control} name="initialPayment" render={({ field }) => (
-                        <FormItem><FormLabel className="font-semibold text-primary">Monto Cobrado (Gs)</FormLabel><FormControl><Input type="number" {...field} className={cn("h-12 rounded-xl font-bold border-2", isOverpaid ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-200')} /></FormControl></FormItem>
-                      )} />
-                      
-                      <FormField control={form.control} name="generateReceipt" render={({ field }) => (
-                        <FormItem className="w-full">
-                          <FormControl>
-                            <Button type="button" variant={field.value ? "default" : "outline"} onClick={() => field.onChange(!field.value)} className={cn("w-full h-12 rounded-xl font-bold gap-2", !field.value && "text-slate-400")}>
-                              <FileText className="h-4 w-4" />
-                              <span className="text-[10px] font-bold uppercase">{field.value ? "RECIBO ACTIVADO" : "GENERAR RECIBO"}</span>
-                              {field.value && <Check className="h-4 w-4" />}
-                            </Button>
-                          </FormControl>
-                        </FormItem>
-                      )} />
-                    </div>
-                  )}
-                </div>
-              </div>
+              )}
             </CardContent>
 
             <CardFooter className="bg-slate-50 p-10 flex flex-col md:flex-row items-center justify-between gap-6 border-t">
               <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
                 <div className="h-12 w-12 bg-accent/10 rounded-xl flex items-center justify-center"><CreditCard className="h-6 w-6 text-accent" /></div>
-                <div><p className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Total Arancel</p><p className="text-xl font-headline font-bold text-primary">{totalCost.toLocaleString('es-PY')} Gs.</p></div>
+                <div><p className="text-xs font-bold text-slate-500 uppercase">Total Arancel</p><p className="text-xl font-headline font-bold text-primary">{totalCost.toLocaleString()} Gs.</p></div>
               </div>
-              <Button type="submit" disabled={loading || (!isPublic && isOverpaid)} className="h-12 bg-primary hover:bg-primary/90 text-white rounded-xl px-12 font-bold shadow-lg w-full md:w-auto">
-                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <span className="flex items-center gap-2">{isPublic ? "Enviar Inscripción" : "Registrar y Cobrar"} <ArrowRight className="h-5 w-5" /></span>}
+              <Button type="submit" disabled={loading} className="h-12 bg-primary hover:bg-primary/90 text-white rounded-xl px-12 font-bold shadow-lg w-full md:w-auto">
+                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <span>{isPublic ? "Enviar Inscripción" : "Registrar y Cobrar"}</span>}
               </Button>
             </CardFooter>
           </form>
         </Form>
       </Card>
 
-      {!isPublic && (
-        <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-          <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl bg-white">
-            <div className="p-12 space-y-10 print:p-8 bg-white" id="receipt-print">
-              <div className="flex items-center justify-between border-b pb-8">
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg"><Church className="h-8 w-8 text-white" /></div>
-                  <div>
-                    <h3 className="font-headline font-bold text-2xl leading-none">PARROQUIA</h3>
-                    <p className="text-xs text-muted-foreground uppercase mt-1 font-bold">Perpetuo Socorro</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <Badge variant="outline" className="text-[10px] uppercase font-bold border-primary text-primary px-3 py-1 mb-2">Comprobante Oficial</Badge>
-                  <p className="text-sm font-bold text-slate-900">ID: {submittedData?.id?.slice(-10)}</p>
-                  <p className="text-[10px] text-slate-400">EMITIDO: {new Date().toLocaleString()}</p>
-                </div>
+      <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <div className="p-12 space-y-10 bg-white" id="receipt-print">
+            <div className="flex items-center justify-between border-b pb-8">
+              <div className="flex items-center gap-4">
+                <Church className="h-10 w-10 text-primary" />
+                <div><h3 className="font-headline font-bold text-xl">PARROQUIA</h3><p className="text-xs text-muted-foreground uppercase">Perpetuo Socorro</p></div>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div className="space-y-6">
-                  <div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Confirmando</p><p className="text-xl font-headline font-bold text-slate-900">{submittedData?.fullName}</p><p className="text-sm text-slate-500">C.I. N° {submittedData?.ciNumber}</p></div>
-                  <div className="p-5 rounded-2xl bg-slate-50 border space-y-4">
-                    <div className="flex justify-between text-xs"><span className="text-slate-500 uppercase">Concepto</span><span className="font-bold">Inscripción {submittedData?.catechesisYear?.replace("_", " ")}</span></div>
-                    <div className="flex justify-between text-green-600"><span className="text-xs font-bold uppercase">Abonado</span><span className="text-lg font-bold">{submittedData?.initialPayment?.toLocaleString()} Gs.</span></div>
-                    <Separator />
-                    <div className="flex justify-between text-red-500"><span className="text-xs font-bold uppercase">Saldo</span><span className="text-sm font-bold">{(submittedData?.registrationCost - submittedData?.initialPayment).toLocaleString()} Gs.</span></div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-center justify-between border-l pl-10">
-                  <div className="text-center space-y-3">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase">Validación Digital</p>
-                    <div className="p-3 bg-white border-2 rounded-3xl shadow-sm inline-block"><QRCodeCanvas value={receiptVerificationData} size={140} level="H" /></div>
-                  </div>
-                  <div className="w-full space-y-4 mt-6 text-center border-t-2 border-dashed pt-8">
-                    <p className="text-[11px] font-bold uppercase">{profile?.firstName} {profile?.lastName}</p>
-                    <div className="mt-2 flex items-center justify-center gap-1"><Shield className="h-3 w-3 text-green-500" /><span className="text-[8px] text-green-600 font-bold uppercase">Certificación Digital Verificada</span></div>
-                  </div>
-                </div>
+              <div className="text-right">
+                <Badge variant="outline" className="text-[10px] uppercase font-bold border-primary text-primary px-3 py-1 mb-2">Comprobante de Pago</Badge>
+                <p className="text-sm font-bold text-slate-900">ID: {submittedData?.id?.slice(-10)}</p>
+                <p className="text-[10px] text-slate-400 font-medium">EMITIDO: {new Date().toLocaleString()}</p>
               </div>
             </div>
-            <DialogFooter className="p-8 bg-slate-50 border-t grid grid-cols-1 sm:grid-cols-2 gap-4 print:hidden">
-              <Button variant="outline" className="rounded-2xl h-14 font-bold" onClick={handleCloseReceipt}>Cerrar</Button>
-              <Button className="rounded-2xl h-14 bg-primary text-white font-bold" onClick={() => window.print()}><Printer className="h-5 w-5" /> Imprimir Recibo</Button>
-              <Button className="rounded-2xl h-14 bg-green-600 text-white font-bold sm:col-span-2" onClick={handleSendReceiptWhatsApp}><MessageCircle className="h-5 w-5" /> Enviar por WhatsApp</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+            <div className="space-y-6">
+              <div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Confirmando</p><p className="text-xl font-headline font-bold">{submittedData?.fullName}</p></div>
+              <div className="p-5 rounded-2xl bg-slate-50 border space-y-4">
+                <div className="flex justify-between text-green-600"><span className="text-xs font-bold uppercase">Abonado</span><span className="text-lg font-bold">{submittedData?.initialPayment?.toLocaleString()} Gs.</span></div>
+                <div className="flex justify-between text-red-500"><span className="text-xs font-bold uppercase">Saldo</span><span className="text-sm font-bold">{(submittedData?.registrationCost - submittedData?.initialPayment).toLocaleString()} Gs.</span></div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="p-8 bg-slate-50 border-t grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Button variant="outline" className="rounded-2xl h-12" onClick={handleCloseReceipt}>Cerrar</Button>
+            <Button className="rounded-2xl h-12 bg-primary text-white" onClick={() => window.print()}>Imprimir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

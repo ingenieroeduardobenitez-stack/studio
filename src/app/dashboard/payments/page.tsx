@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -20,13 +19,11 @@ import { QRCodeCanvas } from "qrcode.react"
 import { cn } from "@/lib/utils"
 
 /**
- * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR)
- * Versión Optimizada para Ueno Bank y SPI Paraguay
+ * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR / ITAU)
  */
-const cleanString = (str: string) => {
+const cleanS = (s: string) => {
   if (!str) return "";
-  return str
-    .normalize("NFD")
+  return s.normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9 ]/g, "")
     .replace(/\s+/g, " ")
@@ -39,60 +36,53 @@ const formatTag = (tag: string, value: string) => {
   return tag + len + value;
 };
 
-const computeCRC = (str: string) => {
-  let crc = 0xFFFF;
-  for (let i = 0; i < str.length; i++) {
-    crc ^= str.charCodeAt(i) << 8;
-    for (let j = 0; j < 8; j++) {
-      if ((crc & 0x8000) !== 0) {
-        crc = (crc << 1) ^ 0x1021;
-      } else {
-        crc = crc << 1;
-      }
-    }
-  }
-  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-};
-
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); // Payload Format Indicator
-    payload += formatTag("01", "12"); // Point of Initiation Method: Dynamic
-    
-    // Tag 26: Merchant Account Information (Standard SPI Paraguay)
+    payload += formatTag("00", "01"); 
+    payload += formatTag("01", "12"); 
+
+    // Tag 26: Merchant Account Information
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      // Limpieza agresiva de alias: solo alfanumérico para evitar errores en Ueno/BNF
       const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       merchantInfo += formatTag("01", cleanAlias);
-    } else {
-      const cleanAcc = (accountNumber || "").replace(/[^0-9]/g, '');
+    } else if (accountNumber) {
+      const cleanAcc = accountNumber.replace(/[^0-9]/g, '');
       merchantInfo += formatTag("01", cleanAcc);
       if (bankName) {
-        merchantInfo += formatTag("02", cleanString(bankName).substring(0, 15));
+        merchantInfo += formatTag("02", cleanS(bankName).substring(0, 10));
       }
     }
     payload += formatTag("26", merchantInfo);
-    
-    payload += formatTag("52", "8661"); // Merchant Category Code: Organizations, Religious
-    payload += formatTag("53", "600");  // Transaction Currency: PYG (Guaraníes)
+
+    payload += formatTag("52", "0000"); // MCC
+    payload += formatTag("53", "600");  // Currency PYG
     
     if (amount > 0) {
-      payload += formatTag("54", Math.floor(amount).toString()); // Transaction Amount
+      payload += formatTag("54", Math.floor(amount).toString()); 
     }
-    
-    payload += formatTag("58", "PY");   // Country Code: Paraguay
-    payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); // Merchant Name
-    payload += formatTag("60", "ASUNCION"); // Merchant City
-    
-    // Tag 62: Additional Data Field Template (Concepto)
-    const cleanConcept = cleanString(concept || "COBRO").substring(0, 20);
+
+    payload += formatTag("58", "PY");   
+    payload += formatTag("59", cleanS(accountOwner || "PARROQUIA").substring(0, 25)); 
+    payload += formatTag("60", "ASUNCION"); 
+
+    const cleanConcept = cleanS(concept || "COBRO").substring(0, 20);
     payload += formatTag("62", formatTag("05", cleanConcept));
-    
-    payload += "6304"; // Tag 63 (CRC) + Length 04
-    payload += computeCRC(payload);
-    
+
+    payload += "6304"; 
+
+    // CRC-16/CCITT-FALSE
+    let crc = 0xFFFF;
+    for (let i = 0; i < payload.length; i++) {
+      crc ^= payload.charCodeAt(i) << 8;
+      for (let j = 0; j < 8; j++) {
+        crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
+      }
+    }
+    const finalCrc = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+    payload += finalCrc;
+
     return payload;
   } catch (e) {
     return "";
@@ -199,11 +189,7 @@ export default function PaymentsManagementPage() {
   const handleProcessPayment = async () => {
     if (!db || !selectedReg || isSubmitting) return
     if (isOverpaid) {
-      toast({
-        variant: "destructive",
-        title: "Monto excedido",
-        description: `No puedes cobrar más del saldo pendiente.`
-      })
+      toast({ variant: "destructive", title: "Monto excedido" })
       return
     }
 
@@ -213,24 +199,15 @@ export default function PaymentsManagementPage() {
     try {
       if (selectedEventId === "inscripcion") {
         const newPaid = (selectedReg.amountPaid || 0) + paymentAmount
-        const total = selectedReg.registrationCost || 0
-        const status = newPaid >= total ? "PAGADO" : "PARCIAL"
-
-        await updateDoc(regRef, {
-          amountPaid: newPaid,
-          paymentStatus: status,
-          lastPaymentDate: serverTimestamp()
-        })
+        const status = newPaid >= (selectedReg.registrationCost || 0) ? "PAGADO" : "PARCIAL"
+        await updateDoc(regRef, { amountPaid: newPaid, paymentStatus: status, lastPaymentDate: serverTimestamp() })
         setLastPaymentType("Inscripción")
       } else {
-        const currentEventPayments = selectedReg.eventPayments || {}
-        const currentPaid = currentEventPayments[selectedEventId]?.paid || 0
-        const newPaid = currentPaid + paymentAmount
-        
+        const currentPaid = (selectedReg.eventPayments?.[selectedEventId]?.paid || 0) + paymentAmount
         await updateDoc(regRef, {
           [`eventPayments.${selectedEventId}`]: {
             name: selectedEvent?.category || "Evento",
-            paid: newPaid,
+            paid: currentPaid,
             total: selectedEvent?.cost || 0,
             date: new Date().toISOString()
           }
@@ -243,16 +220,16 @@ export default function PaymentsManagementPage() {
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Catequista",
         action: "Cobro de Arancel",
         module: "pagos",
-        details: `Cobro de ${paymentAmount.toLocaleString()} Gs. a ${selectedReg.fullName} por concepto de ${selectedEventId === 'inscripcion' ? 'Inscripción' : selectedEvent?.category}`,
+        details: `Cobro de ${paymentAmount.toLocaleString()} Gs. a ${selectedReg.fullName}`,
         timestamp: serverTimestamp()
       })
       
-      toast({ title: "Pago registrado", description: `Se procesó el cobro de ${paymentAmount.toLocaleString()} Gs.` })
+      toast({ title: "Pago registrado" })
       setIsPaymentDialogOpen(false)
       setIsReceiptOpen(true)
     } catch (error) {
-      console.error("Error processing payment:", error)
-      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el pago." })
+      console.error(error)
+      toast({ variant: "destructive", title: "Error" })
     } finally {
       setIsSubmitting(false)
     }
@@ -260,27 +237,17 @@ export default function PaymentsManagementPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: "Copiado", description: "Dato copiado al portapapeles." });
+    toast({ title: "Copiado" });
   }
 
   if (!mounted) return null
-
-  if (!myGroups || myGroups.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 bg-white rounded-3xl border shadow-sm">
-        <Wallet className="h-16 w-16 text-slate-200 mb-4" />
-        <h2 className="text-xl font-headline font-bold text-slate-900">Módulo de Cobros</h2>
-        <p className="text-muted-foreground mt-2 max-w-md">No tienes grupos asignados para gestionar cobros. Contacta al administrador.</p>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Cobros</h1>
-          <p className="text-muted-foreground">Control de aranceles y eventos para tus alumnos de {myGroups[0].name}.</p>
+          <p className="text-muted-foreground">Control de aranceles para tus alumnos.</p>
         </div>
       </div>
 
@@ -289,31 +256,24 @@ export default function PaymentsManagementPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-lg">Lista de Confirmandos</CardTitle>
-              <CardDescription>Visualiza saldos pendientes y registra nuevos cobros.</CardDescription>
+              <CardDescription>Saldos pendientes y cobros.</CardDescription>
             </div>
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar por nombre o C.I." 
-                className="pl-9 bg-white" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <Input placeholder="Buscar..." className="pl-9 bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {loadingRegs ? (
             <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : filteredConfirmands.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground">No hay alumnos registrados en tu grupo.</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50/50">
                   <TableHead className="font-bold">Alumno</TableHead>
-                  <TableHead className="font-bold text-center">Inscripción</TableHead>
-                  <TableHead className="font-bold text-center">Saldo Pendiente</TableHead>
+                  <TableHead className="font-bold text-center">Estado</TableHead>
+                  <TableHead className="font-bold text-center">Saldo</TableHead>
                   <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -325,14 +285,11 @@ export default function PaymentsManagementPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9 border"><AvatarImage src={reg.photoUrl} /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-sm text-slate-900">{reg.fullName}</span>
-                            <span className="text-[10px] text-slate-500 uppercase font-bold">{reg.ciNumber}</span>
-                          </div>
+                          <div className="flex flex-col"><span className="font-bold text-sm">{reg.fullName}</span><span className="text-[10px] text-slate-500">{reg.ciNumber}</span></div>
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={reg.paymentStatus === "PAGADO" ? "default" : "outline"} className={cn(reg.paymentStatus === "PAGADO" ? "bg-green-500" : "")}>
+                        <Badge variant={reg.paymentStatus === "PAGADO" ? "default" : "outline"} className={cn(reg.paymentStatus === "PAGADO" && "bg-green-500")}>
                           {reg.paymentStatus || "PENDIENTE"}
                         </Badge>
                       </TableCell>
@@ -342,14 +299,9 @@ export default function PaymentsManagementPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right pr-8">
-                        <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="outline" className="h-8 gap-2 border-primary text-primary hover:bg-primary/5" onClick={() => handleOpenPayment(reg)}>
-                            <Wallet className="h-3 w-3" /> Cobrar
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setSelectedReg(reg); setLastPaymentType("Inscripción"); setIsReceiptOpen(true); }}>
-                            <FileText className="h-4 w-4 text-slate-400" />
-                          </Button>
-                        </div>
+                        <Button size="sm" variant="outline" className="h-8 gap-2" onClick={() => handleOpenPayment(reg)}>
+                          <Wallet className="h-3 w-3" /> Cobrar
+                        </Button>
                       </TableCell>
                     </TableRow>
                   )
@@ -364,127 +316,69 @@ export default function PaymentsManagementPage() {
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
             <DialogTitle>Registrar Cobro</DialogTitle>
-            <DialogDescription className="text-white/80">Gestión de pagos para {selectedReg?.fullName}</DialogDescription>
+            <DialogDescription className="text-white/80">Pago de {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
           
           <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
             <div className="space-y-3">
-              <Label className="font-bold text-slate-700">Seleccionar Concepto</Label>
-              <Select value={selectedEventId} onValueChange={setSelectedEventId} disabled={isSubmitting}>
-                <SelectTrigger className="h-12 rounded-xl bg-slate-50">
-                  <SelectValue placeholder="¿Qué estás cobrando?" />
-                </SelectTrigger>
+              <Label className="font-bold text-slate-700">Concepto</Label>
+              <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                <SelectTrigger className="h-12 rounded-xl bg-slate-50"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="inscripcion">Inscripción Base</SelectItem>
-                  {events?.map((ev) => (
-                    <SelectItem key={ev.id} value={ev.id}>{ev.category} ({ev.cost.toLocaleString()} Gs.)</SelectItem>
-                  ))}
+                  {events?.map((ev) => <SelectItem key={ev.id} value={ev.id}>{ev.category} ({ev.cost.toLocaleString()} Gs.)</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-              <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                <span>Saldo Pendiente</span>
-                <span className="text-red-500">Adeudado</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-2xl font-bold text-slate-900">{pendingBalance.toLocaleString()} Gs.</span>
-                <Badge variant="outline" className="text-[10px] bg-white">MÁXIMO</Badge>
-              </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Saldo Pendiente</p>
+              <p className="text-2xl font-bold text-slate-900">{pendingBalance.toLocaleString()} Gs.</p>
             </div>
 
             <div className="space-y-3">
-              <Label className="font-bold text-slate-700">Monto a abonar ahora (Gs)</Label>
-              <div className="relative">
-                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <Input 
-                  type="number" 
-                  disabled={isSubmitting}
-                  className={cn(
-                    "h-14 text-2xl font-bold rounded-xl pl-12 border-2 transition-all focus:ring-primary",
-                    isOverpaid ? "border-red-500 bg-red-50 text-red-900" : "border-slate-200 bg-slate-50"
-                  )}
-                  value={paymentAmount} 
-                  onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                  max={pendingBalance}
-                  autoFocus
-                />
-              </div>
-              {isOverpaid && (
-                <p className="text-[11px] text-red-500 font-bold flex items-center gap-1 animate-pulse">
-                  <AlertTriangle className="h-3 w-3" /> El monto no puede superar el saldo pendiente.
-                </p>
-              )}
+              <Label className="font-bold text-slate-700">Monto a cobrar (Gs)</Label>
+              <Input 
+                type="number" 
+                className={cn("h-14 text-2xl font-bold rounded-xl", isOverpaid ? "border-red-500 bg-red-50" : "bg-slate-50")}
+                value={paymentAmount} 
+                onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                max={pendingBalance}
+              />
+              {isOverpaid && <p className="text-[11px] text-red-500 font-bold flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> No puede superar el saldo.</p>}
             </div>
 
             {paymentAmount > 0 && (
-              <div className="pt-2 space-y-4">
+              <div className="pt-2">
                 {!showPaymentQr ? (
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-12 rounded-xl gap-2 border-dashed border-primary/40 text-primary"
-                    onClick={() => setShowPaymentQr(true)}
-                  >
-                    <QrCode className="h-4 w-4" /> Generar PY-QR Interoperable
+                  <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-bold" onClick={() => setShowPaymentQr(true)}>
+                    <QrCode className="h-4 w-4" /> Generar PY-QR Válido
                   </Button>
                 ) : (
-                  <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded">PY-QR</div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Estándar BCP / SPI</span>
-                    </div>
-                    
-                    <div className="p-3 bg-white rounded-2xl shadow-sm border-4 border-slate-100">
-                      <QRCodeCanvas value={qrPaymentData} size={180} level="M" />
-                    </div>
-                    
+                  <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95">
+                    <div className="bg-primary text-white text-[8px] font-black px-2 py-0.5 rounded-full mb-3 uppercase tracking-widest">PY-QR Estándar BCP</div>
+                    <QRCodeCanvas value={qrPaymentData} size={180} level="M" />
                     <div className="mt-4 w-full space-y-2">
                       <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
-                        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-                        <p className="text-[10px] text-blue-700 leading-tight">
-                          Compatible con Ueno, BNF, Familiar y todos los bancos. Si falla, usa los datos manuales abajo.
-                        </p>
+                        <Info className="h-4 w-4 text-blue-500 shrink-0" />
+                        <p className="text-[9px] text-blue-700 leading-tight">Válido para Ueno, BNF, Itaú y todos los bancos. El monto y destino se cargan solos.</p>
                       </div>
-                      
-                      <div className="space-y-1 pt-2">
-                        {treasurySettings?.paymentMethod === "ALIAS" ? (
-                          <div className="flex justify-between items-center text-[11px] p-2 bg-white rounded-lg border">
-                            <span className="font-bold text-slate-500 uppercase">Alias:</span>
-                            <span className="font-black text-primary flex items-center gap-2">
-                              {treasurySettings.alias}
-                              <Copy className="h-3 w-3 cursor-pointer" onClick={() => copyToClipboard(treasurySettings.alias)} />
-                            </span>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex justify-between items-center text-[11px] p-2 bg-white rounded-lg border">
-                              <span className="font-bold text-slate-500 uppercase">Cuenta:</span>
-                              <span className="font-mono font-bold text-slate-900 flex items-center gap-2">
-                                {treasurySettings?.accountNumber}
-                                <Copy className="h-3 w-3 cursor-pointer" onClick={() => copyToClipboard(treasurySettings?.accountNumber)} />
-                              </span>
-                            </div>
-                          </>
-                        )}
-                        <div className="flex justify-between items-center text-[11px] p-2 bg-white rounded-lg border">
-                          <span className="font-bold text-slate-500 uppercase">Monto:</span>
-                          <span className="font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</span>
-                        </div>
+                      <div className="bg-white p-3 rounded-xl border space-y-1">
+                        <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold">ALIAS:</span><span className="font-black text-primary flex items-center gap-2">{treasurySettings?.alias} <Copy className="h-3 w-3 cursor-pointer" onClick={() => copyToClipboard(treasurySettings?.alias || "")} /></span></div>
+                        <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold">MONTO:</span><span className="font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</span></div>
                       </div>
                     </div>
-                    
-                    <Button variant="ghost" size="sm" className="mt-4 text-[10px] h-6" onClick={() => setShowPaymentQr(false)}>Ocultar QR</Button>
+                    <Button variant="ghost" size="sm" className="mt-2 text-[10px]" onClick={() => setShowPaymentQr(false)}>Ocultar QR</Button>
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
-            <Button variant="outline" disabled={isSubmitting} className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
             <Button className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700 font-bold shadow-lg" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isOverpaid || isSubmitting}>
-              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Confirmar Cobro</>}
+              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Cobro"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -492,68 +386,23 @@ export default function PaymentsManagementPage() {
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
-          <div className="p-10 bg-white space-y-8 print:p-8" id="receipt-print">
+          <div className="p-10 bg-white space-y-8" id="receipt-print">
             <div className="flex items-center justify-between border-b pb-6">
-              <div className="flex items-center gap-2">
-                <Church className="h-8 w-8 text-primary" />
-                <div>
-                  <h3 className="font-headline font-bold text-lg leading-none">PARROQUIA</h3>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Perpetuo Socorro</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold uppercase text-primary">Recibo de Pago</p>
-                <p className="text-[9px] text-muted-foreground mt-1">FECHA: {new Date().toLocaleDateString()}</p>
-              </div>
+              <Church className="h-10 w-10 text-primary" />
+              <div className="text-right"><p className="text-xs font-bold text-primary uppercase">Recibo Oficial</p></div>
             </div>
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Concepto de Pago</p>
-                  <p className="text-sm font-bold text-slate-900">{lastPaymentType}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Monto Cobrado</p>
-                  <p className="text-lg font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</p>
-                </div>
+            <div className="space-y-4">
+              <div><p className="text-[10px] text-muted-foreground uppercase">A nombre de</p><p className="text-lg font-bold">{selectedReg?.fullName}</p></div>
+              <div className="bg-slate-50 p-6 rounded-2xl border border-dashed space-y-2">
+                <div className="flex justify-between text-sm"><span>Monto Cobrado</span><span className="font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</span></div>
+                <Separator />
+                <div className="flex justify-between text-xs"><span>Saldo Pendiente</span><span className="font-bold text-red-500">{(pendingBalance - paymentAmount).toLocaleString()} Gs.</span></div>
               </div>
-
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">A nombre de</p>
-                <p className="text-base font-bold text-slate-900">{selectedReg?.fullName}</p>
-                <p className="text-xs text-slate-500">Documento: {selectedReg?.ciNumber}</p>
-              </div>
-              
-              <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-300 space-y-3">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Monto del Arancel/Evento</span>
-                  <span className="font-bold">{ (selectedEventId === "inscripcion" ? selectedReg?.registrationCost : selectedEvent?.cost)?.toLocaleString() } Gs.</span>
-                </div>
-                <div className="flex justify-between text-xs text-green-600">
-                  <span className="font-medium">Total Abonado a la fecha</span>
-                  <span className="font-bold">
-                    { (selectedEventId === "inscripcion" ? selectedReg?.amountPaid : (selectedReg?.eventPayments?.[selectedEventId]?.paid || 0))?.toLocaleString() } Gs.
-                  </span>
-                </div>
-                <Separator className="bg-slate-200" />
-                <div className="flex justify-between text-sm font-bold">
-                  <span className="text-slate-900 uppercase tracking-tighter">Saldo Pendiente</span>
-                  <span className="text-red-500">{ pendingBalance.toLocaleString() } Gs.</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-3 pt-8 border-t border-dashed border-slate-200">
-              <div className="h-px w-40 bg-slate-300"></div>
-              <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Sello y Firma - Catequesis</p>
             </div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 print:hidden">
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
             <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 gap-2 rounded-xl shadow-lg" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Imprimir Recibo
-            </Button>
+            <Button className="flex-1 gap-2 rounded-xl bg-primary text-white" onClick={() => window.print()}>Imprimir</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
