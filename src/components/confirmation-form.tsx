@@ -406,6 +406,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
+  // FUNCIÓN DE IMPRESIÓN ROBUSTA CON RETRASO
+  const handlePrint = () => {
+    toast({ title: "Generando PDF...", description: "Por favor espere un momento." });
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  }
+
   if (isSubmittedSuccessfully) {
     return (
       <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto print:max-w-none print:m-0">
@@ -422,7 +430,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
              {/* Encabezado exclusivo para impresión */}
              <div className="hidden print:flex items-center justify-between border-b pb-6 mb-6">
                 <div className="flex items-center gap-4">
-                   <img src="/logo.png" alt="Logo" className="h-16 w-16 object-contain" />
+                   <img 
+                    src="/logo.png" 
+                    alt="Logo" 
+                    className="h-16 w-16 object-contain" 
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                   />
                    <div className="flex flex-col">
                       <span className="text-xl font-headline font-bold text-slate-900 uppercase">PARROQUIA PERPETUO SOCORRO</span>
                       <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Diócesis de San Lorenzo • Catequesis de Confirmación</span>
@@ -510,7 +523,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               type="button"
               variant="outline" 
               className="h-12 rounded-xl font-bold gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95" 
-              onClick={() => window.print()}
+              onClick={handlePrint}
             >
               <Printer className="h-4 w-4" /> Imprimir / PDF
             </Button>
@@ -805,7 +818,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <p className="text-[10px] font-bold text-slate-400 uppercase">{costs?.paymentMethod === "ALIAS" ? "Alias SIPAP:" : "N° de Cuenta:"}</p>
                         <div className="flex items-center justify-between">
                           <span className="text-lg font-black text-slate-900">{costs?.paymentMethod === "ALIAS" ? costs?.alias : costs?.accountNumber}</span>
-                          <Button type="button" variant="ghost" size="icon" onClick={() => copyToClipboard(costs?.paymentMethod === "ALIAS" ? costs?.alias : costs?.accountNumber)}><Copy className="h-4 w-4 text-primary" /></Button>
+                          <Button type="button" variant="ghost" size="icon" onClick={() => { navigator.clipboard.writeText(costs?.paymentMethod === "ALIAS" ? costs?.alias : costs?.accountNumber); toast({title: "Copiado"}); }}><Copy className="h-4 w-4 text-primary" /></Button>
                         </div>
                         <p className="text-xs text-slate-500 font-medium">{costs?.accountOwner}</p>
                       </div>

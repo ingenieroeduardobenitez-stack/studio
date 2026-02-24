@@ -56,51 +56,55 @@
 }
 
 @media print {
-  /* Ocultar todo el sitio por defecto */
-  body * {
-    visibility: hidden !important;
+  /* REGLA DEFINITIVA: Ocultar TODO por defecto usando display: none */
+  body > * {
+    display: none !important;
   }
 
-  /* Solo mostrar los contenedores de recibos y certificados */
+  /* Solo mostrar el contenedor principal y el área de impresión específica */
+  body, html {
+    background: white !important;
+    height: auto !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  /* Habilitar solo las áreas de documentos */
   #receipt-area, 
-  #receipt-area *,
   #receipt-content-official,
-  #receipt-content-official *,
   #receipt-content-catechist,
-  #receipt-content-catechist *,
-  #certificate-print,
-  #certificate-print *,
-  #qr-print-area,
-  #qr-print-area * {
-    visibility: visible !important;
-  }
-
-  /* Forzar que el recibo se posicione al inicio de la página */
-  #receipt-area, 
-  #receipt-content-official, 
-  #receipt-content-catechist, 
   #certificate-print,
   #qr-print-area {
+    display: block !important;
+    visibility: visible !important;
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
-    max-width: none !important;
-    margin: 0 !important;
     padding: 40px !important;
-    border: none !important;
     background: white !important;
-    box-shadow: none !important;
+    z-index: 9999 !important;
   }
 
-  /* Asegurar que los colores se impriman correctamente */
+  /* Asegurar que los hijos sean visibles */
+  #receipt-area *, 
+  #receipt-content-official *, 
+  #receipt-content-catechist *, 
+  #certificate-print *, 
+  #qr-print-area * {
+    visibility: visible !important;
+  }
+
+  /* Forzar colores */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Quitar elementos que puedan estorbar */
-  .no-print, button, nav, header, [data-sidebar="sidebar"] {
+  /* Ocultar elementos de UI */
+  .no-print, button, nav, header, [data-sidebar="sidebar"], .sidebar-trigger {
     display: none !important;
   }
 }
