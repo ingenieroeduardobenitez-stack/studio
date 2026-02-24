@@ -50,6 +50,10 @@
         "photoUrl": {
           "type": "string"
         },
+        "paymentProofUrl": {
+          "type": "string",
+          "description": "Foto del comprobante de transferencia bancaria."
+        },
         "ciNumber": {
           "type": "string"
         },
@@ -83,7 +87,7 @@
         },
         "status": {
           "type": "string",
-          "enum": ["INSCRITO", "PENDIENTE", "OBSERVADO", "ARCHIVADO"]
+          "enum": ["INSCRITO", "PENDIENTE_PAGO", "POR_VALIDAR", "OBSERVADO", "ARCHIVADO"]
         },
         "registrationCost": {
           "type": "number"

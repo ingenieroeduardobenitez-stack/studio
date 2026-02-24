@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -8,77 +9,14 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Search, Loader2, Printer, FileText, User, Church, AlertTriangle, CreditCard, CheckCircle2, QrCode, Info, Copy } from "lucide-react"
+import { Wallet, Search, Loader2, Printer, FileText, User, Church, AlertTriangle, CreditCard, CheckCircle2, Info, Copy } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { QRCodeCanvas } from "qrcode.react"
 import { cn } from "@/lib/utils"
-
-/**
- * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR / ITAU)
- */
-const cleanS = (s: string) => {
-  if (!s) return "";
-  return s.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") 
-    .replace(/[^a-zA-Z0-9 ]/g, "") 
-    .replace(/\s+/g, " ")
-    .trim()
-    .toUpperCase();
-};
-
-const formatTag = (tag: string, value: string) => {
-  const len = value.length.toString().padStart(2, '0');
-  return tag + len + value;
-};
-
-const calculateCRC16 = (data: string) => {
-  let crc = 0xFFFF;
-  for (let i = 0; i < data.length; i++) {
-    crc ^= data.charCodeAt(i) << 8;
-    for (let j = 0; j < 8; j++) {
-      crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
-    }
-  }
-  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-};
-
-const generatePyQr = ({ alias, accountOwner, amount, concept }: any) => {
-  try {
-    let payload = "";
-    payload += formatTag("00", "01"); 
-    payload += formatTag("01", "12"); 
-
-    const cleanAlias = (alias || "").replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    const merchantInfo = formatTag("00", "py.gov.bcp.spi") + formatTag("01", cleanAlias);
-    payload += formatTag("26", merchantInfo);
-
-    payload += formatTag("52", "8661"); 
-    payload += formatTag("53", "600");  
-    
-    if (amount > 0) {
-      payload += formatTag("54", Math.floor(amount).toString()); 
-    }
-
-    payload += formatTag("58", "PY");   
-    payload += formatTag("59", cleanS(accountOwner || "PARROQUIA").substring(0, 25)); 
-    payload += formatTag("60", "ASUNCION"); 
-
-    const cleanConcept = cleanS(concept || "PAGO").substring(0, 20);
-    payload += formatTag("62", formatTag("05", cleanConcept));
-
-    payload += "6304"; 
-    payload += calculateCRC16(payload);
-
-    return payload;
-  } catch (e) {
-    return "";
-  }
-};
 
 export default function PaymentsManagementPage() {
   const [mounted, setMounted] = useState(false)
@@ -88,7 +26,6 @@ export default function PaymentsManagementPage() {
   const [selectedEventId, setSelectedEventId] = useState<string>("inscripcion")
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
-  const [showPaymentQr, setShowPaymentQr] = useState(false)
   const [lastPaymentType, setLastPaymentType] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -144,7 +81,6 @@ export default function PaymentsManagementPage() {
     setSelectedReg(reg)
     setPaymentAmount(0)
     setSelectedEventId("inscripcion")
-    setShowPaymentQr(false)
     setIsPaymentDialogOpen(true)
   }
 
@@ -165,16 +101,6 @@ export default function PaymentsManagementPage() {
   const pendingBalance = selectedReg ? calculatePending(selectedReg) : 0
   const isOverpaid = paymentAmount > pendingBalance
 
-  const qrPaymentData = useMemo(() => {
-    if (!treasurySettings || !selectedReg || paymentAmount <= 0) return ""
-    return generatePyQr({
-      alias: treasurySettings.alias,
-      accountOwner: treasurySettings.accountOwner,
-      amount: paymentAmount,
-      concept: `${selectedEventId === 'inscripcion' ? 'INS' : 'EV'} ${selectedReg.fullName}`
-    });
-  }, [treasurySettings, selectedReg, paymentAmount, selectedEventId])
-
   const handleProcessPayment = async () => {
     if (!db || !selectedReg || isSubmitting) return
     if (isOverpaid) {
@@ -189,7 +115,12 @@ export default function PaymentsManagementPage() {
       if (selectedEventId === "inscripcion") {
         const newPaid = (selectedReg.amountPaid || 0) + paymentAmount
         const status = newPaid >= (selectedReg.registrationCost || 0) ? "PAGADO" : "PARCIAL"
-        await updateDoc(regRef, { amountPaid: newPaid, paymentStatus: status, lastPaymentDate: serverTimestamp() })
+        await updateDoc(regRef, { 
+          amountPaid: newPaid, 
+          paymentStatus: status, 
+          status: "INSCRITO",
+          lastPaymentDate: serverTimestamp() 
+        })
         setLastPaymentType("Inscripción")
       } else {
         const currentPaid = (selectedReg.eventPayments?.[selectedEventId]?.paid || 0) + paymentAmount
@@ -207,18 +138,18 @@ export default function PaymentsManagementPage() {
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "unknown",
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Catequista",
-        action: "Cobro de Arancel",
+        action: "Cobro Directo",
         module: "pagos",
-        details: `Cobro de ${paymentAmount.toLocaleString()} Gs. a ${selectedReg.fullName}`,
+        details: `Cobro manual de ${paymentAmount.toLocaleString()} Gs. a ${selectedReg.fullName}`,
         timestamp: serverTimestamp()
       })
       
-      toast({ title: "Pago registrado" })
+      toast({ title: "Pago registrado con éxito" })
       setIsPaymentDialogOpen(false)
       setIsReceiptOpen(true)
     } catch (error) {
       console.error(error)
-      toast({ variant: "destructive", title: "Error" })
+      toast({ variant: "destructive", title: "Error al procesar" })
     } finally {
       setIsSubmitting(false)
     }
@@ -236,7 +167,7 @@ export default function PaymentsManagementPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Cobros</h1>
-          <p className="text-muted-foreground">Control de aranceles para tus alumnos.</p>
+          <p className="text-muted-foreground">Registra pagos manuales o transferencias de alumnos.</p>
         </div>
       </div>
 
@@ -244,12 +175,12 @@ export default function PaymentsManagementPage() {
         <CardHeader className="bg-slate-50/50 border-b">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-lg">Lista de Confirmandos</CardTitle>
-              <CardDescription>Saldos pendientes y cobros.</CardDescription>
+              <CardTitle className="text-lg">Confirmandos Asignados</CardTitle>
+              <CardDescription>Visualiza saldos y registra nuevos ingresos.</CardDescription>
             </div>
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar..." className="pl-9 bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <Input placeholder="Buscar alumno..." className="pl-9 bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>
@@ -261,8 +192,8 @@ export default function PaymentsManagementPage() {
               <TableHeader>
                 <TableRow className="bg-slate-50/50">
                   <TableHead className="font-bold">Alumno</TableHead>
-                  <TableHead className="font-bold text-center">Estado</TableHead>
-                  <TableHead className="font-bold text-center">Saldo</TableHead>
+                  <TableHead className="font-bold text-center">Estado Pago</TableHead>
+                  <TableHead className="font-bold text-center">Saldo Restante</TableHead>
                   <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -270,7 +201,7 @@ export default function PaymentsManagementPage() {
                 {filteredConfirmands.map((reg) => {
                   const pendingIns = (reg.registrationCost || 0) - (reg.amountPaid || 0)
                   return (
-                    <TableRow key={reg.id} className="hover:bg-slate-50/30">
+                    <TableRow key={reg.id} className="hover:bg-slate-50/30 h-16">
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9 border"><AvatarImage src={reg.photoUrl} /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar>
@@ -284,12 +215,12 @@ export default function PaymentsManagementPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         <span className={cn("font-bold text-sm", pendingIns > 0 ? "text-red-500" : "text-green-600")}>
-                          {pendingIns > 0 ? `${pendingIns.toLocaleString()} Gs.` : "Saldado"}
+                          {pendingIns > 0 ? `${pendingIns.toLocaleString()} Gs.` : "Al día"}
                         </span>
                       </TableCell>
                       <TableCell className="text-right pr-8">
-                        <Button size="sm" variant="outline" className="h-8 gap-2" onClick={() => handleOpenPayment(reg)}>
-                          <Wallet className="h-3 w-3" /> Cobrar
+                        <Button size="sm" variant="outline" className="h-8 gap-2 border-primary text-primary hover:bg-primary/5" onClick={() => handleOpenPayment(reg)}>
+                          <Wallet className="h-3 w-3" /> Registrar Cobro
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -304,13 +235,13 @@ export default function PaymentsManagementPage() {
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
-            <DialogTitle>Registrar Cobro</DialogTitle>
-            <DialogDescription className="text-white/80">Pago de {selectedReg?.fullName}</DialogDescription>
+            <DialogTitle>Registrar Cobro Manual</DialogTitle>
+            <DialogDescription className="text-white/80">Recibiendo pago de {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
           
-          <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+          <div className="p-6 space-y-6">
             <div className="space-y-3">
-              <Label className="font-bold text-slate-700">Concepto</Label>
+              <Label className="font-bold text-slate-700">Concepto del Pago</Label>
               <Select value={selectedEventId} onValueChange={setSelectedEventId}>
                 <SelectTrigger className="h-12 rounded-xl bg-slate-50"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -320,13 +251,13 @@ export default function PaymentsManagementPage() {
               </Select>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Saldo Pendiente</p>
-              <p className="text-2xl font-bold text-slate-900">{pendingBalance.toLocaleString()} Gs.</p>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center">
+              <p className="text-xs font-bold text-slate-400 uppercase">Saldo Pendiente:</p>
+              <p className="text-xl font-bold text-slate-900">{pendingBalance.toLocaleString()} Gs.</p>
             </div>
 
             <div className="space-y-3">
-              <Label className="font-bold text-slate-700">Monto a cobrar (Gs)</Label>
+              <Label className="font-bold text-slate-700">Monto a registrar (Gs)</Label>
               <Input 
                 type="number" 
                 className={cn("h-14 text-2xl font-bold rounded-xl", isOverpaid ? "border-red-500 bg-red-50" : "bg-slate-50")}
@@ -334,34 +265,17 @@ export default function PaymentsManagementPage() {
                 onChange={(e) => setPaymentAmount(Number(e.target.value))}
                 max={pendingBalance}
               />
-              {isOverpaid && <p className="text-[11px] text-red-500 font-bold flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> No puede superar el saldo.</p>}
+              {isOverpaid && <p className="text-[11px] text-red-500 font-bold flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> El monto excede el saldo pendiente.</p>}
             </div>
 
-            {paymentAmount > 0 && (
-              <div className="pt-2">
-                {!showPaymentQr ? (
-                  <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-bold" onClick={() => setShowPaymentQr(true)}>
-                    <QrCode className="h-4 w-4" /> Generar PY-QR Válido
-                  </Button>
-                ) : (
-                  <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95">
-                    <div className="bg-primary text-white text-[8px] font-black px-2 py-0.5 rounded-full mb-3 uppercase tracking-widest">PY-QR Estándar BCP</div>
-                    <QRCodeCanvas value={qrPaymentData} size={180} level="M" />
-                    <div className="mt-4 w-full space-y-2">
-                      <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
-                        <Info className="h-4 w-4 text-blue-500 shrink-0" />
-                        <p className="text-[9px] text-blue-700 leading-tight">Válido para Ueno, BNF, Itaú y todos los bancos locales. Carga automática de Alias y Monto.</p>
-                      </div>
-                      <div className="bg-white p-3 rounded-xl border space-y-1">
-                        <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold">ALIAS:</span><span className="font-black text-primary flex items-center gap-2">{treasurySettings?.alias} <Copy className="h-3 w-3 cursor-pointer" onClick={() => copyToClipboard(treasurySettings?.alias || "")} /></span></div>
-                        <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold">MONTO:</span><span className="font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</span></div>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm" className="mt-2 text-[10px]" onClick={() => setShowPaymentQr(false)}>Ocultar QR</Button>
-                  </div>
-                )}
+            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 space-y-2">
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2"><Info className="h-3 w-3" /> Datos para transferencia</p>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-blue-800 font-bold">{treasurySettings?.paymentMethod === "ALIAS" ? "Alias:" : "N° Cuenta:"}</span>
+                <span className="font-black text-primary">{treasurySettings?.paymentMethod === "ALIAS" ? treasurySettings?.alias : treasurySettings?.accountNumber}</span>
               </div>
-            )}
+              <p className="text-[10px] text-blue-500">{treasurySettings?.accountOwner}</p>
+            </div>
           </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
@@ -378,20 +292,26 @@ export default function PaymentsManagementPage() {
           <div className="p-10 bg-white space-y-8" id="receipt-print">
             <div className="flex items-center justify-between border-b pb-6">
               <Church className="h-10 w-10 text-primary" />
-              <div className="text-right"><p className="text-xs font-bold text-primary uppercase">Recibo Oficial</p></div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-primary uppercase">Recibo Oficial</p>
+                <p className="text-[10px] text-slate-400">FECHA: {new Date().toLocaleDateString()}</p>
+              </div>
             </div>
             <div className="space-y-4">
-              <div><p className="text-[10px] text-muted-foreground uppercase">A nombre de</p><p className="text-lg font-bold">{selectedReg?.fullName}</p></div>
+              <div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">A nombre de</p><p className="text-lg font-bold text-slate-900">{selectedReg?.fullName}</p></div>
               <div className="bg-slate-50 p-6 rounded-2xl border border-dashed space-y-2">
                 <div className="flex justify-between text-sm"><span>Monto Cobrado</span><span className="font-bold text-green-600">{paymentAmount.toLocaleString()} Gs.</span></div>
                 <Separator />
                 <div className="flex justify-between text-xs"><span>Saldo Pendiente</span><span className="font-bold text-red-500">{(pendingBalance - paymentAmount).toLocaleString()} Gs.</span></div>
               </div>
+              <p className="text-[9px] text-slate-400 text-center italic">Este es un comprobante interno de la Catequesis de Confirmación.</p>
             </div>
           </div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
-            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 gap-2 rounded-xl bg-primary text-white" onClick={() => window.print()}>Imprimir</Button>
+            <Button variant="outline" className="flex-1 rounded-xl h-11" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
+            <Button className="flex-1 gap-2 rounded-xl bg-primary text-white h-11 font-bold shadow-lg" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Imprimir Recibo
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
