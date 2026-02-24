@@ -398,12 +398,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }
 
-  const copyToClipboard = (text: string) => {
-    if (!text) return
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copiado al portapapeles" });
-  }
-
   const handleShareReceipt = () => {
     if (!submittedData) return
     const amount = submittedData.amountPaid || 0;
@@ -427,8 +421,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden print:bg-white print:border-solid print:border print:rounded-none print:p-10" id="receipt-area">
              {/* Encabezado exclusivo para impresión */}
              <div className="hidden print:flex items-center justify-between border-b pb-6 mb-6">
-                <div className="flex items-center gap-3">
-                   <Church className="h-10 w-10 text-primary" />
+                <div className="flex items-center gap-4">
+                   <img src="/logo.png" alt="Logo" className="h-16 w-16 object-contain" />
                    <div className="flex flex-col">
                       <span className="text-xl font-headline font-bold text-slate-900 uppercase">PARROQUIA PERPETUO SOCORRO</span>
                       <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Diócesis de San Lorenzo • Catequesis de Confirmación</span>
@@ -515,7 +509,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <Button 
               type="button"
               variant="outline" 
-              className="h-12 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary/5 active:scale-95" 
+              className="h-12 rounded-xl font-bold gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95" 
               onClick={() => window.print()}
             >
               <Printer className="h-4 w-4" /> Imprimir / PDF

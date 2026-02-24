@@ -56,67 +56,51 @@
 }
 
 @media print {
-  /* Reset total para impresión */
-  html, body {
-    height: auto !important;
-    overflow: visible !important;
-    background: white !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* Ocultar todos los elementos de UI y navegación */
-  nav, header, footer, 
-  [data-sidebar="sidebar"], 
-  .sidebar-trigger, 
-  .no-print,
-  button,
-  .fixed,
-  .absolute.top-4.left-4 {
-    display: none !important;
+  /* Ocultar todo el sitio por defecto */
+  body * {
     visibility: hidden !important;
   }
 
-  /* Asegurar que el contenido principal ocupe todo el ancho */
-  main, .SidebarInset, [data-sidebar="inset"] {
-    margin: 0 !important;
-    padding: 0 !important;
-    display: block !important;
+  /* Solo mostrar los contenedores de recibos y certificados */
+  #receipt-area, 
+  #receipt-area *,
+  #receipt-content-official,
+  #receipt-content-official *,
+  #receipt-content-catechist,
+  #receipt-content-catechist *,
+  #certificate-print,
+  #certificate-print *,
+  #qr-print-area,
+  #qr-print-area * {
+    visibility: visible !important;
+  }
+
+  /* Forzar que el recibo se posicione al inicio de la página */
+  #receipt-area, 
+  #receipt-content-official, 
+  #receipt-content-catechist, 
+  #certificate-print,
+  #qr-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
     max-width: none !important;
-    background: white !important;
-  }
-
-  /* Estilo para los recibos y certificados */
-  #receipt-area, #receipt-print, #receipt-content-official, #certificate-print, #receipt-content-official-v2 {
-    display: block !important;
-    width: 100% !important;
-    max-width: 800px !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     padding: 40px !important;
-    border: 1px solid #eee !important;
+    border: none !important;
     background: white !important;
     box-shadow: none !important;
-    position: relative !important;
-    top: 0 !important;
-    left: 0 !important;
-    visibility: visible !important;
   }
 
-  /* Asegurar que el texto y logos se vean correctamente */
-  #receipt-area *, #receipt-print *, #receipt-content-official *, #certificate-print * {
-    visibility: visible !important;
-  }
-
-  /* Forzar colores de fondo para impresión (importante para logos y bordes) */
+  /* Asegurar que los colores se impriman correctamente */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  .card, .rounded-3xl, .rounded-\[2\.5rem\] {
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
+  /* Quitar elementos que puedan estorbar */
+  .no-print, button, nav, header, [data-sidebar="sidebar"] {
+    display: none !important;
   }
 }

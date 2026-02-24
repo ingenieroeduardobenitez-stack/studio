@@ -38,7 +38,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
-import Image from "next/image"
 
 export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
@@ -315,7 +314,7 @@ export default function TreasuryPage() {
                       <TableHead className="font-bold text-center">Nivel</TableHead>
                       <TableHead className="font-bold text-center">Estado</TableHead>
                       <TableHead className="font-bold text-center">Saldo Pendiente</TableHead>
-                      <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
+                      <TableHead className="text-right pr-8 font-bold">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -390,7 +389,7 @@ export default function TreasuryPage() {
                 <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
               ) : (
                 <Table>
-                  <TableHeader><TableRow className="bg-slate-50/50"><TableHead className="font-bold pl-8">Concepto</TableHead><TableHead className="font-bold text-center">Arancel</TableHead><TableHead className="text-right pr-8">Acciones</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow className="bg-slate-50/50"><TableHead className="font-bold pl-8">Concepto</TableHead><TableHead className="font-bold text-center">Arancel</TableHead><TableHead className="text-right pr-8 font-bold">Acciones</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {events?.map((ev: any) => (
                       <TableRow key={ev.id} className="hover:bg-slate-50/30 h-16">
@@ -450,7 +449,7 @@ export default function TreasuryPage() {
                       <TableHead className="font-bold">Concepto</TableHead>
                       <TableHead className="font-bold text-center">Monto</TableHead>
                       <TableHead className="font-bold">Registrado por</TableHead>
-                      <TableHead className="text-right pr-8">Comprobante</TableHead>
+                      <TableHead className="text-right pr-8 font-bold">Comprobante</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -571,9 +570,7 @@ export default function TreasuryPage() {
           </DialogHeader>
           <div className="p-10 bg-white space-y-8" id="receipt-content-official">
             <div className="flex items-center justify-between border-b-2 border-slate-100 pb-6">
-              <div className="relative h-16 w-16">
-                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
-              </div>
+              <img src="/logo.png" alt="Logo" className="h-16 w-16 object-contain" />
               <div className="text-right">
                 <p className="text-xs font-black text-primary uppercase tracking-widest">Recibo de Pago</p>
                 <p className="text-[10px] font-bold text-slate-400">N° {selectedReg?.id?.slice(-6).toUpperCase()}</p>
