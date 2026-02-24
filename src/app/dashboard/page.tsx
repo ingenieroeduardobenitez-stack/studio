@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download } from "lucide-react"
+import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download, FileText } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { doc, collection } from "firebase/firestore"
 import { useState, useEffect } from "react"
@@ -11,12 +11,16 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { QRCodeCanvas } from "qrcode.react"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { useToast } from "@/hooks/use-toast"
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const [isQrOpen, setIsQrOpen] = useState(false)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
+  const { toast } = useToast()
 
   useEffect(() => {
     setMounted(true)
@@ -51,6 +55,43 @@ export default function DashboardPage() {
       link.download = "QR-Inscripcion-Perpetuo-Socorro-2026.png"
       link.href = url
       link.click()
+    }
+  }
+
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById("qr-print-area");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Cartel-QR-Inscripcion-2026.pdf`);
+      
+      toast({ title: "PDF Generado", description: "El cartel QR se ha descargado correctamente." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al generar PDF" });
+    } finally {
+      setIsGeneratingPDF(false);
     }
   }
 
@@ -207,48 +248,78 @@ export default function DashboardPage() {
       </div>
 
       <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
-        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
-          <DialogHeader className="p-6 bg-slate-50 border-b">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
             <DialogTitle>Código QR de Inscripción</DialogTitle>
-            <DialogDescription>Escanea este código para acceder al formulario de inscripción digital.</DialogDescription>
+            <DialogDescription>Genera el cartel oficial para exhibir en la parroquia.</DialogDescription>
           </DialogHeader>
-          <div className="p-12 bg-white flex flex-col items-center space-y-8 print:p-8" id="qr-print-area">
-            <div className="text-center space-y-2">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Church className="h-6 w-6 text-primary" />
-                <h2 className="font-headline font-bold text-xl uppercase tracking-tighter">Parroquia Perpetuo Socorro</h2>
+          
+          <ScrollArea className="max-h-[70vh]">
+            <div className="p-6 md:p-10 bg-white flex justify-center">
+              <div 
+                className="w-full max-w-[400px] bg-white flex flex-col items-center space-y-8 p-10 border-2 border-slate-100 rounded-3xl shadow-sm transform scale-[0.95] origin-top" 
+                id="qr-print-area"
+              >
+                <div className="text-center space-y-3">
+                  <div className="flex items-center justify-center gap-3 mb-2">
+                    <div className="bg-primary/10 p-2 rounded-xl">
+                      <Church className="h-6 w-6 text-primary" />
+                    </div>
+                    <h2 className="font-headline font-bold text-lg uppercase tracking-tighter text-slate-800">Parroquia Perpetuo Socorro</h2>
+                  </div>
+                  <h3 className="text-4xl font-headline font-black text-slate-900 leading-none tracking-tighter">INSCRIBITE AQUÍ</h3>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Ciclo de Catequesis 2026</p>
+                </div>
+
+                <div className="p-6 border-4 border-primary rounded-[3rem] bg-white shadow-xl">
+                  <QRCodeCanvas 
+                    value={registrationUrl} 
+                    size={200}
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+
+                <div className="text-center space-y-6">
+                  <p className="text-xs font-bold text-slate-500 max-w-[250px] mx-auto italic leading-relaxed">
+                    Escanea este código con la cámara de tu celular para completar el formulario digital.
+                  </p>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-px w-20 bg-slate-200"></div>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Secretaría de Catequesis</p>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-3xl font-headline font-bold text-slate-900 leading-tight">INSCRIBITE AQUÍ</h3>
-              <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Ciclo de Catequesis 2026</p>
             </div>
+          </ScrollArea>
 
-            <div className="p-4 border-4 border-primary rounded-[2.5rem] bg-white shadow-inner">
-              <QRCodeCanvas 
-                value={registrationUrl} 
-                size={220}
-                level="H"
-                includeMargin={true}
-              />
-            </div>
-
-            <div className="text-center space-y-4">
-              <p className="text-xs font-medium text-slate-500 max-w-[250px] mx-auto italic">
-                Escanea este código con la cámara de tu celular para completar el formulario digital.
-              </p>
-              <div className="h-px w-20 bg-slate-200 mx-auto"></div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Secretaría de Catequesis</p>
-            </div>
-          </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t grid grid-cols-2 gap-3 print:hidden">
-            <Button variant="outline" className="rounded-xl font-bold h-12 gap-2" onClick={handleDownloadQR}>
+          <DialogFooter className="p-6 bg-slate-50 border-t grid grid-cols-2 gap-3 shrink-0">
+            <Button 
+              className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-lg h-14 gap-2 transition-all active:scale-95" 
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPDF}
+            >
+              {isGeneratingPDF ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />} DESCARGAR PDF
+            </Button>
+            <Button 
+              className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-black shadow-lg h-14 gap-2 active:scale-95" 
+              onClick={handleShareWhatsApp}
+            >
+              <MessageCircle className="h-5 w-5" /> WHATSAPP
+            </Button>
+            <Button 
+              variant="outline" 
+              className="rounded-xl font-bold h-12 col-span-1" 
+              onClick={() => setIsQrOpen(false)}
+            >
+              Cerrar
+            </Button>
+            <Button 
+              variant="secondary"
+              className="rounded-xl font-bold h-12 gap-2" 
+              onClick={handleDownloadQR}
+            >
               <Download className="h-4 w-4" /> Imagen PNG
-            </Button>
-            <Button className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg h-12 gap-2" onClick={handleShareWhatsApp}>
-              <MessageCircle className="h-4 w-4" /> WhatsApp
-            </Button>
-            <Button variant="outline" className="rounded-xl font-bold h-12" onClick={() => setIsQrOpen(false)}>Cerrar</Button>
-            <Button className="rounded-xl bg-primary font-bold shadow-lg h-12 gap-2" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Imprimir Cartel
             </Button>
           </DialogFooter>
         </DialogContent>
