@@ -56,13 +56,12 @@
 }
 
 @media print {
-  /* Ocultar TODO por defecto */
+  /* Ocultar TODO el Dashboard y elementos de UI */
   body * {
     visibility: hidden !important;
-    overflow: visible !important;
   }
 
-  /* Mostrar SOLO las áreas de documentos oficiales */
+  /* Mostrar exclusivamente los contenedores de documentos oficiales */
   #receipt-area, 
   #receipt-area *,
   #receipt-content-official,
@@ -76,11 +75,11 @@
     visibility: visible !important;
   }
 
-  /* Posicionamiento forzado para el PDF */
+  /* Forzar posición absoluta del documento para el PDF */
   #receipt-area, 
-  #receipt-content-official,
-  #receipt-content-catechist,
-  #certificate-print,
+  #receipt-content-official, 
+  #receipt-content-catechist, 
+  #certificate-print, 
   #qr-print-area {
     position: fixed !important;
     left: 0 !important;
@@ -88,28 +87,23 @@
     width: 100% !important;
     height: auto !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 2cm !important; /* Margen estándar de documento */
     background: white !important;
-    z-index: 9999 !important;
+    z-index: 99999 !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
-  /* Ajustes de calidad de impresión */
+  /* Ajustes de color para que el logo y bordes se vean en el PDF */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
   }
 
-  /* Eliminar elementos de interfaz */
-  .no-print, 
-  button, 
-  nav, 
-  header, 
-  [data-sidebar="sidebar"], 
-  .sidebar-trigger, 
-  .toaster,
-  [role="dialog"] > button {
-    display: none !important;
+  /* Eliminar scrollbars y fondos extra */
+  html, body {
+    background: white !important;
+    width: 210mm;
+    height: 297mm;
   }
 }

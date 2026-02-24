@@ -21,7 +21,7 @@ import {
   Info,
   CreditCard,
   MessageCircle,
-  Printer,
+  FileText,
   Share2,
   AlertTriangle
 } from "lucide-react"
@@ -406,10 +406,11 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
-  const handlePrint = () => {
+  const handlePrintPDF = () => {
+    // Timeout para asegurar que el navegador maneje el evento fuera del modal
     setTimeout(() => {
       window.print();
-    }, 500);
+    }, 300);
   }
 
   if (isSubmittedSuccessfully) {
@@ -425,34 +426,35 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </div>
 
           <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden print:bg-white print:border-solid print:border print:rounded-none print:p-10" id="receipt-area">
-             <div className="hidden print:flex items-center justify-between border-b pb-6 mb-6">
+             <div className="hidden print:flex items-center justify-between border-b-2 border-slate-100 pb-6 mb-6">
                 <div className="flex items-center gap-4">
                    <img 
                     src="/logo-recibo.png" 
                     alt="Logo Parroquia" 
-                    className="h-20 w-20 object-contain" 
+                    className="h-24 w-24 object-contain" 
                     onError={(e) => {
                       e.currentTarget.src = "/logo.png";
                     }}
                    />
                    <div className="flex flex-col">
                       <span className="text-2xl font-headline font-bold text-slate-900 uppercase">PARROQUIA PERPETUO SOCORRO</span>
-                      <span className="text-xs font-bold text-primary uppercase tracking-[0.2em]">Diócesis de San Lorenzo • Catequesis de Confirmación</span>
+                      <span className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">Diócesis de San Lorenzo • Catequesis de Confirmación</span>
                    </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-xs font-black text-primary uppercase tracking-widest">Recibo Oficial de Inscripción</p>
-                   <p className="text-[10px] text-slate-400">FECHA: {new Date().toLocaleDateString('es-PY', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                   <p className="text-xs font-black text-primary uppercase tracking-widest">Recibo de Inscripción</p>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase">Ciclo 2026</p>
+                   <p className="text-[10px] text-slate-400">{new Date().toLocaleDateString('es-PY')}</p>
                 </div>
              </div>
 
              <div className="flex justify-between items-start border-b border-slate-200 pb-4 print:border-slate-300">
                 <div className="space-y-1">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Comprobante de Inscripción</p>
-                   <p className="text-sm font-black text-primary uppercase">CICLO LECTIVO 2026</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Documento de Registro</p>
+                   <p className="text-sm font-black text-primary uppercase">CATEQUESIS DE CONFIRMACIÓN</p>
                 </div>
                 <div className="text-right">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase">N° DE FICHA</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase">N° DE RECIBO</p>
                    <p className="text-xs font-bold text-slate-900">#{submittedData?.id?.slice(-8).toUpperCase()}</p>
                 </div>
              </div>
@@ -460,58 +462,58 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
              <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Confirmando</p>
-                      <p className="text-xs font-bold text-slate-800">{submittedData?.fullName}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Nombre del Postulante</p>
+                      <p className="text-xs font-bold text-slate-800 uppercase">{submittedData?.fullName}</p>
                    </div>
                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">C.I. N°</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Cédula de Identidad</p>
                       <p className="text-xs font-bold text-slate-800">{submittedData?.ciNumber}</p>
                    </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Nivel / Año</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Nivel de Formación</p>
                       <p className="text-xs font-bold text-slate-800">{submittedData?.catechesisYear?.replace('_', ' ')}</p>
                    </div>
                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Fecha Registro</p>
-                      <p className="text-xs font-bold text-slate-800">{new Date(submittedData?.createdAt).toLocaleDateString()}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Día y Horario</p>
+                      <p className="text-xs font-bold text-slate-800 uppercase">{submittedData?.attendanceDay}S</p>
                    </div>
                 </div>
              </div>
 
-             <div className="bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center print:border-slate-300 print:shadow-none">
+             <div className="bg-white p-6 rounded-2xl shadow-sm border flex justify-between items-center print:border-slate-300 print:shadow-none">
                 <div className="flex items-center gap-3">
-                   <div className="p-2 bg-green-50 rounded-lg no-print"><Wallet className="h-4 w-4 text-green-600" /></div>
+                   <div className="p-2 bg-green-50 rounded-lg no-print"><Wallet className="h-5 w-5 text-green-600" /></div>
                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Recibido</span>
-                      <span className="text-lg font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString('es-PY') || 0} Gs.</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Percibido</span>
+                      <span className="text-xl font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString('es-PY') || 0} Gs.</span>
                    </div>
                 </div>
-                <Badge className={cn("rounded-lg h-7 font-black text-[10px]", submittedData?.paymentStatus === 'PAGADO' ? 'bg-green-500 text-white' : 'bg-orange-500 text-white')}>
+                <Badge className={cn("rounded-lg h-8 font-black text-[10px] uppercase", submittedData?.paymentStatus === 'PAGADO' ? 'bg-green-500 text-white' : 'bg-orange-500 text-white')}>
                    {submittedData?.paymentStatus}
                 </Badge>
              </div>
              
              {(submittedData?.registrationCost - submittedData?.amountPaid) > 0 && (
-               <p className="text-[10px] font-bold text-red-500 text-right uppercase italic">
-                 Saldo Pendiente: {((submittedData?.registrationCost || 0) - (submittedData?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
+               <p className="text-[10px] font-black text-red-500 text-right uppercase italic tracking-wider">
+                 Saldo Restante a Abonar: {((submittedData?.registrationCost || 0) - (submittedData?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
                </p>
              )}
 
-             <div className="hidden print:block pt-16">
+             <div className="hidden print:block pt-20">
                 <div className="flex justify-around items-end">
                    <div className="flex flex-col items-center gap-2">
-                      <div className="h-px w-40 bg-slate-400"></div>
-                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Catequista / Encargado</p>
+                      <div className="h-px w-48 bg-slate-400"></div>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Firma del Catequista</p>
                    </div>
                    <div className="flex flex-col items-center gap-2">
-                      <div className="h-px w-40 bg-slate-400"></div>
-                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Sello Parroquial</p>
+                      <div className="h-px w-48 bg-slate-400"></div>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Sello de Secretaría</p>
                    </div>
                 </div>
-                <div className="mt-12 text-center">
-                   <p className="text-[7px] text-slate-300 uppercase tracking-[0.3em] font-medium italic">Sistema de Gestión de Sacramentos • Parroquia Perpetuo Socorro</p>
+                <div className="mt-16 text-center">
+                   <p className="text-[8px] text-slate-300 uppercase tracking-[0.4em] font-medium italic">Parroquia Perpetuo Socorro • Sistema Administrativo</p>
                 </div>
              </div>
           </div>
@@ -520,20 +522,20 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <Button 
               type="button"
               variant="outline" 
-              className="h-12 rounded-xl font-bold gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95 shadow-md" 
-              onClick={handlePrint}
+              className="h-14 rounded-2xl font-bold gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white transition-all active:scale-95 shadow-md group" 
+              onClick={handlePrintPDF}
             >
-              <Printer className="h-4 w-4" /> Imprimir / PDF
+              <FileText className="h-5 w-5 transition-transform group-hover:scale-110" /> Descargar PDF
             </Button>
             <Button 
               type="button"
-              className="h-12 rounded-xl font-bold bg-green-600 hover:bg-green-700 text-white gap-2 shadow-lg active:scale-95" 
+              className="h-14 rounded-2xl font-bold bg-green-600 hover:bg-green-700 text-white gap-2 shadow-lg active:scale-95 group" 
               onClick={handleShareReceipt}
             >
-              <MessageCircle className="h-4 w-4" /> Enviar WhatsApp
+              <MessageCircle className="h-5 w-5 transition-transform group-hover:scale-110" /> Enviar WhatsApp
             </Button>
-            <Button asChild variant="ghost" className="h-12 rounded-xl font-bold col-span-1 sm:col-span-2 mt-2">
-              <Link href={isPublic ? "/" : "/dashboard"}>Finalizar y Salir</Link>
+            <Button asChild variant="ghost" className="h-12 rounded-xl font-bold col-span-1 sm:col-span-2 mt-4 text-slate-400 hover:text-primary">
+              <Link href={isPublic ? "/" : "/dashboard"}>Finalizar Gestión</Link>
             </Button>
           </div>
         </Card>

@@ -29,7 +29,8 @@ import {
   Eye,
   X,
   MessageCircle,
-  AlertTriangle
+  AlertTriangle,
+  FileDown
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc } from "firebase/firestore"
@@ -98,10 +99,10 @@ export default function TreasuryPage() {
     )
   }, [registrations, searchTerm])
 
-  const handlePrint = () => {
+  const handlePrintPDF = () => {
     setTimeout(() => {
       window.print();
-    }, 500);
+    }, 300);
   };
 
   const handleUpdateCosts = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -568,7 +569,7 @@ export default function TreasuryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* RECIBO OFICIAL CON LOGO */}
+      {/* RECIBO OFICIAL CON LOGO SUBIDO */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl">
           <DialogHeader className="sr-only">
@@ -580,7 +581,7 @@ export default function TreasuryPage() {
               <img 
                 src="/logo-recibo.png" 
                 alt="Logo Parroquia" 
-                className="h-20 w-20 object-contain" 
+                className="h-24 w-24 object-contain" 
                 onError={(e) => {
                   e.currentTarget.src = "/logo.png";
                 }}
@@ -638,9 +639,9 @@ export default function TreasuryPage() {
             <Button 
               type="button"
               className="flex-1 gap-2 rounded-2xl bg-primary text-white h-12 font-bold shadow-lg" 
-              onClick={handlePrint}
+              onClick={handlePrintPDF}
             >
-              <Printer className="h-4 w-4" /> Imprimir
+              <FileDown className="h-4 w-4" /> Generar PDF
             </Button>
           </DialogFooter>
         </DialogContent>
