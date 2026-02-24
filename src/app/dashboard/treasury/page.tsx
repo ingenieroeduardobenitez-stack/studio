@@ -100,9 +100,12 @@ export default function TreasuryPage() {
   }, [registrations, searchTerm])
 
   const handlePrintPDF = () => {
-    setTimeout(() => {
-      window.print();
-    }, 300);
+    if (typeof window !== 'undefined') {
+      // Pequeño retraso para asegurar que el navegador procese el comando fuera del ciclo de React
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    }
   };
 
   const handleUpdateCosts = async (e: React.FormEvent<HTMLFormElement>) => {
