@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -49,7 +50,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase"
-import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from "firebase/firestore"
+import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, runTransaction } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -314,7 +315,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const cleanCiForDoc = cleanCi.replace(/[^0-9]/g, '');
 
     try {
-      // 1. Verificar si YA ESTÁ INSCRITO en la colección de confirmaciones
       const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue));
       const existingSnap = await getDocs(existingQuery);
       
@@ -334,7 +334,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         form.clearErrors("ciNumber");
       }
 
-      // 2. Si no está inscrito, proceder a buscar datos en la base de identificaciones
       const cedulaRef = doc(db, "cedulas", cleanCiForDoc);
       const docSnap = await getDoc(cedulaRef);
       
@@ -369,7 +368,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   }
 
   const handleRegistration = async (values: FormValues, immediatePayment = false, amount = 0) => {
-    if (!db) return;
+    if (!db || !treasuryRef) return;
     
     if (isPublic && !values.paymentProofUrl) {
       form.setError("paymentProofUrl", { type: "manual", message: "Debe adjuntar la foto de su comprobante" });
@@ -380,7 +379,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     else setLoading(true);
 
     try {
-      // Verificación final de duplicados antes de guardar
       const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", values.ciNumber));
       const existingSnap = await getDocs(existingQuery);
       
@@ -402,36 +400,54 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const amountToRegister = immediatePayment ? amount : 0
       const paymentStatus = amountToRegister >= totalCost ? "PAGADO" : (amountToRegister > 0 ? "PARCIAL" : "PENDIENTE")
       
-      const registrationData = {
-        userId: user?.uid || "public_registration",
-        ...values,
-        status: immediatePayment ? "INSCRITO" : "POR_VALIDAR",
-        attendanceStatus: "PENDIENTE",
-        needsRecovery: false,
-        registrationCost: totalCost,
-        amountPaid: amountToRegister,
-        paymentStatus: paymentStatus,
-        validatedAt: immediatePayment ? serverTimestamp() : null,
-        validatedBy: catechistName,
-        createdAt: serverTimestamp()
-      }
+      let assignedReceiptNumber = "";
 
-      await setDoc(regRef, registrationData)
-      await addDoc(collection(db, "audit_logs"), {
-        userId: user?.uid || "public",
-        userName: catechistName,
-        action: immediatePayment ? "Inscripción con Pago" : "Envío de Inscripción",
-        module: "inscripcion",
-        details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString('es-PY')} Gs. confirmado. ` : ''}Inscripción completa de ${values.fullName}`,
-        timestamp: serverTimestamp()
-      })
+      await runTransaction(db, async (transaction) => {
+        const treasurySnap = await transaction.get(treasuryRef);
+        if (!treasurySnap.exists()) throw "Settings not found";
+        
+        if (immediatePayment) {
+          const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
+          assignedReceiptNumber = `001-001-${String(currentNext).padStart(7, '0')}`;
+          transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+        }
+
+        const registrationData = {
+          userId: user?.uid || "public_registration",
+          ...values,
+          status: immediatePayment ? "INSCRITO" : "POR_VALIDAR",
+          attendanceStatus: "PENDIENTE",
+          needsRecovery: false,
+          registrationCost: totalCost,
+          amountPaid: amountToRegister,
+          paymentStatus: paymentStatus,
+          validatedAt: immediatePayment ? serverTimestamp() : null,
+          validatedBy: catechistName,
+          receiptNumber: assignedReceiptNumber,
+          createdAt: serverTimestamp()
+        }
+
+        transaction.set(regRef, registrationData);
+
+        const logRef = doc(collection(db, "audit_logs"));
+        transaction.set(logRef, {
+          userId: user?.uid || "public",
+          userName: catechistName,
+          action: immediatePayment ? "Inscripción con Pago" : "Envío de Inscripción",
+          module: "inscripcion",
+          details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString('es-PY')} Gs. verificado (${assignedReceiptNumber}). ` : ''}Inscripción completa de ${values.fullName}`,
+          timestamp: serverTimestamp()
+        });
+
+        // Guardamos los datos para la pantalla de éxito
+        setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() });
+      });
       
       toast({ 
         title: immediatePayment ? "Inscripción y Pago registrados" : "Inscripción registrada", 
         description: "Los datos han sido guardados correctamente." 
       });
       
-      setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() })
       setIsSubmittedSuccessfully(true)
     } catch (error: any) {
       console.error("Error en registro:", error);
@@ -451,7 +467,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!submittedData) return
     const amount = submittedData.amountPaid || 0;
     const pending = (submittedData.registrationCost || 0) - amount;
-    const receiptNum = `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
+    const receiptNum = submittedData.receiptNumber || `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
     const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto entregado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString('es-PY')} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
@@ -501,7 +517,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const dayNum = today.getDate();
     const monthStr = today.toLocaleString('es-PY', { month: 'long' });
     const yearNum = today.getFullYear();
-    const receiptNum = `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
+    const receiptNum = submittedData.receiptNumber || `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
 
     return (
       <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-3xl mx-auto print:max-w-none print:m-0">
@@ -598,7 +614,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="flex flex-col items-center md:items-end gap-3">
                   <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
                     <QRCodeCanvas 
-                      value={`VERIFICADO-PS-${submittedData?.id}-${amount}`}
+                      value={`VERIFICADO-PS-${submittedData?.id}-${amount}-${receiptNum}`}
                       size={80}
                       level="H"
                     />

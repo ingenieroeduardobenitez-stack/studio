@@ -33,10 +33,12 @@ import {
   MessageCircle,
   AlertTriangle,
   Download,
-  QrCode
+  QrCode,
+  Hash,
+  RefreshCcw
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc } from "firebase/firestore"
+import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -52,6 +54,7 @@ export default function TreasuryPage() {
   const [isExpenseSubmitting, setIsEventSubmittingExpense] = useState(false)
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [isResettingCounter, setIsResettingCounter] = useState(false)
   
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState(0)
@@ -140,6 +143,19 @@ export default function TreasuryPage() {
     }
   }
 
+  const handleResetCounter = async () => {
+    if (!db || !treasuryRef) return
+    setIsResettingCounter(true)
+    try {
+      await updateDoc(treasuryRef, { nextReceiptNumber: 1 })
+      toast({ title: "Contador reiniciado", description: "El próximo recibo será el N° 001-001-0000001" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al reiniciar" })
+    } finally {
+      setIsResettingCounter(false)
+    }
+  }
+
   const handleOpenPayment = (reg: any) => {
     setSelectedReg(reg)
     const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
@@ -148,47 +164,68 @@ export default function TreasuryPage() {
   }
 
   const handleProcessPayment = async () => {
-    if (!db || !selectedReg || isSubmittingPayment) return
+    if (!db || !selectedReg || isSubmittingPayment || !treasuryRef) return
     
     setIsSubmittingPayment(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero Parroquial"
     
     try {
-      const newPaid = (selectedReg.amountPaid || 0) + paymentAmount
-      const status = newPaid >= (selectedReg.registrationCost || 0) ? "PAGADO" : "PARCIAL"
-      
-      await updateDoc(regRef, { 
-        amountPaid: newPaid, 
-        paymentStatus: status, 
-        status: "INSCRITO",
-        lastPaymentDate: serverTimestamp(),
-        validatedBy: catechistName
-      })
+      await runTransaction(db, async (transaction) => {
+        const treasurySnap = await transaction.get(treasuryRef);
+        if (!treasurySnap.exists()) throw "Settings not found";
+        
+        const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
+        const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
+        
+        const newPaid = (selectedReg.amountPaid || 0) + paymentAmount;
+        const status = newPaid >= (selectedReg.registrationCost || 0) ? "PAGADO" : "PARCIAL";
+        
+        transaction.update(regRef, { 
+          amountPaid: newPaid, 
+          paymentStatus: status, 
+          status: "INSCRITO",
+          lastPaymentDate: serverTimestamp(),
+          validatedBy: catechistName,
+          receiptNumber: formattedReceipt
+        });
 
-      await addDoc(collection(db, "audit_logs"), {
-        userId: currentUser?.uid || "unknown",
-        userName: catechistName,
-        action: "Confirmación de Pago (Tesorería)",
-        module: "tesoreria",
-        details: `Cobro confirmado de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}`,
-        timestamp: serverTimestamp()
-      })
+        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+
+        const logRef = doc(collection(db, "audit_logs"));
+        transaction.set(logRef, {
+          userId: currentUser?.uid || "unknown",
+          userName: catechistName,
+          action: "Confirmación de Pago (Tesorería)",
+          module: "tesoreria",
+          details: `Cobro confirmado de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          timestamp: serverTimestamp()
+        });
+      });
       
       toast({ title: "Pago confirmado exitosamente" })
+      // Necesitamos actualizar el selectedReg localmente para que el recibo muestre el número recién generado
+      const updatedReg = { ...selectedReg };
+      // El número asignado es el que estaba antes del incremento
+      const assignedNum = costs?.nextReceiptNumber || 1;
+      updatedReg.receiptNumber = `001-001-${String(assignedNum).padStart(7, '0')}`;
+      updatedReg.amountPaid = (selectedReg.amountPaid || 0) + paymentAmount;
+      updatedReg.validatedBy = catechistName;
+      setSelectedReg(updatedReg);
+      
       setIsPaymentDialogOpen(false)
       setIsReceiptOpen(true)
     } catch (error) {
       console.error(error)
       toast({ variant: "destructive", title: "Error al procesar pago" })
     } finally {
-      setIsSubmitting(false)
+      setIsSubmittingPayment(false)
     }
   }
 
   const handleShareReceipt = () => {
     if (!selectedReg) return
-    const receiptNum = `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
+    const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
     const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\nRecibo Oficial N°: ${receiptNum}\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
@@ -537,7 +574,34 @@ export default function TreasuryPage() {
                     <div className="space-y-2"><Label className="font-bold">Juvenil (Gs)</Label><Input name="juvenile" type="number" defaultValue={costs?.juvenileCost || 35000} className="h-12 rounded-xl" required /></div>
                     <div className="space-y-2"><Label className="font-bold">Adultos (Gs)</Label><Input name="adult" type="number" defaultValue={costs?.adultCost || 50000} className="h-12 rounded-xl" required /></div>
                   </div>
+                  
                   <Separator />
+                  
+                  <div className="space-y-4">
+                    <Label className="text-primary font-bold uppercase text-xs tracking-widest flex items-center gap-2">
+                      <Hash className="h-4 w-4" /> Gestión de Talonario
+                    </Label>
+                    <div className="flex items-center justify-between p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                      <div>
+                        <p className="text-sm font-bold text-orange-900">Numeración Correlativa</p>
+                        <p className="text-[10px] text-orange-700">Próximo recibo: <span className="font-black">001-001-{String(costs?.nextReceiptNumber || 1).padStart(7, '0')}</span></p>
+                      </div>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-9 rounded-xl border-orange-200 text-orange-700 hover:bg-orange-100 font-bold gap-2"
+                        onClick={handleResetCounter}
+                        disabled={isResettingCounter}
+                      >
+                        {isResettingCounter ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                        Reiniciar a 1
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Separator />
+
                   <div className="space-y-6">
                     <Label className="text-primary font-bold uppercase text-xs tracking-widest">Método de Pago Predeterminado</Label>
                     <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="flex gap-6 p-4 bg-slate-50 rounded-2xl border">
@@ -618,7 +682,7 @@ export default function TreasuryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* RECIBO OFICIAL ACTUALIZADO - AJUSTADO PARA CABER EN PANTALLA */}
+      {/* RECIBO OFICIAL ACTUALIZADO */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-xl">
           <DialogHeader className="sr-only">
@@ -650,7 +714,7 @@ export default function TreasuryPage() {
                     </div>
                     <div className="border-2 border-slate-900 p-2 text-center bg-white">
                       <p className="text-[8px] font-bold uppercase">Recibo N°</p>
-                      <p className="text-xs font-black">001-001-{selectedReg?.id?.slice(-7).padStart(7, '0')}</p>
+                      <p className="text-xs font-black">{selectedReg?.receiptNumber || `001-001-${selectedReg?.id?.slice(-7).padStart(7, '0')}`}</p>
                     </div>
                   </div>
                 </div>
@@ -707,7 +771,7 @@ export default function TreasuryPage() {
                   <div className="flex flex-col items-center md:items-end gap-3">
                     <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
                       <QRCodeCanvas 
-                        value={`RECIBO-PS-${selectedReg?.id}-${paymentAmount}`}
+                        value={`RECIBO-PS-${selectedReg?.id}-${paymentAmount}-${selectedReg?.receiptNumber}`}
                         size={80}
                         level="H"
                       />

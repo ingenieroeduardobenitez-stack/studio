@@ -28,7 +28,7 @@ import {
   X
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc } from "firebase/firestore"
+import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -69,6 +69,7 @@ import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
+import { QRCodeCanvas } from "qrcode.react"
 
 type ViewMode = "LIST" | "GROUPS"
 
@@ -81,6 +82,7 @@ export default function RegistrationsListPage() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false)
   const [isProofViewOpen, setIsProofViewOpen] = useState(false)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [newGroupId, setNewGroupId] = useState<string>("")
   const [withdrawalReason, setWithdrawalReason] = useState("")
@@ -98,6 +100,9 @@ export default function RegistrationsListPage() {
   const { data: profile } = useDoc(userProfileRef)
   const isAdmin = profile?.role === "Administrador"
   const isTesorero = profile?.role === "Tesorero"
+
+  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const { data: treasurySettings } = useDoc(treasuryRef)
 
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
@@ -138,26 +143,40 @@ export default function RegistrationsListPage() {
   }, [filteredRegistrations, groups])
 
   const handleValidatePayment = async () => {
-    if (!db || !selectedReg) return
+    if (!db || !selectedReg || !treasuryRef) return
     setIsSubmitting(true)
 
-    try {
-      await updateDoc(doc(db, "confirmations", selectedReg.id), {
-        status: "INSCRITO",
-        amountPaid: selectedReg.registrationCost || 0,
-        paymentStatus: "PAGADO",
-        validatedAt: serverTimestamp(),
-        validatedBy: profile ? `${profile.firstName} ${profile.lastName}` : "Personal"
-      })
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Personal"
 
-      await addDoc(collection(db, "audit_logs"), {
-        userId: user?.uid || "unknown",
-        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Catequista",
-        action: "Validación de Pago",
-        module: "tesoreria",
-        details: `Se validó el pago de ${selectedReg.fullName}`,
-        timestamp: serverTimestamp()
-      })
+    try {
+      await runTransaction(db, async (transaction) => {
+        const treasurySnap = await transaction.get(treasuryRef);
+        if (!treasurySnap.exists()) throw "Settings not found";
+        
+        const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
+        const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
+        
+        transaction.update(doc(db, "confirmations", selectedReg.id), {
+          status: "INSCRITO",
+          amountPaid: selectedReg.registrationCost || 0,
+          paymentStatus: "PAGADO",
+          validatedAt: serverTimestamp(),
+          validatedBy: catechistName,
+          receiptNumber: formattedReceipt
+        });
+
+        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+
+        const logRef = doc(collection(db, "audit_logs"));
+        transaction.set(logRef, {
+          userId: user?.uid || "unknown",
+          userName: catechistName,
+          action: "Validación de Pago",
+          module: "tesoreria",
+          details: `Se validó el pago de ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          timestamp: serverTimestamp()
+        });
+      });
 
       toast({ title: "Pago Validado", description: "Se ha registrado el ingreso y el alumno está inscrito oficialmente." })
       setIsDetailsDialogOpen(false)
@@ -211,7 +230,7 @@ export default function RegistrationsListPage() {
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "unknown",
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
-        action: "Baja de Confirmando",
+        action: "BAJA",
         module: "inscripcion",
         details: `Baja de ${selectedReg.fullName}. Motivo: ${withdrawalReason}`,
         timestamp: serverTimestamp()
@@ -242,6 +261,52 @@ export default function RegistrationsListPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById("receipt-area-details");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Recibo-PS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
+      
+      toast({ title: "Descarga completada", description: "El PDF ha sido generado correctamente." });
+    } catch (err) {
+      console.error("PDF Error:", err);
+      toast({ variant: "destructive", title: "Error al generar PDF" });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }
+
+  const handleShareReceipt = () => {
+    if (!selectedReg) return
+    const amount = selectedReg.amountPaid || 0;
+    const pending = (selectedReg.registrationCost || 0) - amount;
+    const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
+    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${selectedReg.fullName}*! Comprobante de *Catequesis de Confirmación 2026*.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto registrado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo:* ${pending === 0 ? 'CANCELADO' : `${pending.toLocaleString('es-PY')} Gs. PENDIENTE`}\n\n_Secretaría de Tesorería_`)
+    window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
   const openAssignDialog = (reg: any) => {
@@ -290,6 +355,12 @@ export default function RegistrationsListPage() {
   if (!mounted) return null
 
   const loading = loadingRegs || loadingGroups
+
+  // Datos para el recibo en el modal de detalles
+  const today = new Date();
+  const dayNum = today.getDate();
+  const monthStr = today.toLocaleString('es-PY', { month: 'long' });
+  const yearNum = today.getFullYear();
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -422,13 +493,13 @@ export default function RegistrationsListPage() {
       </div>
 
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16 border-2 border-white/20">
+                <Avatar className="h-12 w-12 border-2 border-white/20">
                   <AvatarImage src={selectedReg?.photoUrl} className="object-cover" />
-                  <AvatarFallback className="bg-white/10 text-white"><User className="h-8 w-8" /></AvatarFallback>
+                  <AvatarFallback className="bg-white/10 text-white"><User className="h-6 w-6" /></AvatarFallback>
                 </Avatar>
                 <div>
                   <DialogTitle className="text-xl font-bold uppercase tracking-tight">{selectedReg?.fullName}</DialogTitle>
@@ -441,85 +512,175 @@ export default function RegistrationsListPage() {
             </div>
           </DialogHeader>
           
-          <ScrollArea className="max-h-[70vh]">
-            <div className="p-8 space-y-8">
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                  <CreditCard className="h-3 w-3" /> Comprobante de Transferencia
-                </h4>
-                {selectedReg?.paymentProofUrl ? (
-                  <div className="relative group rounded-3xl overflow-hidden border-4 border-slate-100 shadow-sm max-w-sm mx-auto">
-                    <img 
-                      src={selectedReg.paymentProofUrl} 
-                      alt="Comprobante" 
-                      className="w-full h-auto cursor-pointer transition-transform hover:scale-105"
-                      onClick={() => setIsProofViewOpen(true)}
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                      <Eye className="text-white h-8 w-8" />
+          <ScrollArea className="max-h-[80vh]">
+            <div className="p-6 space-y-8 bg-slate-50">
+              {/* VISTA DEL RECIBO OFICIAL PARA DESCARGA */}
+              <div className="flex justify-center bg-white p-4 rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div 
+                  className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-6 shadow-sm transform scale-[0.95] origin-top" 
+                  id="receipt-area-details"
+                >
+                  <div className="grid grid-cols-3 gap-4 items-center mb-4">
+                    <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
+                      <img 
+                        src="/logo-recibo.png" 
+                        alt="Parroquia Perpetuo Socorro" 
+                        className="max-h-24 object-contain"
+                        onError={(e) => { e.currentTarget.src = "/logo.png" }}
+                      />
+                      <div className="absolute top-1 right-2 text-[8px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
+                    </div>
+                    <div className="flex flex-col gap-2 h-full justify-between">
+                      <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
+                        <p className="text-[10px] font-black uppercase">Gs.</p>
+                        <p className="text-xl font-black">{(selectedReg?.amountPaid || 0).toLocaleString('es-PY')}</p>
+                      </div>
+                      <div className="border-2 border-slate-900 p-2 text-center bg-white">
+                        <p className="text-[8px] font-bold uppercase">Recibo N°</p>
+                        <p className="text-xs font-black">{selectedReg?.receiptNumber || `001-001-${selectedReg?.id?.slice(-7).padStart(7, '0')}`}</p>
+                      </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="bg-slate-50 p-8 rounded-3xl border border-dashed border-slate-200 text-center">
-                    <AlertCircle className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-xs text-slate-400 font-bold uppercase">No se adjuntó comprobante</p>
+
+                  <div className="text-center border-b-2 border-slate-900 pb-2 mb-4">
+                    <h1 className="text-3xl font-black italic tracking-tighter uppercase">RECIBO</h1>
                   </div>
-                )}
-              </div>
 
-              <Separator />
+                  <div className="space-y-6 text-sm md:text-base">
+                    <div className="flex items-baseline gap-2">
+                      <span className="whitespace-nowrap font-bold shrink-0">Recibí(mos) de:</span>
+                      <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-0.5 px-2 leading-tight truncate">
+                        {selectedReg?.fullName}
+                      </div>
+                    </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                    <UserCircle className="h-3 w-3" /> Datos Personales
-                  </h4>
-                  <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <div className="flex justify-between items-center"><span className="text-xs text-slate-500">Edad:</span><span className="text-sm font-bold">{selectedReg?.age} años</span></div>
-                    <div className="flex justify-between items-center"><span className="text-xs text-slate-500">Celular:</span><span className="text-sm font-bold">{selectedReg?.phone}</span></div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="whitespace-nowrap font-bold shrink-0">la cantidad de:</span>
+                      <div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 italic leading-tight">
+                        {(selectedReg?.amountPaid || 0).toLocaleString('es-PY')} Guaraníes
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-baseline gap-2">
+                        <span className="whitespace-nowrap font-bold shrink-0">en concepto de:</span>
+                        <div className="flex-1 border-2 border-slate-900 px-4 py-2 font-bold text-xs bg-slate-50 uppercase leading-tight">
+                          Inscripción Catequesis de Confirmación - {selectedReg?.catechesisYear?.replace('_', ' ')}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-baseline gap-2">
+                      <span className="whitespace-nowrap font-bold shrink-0">en concepto de:</span>
+                      <div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 text-xs text-slate-500 italic leading-tight">
+                        {((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)) > 0 
+                          ? `Saldo Pendiente: ${((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.` 
+                          : 'Totalmente cancelado.'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
+                    <div className="flex flex-col justify-end space-y-3">
+                      <p className="text-sm italic font-medium">
+                        Asunción, a los {dayNum} de {monthStr} de {yearNum}
+                      </p>
+                      <div className="flex flex-col items-start pt-4">
+                        <div className="w-48 border-t border-slate-900"></div>
+                        <p className="text-[8px] font-bold uppercase mt-1 tracking-widest">(Firma y aclaración)</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-center md:items-end gap-3">
+                      <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
+                        <QRCodeCanvas 
+                          value={`VERIFICADO-PS-${selectedReg?.id}-${selectedReg?.amountPaid}-${selectedReg?.receiptNumber}`}
+                          size={80}
+                          level="H"
+                        />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
+                        <p className="text-xs font-bold text-slate-900 uppercase mt-1">{selectedReg?.validatedBy || 'Secretaría Parroquial'}</p>
+                        <p className="text-[8px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-4">
                   <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                    <BookOpen className="h-3 w-3" /> Nivel Asignado
+                    <AlertCircle className="h-3 w-3" /> Comprobante Adjunto
                   </h4>
-                  <div className="space-y-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-slate-500">Año:</span>
-                      <span className="text-sm font-bold">{formatCatechesisYear(selectedReg?.catechesisYear)}</span>
+                  {selectedReg?.paymentProofUrl ? (
+                    <div className="relative group rounded-2xl overflow-hidden border-2 border-slate-100 shadow-inner">
+                      <img 
+                        src={selectedReg.paymentProofUrl} 
+                        alt="Comprobante" 
+                        className="w-full h-auto cursor-pointer transition-transform hover:scale-105"
+                        onClick={() => setIsProofViewOpen(true)}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                        <Eye className="text-white h-8 w-8" />
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-slate-500">Día:</span>
-                      <span className="text-sm font-bold">{selectedReg?.attendanceDay}</span>
+                  ) : (
+                    <div className="bg-slate-50 p-8 rounded-2xl border border-dashed border-slate-200 text-center">
+                      <p className="text-xs text-slate-400 font-bold uppercase">Sin comprobante</p>
                     </div>
+                  )}
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-4">
+                  <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                    <UserCircle className="h-3 w-3" /> Información Alumno
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-xs"><span className="text-slate-500 font-bold">Celular:</span><span className="font-bold">{selectedReg?.phone}</span></div>
+                    <div className="flex justify-between items-center text-xs"><span className="text-slate-500 font-bold">Madre:</span><span className="font-bold">{selectedReg?.motherName || '---'}</span></div>
+                    <div className="flex justify-between items-center text-xs"><span className="text-slate-500 font-bold">Padre:</span><span className="font-bold">{selectedReg?.fatherName || '---'}</span></div>
+                    <Separator />
+                    <div className="flex justify-between items-center text-xs"><span className="text-slate-500 font-bold">Nivel:</span><Badge variant="outline" className="h-5 text-[9px]">{formatCatechesisYear(selectedReg?.catechesisYear)}</Badge></div>
                   </div>
                 </div>
               </div>
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row justify-between gap-3">
-            <Button variant="outline" className="rounded-xl px-8 h-11" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
+          <DialogFooter className="p-6 bg-slate-100 border-t flex flex-row justify-between gap-3">
+            <Button variant="outline" className="rounded-xl px-8 h-12 font-bold" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
             
             <div className="flex gap-2">
               {selectedReg?.status === "POR_VALIDAR" && (isAdmin || isTesorero) && (
                 <Button 
-                  className="rounded-xl px-8 h-11 bg-green-600 hover:bg-green-700 font-bold gap-2"
+                  className="rounded-xl px-8 h-12 bg-green-600 hover:bg-green-700 font-bold gap-2 shadow-lg"
                   onClick={handleValidatePayment}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <><CheckCircle2 className="h-4 w-4" /> Validar y Inscribir</>}
+                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <><CheckCircle2 className="h-4 w-4" /> Validar y Asignar Recibo</>}
                 </Button>
               )}
-              <Button className="rounded-xl px-8 h-11 gap-2" onClick={() => window.print()}>
-                <Download className="h-4 w-4" /> PDF
+              <Button 
+                className="rounded-xl px-8 h-12 bg-green-600 hover:bg-green-700 text-white font-bold gap-2 shadow-lg" 
+                onClick={handleShareReceipt}
+              >
+                <MessageCircle className="h-4 w-4" /> WhatsApp
+              </Button>
+              <Button 
+                className="rounded-xl px-8 h-12 bg-slate-900 text-white font-bold gap-2 shadow-lg" 
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPDF}
+              >
+                {isGeneratingPDF ? <Loader2 className="animate-spin h-4 w-4" /> : <Download className="h-4 w-4" />} Descargar PDF
               </Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* DIÁLOGO DE BAJA */}
       <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -562,6 +723,7 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
+      {/* VISTA AMPLIADA DE COMPROBANTE */}
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
           <DialogHeader className="sr-only">
