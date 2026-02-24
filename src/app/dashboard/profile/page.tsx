@@ -7,22 +7,32 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Camera, Shield, Mail, User, MapPin, Loader2, Save, Key, Lock } from "lucide-react"
+import { Camera, Shield, Mail, User, MapPin, Loader2, Save, Key, Lock, FlipHorizontal, X } from "lucide-react"
 import { useUser, useDoc, useFirestore, useAuth, useMemoFirebase } from "@/firebase"
 import { doc, updateDoc } from "firebase/firestore"
 import { updatePassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function ProfilePage() {
   const { user } = useUser()
   const auth = useAuth()
   const db = useFirestore()
   const { toast } = useToast()
+  
   const [isSaving, setIsSaving] = useState(false)
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
@@ -57,6 +67,59 @@ export default function ProfilePage() {
         setFormData(prev => ({ ...prev, photoUrl: reader.result as string }))
       }
       reader.readAsDataURL(file)
+    }
+  }
+
+  const startCamera = async (deviceId?: string) => {
+    try {
+      const constraints = {
+        video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      setHasCameraPermission(true)
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+      
+      const availableDevices = await navigator.mediaDevices.enumerateDevices()
+      const videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
+      setDevices(videoDevices)
+      if (!selectedDeviceId && videoDevices.length > 0) {
+        setSelectedDeviceId(videoDevices[0].deviceId)
+      }
+      setShowCamera(true)
+    } catch (error) {
+      console.error('Error accessing camera:', error)
+      setHasCameraPermission(false)
+      toast({
+        variant: 'destructive',
+        title: 'Acceso denegado',
+        description: 'Por favor, permite el acceso a la cámara en tu navegador.',
+      })
+    }
+  }
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
+      tracks.forEach(track => track.stop())
+    }
+    setShowCamera(false)
+  }
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        setFormData(prev => ({ ...prev, photoUrl: dataUrl }))
+        stopCamera()
+      }
     }
   }
 
@@ -141,12 +204,26 @@ export default function ProfilePage() {
                     <User className="h-16 w-16" />
                   </AvatarFallback>
                 </Avatar>
-                <button 
-                  className="absolute bottom-0 right-0 h-9 w-9 rounded-full bg-primary text-white border-4 border-white flex items-center justify-center hover:bg-primary/90 transition-colors shadow-lg"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Camera className="h-4 w-4" />
-                </button>
+                
+                <div className="absolute -bottom-1 -right-1 flex gap-1">
+                  <button 
+                    type="button"
+                    className="h-9 w-9 rounded-full bg-primary text-white border-4 border-white flex items-center justify-center hover:bg-primary/90 transition-colors shadow-lg"
+                    onClick={() => startCamera()}
+                    title="Tomar Foto"
+                  >
+                    <Camera className="h-4 w-4" />
+                  </button>
+                  <button 
+                    type="button"
+                    className="h-9 w-9 rounded-full bg-accent text-white border-4 border-white flex items-center justify-center hover:bg-accent/90 transition-colors shadow-lg"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Subir Archivo"
+                  >
+                    <User className="h-4 w-4" />
+                  </button>
+                </div>
+                
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -260,6 +337,52 @@ export default function ProfilePage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-primary text-white">
+            <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto de Perfil</DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative bg-black aspect-video flex items-center justify-center">
+            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
+            
+            {hasCameraPermission === false && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4">
+                <X className="h-12 w-12 text-red-500" />
+                <p className="font-bold">Acceso a cámara requerido</p>
+                <p className="text-xs text-slate-400">Habilita los permisos en tu navegador para usar esta función.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
+            {devices.length > 1 && (
+              <div className="flex items-center gap-2 w-full">
+                <FlipHorizontal className="h-4 w-4 text-slate-400" />
+                <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); stopCamera(); startCamera(val); }}>
+                  <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                  <SelectContent>
+                    {devices.map((device) => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label || `Cámara ${device.deviceId.slice(0, 5)}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            <div className="flex gap-3 w-full">
+              <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button>
+              <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 font-bold gap-2" onClick={takePhoto}>
+                <Camera className="h-5 w-5" /> Capturar
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
