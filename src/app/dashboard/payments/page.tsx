@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 
 /**
  * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR)
+ * Versión Optimizada para Ueno Bank y SPI Paraguay
  */
 const cleanString = (str: string) => {
   if (!str) return "";
@@ -28,6 +29,7 @@ const cleanString = (str: string) => {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
 };
@@ -55,14 +57,14 @@ const computeCRC = (str: string) => {
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); // Format
-    payload += formatTag("01", "12"); // Dynamic
+    payload += formatTag("00", "01"); // Payload Format Indicator
+    payload += formatTag("01", "12"); // Point of Initiation Method: Dynamic
     
     // Tag 26: Merchant Account Information (Standard SPI Paraguay)
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      // Limpieza estricta de alias: sin símbolos para Ueno/BNF
-      const cleanAlias = alias.replace(/[^a-zA-Z0-9.@]/g, '').toUpperCase();
+      // Limpieza agresiva de alias: solo alfanumérico para evitar errores en Ueno/BNF
+      const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       merchantInfo += formatTag("01", cleanAlias);
     } else {
       const cleanAcc = (accountNumber || "").replace(/[^0-9]/g, '');
@@ -73,21 +75,22 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     }
     payload += formatTag("26", merchantInfo);
     
-    payload += formatTag("52", "0000"); // Category
-    payload += formatTag("53", "600");  // Currency (PYG)
+    payload += formatTag("52", "8661"); // Merchant Category Code: Organizations, Religious
+    payload += formatTag("53", "600");  // Transaction Currency: PYG (Guaraníes)
     
     if (amount > 0) {
-      payload += formatTag("54", Math.floor(amount).toString()); 
+      payload += formatTag("54", Math.floor(amount).toString()); // Transaction Amount
     }
     
-    payload += formatTag("58", "PY");   // Country
-    payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); 
-    payload += formatTag("60", "ASUNCION"); 
+    payload += formatTag("58", "PY");   // Country Code: Paraguay
+    payload += formatTag("59", cleanString(accountOwner || "PARROQUIA").substring(0, 25)); // Merchant Name
+    payload += formatTag("60", "ASUNCION"); // Merchant City
     
+    // Tag 62: Additional Data Field Template (Concepto)
     const cleanConcept = cleanString(concept || "COBRO").substring(0, 20);
     payload += formatTag("62", formatTag("05", cleanConcept));
     
-    payload += "6304"; 
+    payload += "6304"; // Tag 63 (CRC) + Length 04
     payload += computeCRC(payload);
     
     return payload;

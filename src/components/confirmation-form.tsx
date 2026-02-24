@@ -67,6 +67,7 @@ import { QRCodeCanvas } from "qrcode.react"
 
 /**
  * MOTOR PY-QR ESTÁNDAR BCP (COMPATIBILIDAD UENO / BNF / FAMILIAR)
+ * Versión Optimizada para Ueno Bank y SPI Paraguay
  */
 const cleanString = (str: string) => {
   if (!str) return "";
@@ -74,6 +75,7 @@ const cleanString = (str: string) => {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
 };
@@ -107,7 +109,7 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     // Tag 26: Merchant Account Information
     let merchantInfo = formatTag("00", "py.gov.bcp.spi");
     if (alias) {
-      const cleanAlias = alias.replace(/[^a-zA-Z0-9.@]/g, '').toUpperCase();
+      const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       merchantInfo += formatTag("01", cleanAlias);
     } else {
       const cleanAcc = (accountNumber || "").replace(/[^0-9]/g, '');
@@ -118,7 +120,7 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     }
     payload += formatTag("26", merchantInfo);
     
-    payload += formatTag("52", "0000"); // Category
+    payload += formatTag("52", "8661"); // Merchant Category Code: Organizations, Religious
     payload += formatTag("53", "600");  // Currency PYG
     
     if (amount > 0) {
