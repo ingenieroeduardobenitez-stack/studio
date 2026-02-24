@@ -54,7 +54,7 @@ import { cn } from "@/lib/utils"
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
   ciNumber: z.string().min(5, "N° C.I. requerido"),
-  phone: z.string().min(8, "N° de celular requerido"),
+  phone: z.string().min(10, "N° de celular requerido (formato XXXX-XXX-XXX)"),
   birthDate: z.string().min(1, "Fecha de nacimiento requerida"),
   age: z.coerce.number().optional(),
   photoUrl: z.string().optional(),
@@ -166,6 +166,18 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       setValue("age", calculatedAge >= 0 ? calculatedAge : 0)
     }
   }, [birthDate, setValue])
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 7) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7, 10)}`;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: any) => {
+    const formatted = formatPhone(e.target.value);
+    setValue(fieldName, formatted);
+  };
 
   const startCamera = async (deviceId?: string) => {
     try {
@@ -404,7 +416,20 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <FormItem><FormLabel className="font-bold">Edad</FormLabel><FormControl><Input type="number" readOnly {...field} className="h-12 rounded-xl bg-slate-50" /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="phone" render={({ field }) => (
-                    <FormItem><FormLabel className="font-bold">Celular (WhatsApp)</FormLabel><FormControl><Input placeholder="0981..." {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel className="font-bold">Celular (WhatsApp)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="09XX-XXX-XXX" 
+                          {...field} 
+                          className="h-12 rounded-xl" 
+                          inputMode="numeric"
+                          type="tel"
+                          onChange={(e) => handlePhoneChange(e, "phone")}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                 </div>
               </div>
@@ -424,7 +449,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="motherPhone" render={({ field }) => (
-                      <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
+                      <FormItem>
+                        <FormLabel>Celular</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            className="h-10 bg-white" 
+                            placeholder="09XX-XXX-XXX"
+                            inputMode="numeric"
+                            type="tel"
+                            onChange={(e) => handlePhoneChange(e, "motherPhone")}
+                          />
+                        </FormControl>
+                      </FormItem>
                     )} />
                   </div>
 
@@ -434,7 +471,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="fatherPhone" render={({ field }) => (
-                      <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
+                      <FormItem>
+                        <FormLabel>Celular</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            className="h-10 bg-white" 
+                            placeholder="09XX-XXX-XXX"
+                            inputMode="numeric"
+                            type="tel"
+                            onChange={(e) => handlePhoneChange(e, "fatherPhone")}
+                          />
+                        </FormControl>
+                      </FormItem>
                     )} />
                   </div>
 
@@ -445,7 +494,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormItem><FormLabel>Nombre del Tutor</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
                       )} />
                       <FormField control={form.control} name="tutorPhone" render={({ field }) => (
-                        <FormItem><FormLabel>Celular Tutor</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
+                        <FormItem>
+                          <FormLabel>Celular Tutor</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              className="h-10 bg-white" 
+                              placeholder="09XX-XXX-XXX"
+                              inputMode="numeric"
+                              type="tel"
+                              onChange={(e) => handlePhoneChange(e, "tutorPhone")}
+                            />
+                          </FormControl>
+                        </FormItem>
                       )} />
                     </div>
                   </div>
