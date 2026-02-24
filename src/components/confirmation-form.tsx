@@ -414,8 +414,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   if (isSubmittedSuccessfully) {
     return (
-      <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto">
-        <Card className="border-none shadow-2xl bg-white rounded-3xl p-8 text-center space-y-6 overflow-hidden">
+      <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto print:max-w-none print:m-0">
+        <Card className="border-none shadow-2xl bg-white rounded-3xl p-8 text-center space-y-6 overflow-hidden print:shadow-none print:p-0">
           <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner no-print">
             <CheckCircle2 className="h-10 w-10 text-green-600" />
           </div>
@@ -424,11 +424,26 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <p className="text-slate-500 font-medium">Se ha generado la ficha de <span className="text-primary font-bold">{submittedData?.fullName}</span>.</p>
           </div>
 
-          <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden print:bg-white print:border-solid print:border print:rounded-none" id="receipt-area">
-             <div className="flex justify-between items-start border-b border-slate-200 pb-4">
+          <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden print:bg-white print:border-solid print:border print:rounded-none print:p-10" id="receipt-area">
+             {/* Encabezado exclusivo para impresión */}
+             <div className="hidden print:flex items-center justify-between border-b pb-6 mb-6">
+                <div className="flex items-center gap-3">
+                   <Church className="h-10 w-10 text-primary" />
+                   <div className="flex flex-col">
+                      <span className="text-xl font-headline font-bold text-slate-900 uppercase">PARROQUIA PERPETUO SOCORRO</span>
+                      <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Diócesis de San Lorenzo • Catequesis de Confirmación</span>
+                   </div>
+                </div>
+                <div className="text-right">
+                   <p className="text-xs font-black text-primary uppercase tracking-widest">Recibo Oficial de Inscripción</p>
+                   <p className="text-[10px] text-slate-400">FECHA: {new Date().toLocaleDateString('es-PY', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                </div>
+             </div>
+
+             <div className="flex justify-between items-start border-b border-slate-200 pb-4 print:border-slate-300">
                 <div className="space-y-1">
                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Comprobante de Inscripción</p>
-                   <p className="text-sm font-black text-primary">PERPETUO SOCORRO 2026</p>
+                   <p className="text-sm font-black text-primary uppercase">CICLO LECTIVO 2026</p>
                 </div>
                 <div className="text-right">
                    <p className="text-[10px] font-bold text-slate-400 uppercase">N° DE FICHA</p>
@@ -449,21 +464,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Nivel</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Nivel / Año</p>
                       <p className="text-xs font-bold text-slate-800">{submittedData?.catechesisYear?.replace('_', ' ')}</p>
                    </div>
                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Fecha</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Fecha Registro</p>
                       <p className="text-xs font-bold text-slate-800">{new Date(submittedData?.createdAt).toLocaleDateString()}</p>
                    </div>
                 </div>
              </div>
 
-             <div className="bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center print:border-slate-300">
+             <div className="bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center print:border-slate-300 print:shadow-none">
                 <div className="flex items-center gap-3">
                    <div className="p-2 bg-green-50 rounded-lg no-print"><Wallet className="h-4 w-4 text-green-600" /></div>
                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Entregado</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Monto Recibido</span>
                       <span className="text-lg font-black text-slate-900">{submittedData?.amountPaid?.toLocaleString('es-PY') || 0} Gs.</span>
                    </div>
                 </div>
@@ -477,6 +492,23 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                  Saldo Pendiente: {((submittedData?.registrationCost || 0) - (submittedData?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
                </p>
              )}
+
+             {/* Sección de firmas para impresión */}
+             <div className="hidden print:block pt-16">
+                <div className="flex justify-around items-end">
+                   <div className="flex flex-col items-center gap-2">
+                      <div className="h-px w-40 bg-slate-400"></div>
+                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Catequista / Encargado</p>
+                   </div>
+                   <div className="flex flex-col items-center gap-2">
+                      <div className="h-px w-40 bg-slate-400"></div>
+                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Sello Parroquial</p>
+                   </div>
+                </div>
+                <div className="mt-12 text-center">
+                   <p className="text-[7px] text-slate-300 uppercase tracking-[0.3em] font-medium italic">Sistema de Gestión de Sacramentos • Parroquia Perpetuo Socorro</p>
+                </div>
+             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 no-print">

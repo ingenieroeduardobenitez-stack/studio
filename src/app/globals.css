@@ -40,36 +40,6 @@
     --sidebar-border: 240 5.9% 90%;
     --sidebar-ring: 231 48% 48%;
   }
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 32% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 32% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 174 100% 29%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 32% 17%;
-    --input: 217 32% 17%;
-    --ring: 212 72% 59%;
-    
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
 }
 
 @layer base {
@@ -80,59 +50,73 @@
     @apply bg-background text-foreground font-body;
     pointer-events: auto !important;
   }
-  body[data-state="open"] {
-    overflow: hidden;
-  }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
   }
 }
 
 @media print {
+  /* Reset total para impresión */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Ocultar todos los elementos de UI y navegación */
+  nav, header, footer, 
+  [data-sidebar="sidebar"], 
+  .sidebar-trigger, 
   .no-print,
   button,
-  header,
-  [data-sidebar="sidebar"],
-  .sidebar-trigger,
-  nav,
   .fixed,
   .absolute.top-4.left-4 {
     display: none !important;
+    visibility: hidden !important;
   }
 
-  body {
-    background-color: white !important;
+  /* Asegurar que el contenido principal ocupe todo el ancho */
+  main, .SidebarInset, [data-sidebar="inset"] {
     margin: 0 !important;
     padding: 0 !important;
-  }
-
-  main,
-  .max-w-6xl,
-  .max-w-4xl,
-  .max-w-2xl {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
-
-  .card, 
-  .rounded-3xl,
-  .rounded-\[2\.5rem\] {
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  #receipt-area,
-  #receipt-print,
-  #receipt-content-official,
-  #certificate-print {
     display: block !important;
     width: 100% !important;
+    max-width: none !important;
+    background: white !important;
+  }
+
+  /* Estilo para los recibos y certificados */
+  #receipt-area, #receipt-print, #receipt-content-official, #certificate-print, #receipt-content-official-v2 {
+    display: block !important;
+    width: 100% !important;
+    max-width: 800px !important;
     margin: 0 auto !important;
-    padding: 20px !important;
+    padding: 40px !important;
     border: 1px solid #eee !important;
+    background: white !important;
+    box-shadow: none !important;
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    visibility: visible !important;
+  }
+
+  /* Asegurar que el texto y logos se vean correctamente */
+  #receipt-area *, #receipt-print *, #receipt-content-official *, #certificate-print * {
+    visibility: visible !important;
+  }
+
+  /* Forzar colores de fondo para impresión (importante para logos y bordes) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .card, .rounded-3xl, .rounded-\[2\.5rem\] {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
   }
 }
