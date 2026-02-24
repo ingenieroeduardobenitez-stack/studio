@@ -13,8 +13,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Un admin es alguien que tiene el rol explícito en su documento de usuario
-    // o está en la colección roles_admin por compatibilidad
     function isAdmin() {
       return isSignedIn() && (
         exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
@@ -31,14 +29,13 @@ service cloud.firestore {
     // Perfiles de usuario
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isOwner(userId) || isAdmin();
+      // Tesorero puede escribir para registrar pagos de eventos en el perfil
+      allow write: if isOwner(userId) || isAdmin() || isTesorero();
     }
 
     // Inscripciones (Confirmaciones)
     match /confirmations/{id} {
-      // Cualquier persona puede inscribirse (público)
       allow create: if true;
-      // Solo personal autorizado puede ver y gestionar las listas
       allow read, update, delete: if isSignedIn();
     }
 
@@ -56,19 +53,19 @@ service cloud.firestore {
 
     // Ajustes de tesorería y costos
     match /settings/{settingId} {
-      allow read: if true; // Público para ver costos en el formulario
+      allow read: if true;
       allow write: if isAdmin() || isTesorero();
     }
 
     // Auditoría
     match /audit_logs/{logId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || isTesorero();
       allow create: if isSignedIn();
     }
 
     // Consulta de cédulas (Importación)
     match /cedulas/{cedulaId} {
-      allow get: if true; // Permitir búsqueda pública por C.I.
+      allow get: if true;
     }
 
     // Marcador de Administradores (DBAC)
@@ -76,12 +73,6 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow list: if isAdmin();
       allow write: if false;
-    }
-
-    // Compatibilidad con el blueprint antiguo
-    match /catechesisSessions/{id} {
-      allow read: if true;
-      allow write: if isAdmin();
     }
   }
 }

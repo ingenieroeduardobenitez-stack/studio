@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -13,7 +14,8 @@
         "photoUrl": { "type": "string", "format": "uri" },
         "allowedModules": { "type": "array", "items": { "type": "string" } },
         "status": { "type": "string" },
-        "lastSeen": { "type": "string", "format": "date-time" }
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "eventPayments": { "type": "object", "description": "Registro de pagos de eventos especiales" }
       }
     },
     "Confirmation": {

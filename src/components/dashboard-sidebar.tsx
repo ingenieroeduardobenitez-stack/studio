@@ -19,7 +19,8 @@ import {
   ArrowLeftRight,
   Archive,
   Globe,
-  ShieldCheck
+  ShieldCheck,
+  Contact
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -52,6 +53,7 @@ const operationsItems = [
   { id: "inscripcion", name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
   { id: "cambio_grupo", name: "Cambio de Grupo", href: "/dashboard/group-change", icon: ArrowLeftRight },
   { id: "pagos_alumnos", name: "Gestión de Pagos", href: "/dashboard/payments", icon: CreditCard },
+  { id: "pagos_catequistas", name: "Cobro Catequistas", href: "/dashboard/catechist-payments", icon: Contact },
 ]
 
 const treasuryItems = [
@@ -94,7 +96,6 @@ export function DashboardSidebar() {
       if (isAdmin) return items;
       return items.filter(item => !adminItems.find(ai => ai.id === item.id) && !treasuryItems.find(ti => ti.id === item.id));
     }
-    // Si tiene módulos permitidos explícitos
     return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));
   }
 
