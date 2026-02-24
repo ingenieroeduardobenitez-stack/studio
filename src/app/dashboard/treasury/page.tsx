@@ -182,7 +182,7 @@ export default function TreasuryPage() {
       console.error(error)
       toast({ variant: "destructive", title: "Error al procesar pago" })
     } finally {
-      setIsSubmittingPayment(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -371,6 +371,8 @@ export default function TreasuryPage() {
                   <TableBody>
                     {filteredRegs.map((reg) => {
                       const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
+                      const isSettled = pending <= 0 || reg.paymentStatus === "PAGADO"
+                      
                       return (
                         <TableRow key={reg.id} className="hover:bg-slate-50/30 h-16">
                           <TableCell className="pl-8">
@@ -384,18 +386,21 @@ export default function TreasuryPage() {
                           <TableCell className="text-center"><span className={cn("font-bold text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? `${pending.toLocaleString('es-PY')} Gs.` : "Saldado"}</span></TableCell>
                           <TableCell className="text-right pr-8">
                             <div className="flex justify-end gap-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="h-8 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary/5"
-                                onClick={() => handleOpenPayment(reg)}
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar Pago
-                              </Button>
+                              {!isSettled && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-8 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary/5"
+                                  onClick={() => handleOpenPayment(reg)}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar Pago
+                                </Button>
+                              )}
                               <Button 
                                 size="sm" 
                                 variant="ghost" 
                                 className="h-8 w-8 p-0" 
+                                title="Ver Recibo / Descargar PDF"
                                 onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}
                               >
                                 <FileText className="h-4 w-4 text-slate-400" />
