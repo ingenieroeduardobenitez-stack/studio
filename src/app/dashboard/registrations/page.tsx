@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -94,7 +95,7 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  const userProfileRef = useMemo(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
   const { data: profile } = useDoc(userProfileRef)
   const isAdmin = profile?.role === "Administrador"
   const isTesorero = profile?.role === "Tesorero"
@@ -390,7 +391,6 @@ export default function RegistrationsListPage() {
           
           <ScrollArea className="max-h-[70vh]">
             <div className="p-8 space-y-8">
-              {/* COMPROBANTE DE PAGO (NUEVO) */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
                   <CreditCard className="h-3 w-3" /> Comprobante de Transferencia
@@ -417,7 +417,6 @@ export default function RegistrationsListPage() {
 
               <Separator />
 
-              {/* SECCIÓN PERSONAL */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Camera, Shield, Mail, User, MapPin, Loader2, Save, Key, Lock } from "lucide-react"
-import { useUser, useDoc, useFirestore, useAuth } from "@/firebase"
+import { useUser, useDoc, useFirestore, useAuth, useMemoFirebase } from "@/firebase"
 import { doc, updateDoc } from "firebase/firestore"
 import { updatePassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
@@ -24,7 +24,7 @@ export default function ProfilePage() {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const userProfileRef = useMemo(() => {
+  const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
@@ -181,7 +181,6 @@ export default function ProfilePage() {
         </div>
 
         <div className="lg:col-span-2 space-y-8">
-          {/* DATOS PERSONALES */}
           <Card className="border-none shadow-xl bg-white">
             <CardHeader>
               <CardTitle className="font-headline text-xl">Detalles Personales</CardTitle>
@@ -221,7 +220,6 @@ export default function ProfilePage() {
             </CardFooter>
           </Card>
 
-          {/* SEGURIDAD */}
           <Card className="border-none shadow-xl bg-white">
             <CardHeader>
               <CardTitle className="font-headline text-xl flex items-center gap-2">

@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { useFirestore, useUser, useDoc } from "@/firebase"
+import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase"
 import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -100,7 +100,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false)
   const [submittedData, setSubmittedData] = useState<any>(null)
 
-  // Estados de Cámara
   const [showCamera, setShowCamera] = useState(false)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
@@ -116,10 +115,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const { user } = useUser()
   const { toast } = useToast()
 
-  const userProfileRef = useMemo(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
   const { data: profile } = useDoc(userProfileRef)
 
-  const treasuryRef = useMemo(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   const { data: costs } = useDoc(treasuryRef)
 
   const form = useForm<FormValues>({
@@ -171,7 +170,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }, [birthDate, setValue])
 
-  // Lógica de Cámara
   const startCamera = async (deviceId?: string) => {
     try {
       const constraints = {
@@ -370,7 +368,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             </CardHeader>
             
             <CardContent className="p-8 space-y-12">
-              {/* FOTO DEL ALUMNO CON CÁMARA */}
               <div className="flex flex-col items-center gap-4">
                 <div className="relative group">
                   <Avatar className="h-40 w-40 border-4 border-slate-100 shadow-xl">
@@ -386,7 +383,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Foto del Confirmando</p>
               </div>
 
-              {/* DATOS PERSONALES */}
               <div className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <UserPlus className="h-5 w-5 text-primary" />
@@ -424,7 +420,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
               <Separator />
 
-              {/* DATOS DE FAMILIARES */}
               <div className="space-y-8">
                 <div className="flex items-center gap-3 mb-2">
                   <User className="h-5 w-5 text-primary" />
@@ -432,7 +427,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </div>
 
                 <div className="grid gap-8 md:grid-cols-2">
-                  {/* MADRE */}
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información de la Madre</p>
                     <FormField control={form.control} name="motherName" render={({ field }) => (
@@ -448,7 +442,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     </div>
                   </div>
 
-                  {/* PADRE */}
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información del Padre</p>
                     <FormField control={form.control} name="fatherName" render={({ field }) => (
@@ -464,7 +457,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     </div>
                   </div>
 
-                  {/* TUTOR (OPCIONAL) */}
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border md:col-span-2">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información del Encargado / Tutor (Si no vive con los padres)</p>
                     <div className="grid gap-4 md:grid-cols-3">
@@ -484,7 +476,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
               <Separator />
 
-              {/* SACRAMENTOS */}
               <div className="space-y-8">
                 <div className="flex items-center gap-3">
                   <BookOpen className="h-5 w-5 text-primary" />
@@ -558,7 +549,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
               <Separator />
 
-              {/* NIVEL Y HORARIO */}
               <div className="space-y-8">
                 <div className="flex items-center gap-3">
                   <Clock className="h-5 w-5 text-primary" />
@@ -598,7 +588,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
               <Separator />
 
-              {/* SECCIÓN DE PAGO */}
               <div className="space-y-8">
                 <div className="flex items-center gap-3">
                   <Wallet className="h-6 w-6 text-primary" />
@@ -672,7 +661,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         </Form>
       </Card>
 
-      {/* DIALOGO DE CÁMARA */}
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
         <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white">

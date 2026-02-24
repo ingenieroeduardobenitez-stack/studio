@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -35,7 +36,7 @@ export default function TreasuryPage() {
     setMounted(true)
   }, [])
 
-  const treasuryRef = useMemo(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   const { data: costs, loading: loadingCosts } = useDoc(treasuryRef)
 
   useEffect(() => {
@@ -297,7 +298,7 @@ export default function TreasuryPage() {
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-white">
-          <DialogHeader className="sr-only">
+          <DialogHeader className="p-6 bg-slate-50 border-b">
             <DialogTitle>Recibo de Pago</DialogTitle>
             <DialogDescription>Comprobante de cobro de inscripción parroquial.</DialogDescription>
           </DialogHeader>

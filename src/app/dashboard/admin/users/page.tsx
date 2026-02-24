@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Camera, User, Check, X, Circle } from "lucide-react"
-import { useFirestore, useCollection } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
 import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth"
@@ -70,7 +70,7 @@ export default function UsersAdminPage() {
     setMounted(true)
   }, [])
 
-  const usersQuery = useMemo(() => {
+  const usersQuery = useMemoFirebase(() => {
     if (!db) return null
     return collection(db, "users")
   }, [db])
@@ -81,11 +81,10 @@ export default function UsersAdminPage() {
     if (user.status !== "online") return false
     if (!user.lastSeen) return false
     
-    // Lógica robusta de detección online
     const lastSeenDate = user.lastSeen.toDate ? user.lastSeen.toDate() : new Date(user.lastSeen)
     const now = new Date()
     const diff = Math.abs((now.getTime() - lastSeenDate.getTime()) / 1000)
-    return diff < 300 // Consideramos online si hubo actividad en los últimos 5 minutos
+    return diff < 300 
   }
 
   const filteredUsers = useMemo(() => {

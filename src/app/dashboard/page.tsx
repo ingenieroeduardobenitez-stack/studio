@@ -4,9 +4,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ClipboardCheck, Users, Calendar, ArrowUpRight, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download } from "lucide-react"
-import { useUser, useDoc, useFirestore, useCollection } from "@/firebase"
+import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { doc, collection } from "firebase/firestore"
-import { useMemo, useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -22,14 +22,14 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
   
-  const userProfileRef = useMemo(() => {
+  const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
 
-  const registrationsQuery = useMemo(() => {
+  const registrationsQuery = useMemoFirebase(() => {
     if (!db) return null
     return collection(db, "confirmations")
   }, [db])
@@ -209,7 +209,7 @@ export default function DashboardPage() {
       {/* DIALOGO QR */}
       <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
-          <DialogHeader className="sr-only">
+          <DialogHeader className="p-6 bg-slate-50 border-b">
             <DialogTitle>Código QR de Inscripción</DialogTitle>
             <DialogDescription>Escanea este código para acceder al formulario de inscripción digital.</DialogDescription>
           </DialogHeader>

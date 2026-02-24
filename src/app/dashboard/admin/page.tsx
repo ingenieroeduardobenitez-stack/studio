@@ -19,7 +19,7 @@ import {
   CheckCircle2,
   Wallet
 } from "lucide-react"
-import { useFirestore, useCollection, useDoc } from "@/firebase"
+import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -40,11 +40,11 @@ export default function AdminPage() {
     setMounted(true)
   }, [])
 
-  // Suscripciones a datos
-  const regsQuery = useMemo(() => db ? collection(db, "confirmations") : null, [db])
-  const groupsQuery = useMemo(() => db ? collection(db, "groups") : null, [db])
-  const usersQuery = useMemo(() => db ? collection(db, "users") : null, [db])
-  const treasuryRef = useMemo(() => db ? doc(db, "settings", "treasury") : null, [db])
+  // Suscripciones a datos con useMemoFirebase para estabilidad
+  const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
+  const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
+  const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
+  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
 
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
   const { data: groups, loading: loadingGroups } = useCollection(groupsQuery)
@@ -64,7 +64,6 @@ export default function AdminPage() {
 
     const formData = new FormData(e.currentTarget)
     
-    // Solo guardamos los datos relevantes según el método seleccionado
     const data: any = {
       juvenileCost: Number(formData.get("juvenile")),
       adultCost: Number(formData.get("adult")),
@@ -80,7 +79,6 @@ export default function AdminPage() {
       data.alias = formData.get("alias") as string || ""
     } else {
       data.alias = formData.get("alias") as string || ""
-      // En modo alias, los campos de cuenta se limpian o se ignoran
       data.bankName = ""
       data.accountNumber = ""
       data.ownerCi = ""

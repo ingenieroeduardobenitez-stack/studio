@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -36,10 +37,10 @@ export default function PaymentsManagementPage() {
     setMounted(true)
   }, [])
 
-  const userProfileRef = useMemo(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
   const { data: profile } = useDoc(userProfileRef)
 
-  const treasurySettingsRef = useMemo(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const treasurySettingsRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   const { data: treasurySettings } = useDoc(treasurySettingsRef)
 
   const myGroupsQuery = useMemoFirebase(() => {
@@ -288,7 +289,7 @@ export default function PaymentsManagementPage() {
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
-          <DialogHeader className="sr-only">
+          <DialogHeader className="p-6 bg-slate-50 border-b">
             <DialogTitle>Recibo de Cobro</DialogTitle>
             <DialogDescription>Comprobante de pago para el confirmando.</DialogDescription>
           </DialogHeader>
