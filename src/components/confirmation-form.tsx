@@ -826,15 +826,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             </CardContent>
 
             <CardFooter className="bg-slate-50 p-10 border-t flex flex-col md:flex-row items-center justify-end gap-6">
-              <div className="flex items-center gap-4 flex-1">
-                <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100 shrink-0">
-                  <Info className="h-6 w-6 text-blue-500" />
-                </div>
-                <p className="text-xs text-blue-700 max-w-xs font-medium italic">
-                  Al pulsar "Completar Inscripción", declaras que los datos ingresados son veraces.
-                </p>
-              </div>
-              
               <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
                 {!isPublic && (
                   <div className="flex flex-col gap-2 min-w-[180px]">
