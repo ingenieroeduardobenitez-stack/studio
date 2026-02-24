@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
@@ -10,7 +9,26 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Settings, Search, Loader2, CreditCard, FileText, User, Church, Plus, Trash2, CalendarDays, CheckCircle2, Info, Printer, ImageIcon, Receipt, Eye } from "lucide-react"
+import { 
+  Wallet, 
+  Settings, 
+  Search, 
+  Loader2, 
+  CreditCard, 
+  FileText, 
+  User, 
+  Church, 
+  Plus, 
+  Trash2, 
+  CalendarDays, 
+  CheckCircle2, 
+  Info, 
+  Printer, 
+  ImageIcon, 
+  Receipt, 
+  Eye,
+  X 
+} from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -276,7 +294,9 @@ export default function TreasuryPage() {
                 <DialogTrigger asChild><Button className="bg-primary hover:bg-primary/90 font-bold gap-2"><Plus className="h-4 w-4" /> Nuevo Evento</Button></DialogTrigger>
                 <DialogContent>
                   <form onSubmit={handleCreateEvent}>
-                    <DialogHeader><DialogTitle>Añadir Concepto de Cobro</DialogTitle></DialogHeader>
+                    <DialogHeader>
+                      <DialogTitle>Añadir Concepto de Cobro</DialogTitle>
+                    </DialogHeader>
                     <div className="py-6 space-y-4">
                       <div className="space-y-2"><Label>Nombre del Evento</Label><Input name="category" placeholder="Ej. Retiro de 1er Año" required /></div>
                       <div className="space-y-2"><Label>Costo (Gs)</Label><Input name="cost" type="number" placeholder="30000" required /></div>
@@ -318,7 +338,10 @@ export default function TreasuryPage() {
                 <DialogTrigger asChild><Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold gap-2"><Plus className="h-4 w-4" /> Registrar Gasto</Button></DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <form onSubmit={handleCreateExpense} className="space-y-6">
-                    <DialogHeader><DialogTitle>Nuevo Comprobante de Egreso</DialogTitle><DialogDescription>Ingresa los detalles de la compra y adjunta el comprobante legal.</DialogDescription></DialogHeader>
+                    <DialogHeader>
+                      <DialogTitle>Nuevo Comprobante de Egreso</DialogTitle>
+                      <DialogDescription>Ingresa los detalles de la compra y adjunta el comprobante legal.</DialogDescription>
+                    </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2"><Label>Concepto / Detalle de Compra</Label><Input name="concept" placeholder="Ej. Compra de Merienda para Retiro" required /></div>
                       <div className="space-y-2"><Label>Monto Pagado (Gs)</Label><Input name="amount" type="number" placeholder="50000" required className="text-xl font-bold" /></div>
@@ -423,8 +446,11 @@ export default function TreasuryPage() {
 
       {/* VISTA AMPLIADA DE COMPROBANTE DE GASTO */}
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
-        <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none">
-          <DialogHeader className="sr-only"><DialogTitle>Comprobante de Egreso</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Comprobante de Egreso</DialogTitle>
+            <DialogDescription>Imagen del comprobante de gasto registrado.</DialogDescription>
+          </DialogHeader>
           <div className="relative flex items-center justify-center">
             <Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full h-10 w-10 bg-white/20 text-white" onClick={() => setIsProofViewOpen(false)}><X className="h-6 w-6" /></Button>
             <img src={selectedProof || ""} className="max-h-[90vh] rounded-xl shadow-2xl" />
@@ -434,12 +460,20 @@ export default function TreasuryPage() {
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b"><DialogTitle>Recibo de Pago</DialogTitle><DialogDescription>Comprobante de cobro de inscripción parroquial.</DialogDescription></DialogHeader>
+          <DialogHeader className="p-6 bg-slate-50 border-b">
+            <DialogTitle>Recibo de Pago</DialogTitle>
+            <DialogDescription>Comprobante de cobro de inscripción parroquial.</DialogDescription>
+          </DialogHeader>
           <div className="p-10 bg-white space-y-8" id="receipt-content">
             <div className="flex items-center justify-between border-b pb-6"><Church className="h-10 w-10 text-primary" /><div className="text-right"><p className="text-xs font-bold text-primary uppercase">Recibo de Pago</p><p className="text-[10px] text-slate-400">EMITIDO EL {new Date().toLocaleDateString()}</p></div></div>
-            <div className="space-y-4"><div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Inscripción a nombre de</p><p className="text-lg font-bold text-slate-900">{selectedReg?.fullName}</p></div><div className="bg-slate-50 p-6 rounded-2xl border border-dashed space-y-2"><div className="flex justify-between text-sm"><span>Monto Abonado</span><span className="font-bold text-green-600">{reg?.amountPaid?.toLocaleString()} Gs.</span></div><Separator /><div className="flex justify-between text-xs"><span>Saldo Pendiente</span><span className="font-bold text-red-500">0 Gs.</span></div></div></div>
+            <div className="space-y-4"><div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Inscripción a nombre de</p><p className="text-lg font-bold text-slate-900">{selectedReg?.fullName}</p></div><div className="bg-slate-50 p-6 rounded-2xl border border-dashed space-y-2"><div className="flex justify-between text-sm"><span>Monto Abonado</span><span className="font-bold text-green-600">{selectedReg?.amountPaid?.toLocaleString()} Gs.</span></div><Separator /><div className="flex justify-between text-xs"><span>Saldo Pendiente</span><span className="font-bold text-red-500">0 Gs.</span></div></div></div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1 rounded-xl h-11" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button><Button className="flex-1 gap-2 rounded-xl bg-primary text-white h-11 font-bold shadow-lg" onClick={() => window.print()}><Printer className="h-4 w-4" /> Imprimir</Button></DialogFooter>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+            <Button variant="outline" className="flex-1 rounded-xl h-11 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
+            <Button className="flex-1 gap-2 rounded-xl bg-primary text-white h-11 font-bold shadow-lg" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Imprimir
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
