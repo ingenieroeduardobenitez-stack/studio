@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
   Wallet, 
   Settings, 
@@ -30,7 +31,8 @@ import {
   X,
   MessageCircle,
   AlertTriangle,
-  Download
+  Download,
+  QrCode
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc } from "firebase/firestore"
@@ -39,6 +41,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
+import { QRCodeCanvas } from "qrcode.react"
 
 export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
@@ -153,6 +156,7 @@ export default function TreasuryPage() {
     
     setIsSubmittingPayment(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero Parroquial"
     
     try {
       const newPaid = (selectedReg.amountPaid || 0) + paymentAmount
@@ -162,12 +166,13 @@ export default function TreasuryPage() {
         amountPaid: newPaid, 
         paymentStatus: status, 
         status: "INSCRITO",
-        lastPaymentDate: serverTimestamp() 
+        lastPaymentDate: serverTimestamp(),
+        validatedBy: catechistName
       })
 
       await addDoc(collection(db, "audit_logs"), {
         userId: currentUser?.uid || "unknown",
-        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero",
+        userName: catechistName,
         action: "Confirmación de Pago (Tesorería)",
         module: "tesoreria",
         details: `Cobro confirmado de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}`,
@@ -181,13 +186,13 @@ export default function TreasuryPage() {
       console.error(error)
       toast({ variant: "destructive", title: "Error al procesar pago" })
     } finally {
-      setIsSubmitting(false)
+      setIsSubmittingPayment(false)
     }
   }
 
   const handleShareReceipt = () => {
     if (!selectedReg) return
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\n_Secretaría de Tesorería_`)
+    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\nRecibo Oficial N°: ${selectedReg.id?.slice(-8).toUpperCase()}\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -574,87 +579,105 @@ export default function TreasuryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* RECIBO OFICIAL CON NUEVO MODELO */}
+      {/* RECIBO OFICIAL ACTUALIZADO */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-none">
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Recibo de Pago Oficial</DialogTitle>
             <DialogDescription>Comprobante de cobro parroquial.</DialogDescription>
           </DialogHeader>
           
-          <div className="p-12 bg-white text-slate-900 font-serif border-2 border-slate-900 m-4 print:m-0 print:border-slate-900" id="receipt-content-official">
-            {/* Cabecera Logo Recuadro */}
-            <div className="border-2 border-slate-900 p-6 min-h-[140px] flex items-center justify-center mb-10 relative">
-              <img 
-                src="/logo-recibo.png" 
-                alt="Logo Parroquia" 
-                className="h-28 object-contain" 
-                onError={(e) => { e.currentTarget.src = "/logo.png" }}
-              />
-              <div className="absolute top-2 right-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
-            </div>
-
-            {/* RECIBO y MONTO */}
-            <div className="flex justify-between items-end border-b-2 border-slate-900 pb-4 mb-8">
-              <h1 className="text-5xl font-black italic tracking-tighter">RECIBO</h1>
-              <div className="flex items-center gap-3">
-                <span className="text-4xl font-bold">Gs.</span>
-                <div className="border-2 border-slate-900 px-8 py-3 min-w-[220px] text-right font-black text-3xl bg-slate-50">
-                  {paymentAmount.toLocaleString('es-PY')}
-                </div>
+          <ScrollArea className="max-h-[90vh]">
+            <div className="p-8 md:p-12 bg-white text-slate-900 font-serif border-2 border-slate-900 m-4 print:m-0 print:border-slate-900" id="receipt-content-official">
+              {/* Cabecera Logo Recuadro */}
+              <div className="border-2 border-slate-900 p-6 min-h-[160px] flex items-center justify-center mb-10 relative bg-white">
+                <img 
+                  src="/logo-recibo.png" 
+                  alt="Logo Parroquia" 
+                  className="max-h-32 object-contain" 
+                  onError={(e) => { e.currentTarget.src = "/logo.png" }}
+                />
+                <div className="absolute top-2 right-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
               </div>
-            </div>
 
-            {/* Campos de Recibo con Líneas Punteadas */}
-            <div className="space-y-10 text-xl">
-              <div className="flex items-baseline gap-4">
-                <span className="whitespace-nowrap font-bold">Recibí(mos) de:</span>
-                <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-4 leading-tight">
-                  {selectedReg?.fullName}
+              {/* RECIBO y MONTO */}
+              <div className="flex justify-between items-end border-b-2 border-slate-900 pb-4 mb-8">
+                <h1 className="text-5xl font-black italic tracking-tighter">RECIBO</h1>
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl font-bold">Gs.</span>
+                  <div className="border-2 border-slate-900 px-8 py-3 min-w-[240px] text-right font-black text-3xl bg-slate-50">
+                    {paymentAmount.toLocaleString('es-PY')}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-baseline gap-4">
-                <span className="whitespace-nowrap font-bold">la cantidad de:</span>
-                <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-4 italic leading-tight">
-                  {paymentAmount.toLocaleString('es-PY')} Guaraníes
-                </div>
-              </div>
-
-              <div className="space-y-4">
+              {/* Campos de Recibo con Líneas Punteadas */}
+              <div className="space-y-10 text-xl">
                 <div className="flex items-baseline gap-4">
-                  <span className="whitespace-nowrap font-bold">en concepto de:</span>
-                  <div className="flex-1 border-2 border-slate-900 px-6 py-3 font-bold text-lg bg-slate-50 uppercase leading-tight">
-                    Inscripción Catequesis de Confirmación - {selectedReg?.catechesisYear?.replace('_', ' ')}
+                  <span className="whitespace-nowrap font-bold">Recibí(mos) de:</span>
+                  <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-4 leading-tight">
+                    {selectedReg?.fullName}
+                  </div>
+                </div>
+
+                <div className="flex items-baseline gap-4">
+                  <span className="whitespace-nowrap font-bold">la cantidad de:</span>
+                  <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-4 italic leading-tight">
+                    {paymentAmount.toLocaleString('es-PY')} Guaraníes
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-baseline gap-4">
+                    <span className="whitespace-nowrap font-bold">en concepto de:</span>
+                    <div className="flex-1 border-2 border-slate-900 px-6 py-3 font-bold text-lg bg-slate-50 uppercase leading-tight">
+                      Inscripción Catequesis de Confirmación - {selectedReg?.catechesisYear?.replace('_', ' ')}
+                    </div>
+                  </div>
+                  <div className="w-full border-b border-dotted border-slate-400 h-8"></div>
+                </div>
+
+                <div className="flex items-baseline gap-4">
+                  <span className="whitespace-nowrap font-bold">y en contraprestación de:</span>
+                  <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-4 text-sm text-slate-500 italic leading-tight">
+                    {((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)) > 0 
+                      ? `Saldo Pendiente: ${((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.` 
+                      : 'Totalmente cancelado.'}
                   </div>
                 </div>
                 <div className="w-full border-b border-dotted border-slate-400 h-8"></div>
               </div>
 
-              <div className="flex items-baseline gap-4">
-                <span className="whitespace-nowrap font-bold">y en contraprestación de:</span>
-                <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-4 text-sm text-slate-500 italic leading-tight">
-                  {((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)) > 0 
-                    ? `Saldo Pendiente: ${((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.` 
-                    : 'Totalmente cancelado.'}
+              {/* Fecha y Firma QR */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-16">
+                <div className="flex flex-col justify-end space-y-4">
+                  <p className="text-xl italic font-medium">
+                    Asunción, a los {dayStr} días de {monthStr} de {yearStr}
+                  </p>
+                  <div className="flex flex-col items-start">
+                    <div className="w-64 border-t-2 border-slate-900"></div>
+                    <p className="text-xs font-bold uppercase mt-3 tracking-widest">(Firma y aclaración)</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-2 tracking-widest">Recibo Oficial N° {selectedReg?.id?.slice(-8).toUpperCase()}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center md:items-end gap-4">
+                  <div className="p-2 border-2 border-slate-900 rounded-xl bg-white shadow-sm">
+                    <QRCodeCanvas 
+                      value={`RECIBO-PS-${selectedReg?.id}-${paymentAmount}`}
+                      size={120}
+                      level="H"
+                    />
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase text-primary tracking-widest">Firma Digitalizada</p>
+                    <p className="text-sm font-bold text-slate-900 uppercase">{selectedReg?.validatedBy || (profile ? `${profile.firstName} ${profile.lastName}` : 'Tesorero')}</p>
+                    <p className="text-[9px] text-slate-500 font-bold uppercase">{profile?.role || 'Personal Parroquial'}</p>
+                  </div>
                 </div>
               </div>
-              <div className="w-full border-b border-dotted border-slate-400 h-8"></div>
             </div>
-
-            {/* Fecha y Firma */}
-            <div className="flex flex-col items-end space-y-16 pt-16">
-              <p className="text-xl italic font-medium">
-                Asunción, a los {dayStr} días de {monthStr} de {yearStr}
-              </p>
-              
-              <div className="flex flex-col items-center">
-                <div className="w-72 border-t-2 border-slate-900"></div>
-                <p className="text-xs font-bold uppercase mt-3 tracking-widest">(Firma y aclaración)</p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase mt-2 tracking-widest">Recibo Oficial N° {selectedReg?.id?.slice(-8).toUpperCase()}</p>
-              </div>
-            </div>
-          </div>
+          </ScrollArea>
 
           <DialogFooter className="p-6 bg-slate-100 border-t flex gap-3 print:hidden">
             <Button type="button" variant="outline" className="flex-1 rounded-2xl h-14 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>

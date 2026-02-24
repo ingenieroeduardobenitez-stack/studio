@@ -24,7 +24,8 @@ import {
   FileText,
   Share2,
   AlertTriangle,
-  Download
+  Download,
+  QrCode
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -55,9 +56,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
+import { QRCodeCanvas } from "qrcode.react"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -350,6 +353,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
     const regId = `conf_${Date.now()}`
     const regRef = doc(db, "confirmations", regId)
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Secretaría Parroquial" : "Sistema")
     
     const amountToRegister = immediatePayment ? amount : 0
     const paymentStatus = amountToRegister >= totalCost ? "PAGADO" : (amountToRegister > 0 ? "PARCIAL" : "PENDIENTE")
@@ -364,7 +368,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       amountPaid: amountToRegister,
       paymentStatus: paymentStatus,
       validatedAt: immediatePayment ? serverTimestamp() : null,
-      validatedBy: immediatePayment && profile ? `${profile.firstName} ${profile.lastName}` : null,
+      validatedBy: catechistName,
       createdAt: serverTimestamp()
     }
 
@@ -372,7 +376,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       await setDoc(regRef, registrationData)
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "public",
-        userName: profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Usuario Público" : "Sistema"),
+        userName: catechistName,
         action: immediatePayment ? "Inscripción con Pago" : "Envío de Inscripción",
         module: "inscripcion",
         details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString('es-PY')} Gs. confirmado. ` : ''}Inscripción completa de ${values.fullName}`,
@@ -435,87 +439,105 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <p className="text-sm text-slate-500">Se ha generado el recibo oficial de <b>{submittedData?.fullName}</b>.</p>
           </div>
 
-          {/* MODELO DE RECIBO CLÁSICO */}
-          <div className="bg-white p-10 border-2 border-slate-900 text-slate-900 space-y-8 font-serif print:border-slate-900 print:p-12" id="receipt-area">
-            {/* Cabecera Logo */}
-            <div className="border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative">
-              <img 
-                src="/logo-recibo.png" 
-                alt="Parroquia Perpetuo Socorro" 
-                className="max-h-24 object-contain"
-                onError={(e) => { e.currentTarget.src = "/logo.png" }}
-              />
-              <div className="absolute top-2 right-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
-            </div>
-
-            {/* Titulo y Monto */}
-            <div className="flex justify-between items-end border-b-2 border-slate-900 pb-2">
-              <h1 className="text-4xl font-black italic tracking-tighter">RECIBO</h1>
-              <div className="flex items-center gap-2">
-                <span className="text-3xl font-bold">Gs.</span>
-                <div className="border-2 border-slate-900 px-6 py-2 min-w-[180px] text-right font-black text-2xl bg-slate-50">
-                  {amount.toLocaleString('es-PY')}
-                </div>
-              </div>
-            </div>
-
-            {/* Cuerpo del Recibo */}
-            <div className="space-y-8 py-4 text-lg">
-              <div className="flex items-baseline gap-4">
-                <span className="whitespace-nowrap font-bold">Recibí(mos) de:</span>
-                <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-2">
-                  {submittedData?.fullName}
-                </div>
+          {/* ÁREA DE RECIBO MODELO ACTUALIZADO */}
+          <ScrollArea className="max-h-[70vh] md:max-h-none print:overflow-visible">
+            <div className="bg-white p-8 md:p-12 border-2 border-slate-900 text-slate-900 space-y-8 font-serif print:border-slate-900 print:p-12 m-2" id="receipt-area">
+              {/* Cabecera Logo Recuadro */}
+              <div className="border-2 border-slate-900 p-6 min-h-[160px] flex items-center justify-center relative bg-white">
+                <img 
+                  src="/logo-recibo.png" 
+                  alt="Parroquia Perpetuo Socorro" 
+                  className="max-h-32 object-contain"
+                  onError={(e) => { e.currentTarget.src = "/logo.png" }}
+                />
+                <div className="absolute top-2 right-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
               </div>
 
-              <div className="flex items-baseline gap-4">
-                <span className="whitespace-nowrap font-bold">la cantidad de:</span>
-                <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 italic">
-                  {amount.toLocaleString('es-PY')} Guaraníes
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-baseline gap-4">
-                  <span className="whitespace-nowrap font-bold">en concepto de:</span>
-                  <div className="flex-1 border-2 border-slate-900 px-4 py-2 font-bold text-base bg-slate-50 uppercase">
-                    Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}
+              {/* Titulo y Monto en Recuadro */}
+              <div className="flex justify-between items-end border-b-2 border-slate-900 pb-4 mb-8">
+                <h1 className="text-5xl font-black italic tracking-tighter">RECIBO</h1>
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl font-bold">Gs.</span>
+                  <div className="border-2 border-slate-900 px-8 py-3 min-w-[240px] text-right font-black text-3xl bg-slate-50">
+                    {amount.toLocaleString('es-PY')}
                   </div>
                 </div>
-                <div className="w-full border-b border-dotted border-slate-400 h-6"></div>
               </div>
 
-              <div className="flex items-baseline gap-4">
-                <span className="whitespace-nowrap font-bold">y en contraprestación de:</span>
-                <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 text-sm text-slate-500">
-                  {pending > 0 ? `Saldo Pendiente: ${pending.toLocaleString('es-PY')} Gs.` : 'Totalmente cancelado.'}
+              {/* Campos del Recibo */}
+              <div className="space-y-10 text-xl">
+                <div className="flex items-baseline gap-4">
+                  <span className="whitespace-nowrap font-bold">Recibí(mos) de:</span>
+                  <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-4 leading-tight">
+                    {submittedData?.fullName}
+                  </div>
+                </div>
+
+                <div className="flex items-baseline gap-4">
+                  <span className="whitespace-nowrap font-bold">la cantidad de:</span>
+                  <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-4 italic leading-tight">
+                    {amount.toLocaleString('es-PY')} Guaraníes
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-baseline gap-4">
+                    <span className="whitespace-nowrap font-bold">en concepto de:</span>
+                    <div className="flex-1 border-2 border-slate-900 px-6 py-3 font-bold text-lg bg-slate-50 uppercase leading-tight">
+                      Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}
+                    </div>
+                  </div>
+                  <div className="w-full border-b border-dotted border-slate-400 h-8"></div>
+                </div>
+
+                <div className="flex items-baseline gap-4">
+                  <span className="whitespace-nowrap font-bold">y en contraprestación de:</span>
+                  <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-4 text-sm text-slate-500 italic leading-tight">
+                    {pending > 0 ? `Saldo Pendiente: ${pending.toLocaleString('es-PY')} Gs.` : 'Totalmente cancelado.'}
+                  </div>
+                </div>
+                <div className="w-full border-b border-dotted border-slate-400 h-8"></div>
+              </div>
+
+              {/* Pie de Recibo con QR Signature */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-16">
+                <div className="flex flex-col justify-end space-y-4">
+                  <p className="text-xl italic font-medium">
+                    Asunción, a los {day} días de {month} de {year}
+                  </p>
+                  <div className="flex flex-col items-start">
+                    <div className="w-64 border-t-2 border-slate-900"></div>
+                    <p className="text-xs font-bold uppercase mt-3 tracking-widest">(Firma y aclaración)</p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-2">Recibo N° {submittedData?.id?.slice(-8).toUpperCase()}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center md:items-end gap-4">
+                  <div className="p-2 border-2 border-slate-900 rounded-xl bg-white shadow-sm">
+                    <QRCodeCanvas 
+                      value={`VERIFICADO-PS-${submittedData?.id}-${amount}`}
+                      size={120}
+                      level="H"
+                    />
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase text-primary tracking-widest">Firma Digitalizada</p>
+                    <p className="text-sm font-bold text-slate-900 uppercase">{submittedData?.validatedBy || 'Secretaría Parroquial'}</p>
+                    <p className="text-[9px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p>
+                  </div>
                 </div>
               </div>
-              <div className="w-full border-b border-dotted border-slate-400 h-6"></div>
             </div>
-
-            {/* Pie de Recibo */}
-            <div className="flex flex-col items-end space-y-12 pt-10">
-              <p className="text-lg italic font-medium">
-                Asunción, a los {day} días de {month} de {year}
-              </p>
-              
-              <div className="flex flex-col items-center">
-                <div className="w-64 border-t-2 border-slate-900"></div>
-                <p className="text-xs font-bold uppercase mt-2">(Firma y aclaración)</p>
-                <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Recibo N° {submittedData?.id?.slice(-8).toUpperCase()}</p>
-              </div>
-            </div>
-          </div>
+          </ScrollArea>
 
           {/* Botones de Acción */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 no-print">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 no-print mt-6">
             <Button 
               type="button"
               className="h-14 rounded-2xl font-black bg-slate-900 hover:bg-slate-800 text-white gap-3 shadow-xl transition-all active:scale-95 group" 
               onClick={handlePrintPDF}
             >
-              <Download className="h-6 w-6 transition-transform group-hover:scale-110" /> GENERAR PDF / IMPRIMIR
+              <Download className="h-6 w-6 transition-transform group-hover:scale-110" /> DESCARGAR PDF
             </Button>
             <Button 
               type="button"
