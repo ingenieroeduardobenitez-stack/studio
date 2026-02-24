@@ -409,7 +409,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!submittedData) return
     const amount = submittedData.amountPaid || 0;
     const pending = (submittedData.registrationCost || 0) - amount;
-    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo de Pago N°:* ${submittedData.id?.slice(-6).toUpperCase()}\n*Monto entregado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString('es-PY')} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
+    const receiptNum = `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
+    const message = encodeURIComponent(`⛪ *Parroquia Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto entregado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString('es-PY')} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -455,13 +456,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const amount = submittedData?.amountPaid || 0;
     const pending = (submittedData?.registrationCost || 0) - amount;
     const today = new Date();
-    const day = today.getDate();
-    const month = today.toLocaleString('es-PY', { month: 'long' });
-    const year = today.getFullYear();
+    const dayNum = today.getDate();
+    const monthStr = today.toLocaleString('es-PY', { month: 'long' });
+    const yearNum = today.getFullYear();
+    const receiptNum = `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
 
     return (
       <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-3xl mx-auto print:max-w-none print:m-0">
-        <Card className="border-none shadow-2xl bg-white rounded-3xl p-8 space-y-6 overflow-hidden print:shadow-none print:p-0">
+        <Card className="border-none shadow-2xl bg-white rounded-3xl p-4 md:p-8 space-y-6 overflow-hidden print:shadow-none print:p-0">
           <div className="flex justify-center no-print">
             <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center shadow-inner">
               <CheckCircle2 className="h-8 w-8 text-green-600" />
@@ -477,86 +479,93 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             </div>
           </div>
 
-          <ScrollArea className="max-h-[70vh] md:max-h-none print:overflow-visible">
-            <div className="bg-white p-8 md:p-12 border-2 border-slate-900 text-slate-900 space-y-8 font-serif print:border-slate-900 print:p-12 m-2" id="receipt-area">
-              <div className="border-2 border-slate-900 p-6 min-h-[160px] flex items-center justify-center relative bg-white">
-                <img 
-                  src="/logo-recibo.png" 
-                  alt="Parroquia Perpetuo Socorro" 
-                  className="max-h-32 object-contain"
-                  onError={(e) => { e.currentTarget.src = "/logo.png" }}
-                />
-                <div className="absolute top-2 right-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
-              </div>
-
-              <div className="flex justify-between items-end border-b-2 border-slate-900 pb-4 mb-8">
-                <h1 className="text-5xl font-black italic tracking-tighter">RECIBO</h1>
-                <div className="flex items-center gap-3">
-                  <span className="text-4xl font-bold">Gs.</span>
-                  <div className="border-2 border-slate-900 px-8 py-3 min-w-[240px] text-right font-black text-3xl bg-slate-50">
-                    {amount.toLocaleString('es-PY')}
+          <ScrollArea className="max-h-[75vh] md:max-h-none print:overflow-visible flex justify-center">
+            <div 
+              className="bg-white p-6 md:p-10 border-2 border-slate-900 text-slate-900 space-y-6 font-serif print:border-slate-900 print:p-12 m-2 w-full max-w-[700px] transform scale-[0.95] md:scale-100 origin-top" 
+              id="receipt-area"
+            >
+              {/* Cabecera compacta */}
+              <div className="grid grid-cols-3 gap-4 items-center mb-4">
+                <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
+                  <img 
+                    src="/logo-recibo.png" 
+                    alt="Parroquia Perpetuo Socorro" 
+                    className="max-h-24 object-contain"
+                    onError={(e) => { e.currentTarget.src = "/logo.png" }}
+                  />
+                  <div className="absolute top-1 right-2 text-[8px] font-bold uppercase tracking-widest text-slate-400">Parroquia Perpetuo Socorro</div>
+                </div>
+                <div className="flex flex-col gap-2 h-full justify-between">
+                  <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
+                    <p className="text-[10px] font-black uppercase">Gs.</p>
+                    <p className="text-xl font-black">{amount.toLocaleString('es-PY')}</p>
+                  </div>
+                  <div className="border-2 border-slate-900 p-2 text-center bg-white">
+                    <p className="text-[8px] font-bold uppercase">Recibo N°</p>
+                    <p className="text-xs font-black">{receiptNum}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-10 text-xl">
-                <div className="flex items-baseline gap-4">
-                  <span className="whitespace-nowrap font-bold">Recibí(mos) de:</span>
-                  <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-4 leading-tight">
+              <div className="text-center border-b-2 border-slate-900 pb-2 mb-4">
+                <h1 className="text-3xl font-black italic tracking-tighter uppercase">RECIBO</h1>
+              </div>
+
+              <div className="space-y-6 text-sm md:text-base">
+                <div className="flex items-baseline gap-2">
+                  <span className="whitespace-nowrap font-bold shrink-0">Recibí(mos) de:</span>
+                  <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-0.5 px-2 leading-tight truncate">
                     {submittedData?.fullName}
                   </div>
                 </div>
 
-                <div className="flex items-baseline gap-4">
-                  <span className="whitespace-nowrap font-bold">la cantidad de:</span>
-                  <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-4 italic leading-tight">
+                <div className="flex items-baseline gap-2">
+                  <span className="whitespace-nowrap font-bold shrink-0">la cantidad de:</span>
+                  <div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 italic leading-tight">
                     {amount.toLocaleString('es-PY')} Guaraníes
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-baseline gap-4">
-                    <span className="whitespace-nowrap font-bold">en concepto de:</span>
-                    <div className="flex-1 border-2 border-slate-900 px-6 py-3 font-bold text-lg bg-slate-50 uppercase leading-tight">
+                <div className="space-y-3">
+                  <div className="flex items-baseline gap-2">
+                    <span className="whitespace-nowrap font-bold shrink-0">en concepto de:</span>
+                    <div className="flex-1 border-2 border-slate-900 px-4 py-2 font-bold text-xs bg-slate-50 uppercase leading-tight">
                       Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}
                     </div>
                   </div>
-                  <div className="w-full border-b border-dotted border-slate-400 h-8"></div>
                 </div>
 
-                <div className="flex items-baseline gap-4">
-                  <span className="whitespace-nowrap font-bold">y en contraprestación de:</span>
-                  <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-4 text-sm text-slate-500 italic leading-tight">
+                <div className="flex items-baseline gap-2">
+                  <span className="whitespace-nowrap font-bold shrink-0">en concepto de:</span>
+                  <div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 text-xs text-slate-500 italic leading-tight">
                     {pending > 0 ? `Saldo Pendiente: ${pending.toLocaleString('es-PY')} Gs.` : 'Totalmente cancelado.'}
                   </div>
                 </div>
-                <div className="w-full border-b border-dotted border-slate-400 h-8"></div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-16">
-                <div className="flex flex-col justify-end space-y-4">
-                  <p className="text-xl italic font-medium">
-                    Asunción, a los {day} días de {month} de {year}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
+                <div className="flex flex-col justify-end space-y-3">
+                  <p className="text-sm italic font-medium">
+                    Asunción, a los {dayNum} de {monthStr} de {yearNum}
                   </p>
-                  <div className="flex flex-col items-start">
-                    <div className="w-64 border-t-2 border-slate-900"></div>
-                    <p className="text-xs font-bold uppercase mt-3 tracking-widest">(Firma y aclaración)</p>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-2">Recibo N° {submittedData?.id?.slice(-8).toUpperCase()}</p>
+                  <div className="flex flex-col items-start pt-4">
+                    <div className="w-48 border-t border-slate-900"></div>
+                    <p className="text-[8px] font-bold uppercase mt-1 tracking-widest">(Firma y aclaración)</p>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-center md:items-end gap-4">
-                  <div className="p-2 border-2 border-slate-900 rounded-xl bg-white shadow-sm">
+                <div className="flex flex-col items-center md:items-end gap-3">
+                  <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
                     <QRCodeCanvas 
                       value={`VERIFICADO-PS-${submittedData?.id}-${amount}`}
-                      size={120}
+                      size={80}
                       level="H"
                     />
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-primary tracking-widest">Firma Digitalizada</p>
-                    <p className="text-sm font-bold text-slate-900 uppercase">{submittedData?.validatedBy || 'Secretaría Parroquial'}</p>
-                    <p className="text-[9px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p>
+                    <p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
+                    <p className="text-xs font-bold text-slate-900 uppercase mt-1">{submittedData?.validatedBy || 'Secretaría Parroquial'}</p>
+                    <p className="text-[8px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p>
                   </div>
                 </div>
               </div>
@@ -571,14 +580,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               disabled={isGeneratingPDF}
             >
               {isGeneratingPDF ? <Loader2 className="h-6 w-6 animate-spin" /> : <Download className="h-6 w-6 transition-transform group-hover:scale-110" />} 
-              DESCARGAR PDF DIRECTO
+              DESCARGAR PDF
             </Button>
             <Button 
               type="button"
               className="h-14 rounded-2xl font-black bg-green-600 hover:bg-green-700 text-white gap-3 shadow-xl active:scale-95 group" 
               onClick={handleShareReceipt}
             >
-              <MessageCircle className="h-6 w-6 transition-transform group-hover:scale-110" /> ENVIAR WHATSAPP
+              <MessageCircle className="h-6 w-6 transition-transform group-hover:scale-110" /> WHATSAPP
             </Button>
             <Button asChild variant="ghost" className="h-12 rounded-xl font-bold col-span-1 sm:col-span-2 text-slate-400 hover:text-primary">
               <Link href={isPublic ? "/" : "/dashboard"}>Finalizar Gestión</Link>
