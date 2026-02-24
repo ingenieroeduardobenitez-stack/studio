@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -62,6 +61,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { QRCodeCanvas } from "qrcode.react"
+import Image from "next/image"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -681,8 +681,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         <Form {...form}>
           <form onSubmit={form.handleSubmit((v) => handleRegistration(v, false))}>
             <CardHeader className="bg-primary text-white p-8">
-              <div className="flex items-center gap-3">
-                <Church className="h-8 w-8 text-white/80" />
+              <div className="flex items-center gap-4">
+                <div className="relative h-14 w-14 bg-white rounded-2xl shadow-xl flex items-center justify-center overflow-hidden p-1.5 shrink-0">
+                  <Image 
+                    src="/logo.png" 
+                    alt="Logo Santuario" 
+                    fill
+                    className="object-contain"
+                    priority
+                  />
+                </div>
                 <div>
                   <CardTitle className="text-2xl font-headline font-bold">Registro de Confirmación 2026</CardTitle>
                   <CardDescription className="text-white/80 font-medium">Santuario Nacional Nuestra Señora del Perpetuo Socorro</CardDescription>

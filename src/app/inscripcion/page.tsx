@@ -1,10 +1,10 @@
-
 "use client"
 
 import { ConfirmationForm } from "@/components/confirmation-form"
 import { Church, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import Image from "next/image"
 
 export default function PublicRegistrationPage() {
   const [mounted, setMounted] = useState(false)
@@ -33,8 +33,8 @@ export default function PublicRegistrationPage() {
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Santuario Nacional</p>
               <p className="text-[9px] font-black text-primary uppercase leading-tight">Ntra. Sra. del Perpetuo Socorro</p>
             </div>
-            <div className="bg-white p-2 rounded-xl border shadow-sm">
-              <Church className="h-6 w-6 text-primary" />
+            <div className="bg-white p-1 rounded-xl border shadow-sm relative h-12 w-12 overflow-hidden">
+              <Image src="/logo.png" alt="Logo Santuario" fill className="object-contain p-1" priority />
             </div>
           </div>
         </div>
