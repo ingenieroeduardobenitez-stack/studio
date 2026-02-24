@@ -99,10 +99,9 @@ export default function TreasuryPage() {
   }, [registrations, searchTerm])
 
   const handlePrint = () => {
-    // Pequeño retraso para asegurar que los estilos de impresión se carguen
     setTimeout(() => {
       window.print();
-    }, 100);
+    }, 500);
   };
 
   const handleUpdateCosts = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -579,10 +578,12 @@ export default function TreasuryPage() {
           <div className="p-10 bg-white space-y-8" id="receipt-content-official">
             <div className="flex items-center justify-between border-b-2 border-slate-100 pb-6">
               <img 
-                src="/logo.png" 
-                alt="Logo" 
-                className="h-16 w-16 object-contain" 
-                onError={(e) => (e.currentTarget.style.display = 'none')}
+                src="/logo-recibo.png" 
+                alt="Logo Parroquia" 
+                className="h-20 w-20 object-contain" 
+                onError={(e) => {
+                  e.currentTarget.src = "/logo.png";
+                }}
               />
               <div className="text-right">
                 <p className="text-xs font-black text-primary uppercase tracking-widest">Recibo de Pago</p>

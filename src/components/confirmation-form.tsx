@@ -407,7 +407,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   }
 
   const handlePrint = () => {
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 500);
   }
 
   if (isSubmittedSuccessfully) {
@@ -423,18 +425,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </div>
 
           <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-left space-y-6 relative overflow-hidden print:bg-white print:border-solid print:border print:rounded-none print:p-10" id="receipt-area">
-             {/* Encabezado exclusivo para impresión */}
              <div className="hidden print:flex items-center justify-between border-b pb-6 mb-6">
                 <div className="flex items-center gap-4">
                    <img 
-                    src="/logo.png" 
-                    alt="Logo" 
-                    className="h-16 w-16 object-contain" 
-                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                    src="/logo-recibo.png" 
+                    alt="Logo Parroquia" 
+                    className="h-20 w-20 object-contain" 
+                    onError={(e) => {
+                      e.currentTarget.src = "/logo.png";
+                    }}
                    />
                    <div className="flex flex-col">
-                      <span className="text-xl font-headline font-bold text-slate-900 uppercase">PARROQUIA PERPETUO SOCORRO</span>
-                      <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Diócesis de San Lorenzo • Catequesis de Confirmación</span>
+                      <span className="text-2xl font-headline font-bold text-slate-900 uppercase">PARROQUIA PERPETUO SOCORRO</span>
+                      <span className="text-xs font-bold text-primary uppercase tracking-[0.2em]">Diócesis de San Lorenzo • Catequesis de Confirmación</span>
                    </div>
                 </div>
                 <div className="text-right">
@@ -496,7 +499,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                </p>
              )}
 
-             {/* Sección de firmas para impresión */}
              <div className="hidden print:block pt-16">
                 <div className="flex justify-around items-end">
                    <div className="flex flex-col items-center gap-2">
@@ -867,13 +869,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Monto Recibido (Gs.)</Label>
                     <div className="relative">
                       <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input 
+                      <input 
                         type="number" 
                         value={customPaymentAmount} 
                         onChange={(e) => handleAmountChange(e.target.value)}
                         max={totalCost}
                         className={cn(
-                          "h-14 rounded-2xl pl-10 text-lg font-black text-primary transition-all bg-white",
+                          "flex h-14 w-full rounded-2xl border bg-white px-3 py-2 pl-10 text-lg font-black text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                           customPaymentAmount > totalCost ? "border-red-500 ring-2 ring-red-100" : "border-primary/20"
                         )}
                       />
