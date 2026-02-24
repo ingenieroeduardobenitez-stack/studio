@@ -63,7 +63,7 @@ const cleanS = (s: string) => {
   if (!s) return "";
   return s.normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
-    .replace(/[^a-zA-Z0-9 ]/g, "") // Solo alfanumérico
+    .replace(/[^a-zA-Z0-9 ]/g, "") // Solo letras, números y espacio
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
@@ -74,53 +74,44 @@ const formatTag = (tag: string, value: string) => {
   return tag + len + value;
 };
 
+const calculateCRC16 = (data: string) => {
+  let crc = 0xFFFF;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
+    }
+  }
+  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+};
+
 const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); // Payload Format Indicator
-    payload += formatTag("01", "12"); // Method (12 = Dynamic with amount)
+    payload += formatTag("00", "01"); // Indicator
+    payload += formatTag("01", "12"); // Method: Dynamic (With Amount)
 
-    // Tag 26: Merchant Account Information (SIPAP/SPI Paraguay)
-    // Estructura: 00 (Global ID) + 01 (Alias/Account)
-    let merchantInfo = formatTag("00", "py.gov.bcp.spi");
-    if (alias) {
-      const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      merchantInfo += formatTag("01", cleanAlias);
-    } else if (accountNumber) {
-      const cleanAcc = accountNumber.replace(/[^0-9]/g, '');
-      merchantInfo += formatTag("01", cleanAcc);
-      if (bankName) {
-        merchantInfo += formatTag("02", cleanS(bankName).substring(0, 10));
-      }
-    }
+    // Tag 26: SPI SIPAP Paraguay
+    const cleanAlias = (alias || "").replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const merchantInfo = formatTag("00", "py.gov.bcp.spi") + formatTag("01", cleanAlias);
     payload += formatTag("26", merchantInfo);
 
-    payload += formatTag("52", "8661"); // MCC: Organizaciones Religiosas
-    payload += formatTag("53", "600");  // Currency PYG
+    payload += formatTag("52", "8661"); // MCC: Religious Org
+    payload += formatTag("53", "600");  // PYG
     
     if (amount > 0) {
       payload += formatTag("54", Math.floor(amount).toString()); 
     }
 
-    payload += formatTag("58", "PY"); // Country
-    payload += formatTag("59", cleanS(accountOwner || "PARROQUIA").substring(0, 25)); // Name
-    payload += formatTag("60", "ASUNCION"); // City
+    payload += formatTag("58", "PY"); 
+    payload += formatTag("59", cleanS(accountOwner || "PARROQUIA").substring(0, 25)); 
+    payload += formatTag("60", "ASUNCION"); 
 
-    const cleanConcept = cleanS(concept || "PAGO CATEQUESIS").substring(0, 20);
-    payload += formatTag("62", formatTag("05", cleanConcept)); // Transaction Content
+    const cleanConcept = cleanS(concept || "PAGO").substring(0, 20);
+    payload += formatTag("62", formatTag("05", cleanConcept));
 
-    payload += "6304"; // Tag CRC prefix
-
-    // Cálculo CRC-16/CCITT-FALSE (Polinomial 0x1021, Inicial 0xFFFF)
-    let crc = 0xFFFF;
-    for (let i = 0; i < payload.length; i++) {
-      crc ^= payload.charCodeAt(i) << 8;
-      for (let j = 0; j < 8; j++) {
-        crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
-      }
-    }
-    const finalCrc = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-    payload += finalCrc;
+    payload += "6304"; // CRC Header
+    payload += calculateCRC16(payload);
 
     return payload;
   } catch (e) {
@@ -312,14 +303,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }
 
-  const handleSendReceiptWhatsApp = () => {
-    if (!submittedData) return
-    const phone = submittedData.phone || submittedData.motherPhone || submittedData.fatherPhone;
-    if (!phone) return;
-    const message = encodeURIComponent(`⛪ *RECIBO OFICIAL*\n*Parroquia Perpetuo Socorro*\n\nHola *${submittedData.fullName}*,\nConfirmamos el cobro de *${submittedData.initialPayment.toLocaleString()} Gs.* por inscripción.`)
-    window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
-  }
-
   const handleSendProofWhatsApp = () => {
     if (!submittedData) return
     const message = encodeURIComponent(`⛪ *Comprobante de Inscripción*\n\nHola, adjunto mi comprobante.\n*Nombre:* ${submittedData.fullName}\n*C.I.:* ${submittedData.ciNumber}`)
@@ -396,9 +379,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
               
               <div className="flex flex-col items-center gap-2 bg-white p-4 rounded-2xl border shadow-sm">
-                <div className="bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded">PY-QR</div>
+                <div className="bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase">PY-QR Válido</div>
                 <QRCodeCanvas value={qrPyData} size={140} level="M" />
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Escaneo Ueno/BNF/Familiar</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Escaneo Ueno/BNF/Itaú</p>
               </div>
             </div>
 

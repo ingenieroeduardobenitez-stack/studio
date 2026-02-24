@@ -25,8 +25,8 @@ import { cn } from "@/lib/utils"
 const cleanS = (s: string) => {
   if (!s) return "";
   return s.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
-    .replace(/[^a-zA-Z0-9 ]/g, "") // Solo alfanumérico
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/[^a-zA-Z0-9 ]/g, "") 
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
@@ -37,28 +37,29 @@ const formatTag = (tag: string, value: string) => {
   return tag + len + value;
 };
 
-const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
+const calculateCRC16 = (data: string) => {
+  let crc = 0xFFFF;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
+    }
+  }
+  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+};
+
+const generatePyQr = ({ alias, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); // Payload Format Indicator
-    payload += formatTag("01", "12"); // Method (12 = Dynamic with amount)
+    payload += formatTag("00", "01"); 
+    payload += formatTag("01", "12"); 
 
-    // Tag 26: Merchant Account Information (SIPAP/SPI Paraguay)
-    let merchantInfo = formatTag("00", "py.gov.bcp.spi");
-    if (alias) {
-      const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      merchantInfo += formatTag("01", cleanAlias);
-    } else if (accountNumber) {
-      const cleanAcc = accountNumber.replace(/[^0-9]/g, '');
-      merchantInfo += formatTag("01", cleanAcc);
-      if (bankName) {
-        merchantInfo += formatTag("02", cleanS(bankName).substring(0, 10));
-      }
-    }
+    const cleanAlias = (alias || "").replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const merchantInfo = formatTag("00", "py.gov.bcp.spi") + formatTag("01", cleanAlias);
     payload += formatTag("26", merchantInfo);
 
-    payload += formatTag("52", "8661"); // MCC: Organizaciones Religiosas
-    payload += formatTag("53", "600");  // Currency PYG
+    payload += formatTag("52", "8661"); 
+    payload += formatTag("53", "600");  
     
     if (amount > 0) {
       payload += formatTag("54", Math.floor(amount).toString()); 
@@ -72,17 +73,7 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     payload += formatTag("62", formatTag("05", cleanConcept));
 
     payload += "6304"; 
-
-    // CRC-16/CCITT-FALSE
-    let crc = 0xFFFF;
-    for (let i = 0; i < payload.length; i++) {
-      crc ^= payload.charCodeAt(i) << 8;
-      for (let j = 0; j < 8; j++) {
-        crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
-      }
-    }
-    const finalCrc = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-    payload += finalCrc;
+    payload += calculateCRC16(payload);
 
     return payload;
   } catch (e) {
@@ -175,9 +166,7 @@ export default function TreasuryPage() {
   const qrPaymentData = useMemo(() => {
     if (!costs || !selectedReg || paymentAmount <= 0) return ""
     return generatePyQr({
-      alias: costs.paymentMethod === "ALIAS" ? costs.alias : null,
-      bankName: costs.bankName,
-      accountNumber: costs.accountNumber,
+      alias: costs.alias,
       accountOwner: costs.accountOwner,
       amount: paymentAmount,
       concept: `INS ${selectedReg.fullName}`
@@ -343,7 +332,7 @@ export default function TreasuryPage() {
                 </div>
                 <div className="p-4 border-2 border-dashed rounded-2xl flex flex-col items-center gap-2">
                   <QrCode className="h-20 w-20 text-slate-200" />
-                  <p className="text-[9px] font-bold text-slate-400">QR SPI NACIONAL HABILITADO</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">PY-QR Válido SIPAP</p>
                 </div>
               </div>
             </Card>
@@ -366,14 +355,14 @@ export default function TreasuryPage() {
             {paymentAmount > 0 && (
               <div className="pt-2">
                 {!showPaymentQr ? (
-                  <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-bold" onClick={() => setShowPaymentQr(true)}><QrCode className="h-4 w-4" /> Generar PY-QR Estándar</Button>
+                  <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-bold" onClick={() => setShowPaymentQr(true)}><QrCode className="h-4 w-4" /> Generar PY-QR Válido</Button>
                 ) : (
                   <div className="flex flex-col items-center bg-slate-50 p-6 rounded-2xl border border-primary/10 animate-in zoom-in-95">
-                    <div className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full mb-3 uppercase tracking-tighter">PY-QR VÁLIDO PARA PAGO</div>
+                    <div className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full mb-3 uppercase tracking-tighter">PY-QR Dinámico BCP</div>
                     <QRCodeCanvas value={qrPaymentData} size={180} level="M" />
                     <div className="mt-4 w-full space-y-2">
                       <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 flex items-center gap-2 text-[9px] text-blue-700 leading-none">
-                        <Info className="h-3 w-3" /> Compatible con Ueno, Itaú, BNF y todos los bancos.
+                        <Info className="h-3 w-3" /> Escanear desde Ueno, BNF, Itaú o cualquier app local.
                       </div>
                       <div className="bg-white p-3 rounded-xl border space-y-1">
                         <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold uppercase">Alias:</span><span className="font-black text-primary">{costs?.alias}</span></div>

@@ -24,8 +24,8 @@ import { cn } from "@/lib/utils"
 const cleanS = (s: string) => {
   if (!s) return "";
   return s.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
-    .replace(/[^a-zA-Z0-9 ]/g, "") // Solo alfanumérico
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/[^a-zA-Z0-9 ]/g, "") 
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
@@ -36,28 +36,29 @@ const formatTag = (tag: string, value: string) => {
   return tag + len + value;
 };
 
-const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, concept }: any) => {
+const calculateCRC16 = (data: string) => {
+  let crc = 0xFFFF;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
+    }
+  }
+  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+};
+
+const generatePyQr = ({ alias, accountOwner, amount, concept }: any) => {
   try {
     let payload = "";
-    payload += formatTag("00", "01"); // Payload Format Indicator
-    payload += formatTag("01", "12"); // Method (12 = Dynamic with amount)
+    payload += formatTag("00", "01"); 
+    payload += formatTag("01", "12"); 
 
-    // Tag 26: Merchant Account Information (SIPAP/SPI Paraguay)
-    let merchantInfo = formatTag("00", "py.gov.bcp.spi");
-    if (alias) {
-      const cleanAlias = alias.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      merchantInfo += formatTag("01", cleanAlias);
-    } else if (accountNumber) {
-      const cleanAcc = accountNumber.replace(/[^0-9]/g, '');
-      merchantInfo += formatTag("01", cleanAcc);
-      if (bankName) {
-        merchantInfo += formatTag("02", cleanS(bankName).substring(0, 10));
-      }
-    }
+    const cleanAlias = (alias || "").replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const merchantInfo = formatTag("00", "py.gov.bcp.spi") + formatTag("01", cleanAlias);
     payload += formatTag("26", merchantInfo);
 
-    payload += formatTag("52", "8661"); // MCC: Religioso
-    payload += formatTag("53", "600");  // Currency PYG
+    payload += formatTag("52", "8661"); 
+    payload += formatTag("53", "600");  
     
     if (amount > 0) {
       payload += formatTag("54", Math.floor(amount).toString()); 
@@ -67,21 +68,11 @@ const generatePyQr = ({ alias, bankName, accountNumber, accountOwner, amount, co
     payload += formatTag("59", cleanS(accountOwner || "PARROQUIA").substring(0, 25)); 
     payload += formatTag("60", "ASUNCION"); 
 
-    const cleanConcept = cleanS(concept || "COBRO").substring(0, 20);
+    const cleanConcept = cleanS(concept || "PAGO").substring(0, 20);
     payload += formatTag("62", formatTag("05", cleanConcept));
 
     payload += "6304"; 
-
-    // CRC-16/CCITT-FALSE
-    let crc = 0xFFFF;
-    for (let i = 0; i < payload.length; i++) {
-      crc ^= payload.charCodeAt(i) << 8;
-      for (let j = 0; j < 8; j++) {
-        crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
-      }
-    }
-    const finalCrc = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-    payload += finalCrc;
+    payload += calculateCRC16(payload);
 
     return payload;
   } catch (e) {
@@ -177,9 +168,7 @@ export default function PaymentsManagementPage() {
   const qrPaymentData = useMemo(() => {
     if (!treasurySettings || !selectedReg || paymentAmount <= 0) return ""
     return generatePyQr({
-      alias: treasurySettings.paymentMethod === "ALIAS" ? treasurySettings.alias : null,
-      bankName: treasurySettings.bankName,
-      accountNumber: treasurySettings.accountNumber,
+      alias: treasurySettings.alias,
       accountOwner: treasurySettings.accountOwner,
       amount: paymentAmount,
       concept: `${selectedEventId === 'inscripcion' ? 'INS' : 'EV'} ${selectedReg.fullName}`
@@ -361,7 +350,7 @@ export default function PaymentsManagementPage() {
                     <div className="mt-4 w-full space-y-2">
                       <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
                         <Info className="h-4 w-4 text-blue-500 shrink-0" />
-                        <p className="text-[9px] text-blue-700 leading-tight">Válido para Ueno, BNF, Itaú y todos los bancos. El monto y destino se cargan solos.</p>
+                        <p className="text-[9px] text-blue-700 leading-tight">Válido para Ueno, BNF, Itaú y todos los bancos locales. Carga automática de Alias y Monto.</p>
                       </div>
                       <div className="bg-white p-3 rounded-xl border space-y-1">
                         <div className="flex justify-between text-[10px]"><span className="text-slate-400 font-bold">ALIAS:</span><span className="font-black text-primary flex items-center gap-2">{treasurySettings?.alias} <Copy className="h-3 w-3 cursor-pointer" onClick={() => copyToClipboard(treasurySettings?.alias || "")} /></span></div>
