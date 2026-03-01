@@ -54,7 +54,7 @@ service cloud.firestore {
     }
 
     match /cedulas/{cedulaId} {
-      // Habilitamos escritura para el proceso de importación masiva de base de datos de identidad.
+      // Habilitamos lectura y escritura para el proceso de importación masiva.
       allow read, write: if true;
     }
   }

@@ -26,7 +26,8 @@ import {
   UserMinus,
   X,
   MessageCircle,
-  FileText
+  FileText,
+  Church
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -147,7 +148,7 @@ export default function RegistrationsListPage() {
     if (!db || !selectedReg || !treasuryRef) return
     setIsSubmitting(true)
 
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Personal"
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Personal del Santuario"
 
     try {
       await runTransaction(db, async (transaction) => {
@@ -306,7 +307,7 @@ export default function RegistrationsListPage() {
     const amount = selectedReg.amountPaid || 0;
     const pending = (selectedReg.registrationCost || 0) - amount;
     const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
-    const message = encodeURIComponent(`⛪ *Santuario Nacional Nuestra Señora del Perpetuo Socorro*\n\n¡Hola *${selectedReg.fullName}*! Comprobante de *Catequesis de Confirmación 2026*.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto registrado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo:* ${pending === 0 ? '✅ CANCELADO' : `${pending.toLocaleString('es-PY')} Gs. PENDIENTE`}\n\n_Secretaría de Tesorería_`)
+    const message = encodeURIComponent(`⛪ *Santuario Nacional Ntra. Sra. del Perpetuo Socorro*\n\n¡Hola *${selectedReg.fullName}*! Comprobante de *Catequesis de Confirmación 2026*.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto registrado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo:* ${pending === 0 ? '✅ CANCELADO' : `${pending.toLocaleString('es-PY')} Gs. PENDIENTE`}\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
@@ -658,7 +659,7 @@ export default function RegistrationsListPage() {
                   onClick={handleValidatePayment}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <><CheckCircle2 className="h-4 w-4" /> Validar y Asignar Recibo</>}
+                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <><CheckCircle2 className="h-4 w-4" /> Validar Pago</>}
                 </Button>
               )}
               <Button 
@@ -672,7 +673,7 @@ export default function RegistrationsListPage() {
                 onClick={handleDownloadPDF}
                 disabled={isGeneratingPDF}
               >
-                {isGeneratingPDF ? <Loader2 className="animate-spin h-4 w-4" /> : <Download className="h-4 w-4" />} Descargar PDF
+                {isGeneratingPDF ? <Loader2 className="animate-spin h-4 w-4" /> : <Download className="h-4 w-4" />} PDF
               </Button>
             </div>
           </DialogFooter>

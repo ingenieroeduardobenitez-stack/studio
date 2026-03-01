@@ -318,7 +318,7 @@ export default function ProfilePage() {
                   <Label htmlFor="lastName" className="font-bold text-slate-700">Apellido</Label>
                   <Input 
                     id="lastName" 
-                    value={formData.lastName}
+                    value={formData.lastName} 
                     onChange={(e) => setFormData({...formData, lastName: e.target.value})}
                     className="h-12 rounded-xl bg-slate-50 border-slate-200"
                   />

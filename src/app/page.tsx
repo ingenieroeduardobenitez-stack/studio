@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -106,15 +105,11 @@ export default function RootPage() {
               fill
               className="object-contain p-2"
               priority
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
             />
           </div>
           <div className="space-y-1">
-            <h1 className="text-2xl font-headline font-bold text-primary tracking-tight">Portal de Gestión</h1>
-            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-tight px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
+            <h1 className="text-2xl font-headline font-bold text-primary tracking-tight uppercase leading-tight">Portal de Gestión</h1>
+            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] leading-tight px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
           </div>
         </div>
 
@@ -128,7 +123,7 @@ export default function RootPage() {
           </Alert>
         )}
 
-        <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden">
+        <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
           <form onSubmit={handleSubmit}>
             <CardHeader className="space-y-1 pt-10 px-10">
               <CardTitle className="text-xl font-headline font-bold text-slate-800">Iniciar Sesión</CardTitle>
@@ -140,7 +135,7 @@ export default function RootPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="usuario@parroquia.org" 
+                  placeholder="usuario@santuario.org" 
                   required 
                   className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-primary" 
                   value={formData.email}
@@ -188,14 +183,14 @@ export default function RootPage() {
         <div className="text-center pt-4">
           <Link 
             href="/inscripcion" 
-            className="text-xs font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-widest"
+            className="text-xs font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-[0.15em] border-b border-primary/20 pb-1"
           >
-            ¿Eres postulante? Ve al Formulario de Inscripción
+            ¿Eres postulante? Inscripción 2026
           </Link>
         </div>
 
         <p className="text-center text-[10px] text-slate-300 font-bold uppercase tracking-[0.4em]">
-          Ciclo de Catequesis {new Date().getFullYear()}
+          Ciclo Lectivo {new Date().getFullYear()}
         </p>
       </div>
     </div>

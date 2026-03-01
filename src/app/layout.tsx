@@ -4,8 +4,8 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Confir NSPS - Santuario Nacional Nuestra Señora del Perpetuo Socorro',
-  description: 'Sistema de Gestión de Sacramentos - Confirmación Juvenil y Adultos',
+  title: 'Santuario Nacional NSPS - Sistema de Gestión',
+  description: 'Sistema de Gestión de Sacramentos - Santuario Nacional Nuestra Señora del Perpetuo Socorro',
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',
