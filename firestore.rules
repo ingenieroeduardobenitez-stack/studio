@@ -50,11 +50,11 @@ service cloud.firestore {
 
     match /audit_logs/{logId} {
       allow read: if isAdmin() || isTesorero();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() || true; // Permitir creación para auditoría pública si es necesario
     }
 
     match /cedulas/{cedulaId} {
-      // Habilitamos lectura y escritura para el proceso de importación masiva.
+      // Habilitamos lectura y escritura para el proceso de importación masiva y validación.
       allow read, write: if true;
     }
   }

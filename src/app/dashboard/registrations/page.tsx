@@ -602,7 +602,7 @@ export default function RegistrationsListPage() {
                       <div className="text-right">
                         <p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
                         <p className="text-xs font-bold text-slate-900 uppercase mt-1">{selectedReg?.validatedBy || 'Secretaría del Santuario'}</p>
-                        <p className="text-[8px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p>
+                        <p className="text-[8px] text-slate-500 font-bold uppercase">{profile?.role || 'Personal Institucional'}</p>
                       </div>
                     </div>
                   </div>
