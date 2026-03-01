@@ -223,7 +223,7 @@ export default function TreasuryPage() {
   const handleShareReceipt = () => {
     if (!selectedReg) return
     const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
-    const message = encodeURIComponent(`⛪ *Santuario Nacional Ntra. Sra. del Perpetuo Socorro*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\nRecibo Oficial N°: ${receiptNum}\n\n_Secretaría de Tesorería_`)
+    const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NTRA. SRA. DEL PERPETUO SOCORRO*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\nRecibo Oficial N°: ${receiptNum}\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 

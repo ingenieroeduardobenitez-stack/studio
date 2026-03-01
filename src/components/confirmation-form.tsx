@@ -488,7 +488,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const amount = submittedData.amountPaid || 0;
     const pending = (submittedData.registrationCost || 0) - amount;
     const receiptNum = submittedData.receiptNumber || `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
-    const message = encodeURIComponent(`⛪ *Santuario Nacional Ntra. Sra. del Perpetuo Socorro*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto entregado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString('es-PY')} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
+    const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NTRA. SRA. DEL PERPETUO SOCORRO*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto entregado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo Pendiente:* ${pending.toLocaleString('es-PY')} Gs.\n*Estado:* ${submittedData.paymentStatus === 'PAGADO' ? '✅ RECIBIDO' : '⏳ PARCIAL / PENDIENTE'}\n\n_Secretaría de Catequesis_`)
     window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 

@@ -307,7 +307,7 @@ export default function RegistrationsListPage() {
     const amount = selectedReg.amountPaid || 0;
     const pending = (selectedReg.registrationCost || 0) - amount;
     const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
-    const message = encodeURIComponent(`⛪ *Santuario Nacional Ntra. Sra. del Perpetuo Socorro*\n\n¡Hola *${selectedReg.fullName}*! Comprobante de *Catequesis de Confirmación 2026*.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto registrado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo:* ${pending === 0 ? '✅ CANCELADO' : `${pending.toLocaleString('es-PY')} Gs. PENDIENTE`}\n\n_Secretaría de Tesorería_`)
+    const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NTRA. SRA. DEL PERPETUO SOCORRO*\n\n¡Hola *${selectedReg.fullName}*! Comprobante de *Catequesis de Confirmación 2026*.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto registrado:* ${amount.toLocaleString('es-PY')} Gs.\n*Saldo:* ${pending === 0 ? '✅ CANCELADO' : `${pending.toLocaleString('es-PY')} Gs. PENDIENTE`}\n\n_Secretaría de Tesorería_`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
