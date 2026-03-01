@@ -54,8 +54,7 @@ service cloud.firestore {
     }
 
     match /cedulas/{cedulaId} {
-      // Permitimos lectura y escritura pública para el proceso de importación masiva.
-      // En producción, se recomienda restringir la escritura solo a administradores.
+      // Habilitamos escritura para el proceso de importación masiva de base de datos de identidad.
       allow read, write: if true;
     }
   }

@@ -416,7 +416,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
       const regId = `conf_${Date.now()}`
       const regRef = doc(db, "confirmations", regId)
-      const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Secretaría Parroquial" : "Sistema")
+      const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Secretaría del Santuario" : "Sistema")
       
       const amountToRegister = immediatePayment ? amount : 0
       const paymentStatus = amountToRegister >= totalCost ? "PAGADO" : (amountToRegister > 0 ? "PARCIAL" : "PENDIENTE")
@@ -677,7 +677,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   return (
     <div className="w-full max-w-4xl mx-auto pb-12">
-      <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
+      <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden">
         <Form {...form}>
           <form onSubmit={form.handleSubmit((v) => handleRegistration(v, false))}>
             <CardHeader className="bg-primary text-white p-8">
