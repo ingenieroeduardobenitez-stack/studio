@@ -107,6 +107,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   
   const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false)
   const [submittedData, setSubmittedData] = useState<any>(null)
+  const [currentDateInfo, setCurrentDateInfo] = useState({ day: 1, month: "", year: 2026 })
 
   const [showCamera, setShowCamera] = useState(false)
   const [captureTarget, setCaptureTarget] = useState<CaptureTarget>("STUDENT_PHOTO")
@@ -130,6 +131,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   useEffect(() => {
     setMounted(true)
+    const today = new Date()
+    setCurrentDateInfo({
+      day: today.getDate(),
+      month: today.toLocaleString('es-PY', { month: 'long' }),
+      year: today.getFullYear()
+    })
   }, [])
 
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
@@ -250,7 +257,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const constraints = {
         video: {
           ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" },
-          aspectRatio: { ideal: 0.75 } // Vertical 3:4
+          aspectRatio: { ideal: 0.75 } // Retrato 3:4
         }
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -533,10 +540,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   if (isSubmittedSuccessfully) {
     const amount = submittedData?.amountPaid || 0;
     const pending = (submittedData?.registrationCost || 0) - amount;
-    const today = new Date();
-    const dayNum = today.getDate();
-    const monthStr = today.toLocaleString('es-PY', { month: 'long' });
-    const yearNum = today.getFullYear();
     const receiptNum = submittedData.receiptNumber || `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
 
     return (
@@ -564,13 +567,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             >
               <div className="grid grid-cols-3 gap-4 items-center mb-4">
                 <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
+                  <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
                   <img 
-                    src="/logo-recibo.png" 
+                    src="/logo.png" 
                     alt="Santuario Nacional NSPS" 
                     className="max-h-24 object-contain"
-                    onError={(e) => { e.currentTarget.src = "/logo.png" }}
                   />
-                  <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
                 </div>
                 <div className="flex flex-col gap-2 h-full justify-between">
                   <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
@@ -623,7 +625,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
                 <div className="flex flex-col justify-end space-y-3">
                   <p className="text-sm italic font-medium">
-                    Asunción, a los {dayNum} de {monthStr} de {yearNum}
+                    Asunción, a los {currentDateInfo.day} de {currentDateInfo.month} de {currentDateInfo.year}
                   </p>
                   <div className="flex flex-col items-start pt-4">
                     <div className="w-48 border-t border-slate-900"></div>
@@ -685,7 +687,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="relative h-14 w-14 bg-white rounded-2xl shadow-xl flex items-center justify-center overflow-hidden p-1.5 shrink-0">
                   <Image 
                     src="/logo.png" 
-                    alt="Logo Santuario" 
+                    alt="Santuario Nacional" 
                     fill
                     className="object-contain"
                     priority
@@ -851,7 +853,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <div className="animate-in slide-in-from-right duration-300 space-y-4 p-6 border-2 border-dashed border-primary/20 rounded-3xl bg-primary/[0.02]">
                       <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Datos del Acta de Bautismo</p>
                       <FormField control={form.control} name="baptismParish" render={({ field }) => (
-                        <FormItem><FormLabel>Parroquia de Bautismo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" placeholder="Ej. Santuario Nacional NSPS" /></FormControl></FormItem>
+                        <FormItem><FormLabel>Parroquia de Bautismo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" placeholder="Santuario Nacional NSPS" /></FormControl></FormItem>
                       )} />
                       <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="baptismBook" render={({ field }) => (

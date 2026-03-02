@@ -89,6 +89,9 @@ export default function RegistrationsListPage() {
   const [newGroupId, setNewGroupId] = useState<string>("")
   const [withdrawalReason, setWithdrawalReason] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Solución para hidratación
+  const [currentDateInfo, setCurrentDateInfo] = useState({ day: 1, month: "", year: 2026 })
 
   const { toast } = useToast()
   const { user } = useUser()
@@ -96,6 +99,12 @@ export default function RegistrationsListPage() {
 
   useEffect(() => {
     setMounted(true)
+    const today = new Date()
+    setCurrentDateInfo({
+      day: today.getDate(),
+      month: today.toLocaleString('es-PY', { month: 'long' }),
+      year: today.getFullYear()
+    })
   }, [])
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
@@ -358,11 +367,6 @@ export default function RegistrationsListPage() {
 
   const loading = loadingRegs || loadingGroups
 
-  const today = new Date();
-  const dayNum = today.getDate();
-  const monthStr = today.toLocaleString('es-PY', { month: 'long' });
-  const yearNum = today.getFullYear();
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -522,13 +526,12 @@ export default function RegistrationsListPage() {
                 >
                   <div className="grid grid-cols-3 gap-4 items-center mb-4">
                     <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
+                      <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right leading-tight">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
                       <img 
-                        src="/logo-recibo.png" 
+                        src="/logo.png" 
                         alt="Santuario Nacional NSPS" 
                         className="max-h-24 object-contain"
-                        onError={(e) => { e.currentTarget.src = "/logo.png" }}
                       />
-                      <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right leading-tight">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
                     </div>
                     <div className="flex flex-col gap-2 h-full justify-between">
                       <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
@@ -583,7 +586,7 @@ export default function RegistrationsListPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
                     <div className="flex flex-col justify-end space-y-3">
                       <p className="text-sm italic font-medium">
-                        Asunción, a los {dayNum} de {monthStr} de {yearNum}
+                        Asunción, a los {currentDateInfo.day} de {currentDateInfo.month} de {currentDateInfo.year}
                       </p>
                       <div className="flex flex-col items-start pt-4">
                         <div className="w-48 border-t border-slate-900"></div>
