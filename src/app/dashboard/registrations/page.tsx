@@ -90,7 +90,6 @@ export default function RegistrationsListPage() {
   const [withdrawalReason, setWithdrawalReason] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  // Solución para hidratación
   const [currentDateInfo, setCurrentDateInfo] = useState({ day: 1, month: "", year: 2026 })
 
   const { toast } = useToast()
