@@ -205,15 +205,13 @@ export function DashboardSidebar() {
                     {filteredTreasury.map((item) => {
                       const isActive = pathname === item.href
                       return (
-                        <SidebarMenuItem key={item.href} className="px-2">
-                          <SidebarMenuItem key={item.id} className="px-2">
-                            <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
-                              <Link href={item.href} onClick={() => setOpen(false)}>
-                                <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
-                                <span className="font-bold">{item.name}</span>
-                              </Link>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
+                        <SidebarMenuItem key={item.id} className="px-2">
+                          <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
+                            <Link href={item.href} onClick={() => setOpen(false)}>
+                              <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
+                              <span className="font-bold">{item.name}</span>
+                            </Link>
+                          </SidebarMenuButton>
                         </SidebarMenuItem>
                       )
                     })}
