@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
@@ -55,7 +54,6 @@ export default function QrLabPage() {
     setMounted(true)
   }, [])
 
-  // Consulta de confirmandos reales
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
   const { data: allConfirmands, loading: loadingRegs } = useCollection(regsQuery)
 
@@ -96,8 +94,9 @@ export default function QrLabPage() {
         setQrResult(response.qrString)
         setSecurityToken(response.token)
         
+        // Intentar guardar el log, pero no bloquear si falla
         if (db) {
-          await addDoc(collection(db, "qr_transactions"), {
+          addDoc(collection(db, "qr_transactions"), {
             ...formData,
             orderId,
             status: "PENDING",
@@ -105,7 +104,7 @@ export default function QrLabPage() {
             token: response.token,
             createdAt: serverTimestamp(),
             testerId: user?.uid || "anonymous"
-          })
+          }).catch(e => console.warn("No se pudo guardar el registro de auditoría, pero el QR se generó igual."))
         }
 
         toast({ title: "QR Generado", description: "Simulación de respuesta de pasarela exitosa." })
@@ -113,7 +112,8 @@ export default function QrLabPage() {
         toast({ variant: "destructive", title: "Error", description: response.error })
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "Error crítico", description: "No se pudo conectar con el simulador." })
+      console.error(err)
+      toast({ variant: "destructive", title: "Error crítico", description: "Ocurrió un error al procesar la solicitud." })
     } finally {
       setIsLoading(false)
     }
@@ -140,18 +140,17 @@ export default function QrLabPage() {
             <QrCode className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-headline font-bold text-primary">Laboratorio de QR (Integración)</h1>
-            <p className="text-muted-foreground">Pruebas de cobro dinámico con datos reales del Santuario.</p>
+            <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Laboratorio de QR (Integración)</h1>
+            <p className="text-muted-foreground font-medium">Pruebas de cobro dinámico con datos reales del Santuario.</p>
           </div>
         </div>
-        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-2 h-8">
+        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-2 h-8 px-4">
           <Zap className="h-3 w-3 fill-yellow-500" /> Modo Simulación Activo
         </Badge>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-6">
-          {/* BUSCADOR DE PERSONAS */}
           <Card className="border-none shadow-xl bg-white overflow-hidden border-t-4 border-t-accent">
             <CardHeader className="pb-4">
               <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-slate-500">
@@ -171,7 +170,7 @@ export default function QrLabPage() {
               </div>
 
               {studentSearch && (
-                <div className="mt-4 border rounded-2xl overflow-hidden bg-white shadow-lg animate-in slide-in-from-top-2">
+                <div className="mt-4 border rounded-2xl overflow-hidden bg-white shadow-lg animate-in slide-in-from-top-2 z-20 relative">
                   {loadingRegs ? (
                     <div className="p-4 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" /></div>
                   ) : filteredConfirmands.length === 0 ? (
@@ -204,10 +203,9 @@ export default function QrLabPage() {
             </CardContent>
           </Card>
 
-          {/* FORMULARIO DE COBRO */}
           <Card className="border-none shadow-xl bg-white overflow-hidden">
             <CardHeader className="bg-primary text-white p-6">
-              <CardTitle className="text-lg flex items-center gap-2"><Database className="h-5 w-5" /> Datos del Cobro (Request)</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2 font-headline"><Database className="h-5 w-5" /> Datos del Cobro (Request)</CardTitle>
               <CardDescription className="text-white/70">Valores que serán enviados a la pasarela de pagos.</CardDescription>
             </CardHeader>
             <CardContent className="p-8 space-y-6">
@@ -249,8 +247,8 @@ export default function QrLabPage() {
 
               <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
                 <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-blue-700 leading-relaxed">
-                  <strong>Nota técnica:</strong> Estos campos se combinan con tu <code>PRIVATE_KEY</code> institucional para generar el hash de seguridad SHA-256 antes de solicitar el QR.
+                <p className="text-[10px] text-blue-700 leading-relaxed font-medium">
+                  <strong>Nota técnica:</strong> Estos campos se combinan con tu llave privada para generar el hash de seguridad SHA-256 antes de solicitar el código QR.
                 </p>
               </div>
             </CardContent>
@@ -267,13 +265,12 @@ export default function QrLabPage() {
         </div>
 
         <div className="space-y-8">
-          {/* RESULTADO QR */}
           <Card className={cn(
             "border-none shadow-xl transition-all duration-500 overflow-hidden",
             qrResult ? "bg-white" : "bg-slate-100 opacity-50 grayscale"
           )}>
             <CardHeader className="border-b">
-              <CardTitle className="text-lg">Código QR de Pago (Response)</CardTitle>
+              <CardTitle className="text-lg font-headline">Código QR de Pago (Response)</CardTitle>
               <CardDescription>Escaneable desde ueno bank, Eko, Itaú y otras apps bancarias.</CardDescription>
             </CardHeader>
             <CardContent className="p-10 flex flex-col items-center justify-center gap-6">
@@ -297,10 +294,10 @@ export default function QrLabPage() {
                 </>
               ) : (
                 <div className="py-20 text-center space-y-4">
-                  <div className="bg-slate-200 h-24 w-24 rounded-full flex items-center justify-center mx-auto">
+                  <div className="bg-slate-200 h-24 w-24 rounded-full flex items-center justify-center mx-auto shadow-inner">
                     <QrCode className="h-10 w-10 text-slate-400" />
                   </div>
-                  <p className="text-sm font-medium text-slate-400 italic">Prepara el cobro y presiona el botón para visualizar el QR</p>
+                  <p className="text-sm font-medium text-slate-400 italic">Prepara el cobro y presiona el botón para visualizar el código QR dinámico</p>
                 </div>
               )}
             </CardContent>
@@ -316,15 +313,14 @@ export default function QrLabPage() {
             )}
           </Card>
 
-          {/* TOKEN DE SEGURIDAD */}
           <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 p-6 opacity-10"><ShieldCheck className="h-24 w-24" /></div>
             <CardHeader>
-              <CardTitle className="text-white text-base">Token de Seguridad (HMAC-SHA256)</CardTitle>
+              <CardTitle className="text-white text-base font-headline">Token de Seguridad (HMAC-SHA256)</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-xs text-slate-400 leading-relaxed italic">
-                Este token garantiza que el monto y los datos no han sido alterados durante la comunicación con ueno bank / Bancard.
+                Este token garantiza que el monto y los datos no han sido alterados durante la comunicación con el integrador bancario.
               </p>
               <div className="bg-white/5 p-4 rounded-xl border border-white/10 font-mono text-[10px] break-all text-primary-foreground/80 shadow-inner">
                 {securityToken || "Esperando generación de cobro..."}
