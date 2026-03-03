@@ -24,7 +24,8 @@ import {
   BarChart3,
   Receipt,
   CalendarCheck,
-  FileWarning
+  FileWarning,
+  QrCode
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -64,6 +65,7 @@ const operationsItems = [
 const treasuryItems = [
   { id: "tesoreria", name: "Gestión Tesorería", href: "/dashboard/treasury", icon: Wallet },
   { id: "estadisticas", name: "Estadísticas Financieras", href: "/dashboard/financial-stats", icon: BarChart3 },
+  { id: "qr_lab", name: "Laboratorio QR", href: "/dashboard/qr-lab", icon: QrCode },
 ]
 
 const adminItems = [
@@ -129,15 +131,11 @@ export function DashboardSidebar() {
                 alt="Logo Santuario" 
                 fill
                 className="object-contain p-1"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                }}
               />
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-sm font-headline font-bold text-primary tracking-tight">Santuario NSPS</span>
-              <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Gesti&oacute;n Institucional</span>
+              <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Gestión Institucional</span>
             </div>
           </Link>
           <button 
@@ -208,12 +206,14 @@ export function DashboardSidebar() {
                       const isActive = pathname === item.href
                       return (
                         <SidebarMenuItem key={item.href} className="px-2">
-                          <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
-                            <Link href={item.href} onClick={() => setOpen(false)}>
-                              <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
-                              <span className="font-bold">{item.name}</span>
-                            </Link>
-                          </SidebarMenuButton>
+                          <SidebarMenuItem key={item.id} className="px-2">
+                            <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
+                              <Link href={item.href} onClick={() => setOpen(false)}>
+                                <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
+                                <span className="font-bold">{item.name}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
                         </SidebarMenuItem>
                       )
                     })}

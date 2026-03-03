@@ -95,6 +95,22 @@
         "cost": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "QrTransaction": {
+      "title": "QR Transaction",
+      "description": "Pruebas de transacciones de cobro por QR",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "buyerName": { "type": "string" },
+        "buyerIdentity": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "PAID", "EXPIRED"] },
+        "qrString": { "type": "string" },
+        "token": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -129,6 +145,13 @@
     },
     "/audit_logs/{logId}": {
       "description": "Registros de auditoría de acciones del personal"
+    },
+    "/qr_transactions/{txId}": {
+      "schema": { "$ref": "#/entities/QrTransaction" },
+      "description": "Registros de prueba del Laboratorio QR"
+    },
+    "/cedulas/{cedulaId}": {
+      "description": "Repositorio de cédulas para validación masiva"
     }
   }
 }
