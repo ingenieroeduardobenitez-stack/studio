@@ -23,7 +23,10 @@ import {
   Search,
   CheckCircle2,
   AlertTriangle,
-  Building2
+  Building2,
+  FileText,
+  ExternalLink,
+  Lock
 } from "lucide-react"
 import { QRCodeCanvas } from "qrcode.react"
 import { generatePaymentQr } from "./actions"
@@ -55,7 +58,6 @@ export default function QrLabPage() {
     setMounted(true)
   }, [])
 
-  // Obtener ajustes de tesorería para el Alias
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   const { data: treasurySettings } = useDoc(treasuryRef)
 
@@ -139,7 +141,7 @@ export default function QrLabPage() {
   if (!mounted) return null
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-primary/10 rounded-2xl">
@@ -147,22 +149,23 @@ export default function QrLabPage() {
           </div>
           <div>
             <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Laboratorio de QR (Integración)</h1>
-            <p className="text-muted-foreground font-medium">Pruebas de cobro dinámico vinculadas a tu cuenta de ueno.</p>
+            <p className="text-muted-foreground font-medium">Fase de pruebas técnicas para cobros automatizados.</p>
           </div>
         </div>
         <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-2 h-8 px-4">
-          <Zap className="h-3 w-3 fill-yellow-500" /> Modo Simulación Activo
+          <Zap className="h-3 w-3 fill-yellow-500" /> Modo Simulación
         </Badge>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <div className="space-y-6">
+      <div className="grid gap-8 lg:grid-cols-3">
+        {/* COLUMNA 1: CONFIGURACIÓN */}
+        <div className="lg:col-span-2 space-y-6">
           <Card className="border-none shadow-xl bg-white overflow-hidden border-t-4 border-t-accent">
             <CardHeader className="pb-4">
               <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-slate-500">
                 <Search className="h-4 w-4" /> 1. Buscar Persona Inscripta
               </CardTitle>
-              <CardDescription>Carga los datos reales de un alumno desde la base de datos.</CardDescription>
+              <CardDescription>Selecciona un alumno para cargar sus datos automáticamente.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="relative">
@@ -211,8 +214,8 @@ export default function QrLabPage() {
 
           <Card className="border-none shadow-xl bg-white overflow-hidden">
             <CardHeader className="bg-primary text-white p-6">
-              <CardTitle className="text-lg flex items-center gap-2 font-headline"><Database className="h-5 w-5" /> 2. Configuración del Cobro</CardTitle>
-              <CardDescription className="text-white/70">Asignando destino a cuenta institucional.</CardDescription>
+              <CardTitle className="text-lg flex items-center gap-2 font-headline"><Database className="h-5 w-5" /> 2. Formulario de Cobro</CardTitle>
+              <CardDescription className="text-white/70">Define los valores de la transacción de prueba.</CardDescription>
             </CardHeader>
             <CardContent className="p-8 space-y-6">
               <div className="bg-slate-50 p-4 rounded-2xl border border-dashed flex items-center justify-between">
@@ -255,13 +258,6 @@ export default function QrLabPage() {
                   className="h-12 rounded-xl font-bold"
                 />
               </div>
-
-              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
-                <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-blue-700 leading-relaxed font-medium">
-                  <strong>Aclaración sobre ueno:</strong> Este generador crea un QR compatible con el estándar paraguayo. Para que la app de ueno lo acepte como "Cobro de Comercio", es necesario tener las credenciales de producción de Bancard habilitadas.
-                </p>
-              </div>
             </CardContent>
             <CardFooter className="bg-slate-50 p-6 border-t">
               <Button 
@@ -269,20 +265,67 @@ export default function QrLabPage() {
                 onClick={handleSimulate}
                 disabled={isLoading}
               >
-                {isLoading ? <Loader2 className="animate-spin" /> : <><RefreshCcw className="h-5 w-5" /> 3. Generar PY-QR Dinámico</>}
+                {isLoading ? <Loader2 className="animate-spin" /> : <><RefreshCcw className="h-5 w-5" /> Generar PY-QR Dinámico</>}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* SECCIÓN INFORMATIVA: HOJA DE RUTA */}
+          <Card className="border-none shadow-xl bg-slate-50 border-l-4 border-l-primary overflow-hidden">
+            <CardHeader className="bg-white/50 border-b">
+              <CardTitle className="text-base flex items-center gap-2 font-headline text-slate-800">
+                <FileText className="h-5 w-5 text-primary" /> ¿Cómo habilitar cobros reales?
+              </CardTitle>
+              <CardDescription>Para que el dinero ingrese automáticamente, debes seguir estos pasos fuera del sistema.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
+                  <Badge className="bg-primary/10 text-primary mb-1">Paso 1: Contrato</Badge>
+                  <p className="text-xs font-bold text-slate-700">Contactar con Bancard o Pagopar</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    Debes solicitar el servicio de <strong>"Ventas QR"</strong>. Te pedirán el RUC de la Parroquia y una cuenta bancaria (como la de ueno) para depositar los fondos.
+                  </p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
+                  <Badge className="bg-primary/10 text-primary mb-1">Paso 2: Credenciales</Badge>
+                  <p className="text-xs font-bold text-slate-700">Obtener API Keys</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    Una vez firmado el contrato, te entregarán un <strong>"Public Key"</strong> y un <strong>"Private Key"</strong>. Estas llaves reemplazan a las llaves de prueba que usamos ahora.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
+                <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-blue-800">¿Por qué la app de ueno dice "Inválido"?</p>
+                  <p className="text-[10px] text-blue-700 leading-relaxed">
+                    Las apps bancarias validan que el "ID de Comercio" dentro del QR esté activo en la red Bancard. Sin un contrato firmado, el QR es técnicamente correcto pero comercialmente inexistente.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="bg-white/50 border-t p-4 flex justify-between">
+              <Button variant="ghost" className="text-[10px] font-bold text-primary gap-2" asChild>
+                <a href="https://www.bancard.com.py/comercios/" target="_blank"><ExternalLink className="h-3 w-3" /> Portal Bancard</a>
+              </Button>
+              <Button variant="ghost" className="text-[10px] font-bold text-primary gap-2" asChild>
+                <a href="https://pagopar.com/" target="_blank"><ExternalLink className="h-3 w-3" /> Portal Pagopar</a>
               </Button>
             </CardFooter>
           </Card>
         </div>
 
+        {/* COLUMNA 2: RESULTADOS */}
         <div className="space-y-8">
           <Card className={cn(
             "border-none shadow-xl transition-all duration-500 overflow-hidden",
             qrResult ? "bg-white" : "bg-slate-100 opacity-50 grayscale"
           )}>
             <CardHeader className="border-b">
-              <CardTitle className="text-lg font-headline">Resultado del QR (EMVCo/SIPAP)</CardTitle>
-              <CardDescription>Escaneable por aplicaciones bancarias paraguayas.</CardDescription>
+              <CardTitle className="text-lg font-headline">Vista Previa del QR</CardTitle>
+              <CardDescription>Escaneable por apps paraguayas.</CardDescription>
             </CardHeader>
             <CardContent className="p-10 flex flex-col items-center justify-center gap-6">
               {qrResult ? (
@@ -297,7 +340,7 @@ export default function QrLabPage() {
                     />
                   </div>
                   <div className="text-center space-y-2 w-full">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">String de Transacción Vinculado:</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">String EMVCo Generado:</p>
                     <div className="bg-slate-50 p-3 rounded-xl border font-mono text-[8px] break-all max-h-[100px] overflow-y-auto text-slate-500">
                       {qrResult}
                     </div>
@@ -308,19 +351,15 @@ export default function QrLabPage() {
                   <div className="bg-slate-200 h-24 w-24 rounded-full flex items-center justify-center mx-auto shadow-inner">
                     <QrCode className="h-10 w-10 text-slate-400" />
                   </div>
-                  <p className="text-sm font-medium text-slate-400 italic">Completa los pasos 1 y 2 para ver el QR oficial</p>
+                  <p className="text-sm font-medium text-slate-400 italic">Completa los datos para ver el QR</p>
                 </div>
               )}
             </CardContent>
             {qrResult && (
-              <CardFooter className="bg-slate-50 border-t p-4 flex gap-3">
-                <Button variant="outline" className="flex-1 rounded-xl font-bold h-12 gap-2" onClick={downloadQr}>
+              <CardFooter className="bg-slate-50 border-t p-4">
+                <Button variant="outline" className="w-full rounded-xl font-bold h-12 gap-2" onClick={downloadQr}>
                   <Download className="h-4 w-4" /> Guardar Imagen
                 </Button>
-                <div className="flex-1 p-2 border rounded-xl bg-white flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-orange-500" />
-                  <span className="text-[9px] font-bold text-slate-500 uppercase">Sin contrato real de Bancard, las apps bancarias verán este QR como "Comercio no habilitado".</span>
-                </div>
               </CardFooter>
             )}
           </Card>
@@ -328,17 +367,40 @@ export default function QrLabPage() {
           <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 p-6 opacity-10"><ShieldCheck className="h-24 w-24" /></div>
             <CardHeader>
-              <CardTitle className="text-white text-base font-headline">Firma de Seguridad (HMAC-SHA256)</CardTitle>
+              <CardTitle className="text-white text-base font-headline">Firma de Seguridad</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-xs text-slate-400 leading-relaxed italic">
-                Este hash valida que los datos no fueron alterados y que el Alias de destino es el correcto.
-              </p>
               <div className="bg-white/5 p-4 rounded-xl border border-white/10 font-mono text-[10px] break-all text-primary-foreground/80 shadow-inner">
                 {securityToken || "Esperando generación..."}
               </div>
-              <div className="flex items-center gap-2 text-[9px] font-bold text-green-400 uppercase tracking-widest bg-green-400/10 w-fit px-3 py-1 rounded-full">
-                <CheckCircle2 className="h-3 w-3 fill-green-400 text-slate-900" /> Protocolo de Integridad Listo
+              <p className="text-[10px] text-slate-400 leading-relaxed italic">
+                Este hash HMAC-SHA256 asegura que los datos del cobro no fueron alterados durante la simulación.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-xl bg-white">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase text-slate-500">Seguridad SIPAP</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                </div>
+                <p className="text-xs font-medium text-slate-600">Formato EMVCo validado</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                </div>
+                <p className="text-xs font-medium text-slate-600">Protocolo PY-QR detectado</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center">
+                  <Lock className="h-4 w-4 text-orange-600" />
+                </div>
+                <p className="text-xs font-medium text-slate-600">Fase: Demo (Sandbox)</p>
               </div>
             </CardContent>
           </Card>
