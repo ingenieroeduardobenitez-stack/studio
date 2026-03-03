@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
@@ -21,16 +22,16 @@ import {
   Database,
   Search,
   CheckCircle2,
-  AlertCircle
+  AlertTriangle,
+  Building2
 } from "lucide-react"
 import { QRCodeCanvas } from "qrcode.react"
 import { generatePaymentQr } from "./actions"
 import { useToast } from "@/hooks/use-toast"
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, addDoc, serverTimestamp } from "firebase/firestore"
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase"
+import { collection, addDoc, serverTimestamp, doc } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default function QrLabPage() {
   const [mounted, setMounted] = useState(false)
@@ -53,6 +54,10 @@ export default function QrLabPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Obtener ajustes de tesorería para el Alias
+  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const { data: treasurySettings } = useDoc(treasuryRef)
 
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
   const { data: allConfirmands, loading: loadingRegs } = useCollection(regsQuery)
@@ -87,14 +92,14 @@ export default function QrLabPage() {
     try {
       const response = await generatePaymentQr({
         ...formData,
-        orderId
+        orderId,
+        merchantAlias: treasurySettings?.alias || ""
       })
 
       if (response.success) {
         setQrResult(response.qrString)
         setSecurityToken(response.token)
         
-        // Intentar guardar el log, pero no bloquear si falla
         if (db) {
           addDoc(collection(db, "qr_transactions"), {
             ...formData,
@@ -102,12 +107,13 @@ export default function QrLabPage() {
             status: "PENDING",
             qrString: response.qrString,
             token: response.token,
+            merchantAlias: treasurySettings?.alias || "NO_ALIAS",
             createdAt: serverTimestamp(),
             testerId: user?.uid || "anonymous"
-          }).catch(e => console.warn("No se pudo guardar el registro de auditoría, pero el QR se generó igual."))
+          }).catch(() => {})
         }
 
-        toast({ title: "QR Generado", description: "Simulación de respuesta de pasarela exitosa." })
+        toast({ title: "QR Generado", description: "Simulación de respuesta PY-QR exitosa." })
       } else {
         toast({ variant: "destructive", title: "Error", description: response.error })
       }
@@ -124,7 +130,7 @@ export default function QrLabPage() {
     if (canvas) {
       const url = canvas.toDataURL("image/png")
       const link = document.createElement("a")
-      link.download = `QR-Test-${formData.buyerIdentity}.png`
+      link.download = `QR-Integracion-${formData.buyerIdentity}.png`
       link.href = url
       link.click()
     }
@@ -141,7 +147,7 @@ export default function QrLabPage() {
           </div>
           <div>
             <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Laboratorio de QR (Integración)</h1>
-            <p className="text-muted-foreground font-medium">Pruebas de cobro dinámico con datos reales del Santuario.</p>
+            <p className="text-muted-foreground font-medium">Pruebas de cobro dinámico vinculadas a tu cuenta de ueno.</p>
           </div>
         </div>
         <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-2 h-8 px-4">
@@ -154,9 +160,9 @@ export default function QrLabPage() {
           <Card className="border-none shadow-xl bg-white overflow-hidden border-t-4 border-t-accent">
             <CardHeader className="pb-4">
               <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-slate-500">
-                <Search className="h-4 w-4" /> Buscar Persona Inscripta
+                <Search className="h-4 w-4" /> 1. Buscar Persona Inscripta
               </CardTitle>
-              <CardDescription>Selecciona un confirmando para cargar sus datos automáticamente.</CardDescription>
+              <CardDescription>Carga los datos reales de un alumno desde la base de datos.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="relative">
@@ -189,7 +195,7 @@ export default function QrLabPage() {
                           </Avatar>
                           <div className="flex-1">
                             <p className="text-xs font-bold text-slate-900">{student.fullName}</p>
-                            <p className="text-[10px] text-slate-500">C.I. {student.ciNumber} • {student.catechesisYear?.replace('_', ' ')}</p>
+                            <p className="text-[10px] text-slate-500">C.I. {student.ciNumber}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-[10px] font-black text-primary">Saldo: {((student.registrationCost || 0) - (student.amountPaid || 0)).toLocaleString('es-PY')} Gs.</p>
@@ -205,10 +211,23 @@ export default function QrLabPage() {
 
           <Card className="border-none shadow-xl bg-white overflow-hidden">
             <CardHeader className="bg-primary text-white p-6">
-              <CardTitle className="text-lg flex items-center gap-2 font-headline"><Database className="h-5 w-5" /> Datos del Cobro (Request)</CardTitle>
-              <CardDescription className="text-white/70">Valores que serán enviados a la pasarela de pagos.</CardDescription>
+              <CardTitle className="text-lg flex items-center gap-2 font-headline"><Database className="h-5 w-5" /> 2. Configuración del Cobro</CardTitle>
+              <CardDescription className="text-white/70">Asignando destino a cuenta institucional.</CardDescription>
             </CardHeader>
             <CardContent className="p-8 space-y-6">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-dashed flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-lg border shadow-sm text-primary">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase leading-none">Cuenta Destino (ueno):</p>
+                    <p className="text-sm font-black text-slate-900">{treasurySettings?.alias || "Sin Alias Configurado"}</p>
+                  </div>
+                </div>
+                <Badge className="bg-primary/10 text-primary border-none text-[10px] uppercase">Vinculado</Badge>
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="font-bold text-xs uppercase text-slate-500">Monto Neto (Gs)</Label>
@@ -236,19 +255,11 @@ export default function QrLabPage() {
                   className="h-12 rounded-xl font-bold"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="font-bold text-xs uppercase text-slate-500">Descripción del Cobro</Label>
-                <Input 
-                  value={formData.description} 
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="h-12 rounded-xl"
-                />
-              </div>
 
               <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
                 <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-blue-700 leading-relaxed font-medium">
-                  <strong>Nota técnica:</strong> Estos campos se combinan con tu llave privada para generar el hash de seguridad SHA-256 antes de solicitar el código QR.
+                  <strong>Aclaración sobre ueno:</strong> Este generador crea un QR compatible con el estándar paraguayo. Para que la app de ueno lo acepte como "Cobro de Comercio", es necesario tener las credenciales de producción de Bancard habilitadas.
                 </p>
               </div>
             </CardContent>
@@ -258,7 +269,7 @@ export default function QrLabPage() {
                 onClick={handleSimulate}
                 disabled={isLoading}
               >
-                {isLoading ? <Loader2 className="animate-spin" /> : <><RefreshCcw className="h-5 w-5" /> Generar Cobro QR</>}
+                {isLoading ? <Loader2 className="animate-spin" /> : <><RefreshCcw className="h-5 w-5" /> 3. Generar PY-QR Dinámico</>}
               </Button>
             </CardFooter>
           </Card>
@@ -270,8 +281,8 @@ export default function QrLabPage() {
             qrResult ? "bg-white" : "bg-slate-100 opacity-50 grayscale"
           )}>
             <CardHeader className="border-b">
-              <CardTitle className="text-lg font-headline">Código QR de Pago (Response)</CardTitle>
-              <CardDescription>Escaneable desde ueno bank, Eko, Itaú y otras apps bancarias.</CardDescription>
+              <CardTitle className="text-lg font-headline">Resultado del QR (EMVCo/SIPAP)</CardTitle>
+              <CardDescription>Escaneable por aplicaciones bancarias paraguayas.</CardDescription>
             </CardHeader>
             <CardContent className="p-10 flex flex-col items-center justify-center gap-6">
               {qrResult ? (
@@ -286,7 +297,7 @@ export default function QrLabPage() {
                     />
                   </div>
                   <div className="text-center space-y-2 w-full">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">String PY-QR (Formato BCP):</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">String de Transacción Vinculado:</p>
                     <div className="bg-slate-50 p-3 rounded-xl border font-mono text-[8px] break-all max-h-[100px] overflow-y-auto text-slate-500">
                       {qrResult}
                     </div>
@@ -297,7 +308,7 @@ export default function QrLabPage() {
                   <div className="bg-slate-200 h-24 w-24 rounded-full flex items-center justify-center mx-auto shadow-inner">
                     <QrCode className="h-10 w-10 text-slate-400" />
                   </div>
-                  <p className="text-sm font-medium text-slate-400 italic">Prepara el cobro y presiona el botón para visualizar el código QR dinámico</p>
+                  <p className="text-sm font-medium text-slate-400 italic">Completa los pasos 1 y 2 para ver el QR oficial</p>
                 </div>
               )}
             </CardContent>
@@ -306,9 +317,10 @@ export default function QrLabPage() {
                 <Button variant="outline" className="flex-1 rounded-xl font-bold h-12 gap-2" onClick={downloadQr}>
                   <Download className="h-4 w-4" /> Guardar Imagen
                 </Button>
-                <Button className="flex-1 bg-green-600 hover:bg-green-700 rounded-xl font-bold h-12 gap-2 shadow-md">
-                  <ShieldCheck className="h-4 w-4" /> Simular Pago
-                </Button>
+                <div className="flex-1 p-2 border rounded-xl bg-white flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  <span className="text-[9px] font-bold text-slate-500 uppercase">Sin contrato real de Bancard, las apps bancarias verán este QR como "Comercio no habilitado".</span>
+                </div>
               </CardFooter>
             )}
           </Card>
@@ -316,17 +328,17 @@ export default function QrLabPage() {
           <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 p-6 opacity-10"><ShieldCheck className="h-24 w-24" /></div>
             <CardHeader>
-              <CardTitle className="text-white text-base font-headline">Token de Seguridad (HMAC-SHA256)</CardTitle>
+              <CardTitle className="text-white text-base font-headline">Firma de Seguridad (HMAC-SHA256)</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-xs text-slate-400 leading-relaxed italic">
-                Este token garantiza que el monto y los datos no han sido alterados durante la comunicación con el integrador bancario.
+                Este hash valida que los datos no fueron alterados y que el Alias de destino es el correcto.
               </p>
               <div className="bg-white/5 p-4 rounded-xl border border-white/10 font-mono text-[10px] break-all text-primary-foreground/80 shadow-inner">
-                {securityToken || "Esperando generación de cobro..."}
+                {securityToken || "Esperando generación..."}
               </div>
               <div className="flex items-center gap-2 text-[9px] font-bold text-green-400 uppercase tracking-widest bg-green-400/10 w-fit px-3 py-1 rounded-full">
-                <CheckCircle2 className="h-3 w-3 fill-green-400 text-slate-900" /> Firma de Integridad Lista
+                <CheckCircle2 className="h-3 w-3 fill-green-400 text-slate-900" /> Protocolo de Integridad Listo
               </div>
             </CardContent>
           </Card>
