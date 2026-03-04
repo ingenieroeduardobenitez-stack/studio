@@ -1,36 +1,23 @@
 
-/**
- * Service Worker para habilitar la instalación automática de la PWA
- */
-const CACHE_NAME = 'santuario-nsps-cache-v1';
-const urlsToCache = [
+const CACHE_NAME = 'santuario-nsps-v1';
+const ASSETS = [
   '/',
   '/icon.png',
   '/logo.png'
 ];
 
-self.addEventListener('install', event => {
-  self.skipWaiting();
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS);
+    })
   );
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil(clients.claim());
-});
-
-self.addEventListener('fetch', event => {
+self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      })
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request);
+    })
   );
 });

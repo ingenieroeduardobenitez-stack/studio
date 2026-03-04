@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Sistema de Gestión de Sacramentos - Santuario Nacional Nuestra Señora del Perpetuo Socorro',
     start_url: '/',
     display: 'standalone',
-    background_color: '#f8fafc',
+    background_color: '#ffffff',
     theme_color: '#2e44a3',
     icons: [
       {

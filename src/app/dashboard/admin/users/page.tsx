@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useRef, useEffect } from "react"
@@ -64,6 +65,7 @@ export default function UsersAdminPage() {
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [tempPhoto, setTempPhoto] = useState<string | null>(null)
   const [selectedModules, setSelectedModules] = useState<string[]>([])
+  const [editRole, setEditRole] = useState("Catequista")
   
   const createPhotoRef = useRef<HTMLInputElement>(null)
   const editPhotoRef = useRef<HTMLInputElement>(null)
@@ -74,6 +76,13 @@ export default function UsersAdminPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (selectedUser) {
+      setEditRole(selectedUser.role || "Catequista")
+      setSelectedModules(selectedUser.allowedModules || [])
+    }
+  }, [selectedUser])
 
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null
@@ -203,14 +212,14 @@ export default function UsersAdminPage() {
       const userData = {
         firstName: formData.get("firstName") as string || "",
         lastName: formData.get("lastName") as string || "",
-        role: formData.get("role") as string || "Catequista",
+        role: editRole,
         allowedModules: selectedModules,
         photoUrl: tempPhoto || selectedUser.photoUrl || null
       }
 
       await updateDoc(doc(db, "users", selectedUser.id), userData)
 
-      toast({ title: "Usuario actualizado", description: "Cambios guardados." })
+      toast({ title: "Usuario actualizado", description: "Cambios guardados con éxito." })
       setIsEditDialogOpen(false)
       setTempPhoto(null)
     } catch (error: any) {
@@ -450,7 +459,7 @@ export default function UsersAdminPage() {
                           <DropdownMenuTrigger asChild><button className="p-2 hover:bg-slate-100 rounded-full"><MoreHorizontal className="h-5 w-5 text-slate-400" /></button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-xl shadow-xl border-none">
                             <DropdownMenuLabel className="text-[10px] uppercase text-slate-400">Opciones</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => { setSelectedUser(u); setSelectedModules(u.allowedModules || []); setIsEditDialogOpen(true); }} className="h-11 rounded-lg gap-3">
+                            <DropdownMenuItem onClick={() => { setSelectedUser(u); setIsEditDialogOpen(true); }} className="h-11 rounded-lg gap-3">
                               <Edit className="h-4 w-4 text-slate-400" /> Editar Permisos
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -498,7 +507,7 @@ export default function UsersAdminPage() {
                 <div className="space-y-2"><Label>Email</Label><Input value={selectedUser?.email || ""} readOnly className="bg-slate-50" /></div>
                 <div className="space-y-2">
                   <Label>Rol</Label>
-                  <Select name="role" defaultValue={selectedUser?.role || "Catequista"}>
+                  <Select name="role" value={editRole} onValueChange={setEditRole}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Catequista">Catequista</SelectItem>

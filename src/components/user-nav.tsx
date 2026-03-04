@@ -9,8 +9,9 @@ import { useAuth } from "@/firebase/provider"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { LogOut, User as UserIcon, UserCircle } from "lucide-react"
+import { LogOut, User as UserIcon, UserCircle, Shield } from "lucide-react"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 
 export function UserNav() {
   const router = useRouter()
@@ -54,7 +55,12 @@ export function UserNav() {
             </AvatarFallback>
           </Avatar>
           <div className="hidden md:flex flex-col justify-center">
-            <span className="text-base font-bold text-slate-900 leading-tight">{displayName}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold text-slate-900 leading-tight">{displayName}</span>
+              {role.toLowerCase() === "administrador" && (
+                <Shield className="h-3 w-3 text-primary fill-primary/10" />
+              )}
+            </div>
             <span className="text-[11px] text-primary font-bold uppercase tracking-wider mt-0.5">{role}</span>
           </div>
         </button>

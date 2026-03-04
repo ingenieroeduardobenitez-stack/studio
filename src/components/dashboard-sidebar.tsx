@@ -1,10 +1,10 @@
+
 "use client"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { 
   LayoutDashboard, 
-  Church, 
   Users,
   ClipboardCheck,
   ListChecks,
@@ -21,7 +21,6 @@ import {
   ShieldCheck,
   Contact,
   BarChart3,
-  Receipt,
   CalendarCheck,
   FileWarning,
   QrCode
@@ -94,8 +93,8 @@ export function DashboardSidebar() {
 
   const { data: profile } = useDoc(userProfileRef)
 
-  const isAdmin = profile?.role === "Administrador"
-  const isTesorero = profile?.role === "Tesorero"
+  const isAdmin = profile?.role?.toLowerCase() === "administrador"
+  const isTesorero = profile?.role?.toLowerCase() === "tesorero"
   const allowedModules = profile?.allowedModules || []
 
   const filterItems = (items: any[], type: 'ops' | 'treasury' | 'admin') => {
