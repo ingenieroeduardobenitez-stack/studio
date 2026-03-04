@@ -216,7 +216,7 @@ export default function TreasuryPage() {
       console.error(error)
       toast({ variant: "destructive", title: "Error al procesar pago" })
     } finally {
-      setIsSubmittingPayment(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -688,7 +688,7 @@ export default function TreasuryPage() {
           <ScrollArea className="max-h-[85vh]">
             <div className="p-4 md:p-6 bg-white flex justify-center">
               <div 
-                className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-6 shadow-sm transform scale-[0.95] origin-top" 
+                className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-10 shadow-sm transform scale-[0.95] origin-top" 
                 id="receipt-content-official"
               >
                 <div className="grid grid-cols-3 gap-4 items-center mb-6">
@@ -717,36 +717,34 @@ export default function TreasuryPage() {
                   <h1 className="text-3xl font-black italic tracking-tighter uppercase">RECIBO</h1>
                 </div>
 
-                <div className="space-y-6 text-sm md:text-base">
-                  <div className="flex items-baseline gap-2">
-                    <span className="whitespace-nowrap font-bold shrink-0">Recibí(mos) de:</span>
-                    <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-0.5 px-2 leading-tight truncate">
+                <div className="space-y-10 text-sm md:text-base">
+                  <div className="flex items-baseline gap-2 py-1">
+                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">Recibí(mos) de:</span>
+                    <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-2 leading-relaxed truncate">
                       {selectedReg?.fullName}
                     </div>
                   </div>
 
-                  <div className="flex items-baseline gap-2">
-                    <span className="whitespace-nowrap font-bold shrink-0">la cantidad de:</span>
-                    <div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 italic leading-tight">
+                  <div className="flex items-baseline gap-2 py-1">
+                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">la cantidad de:</span>
+                    <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 italic leading-relaxed">
                       {paymentAmount.toLocaleString('es-PY')} Guaraníes
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <div className="flex items-baseline gap-2">
-                      <span className="whitespace-nowrap font-bold shrink-0">en concepto de:</span>
-                      <div className="flex-1 border-2 border-slate-900 px-4 py-2 font-bold text-xs bg-slate-50 uppercase leading-tight">
+                    <div className="flex items-baseline gap-2 py-1">
+                      <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">en concepto de:</span>
+                      <div className="flex-1 border-2 border-slate-900 px-4 py-2 font-bold text-xs bg-slate-50 uppercase leading-relaxed">
                         Inscripción Catequesis de Confirmación - {selectedReg?.catechesisYear?.replace('_', ' ')}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-baseline gap-2">
-                    <span className="whitespace-nowrap font-bold shrink-0">en concepto de:</span>
-                    <div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 text-xs text-slate-500 italic leading-tight">
-                      {((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)) > 0 
-                        ? `Saldo Pendiente: ${((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.` 
-                        : 'Totalmente cancelado.'}
+                  <div className="flex items-baseline gap-2 py-1">
+                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">en concepto de:</span>
+                    <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 text-sm text-slate-700 font-medium italic leading-relaxed">
+                      Saldo Pendiente: {((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
                     </div>
                   </div>
                 </div>
@@ -754,7 +752,7 @@ export default function TreasuryPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
                   <div className="flex flex-col justify-end space-y-3">
                     <p className="text-sm italic font-medium">
-                      Asunción, a los {dayStr} de {monthStr} de {yearStr}
+                      Asunción, {dayStr} de {monthStr} de {yearStr}
                     </p>
                     <div className="flex flex-col items-start pt-4">
                       <div className="w-48 border-t border-slate-900"></div>
