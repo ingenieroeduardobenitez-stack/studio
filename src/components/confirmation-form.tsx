@@ -259,7 +259,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const constraints = {
         video: {
           ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" },
-          aspectRatio: { ideal: 0.75 } // Retrato 3:4
+          aspectRatio: { ideal: 0.75 }
         }
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -706,9 +706,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <CardContent className="p-8 space-y-12">
               <div className="flex flex-col items-center gap-4">
                 <div className="relative group">
-                  <Avatar className="h-40 w-40 border-4 border-slate-100 shadow-xl">
-                    <AvatarImage src={photoPreview || undefined} className="object-cover" />
-                    <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-20 w-20" /></AvatarFallback>
+                  <Avatar className="h-40 w-40 border-4 border-slate-100 shadow-xl overflow-hidden bg-slate-50">
+                    <AvatarImage src={photoPreview || undefined} className="object-cover w-full h-full" />
+                    <AvatarFallback className="bg-slate-50 text-slate-300">
+                      {photoPreview ? (
+                        <img src={photoPreview} alt="Confirmando" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="h-20 w-20" />
+                      )}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="absolute -bottom-2 -right-2 flex gap-2">
                     <button type="button" onClick={() => startCamera("STUDENT_PHOTO")} className="h-10 w-10 bg-primary rounded-full flex items-center justify-center text-white border-4 border-white shadow-lg hover:scale-110 transition-transform"><Camera className="h-5 w-5" /></button>
@@ -811,7 +817,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="space-y-8">
                 <div className="flex items-center gap-3 mb-2">
                   <User className="h-5 w-5 text-primary" />
-                  <h3 className="font-headline font-bold text-lg text-slate-800">Padres y Tutores</h3>
+                  <h3 className="font-headline font-bold text-lg text-slate-800">Familia y Tutores</h3>
                 </div>
 
                 <div className="grid gap-8 md:grid-cols-3">
@@ -972,17 +978,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                             <div 
                               className={cn(
                                 "border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden",
-                                field.value ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
+                                (baptismPreview || field.value) ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
                               )}
                             >
                               {baptismPreview ? (
-                                <>
+                                <div className="w-full h-full relative group">
                                   <img src={baptismPreview} alt="Certificado" className="w-full h-full object-cover" />
-                                  <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    <button type="button" onClick={() => startCamera("BAPTISM_CERT")} className="h-8 w-8 bg-white/20 rounded-full flex items-center justify-center text-white"><Camera className="h-4 w-4" /></button>
-                                    <button type="button" onClick={() => baptismInputRef.current?.click()} className="h-8 w-8 bg-white/20 rounded-full flex items-center justify-center text-white"><ImageIcon className="h-4 w-4" /></button>
+                                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                    <button type="button" onClick={() => startCamera("BAPTISM_CERT")} className="h-8 w-8 bg-white/40 rounded-full flex items-center justify-center text-white hover:bg-white/60"><Camera className="h-4 w-4" /></button>
+                                    <button type="button" onClick={() => baptismInputRef.current?.click()} className="h-8 w-8 bg-white/40 rounded-full flex items-center justify-center text-white hover:bg-white/60"><ImageIcon className="h-4 w-4" /></button>
                                   </div>
-                                </>
+                                </div>
                               ) : (
                                 <div className="flex flex-col items-center" onClick={() => startCamera("BAPTISM_CERT")}>
                                   <ImageIcon className="h-8 w-8 text-slate-300 mb-1" />
@@ -1077,16 +1083,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                           <div 
                             className={cn(
                               "border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden",
-                              field.value ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
+                              (proofPreview || field.value) ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
                             )}
                           >
                             {proofPreview ? (
-                              <>
-                                <img src={proofPreview} alt="Comprobante" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                              <div className="w-full h-full relative group">
+                                <img src={proofPreview} alt="Comprobante de Pago" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                   <Button type="button" variant="secondary" className="rounded-xl h-10 gap-2 font-bold" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> RECAPTURAR</Button>
+                                  <Button type="button" variant="destructive" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setProofPreview(null); setValue("paymentProofUrl", ""); }}><X className="h-4 w-4" /></Button>
                                 </div>
-                              </>
+                              </div>
                             ) : (
                               <div className="flex flex-col items-center text-center p-4">
                                 <ImageIcon className="h-10 w-10 text-slate-300 mb-2" />
