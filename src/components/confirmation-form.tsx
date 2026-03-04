@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -361,25 +362,32 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const cleanCiForDoc = cleanCi.replace(/[^0-9]/g, '');
 
     try {
-      const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue));
-      const existingSnap = await getDocs(existingQuery);
-      
-      if (!existingSnap.empty) {
-        form.setError("ciNumber", { 
-          type: "manual", 
-          message: "Esa persona ya se encuentra inscripta" 
-        });
-        toast({
-          variant: "destructive",
-          title: "Inscripción Duplicada",
-          description: "Esta persona ya se encuentra registrada en el sistema."
-        });
-        setIsSearchingCi(false);
-        return;
-      } else {
-        form.clearErrors("ciNumber");
+      // 1. Intentar verificar duplicados (Esto puede fallar por permisos en el link público)
+      try {
+        const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue));
+        const existingSnap = await getDocs(existingQuery);
+        
+        if (!existingSnap.empty) {
+          form.setError("ciNumber", { 
+            type: "manual", 
+            message: "Esa persona ya se encuentra inscripta" 
+          });
+          toast({
+            variant: "destructive",
+            title: "Inscripción Duplicada",
+            description: "Esta persona ya se encuentra registrada en el sistema."
+          });
+          setIsSearchingCi(false);
+          return;
+        } else {
+          form.clearErrors("ciNumber");
+        }
+      } catch (permError) {
+        // En el link público no tenemos permiso para 'list', ignoramos el error y seguimos
+        console.warn("No se pudo verificar duplicados por restricciones de seguridad (público)");
       }
 
+      // 2. Buscar en la colección de cédulas (Esto tiene allow read: if true)
       const cedulaRef = doc(db, "cedulas", cleanCiForDoc);
       const docSnap = await getDoc(cedulaRef);
       
@@ -391,7 +399,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         if (data.FECHA_NACI) setValue("birthDate", data.FECHA_NACI);
         toast({ title: "Datos encontrados", description: "Campos precargados con éxito." });
       } else {
-        toast({ variant: "outline", title: "Sin coincidencias", description: "No se encontraron datos para este C.I. en el repositorio." });
+        toast({ variant: "outline", title: "C.I. no encontrada", description: "Por favor, completa los campos manualmente." });
       }
     } catch (error) {
       console.error("Error al buscar C.I:", error);
@@ -422,23 +430,30 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     else setLoading(true);
 
     try {
-      const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", values.ciNumber));
-      const existingSnap = await getDocs(existingQuery);
-      
-      if (!existingSnap.empty) {
-        toast({
-          variant: "destructive",
-          title: "Error de Duplicidad",
-          description: "Esta persona ya se encuentra inscripta. No se puede duplicar el registro."
-        });
-        setLoading(false);
-        setLoadingWithPayment(false);
-        return;
+      // Solo intentamos verificar duplicados si hay un usuario logueado (tiene permisos)
+      if (user) {
+        try {
+          const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", values.ciNumber));
+          const existingSnap = await getDocs(existingQuery);
+          
+          if (!existingSnap.empty) {
+            toast({
+              variant: "destructive",
+              title: "Error de Duplicidad",
+              description: "Esta persona ya se encuentra inscripta."
+            });
+            setLoading(false);
+            setLoadingWithPayment(false);
+            return;
+          }
+        } catch (e) {
+          console.warn("Ignorando error de permisos en verificación de duplicados");
+        }
       }
 
       const regId = `conf_${Date.now()}`
       const regRef = doc(db, "confirmations", regId)
-      const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Secretaría del Santuario" : "Sistema")
+      const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (isPublic ? "Inscripción Pública" : "Sistema")
       
       const amountToRegister = immediatePayment ? amount : 0
       const paymentStatus = amountToRegister >= totalCost ? "PAGADO" : (amountToRegister > 0 ? "PARCIAL" : "PENDIENTE")
@@ -479,7 +494,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           userName: catechistName,
           action: immediatePayment ? `Inscripción con Pago (${paymentType})` : "Envío de Inscripción",
           module: "inscripcion",
-          details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString('es-PY')} Gs. verificado (${assignedReceiptNumber}). ` : ''}Inscripción completa de ${values.fullName}`,
+          details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString('es-PY')} Gs. verificado (${assignedReceiptNumber}). ` : ''}Inscripción de ${values.fullName}`,
           timestamp: serverTimestamp()
         });
 
@@ -499,7 +514,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         });
         setTimeout(() => setIsSubmittedSuccessfully(true), 100);
       } else {
-        // Inscripción sin pago inmediato
         form.reset();
         setPhotoPreview(null);
         setProofPreview(null);
@@ -508,16 +522,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           title: "¡Éxito!", 
           description: "Se ha inscripto satisfactoriamente.",
         });
-        // Permanecemos en el módulo (isSubmittedSuccessfully sigue en false)
       }
     } catch (error: any) {
       console.error("Error en registro:", error);
-      const permissionError = new FirestorePermissionError({
-        path: "confirmations",
-        operation: 'create',
-        requestResourceData: values,
-      })
-      errorEmitter.emit('permission-error', permissionError)
+      toast({ variant: "destructive", title: "Error en el servidor", description: "No se pudo completar la operación." });
     } finally {
       setLoading(false)
       setLoadingWithPayment(false)
@@ -1219,7 +1227,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         </div>
                       </RadioGroup>
 
-                      {/* DESPLIEGUE DINÁMICO DE COMPROBANTE */}
                       {paymentType === "TRANSFERENCIA" && (
                         <div className="mt-4 animate-in zoom-in-95 fade-in slide-in-from-top-2 duration-300">
                           <FormField control={form.control} name="paymentProofUrl" render={({ field }) => (
