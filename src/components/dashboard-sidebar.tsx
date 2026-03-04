@@ -57,7 +57,7 @@ const operationsItems = [
   { id: "confirmandos", name: "Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { id: "inscripcion", name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
   { id: "cambio_grupo", name: "Cambio de Grupo", href: "/dashboard/group-change", icon: ArrowLeftRight },
-  { id: "pagos_alumnos", name: "Control Cobros", href: "/dashboard/payments", icon: CreditCard },
+  { id: "pagos_alumnos", name: "Control Cobros Inscripción", href: "/dashboard/payments", icon: CreditCard },
   { id: "pagos_catequistas", name: "Cobro Catequistas", href: "/dashboard/catechist-payments", icon: Contact },
 ]
 
