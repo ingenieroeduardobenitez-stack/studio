@@ -3,7 +3,7 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Santuario Nacional NSPS',
+    name: 'Santuario Nacional Nuestra Señora del Perpetuo Socorro',
     short_name: 'Santuario NSPS',
     description: 'Sistema de Gestión de Sacramentos - Santuario Nacional Nuestra Señora del Perpetuo Socorro',
     start_url: '/',
@@ -15,6 +15,12 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/icon.png',
         sizes: '192x192',
         type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icon.png',
+        sizes: '192x192',
+        type: 'image/png',
         purpose: 'maskable',
       },
       {
@@ -22,6 +28,12 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
+      },
+      {
+        src: '/icon.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
       },
     ],
   }

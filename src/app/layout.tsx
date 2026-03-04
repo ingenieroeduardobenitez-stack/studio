@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Toaster } from '@/components/ui/toaster';
-import { PwaInstallPrompt } from '@/components/pwa-install-prompt';
 import Script from 'next/script';
 
 export const viewport: Viewport = {
@@ -17,11 +16,14 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'Santuario Nacional NSPS - Sistema de Gestión',
   description: 'Sistema de Gestión de Sacramentos - Santuario Nacional Nuestra Señora del Perpetuo Socorro',
-  manifest: '/manifest.json',
   icons: {
-    icon: '/icon.png',
-    shortcut: '/icon.png',
-    apple: '/icon.png',
+    icon: [
+      { url: '/icon.png' },
+      { url: '/icon.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
   appleWebApp: {
     capable: true,
@@ -46,7 +48,6 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <FirebaseClientProvider>
           {children}
-          <PwaInstallPrompt />
           <Toaster />
         </FirebaseClientProvider>
         <Script id="register-sw" strategy="afterInteractive">
