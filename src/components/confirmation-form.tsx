@@ -26,7 +26,8 @@ import {
   AlertTriangle,
   Download,
   QrCode,
-  ShieldCheck
+  ShieldCheck,
+  Search
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -373,6 +374,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         if (data.NOM_PADRE) setValue("fatherName", data.NOM_PADRE);
         if (data.FECHA_NACI) setValue("birthDate", data.FECHA_NACI);
         toast({ title: "Datos encontrados", description: "Campos precargados con éxito." });
+      } else {
+        toast({ variant: "outline", title: "Sin coincidencias", description: "No se encontraron datos para este C.I. en el repositorio." });
       }
     } catch (error) {
       console.error("Error al buscar C.I:", error);
@@ -399,7 +402,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const handleRegistration = async (values: FormValues, immediatePayment = false, amount = 0) => {
     if (!db || !treasuryRef) return;
     
-    // El comprobante ya no es obligatorio en modo público
     if (immediatePayment) setLoadingWithPayment(true);
     else setLoading(true);
 
@@ -464,7 +466,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           timestamp: serverTimestamp()
         });
 
-        // Preparamos los datos para la vista de éxito
         setSubmittedData({ 
           ...registrationData, 
           id: regId, 
@@ -477,7 +478,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         description: "Los datos han sido guardados correctamente." 
       });
       
-      // Delay corto para asegurar que el estado se actualice antes de cambiar la vista
       setTimeout(() => setIsSubmittedSuccessfully(true), 100);
     } catch (error: any) {
       console.error("Error en registro:", error);
@@ -725,21 +725,50 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3>
                 </div>
                 
-                <div className="grid gap-6 md:grid-cols-3">
+                <div className="space-y-4">
+                  <p className="text-sm font-bold text-primary italic">
+                    Inicie la inscripción insertando el número de cédula del postulante a la confirmación a inscribir
+                  </p>
                   <FormField control={form.control} name="ciNumber" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="font-bold">N° de C.I.</FormLabel>
-                      <div className="relative">
-                        <FormControl><Input placeholder="Ej. 1234567" {...field} className="h-12 rounded-xl" onBlur={(e) => handleLookupCi(e.target.value)} /></FormControl>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">{isSearchingCi && <Loader2 className="h-4 w-4 animate-spin text-primary" />}</div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <FormControl>
+                            <Input 
+                              placeholder="Ej. 1234567" 
+                              {...field} 
+                              className="h-12 rounded-xl" 
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleLookupCi(field.value);
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {isSearchingCi && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                          </div>
+                        </div>
+                        <Button 
+                          type="button" 
+                          onClick={() => handleLookupCi(field.value)}
+                          className="h-12 px-6 rounded-xl font-bold bg-primary hover:bg-primary/90"
+                          disabled={isSearchingCi}
+                        >
+                          {isSearchingCi ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+                          BUSCAR
+                        </Button>
                       </div>
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="fullName" render={({ field }) => (
-                    <FormItem className="md:col-span-2"><FormLabel className="font-bold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
-                  )} />
                 </div>
+
+                <FormField control={form.control} name="fullName" render={({ field }) => (
+                  <FormItem><FormLabel className="font-bold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                )} />
 
                 <div className="grid gap-6 md:grid-cols-3">
                   <FormField control={form.control} name="birthDate" render={({ field }) => (
