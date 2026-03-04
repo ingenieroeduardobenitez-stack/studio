@@ -1,8 +1,10 @@
+
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { PwaInstallPrompt } from '@/components/pwa-install-prompt';
+import Script from 'next/script';
 
 export const viewport: Viewport = {
   themeColor: '#2e44a3',
@@ -16,7 +18,10 @@ export const metadata: Metadata = {
   title: 'Santuario Nacional NSPS - Sistema de Gestión',
   description: 'Sistema de Gestión de Sacramentos - Santuario Nacional Nuestra Señora del Perpetuo Socorro',
   icons: {
-    icon: '/icon.png',
+    icon: [
+      { url: '/icon.png', sizes: 'any' },
+      { url: '/icon.png', type: 'image/png', sizes: '32x32' },
+    ],
     shortcut: '/icon.png',
     apple: '/icon.png',
   },
@@ -46,6 +51,22 @@ export default function RootLayout({
           <PwaInstallPrompt />
           <Toaster />
         </FirebaseClientProvider>
+        <Script id="register-sw" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').then(
+                  function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                  },
+                  function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                  }
+                );
+              });
+            }
+          `}
+        </Script>
       </body>
     </html>
   );
