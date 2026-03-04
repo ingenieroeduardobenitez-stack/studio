@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -362,7 +361,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const cleanCiForDoc = cleanCi.replace(/[^0-9]/g, '');
 
     try {
-      // 1. Intentar verificar duplicados (Esto puede fallar por permisos en el link público)
       try {
         const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue));
         const existingSnap = await getDocs(existingQuery);
@@ -383,11 +381,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           form.clearErrors("ciNumber");
         }
       } catch (permError) {
-        // En el link público no tenemos permiso para 'list', ignoramos el error y seguimos
         console.warn("No se pudo verificar duplicados por restricciones de seguridad (público)");
       }
 
-      // 2. Buscar en la colección de cédulas (Esto tiene allow read: if true)
       const cedulaRef = doc(db, "cedulas", cleanCiForDoc);
       const docSnap = await getDoc(cedulaRef);
       
@@ -430,7 +426,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     else setLoading(true);
 
     try {
-      // Solo intentamos verificar duplicados si hay un usuario logueado (tiene permisos)
       if (user) {
         try {
           const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", values.ciNumber));
@@ -531,6 +526,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       setLoadingWithPayment(false)
     }
   }
+
+  const renderFilePreview = (preview: string | null) => {
+    if (!preview) return null;
+    if (preview.startsWith("data:application/pdf")) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-slate-100 gap-3">
+          <div className="p-4 bg-red-100 rounded-2xl">
+            <FileText className="h-12 w-12 text-red-600" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Documento PDF Cargado</span>
+        </div>
+      );
+    }
+    return <img src={preview} alt="Vista Previa" className="w-full h-full object-cover" />;
+  };
 
   const handleShareReceipt = () => {
     if (!submittedData) return
@@ -749,7 +759,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <AvatarImage src={photoPreview || undefined} className="object-cover w-full h-full" />
                     <AvatarFallback className="bg-slate-50 text-slate-300">
                       {photoPreview ? (
-                        <img src={photoPreview} alt="Confirmando" className="w-full h-full object-cover" />
+                        renderFilePreview(photoPreview)
                       ) : (
                         <User className="h-20 w-20" />
                       )}
@@ -1023,7 +1033,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                             >
                               {(baptismPreview || field.value) ? (
                                 <div className="w-full h-full relative group">
-                                  <img src={baptismPreview || field.value} alt="Certificado" className="w-full h-full object-cover" />
+                                  {renderFilePreview(baptismPreview || field.value || null)}
                                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                     <button type="button" onClick={() => startCamera("BAPTISM_CERT")} className="h-8 w-8 bg-white/40 rounded-full flex items-center justify-center text-white hover:bg-white/60"><Camera className="h-4 w-4" /></button>
                                     <button type="button" onClick={() => baptismInputRef.current?.click()} className="h-8 w-8 bg-white/40 rounded-full flex items-center justify-center text-white hover:bg-white/60"><ImageIcon className="h-4 w-4" /></button>
@@ -1041,7 +1051,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                               )}
                             </div>
                           </FormControl>
-                          <input type="file" ref={baptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
+                          <input type="file" ref={baptismInputRef} className="hidden" accept="image/*,application/pdf,.heic,.heif" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
                         </FormItem>
                       )} />
                     </div>
@@ -1119,7 +1129,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     {isPublic && (
                       <FormField control={form.control} name="paymentProofUrl" render={({ field }) => (
                         <FormItem className="w-full">
-                          <FormLabel className="text-center block font-bold text-slate-700">Adjuntar Comprobante (Foto)</FormLabel>
+                          <FormLabel className="text-center block font-bold text-slate-700 uppercase tracking-widest text-[10px]">Adjuntar Comprobante (Foto/PDF)</FormLabel>
                           <FormControl>
                             <div 
                               className={cn(
@@ -1129,7 +1139,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                             >
                               {(proofPreview || field.value) ? (
                                 <div className="w-full h-full relative group">
-                                  <img src={proofPreview || field.value} alt="Comprobante de Pago" className="w-full h-full object-cover" />
+                                  {renderFilePreview(proofPreview || field.value || null)}
                                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                     <Button type="button" variant="secondary" className="rounded-xl h-10 gap-2 font-bold" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> RECAPTURAR</Button>
                                     <Button type="button" variant="destructive" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setProofPreview(null); setValue("paymentProofUrl", ""); }}><X className="h-4 w-4" /></Button>
@@ -1138,16 +1148,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                               ) : (
                                 <div className="flex flex-col items-center text-center p-4">
                                   <ImageIcon className="h-10 w-10 text-slate-300 mb-2" />
-                                  <span className="text-xs text-slate-400 font-medium mb-4">Opcional: Adjunta el comprobante si ya pagaste</span>
+                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 leading-tight">Soporta: JPG, PNG, PDF, HEIC</span>
                                   <div className="flex gap-2">
-                                    <Button type="button" className="h-10 rounded-xl font-bold gap-2" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> CÁMARA</Button>
-                                    <Button type="button" variant="outline" className="h-10 rounded-xl font-bold gap-2" onClick={() => proofInputRef.current?.click()}><ImageIcon className="h-4 w-4" /> ARCHIVO</Button>
+                                    <Button type="button" className="h-10 rounded-xl font-bold gap-2 text-xs" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> CÁMARA</Button>
+                                    <Button type="button" variant="outline" className="h-10 rounded-xl font-bold gap-2 text-xs" onClick={() => proofInputRef.current?.click()}><ImageIcon className="h-4 w-4" /> ARCHIVO</Button>
                                   </div>
                                 </div>
                               )}
                             </div>
                           </FormControl>
-                          <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
+                          <input type="file" ref={proofInputRef} className="hidden" accept="image/*,application/pdf,.heic,.heif" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
                           <FormMessage />
                         </FormItem>
                       )} />
@@ -1231,7 +1241,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <div className="mt-4 animate-in zoom-in-95 fade-in slide-in-from-top-2 duration-300">
                           <FormField control={form.control} name="paymentProofUrl" render={({ field }) => (
                             <FormItem className="w-full">
-                              <FormLabel className="text-center block font-bold text-slate-700 text-[10px] uppercase tracking-widest">Adjuntar Comprobante (Foto)</FormLabel>
+                              <FormLabel className="text-center block font-bold text-slate-700 text-[10px] uppercase tracking-widest">Adjuntar Comprobante (Foto/PDF)</FormLabel>
                               <FormControl>
                                 <div 
                                   className={cn(
@@ -1241,7 +1251,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                                 >
                                   {(proofPreview || field.value) ? (
                                     <div className="w-full h-full relative group">
-                                      <img src={proofPreview || field.value} alt="Comprobante" className="w-full h-full object-cover" />
+                                      {renderFilePreview(proofPreview || field.value || null)}
                                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                         <Button type="button" size="sm" variant="secondary" className="rounded-lg font-bold" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-3 w-3 mr-1" /> RECAPTURAR</Button>
                                       </div>
@@ -1249,7 +1259,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                                   ) : (
                                     <div className="flex flex-col items-center text-center p-2" onClick={() => startCamera("PAYMENT_PROOF")}>
                                       <ImageIcon className="h-6 w-6 text-slate-300 mb-1" />
-                                      <p className="text-[9px] text-slate-400 font-bold uppercase">Adjuntar Foto de Transferencia</p>
+                                      <p className="text-[9px] text-slate-400 font-bold uppercase">Adjuntar Foto/PDF de Transferencia</p>
                                       <div className="flex gap-2 mt-2">
                                         <Button type="button" size="sm" variant="outline" className="h-7 text-[8px] rounded-lg" onClick={(e) => { e.stopPropagation(); startCamera("PAYMENT_PROOF"); }}>CÁMARA</Button>
                                         <Button type="button" size="sm" variant="outline" className="h-7 text-[8px] rounded-lg" onClick={(e) => { e.stopPropagation(); proofInputRef.current?.click(); }}>ARCHIVO</Button>
@@ -1258,7 +1268,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                                   )}
                                 </div>
                               </FormControl>
-                              <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
+                              <input type="file" ref={proofInputRef} className="hidden" accept="image/*,application/pdf,.heic,.heif" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
                             </FormItem>
                           )} />
                         </div>
