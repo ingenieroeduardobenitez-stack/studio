@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Camera, Shield, Mail, User, MapPin, Loader2, Save, Key, Lock, FlipHorizontal, X, Cake } from "lucide-react"
+import { Camera, Shield, Mail, User, MapPin, Loader2, Save, Key, Lock, FlipHorizontal, X, Cake, Image as ImageIcon } from "lucide-react"
 import { useUser, useDoc, useFirestore, useAuth, useMemoFirebase } from "@/firebase"
 import { doc, updateDoc } from "firebase/firestore"
 import { updatePassword } from "firebase/auth"
@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function ProfilePage() {
+  const [mounted, setMounted] = useState(false)
   const { user } = useUser()
   const auth = useAuth()
   const db = useFirestore()
@@ -34,6 +35,10 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
@@ -221,7 +226,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
