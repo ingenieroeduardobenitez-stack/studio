@@ -1,4 +1,3 @@
-
 "use client"
 
 import Link from "next/link"
@@ -58,7 +57,7 @@ const operationsItems = [
   { id: "confirmandos", name: "Confirmandos", href: "/dashboard/registrations", icon: ListChecks },
   { id: "inscripcion", name: "Nueva Inscripción", href: "/dashboard/registration", icon: ClipboardCheck },
   { id: "cambio_grupo", name: "Cambio de Grupo", href: "/dashboard/group-change", icon: ArrowLeftRight },
-  { id: "pagos_alumnos", name: "Gestión de Pagos", href: "/dashboard/payments", icon: CreditCard },
+  { id: "pagos_alumnos", name: "Control Cobros", href: "/dashboard/payments", icon: CreditCard },
   { id: "pagos_catequistas", name: "Cobro Catequistas", href: "/dashboard/catechist-payments", icon: Contact },
 ]
 
@@ -108,7 +107,7 @@ export function DashboardSidebar() {
     }
 
     if (type === 'ops') {
-      return items.filter(i => ["inicio", "asistencia", "asistencia_control", "documentacion", "inscripcion", "confirmandos"].includes(i.id));
+      return items.filter(i => ["inicio", "asistencia", "asistencia_control", "documentacion", "inscripcion", "confirmandos", "pagos_alumnos"].includes(i.id));
     }
     
     return [];
