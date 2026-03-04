@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -1185,28 +1184,38 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
                     <div className="flex flex-col gap-3 flex-1 max-w-md">
                       <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Discriminación de Pago</Label>
-                      <RadioGroup value={paymentType} onValueChange={(v: any) => setPaymentType(v)} className="grid grid-cols-2 gap-4">
-                        <div 
-                          className={cn(
-                            "flex flex-col items-center justify-center p-4 border-2 rounded-2xl cursor-pointer transition-all gap-2",
-                            paymentType === "EFECTIVO" ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200 bg-white"
-                          )}
-                          onClick={() => setPaymentType("EFECTIVO")}
-                        >
+                      
+                      <RadioGroup 
+                        value={paymentType} 
+                        onValueChange={(v: "EFECTIVO" | "TRANSFERENCIA") => setPaymentType(v)} 
+                        className="grid grid-cols-2 gap-4"
+                      >
+                        <div className="relative">
                           <RadioGroupItem value="EFECTIVO" id="type-cash" className="sr-only" />
-                          <Banknote className={cn("h-6 w-6", paymentType === "EFECTIVO" ? "text-primary" : "text-slate-400")} />
-                          <span className={cn("text-[10px] font-black uppercase", paymentType === "EFECTIVO" ? "text-primary" : "text-slate-500")}>Efectivo</span>
+                          <Label 
+                            htmlFor="type-cash"
+                            className={cn(
+                              "flex flex-col items-center justify-center p-4 border-2 rounded-2xl cursor-pointer transition-all gap-2 h-full",
+                              paymentType === "EFECTIVO" ? "border-primary bg-primary/5 shadow-sm" : "border-slate-100 hover:border-slate-200 bg-white"
+                            )}
+                          >
+                            <Banknote className={cn("h-6 w-6", paymentType === "EFECTIVO" ? "text-primary" : "text-slate-400")} />
+                            <span className={cn("text-[10px] font-black uppercase", paymentType === "EFECTIVO" ? "text-primary" : "text-slate-500")}>Efectivo</span>
+                          </Label>
                         </div>
-                        <div 
-                          className={cn(
-                            "flex flex-col items-center justify-center p-4 border-2 rounded-2xl cursor-pointer transition-all gap-2",
-                            paymentType === "TRANSFERENCIA" ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200 bg-white"
-                          )}
-                          onClick={() => setPaymentType("TRANSFERENCIA")}
-                        >
+                        
+                        <div className="relative">
                           <RadioGroupItem value="TRANSFERENCIA" id="type-bank" className="sr-only" />
-                          <ArrowRightLeft className={cn("h-6 w-6", paymentType === "TRANSFERENCIA" ? "text-primary" : "text-slate-400")} />
-                          <span className={cn("text-[10px] font-black uppercase", paymentType === "TRANSFERENCIA" ? "text-primary" : "text-slate-500")}>Transferencia</span>
+                          <Label 
+                            htmlFor="type-bank"
+                            className={cn(
+                              "flex flex-col items-center justify-center p-4 border-2 rounded-2xl cursor-pointer transition-all gap-2 h-full",
+                              paymentType === "TRANSFERENCIA" ? "border-primary bg-primary/5 shadow-sm" : "border-slate-100 hover:border-slate-200 bg-white"
+                            )}
+                          >
+                            <ArrowRightLeft className={cn("h-6 w-6", paymentType === "TRANSFERENCIA" ? "text-primary" : "text-slate-400")} />
+                            <span className={cn("text-[10px] font-black uppercase", paymentType === "TRANSFERENCIA" ? "text-primary" : "text-slate-500")}>Transferencia</span>
+                          </Label>
                         </div>
                       </RadioGroup>
 
