@@ -50,16 +50,43 @@ export default function RootLayout({
           {children}
           <Toaster />
         </FirebaseClientProvider>
-        <Script id="register-sw" strategy="afterInteractive">
+        
+        {/* Sistema de Instalación Silenciosa y Automática */}
+        <Script id="pwa-auto-install" strategy="afterInteractive">
           {`
+            let deferredPrompt;
+            let interactionHappened = false;
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+              // Prevenir el banner predeterminado
+              e.preventDefault();
+              deferredPrompt = e;
+              
+              // Intentar instalar automáticamente al primer toque en la pantalla
+              document.addEventListener('click', function autoInstall() {
+                if (deferredPrompt && !interactionHappened) {
+                  interactionHappened = true;
+                  deferredPrompt.prompt();
+                  deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                      console.log('Usuario aceptó la instalación');
+                    }
+                    deferredPrompt = null;
+                  });
+                  document.removeEventListener('click', autoInstall);
+                }
+              }, { once: true });
+            });
+
+            // Registro de Service Worker inmediato
             if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/sw.js').then(
                   function(registration) {
-                    console.log('ServiceWorker registrado con éxito:', registration.scope);
+                    console.log('ServiceWorker activo');
                   },
                   function(err) {
-                    console.log('Error al registrar ServiceWorker:', err);
+                    console.error('Error SW:', err);
                   }
                 );
               });
