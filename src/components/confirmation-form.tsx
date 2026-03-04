@@ -223,6 +223,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }, [totalCost, isPublic])
 
+  const formatNumberWithDots = (val: number | string) => {
+    if (val === null || val === undefined || val === '') return '';
+    const num = typeof val === 'string' ? val.replace(/\D/g, '') : val.toString();
+    if (!num) return '';
+    return Number(num).toLocaleString('es-PY');
+  };
+
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 10);
     if (digits.length <= 4) return digits;
@@ -236,7 +243,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   };
 
   const handleAmountChange = (val: string) => {
-    const num = Number(val);
+    const cleanVal = val.replace(/\D/g, '');
+    if (cleanVal === '') {
+      setCustomPaymentAmount(0);
+      return;
+    }
+    const num = Number(cleanVal);
     if (num > totalCost) {
       setCustomPaymentAmount(totalCost);
       toast({
@@ -1124,10 +1136,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <div className="relative">
                       <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <input 
-                        type="number" 
-                        value={customPaymentAmount} 
+                        type="text" 
+                        value={formatNumberWithDots(customPaymentAmount)} 
                         onChange={(e) => handleAmountChange(e.target.value)}
-                        max={totalCost}
                         className={cn(
                           "flex h-14 w-full rounded-2xl border bg-white px-3 py-2 pl-10 text-lg font-black text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                           customPaymentAmount > totalCost ? "border-red-500 ring-2 ring-red-100" : "border-primary/20"
