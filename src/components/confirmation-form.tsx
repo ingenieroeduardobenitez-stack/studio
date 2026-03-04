@@ -1095,40 +1095,48 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   </div>
 
                   <div className="flex flex-col items-center justify-center space-y-4">
-                    <FormField control={form.control} name="paymentProofUrl" render={({ field }) => (
-                      <FormItem className="w-full">
-                        <FormLabel className="text-center block font-bold text-slate-700">Adjuntar Comprobante (Foto)</FormLabel>
-                        <FormControl>
-                          <div 
-                            className={cn(
-                              "border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden",
-                              (proofPreview || field.value) ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
-                            )}
-                          >
-                            {(proofPreview || field.value) ? (
-                              <div className="w-full h-full relative group">
-                                <img src={proofPreview || field.value} alt="Comprobante de Pago" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                  <Button type="button" variant="secondary" className="rounded-xl h-10 gap-2 font-bold" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> RECAPTURAR</Button>
-                                  <Button type="button" variant="destructive" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setProofPreview(null); setValue("paymentProofUrl", ""); }}><X className="h-4 w-4" /></Button>
+                    {isPublic && (
+                      <FormField control={form.control} name="paymentProofUrl" render={({ field }) => (
+                        <FormItem className="w-full">
+                          <FormLabel className="text-center block font-bold text-slate-700">Adjuntar Comprobante (Foto)</FormLabel>
+                          <FormControl>
+                            <div 
+                              className={cn(
+                                "border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden",
+                                (proofPreview || field.value) ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
+                              )}
+                            >
+                              {(proofPreview || field.value) ? (
+                                <div className="w-full h-full relative group">
+                                  <img src={proofPreview || field.value} alt="Comprobante de Pago" className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                    <Button type="button" variant="secondary" className="rounded-xl h-10 gap-2 font-bold" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> RECAPTURAR</Button>
+                                    <Button type="button" variant="destructive" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setProofPreview(null); setValue("paymentProofUrl", ""); }}><X className="h-4 w-4" /></Button>
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center text-center p-4">
-                                <ImageIcon className="h-10 w-10 text-slate-300 mb-2" />
-                                <span className="text-xs text-slate-400 font-medium mb-4">Opcional: Adjunta el comprobante si ya pagaste</span>
-                                <div className="flex gap-2">
-                                  <Button type="button" className="h-10 rounded-xl font-bold gap-2" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> CÁMARA</Button>
-                                  <Button type="button" variant="outline" className="h-10 rounded-xl font-bold gap-2" onClick={() => proofInputRef.current?.click()}><ImageIcon className="h-4 w-4" /> ARCHIVO</Button>
+                              ) : (
+                                <div className="flex flex-col items-center text-center p-4">
+                                  <ImageIcon className="h-10 w-10 text-slate-300 mb-2" />
+                                  <span className="text-xs text-slate-400 font-medium mb-4">Opcional: Adjunta el comprobante si ya pagaste</span>
+                                  <div className="flex gap-2">
+                                    <Button type="button" className="h-10 rounded-xl font-bold gap-2" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> CÁMARA</Button>
+                                    <Button type="button" variant="outline" className="h-10 rounded-xl font-bold gap-2" onClick={() => proofInputRef.current?.click()}><ImageIcon className="h-4 w-4" /> ARCHIVO</Button>
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        </FormControl>
-                        <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                              )}
+                            </div>
+                          </FormControl>
+                          <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    )}
+                    {!isPublic && (
+                      <div className="p-6 bg-white border border-dashed rounded-3xl text-center w-full">
+                        <Info className="h-8 w-8 text-primary/40 mx-auto mb-2" />
+                        <p className="text-xs text-slate-500 font-medium">Usa el selector del pie de página para confirmar la recepción del dinero.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1187,6 +1195,44 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                           <span className={cn("text-[10px] font-black uppercase", paymentType === "TRANSFERENCIA" ? "text-primary" : "text-slate-500")}>Transferencia</span>
                         </div>
                       </RadioGroup>
+
+                      {/* DESPLIEGUE DINÁMICO DE COMPROBANTE */}
+                      {paymentType === "TRANSFERENCIA" && (
+                        <div className="mt-4 animate-in zoom-in-95 fade-in slide-in-from-top-2 duration-300">
+                          <FormField control={form.control} name="paymentProofUrl" render={({ field }) => (
+                            <FormItem className="w-full">
+                              <FormLabel className="text-center block font-bold text-slate-700 text-[10px] uppercase tracking-widest">Adjuntar Comprobante (Foto)</FormLabel>
+                              <FormControl>
+                                <div 
+                                  className={cn(
+                                    "border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden bg-slate-50/50",
+                                    (proofPreview || field.value) ? "border-green-500 bg-green-50" : "border-slate-200 hover:border-primary"
+                                  )}
+                                >
+                                  {(proofPreview || field.value) ? (
+                                    <div className="w-full h-full relative group">
+                                      <img src={proofPreview || field.value} alt="Comprobante" className="w-full h-full object-cover" />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                        <Button type="button" size="sm" variant="secondary" className="rounded-lg font-bold" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-3 w-3 mr-1" /> RECAPTURAR</Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center text-center p-2" onClick={() => startCamera("PAYMENT_PROOF")}>
+                                      <ImageIcon className="h-6 w-6 text-slate-300 mb-1" />
+                                      <p className="text-[9px] text-slate-400 font-bold uppercase">Adjuntar Foto de Transferencia</p>
+                                      <div className="flex gap-2 mt-2">
+                                        <Button type="button" size="sm" variant="outline" className="h-7 text-[8px] rounded-lg" onClick={(e) => { e.stopPropagation(); startCamera("PAYMENT_PROOF"); }}>CÁMARA</Button>
+                                        <Button type="button" size="sm" variant="outline" className="h-7 text-[8px] rounded-lg" onClick={(e) => { e.stopPropagation(); proofInputRef.current?.click(); }}>ARCHIVO</Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </FormControl>
+                              <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
+                            </FormItem>
+                          )} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
