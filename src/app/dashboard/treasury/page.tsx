@@ -172,13 +172,18 @@ export default function TreasuryPage() {
     try {
       await runTransaction(db, async (transaction) => {
         const treasurySnap = await transaction.get(treasuryRef);
-        if (!treasurySnap.exists()) throw "Settings not found";
+        const regSnap = await transaction.get(regRef);
         
-        const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
+        if (!regSnap.exists()) throw "Registro no encontrado";
+        const regData = regSnap.data();
+        
+        const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
         
-        const newPaid = (selectedReg.amountPaid || 0) + paymentAmount;
-        const status = newPaid >= (selectedReg.registrationCost || 0) ? "PAGADO" : "PARCIAL";
+        const currentPaid = regData.amountPaid || 0;
+        const newPaid = currentPaid + paymentAmount;
+        const regCost = regData.registrationCost || (regData.catechesisYear === "ADULTOS" ? 50000 : 35000);
+        const status = newPaid >= regCost ? "PAGADO" : "PARCIAL";
         
         transaction.update(regRef, { 
           amountPaid: newPaid, 
@@ -189,7 +194,11 @@ export default function TreasuryPage() {
           receiptNumber: formattedReceipt
         });
 
-        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+        if (!treasurySnap.exists()) {
+          transaction.set(treasuryRef, { nextReceiptNumber: currentNext + 1 }, { merge: true });
+        } else {
+          transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+        }
 
         const logRef = doc(collection(db, "audit_logs"));
         transaction.set(logRef, {
@@ -197,26 +206,23 @@ export default function TreasuryPage() {
           userName: catechistName,
           action: "Confirmación de Pago (Tesorería)",
           module: "tesoreria",
-          details: `Cobro confirmado de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          details: `Cobro confirmado de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${regData.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
         });
+
+        // Actualizar estado local para el recibo
+        const updatedReg = { ...regData, id: regSnap.id, receiptNumber: formattedReceipt, amountPaid: newPaid, validatedBy: catechistName };
+        setSelectedReg(updatedReg);
       });
       
       toast({ title: "Pago confirmado exitosamente" })
-      const updatedReg = { ...selectedReg };
-      const assignedNum = costs?.nextReceiptNumber || 1;
-      updatedReg.receiptNumber = `001-001-${String(assignedNum).padStart(7, '0')}`;
-      updatedReg.amountPaid = (selectedReg.amountPaid || 0) + paymentAmount;
-      updatedReg.validatedBy = catechistName;
-      setSelectedReg(updatedReg);
-      
       setIsPaymentDialogOpen(false)
       setIsReceiptOpen(true)
-    } catch (error) {
-      console.error(error)
-      toast({ variant: "destructive", title: "Error al procesar pago" })
+    } catch (error: any) {
+      console.error("Error al procesar pago:", error)
+      toast({ variant: "destructive", title: "Error al procesar pago", description: error.message || "Inténtelo de nuevo." })
     } finally {
-      setIsSubmitting(false)
+      setIsSubmittingPayment(false)
     }
   }
 

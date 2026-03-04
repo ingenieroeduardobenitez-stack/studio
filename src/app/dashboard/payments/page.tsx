@@ -57,7 +57,6 @@ export default function PaymentsManagementPage() {
   const treasurySettingsRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   const { data: treasurySettings } = useDoc(treasurySettingsRef)
 
-  // Obtenemos los grupos del catequista para la lógica de filtrado
   const myGroupsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return query(collection(db, "groups"), where("catequistaIds", "array-contains", user.uid))
@@ -65,7 +64,6 @@ export default function PaymentsManagementPage() {
 
   const { data: myGroups } = useCollection(myGroupsQuery)
 
-  // Obtenemos todos los confirmandos para filtrar en memoria (más confiable para mostrar "sin grupo")
   const confirmandsQuery = useMemoFirebase(() => {
     if (!db) return null
     return collection(db, "confirmations")
@@ -80,33 +78,23 @@ export default function PaymentsManagementPage() {
     if (!allConfirmands) return []
     
     return allConfirmands.filter(r => {
-      // 1. Solo activos (no archivados ni bajas definitivas)
       if (r.isArchived) return false
-
-      // 2. Filtro de búsqueda por nombre o CI
       const matchesSearch = !searchTerm || 
         r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         r.ciNumber?.includes(searchTerm)
       
       if (!matchesSearch) return false
 
-      // 3. Lógica de visibilidad:
-      // Si eres administrador o tesorero, ves todo.
       if (profile?.role === "Administrador" || profile?.role === "Tesorero") return true
 
-      // Si eres catequista con grupos:
-      // Mostramos alumnos de tus grupos O alumnos que aún NO tienen grupo (nuevos inscriptos)
       if (myGroups && myGroups.length > 0) {
         const myGroupIds = myGroups.map(g => g.id)
         const isInMyGroup = r.groupId && myGroupIds.includes(r.groupId)
         const isUnassigned = !r.groupId || r.groupId === "none"
         return isInMyGroup || isUnassigned
       }
-
-      // Si eres catequista sin grupo asignado aún, ves a todos los generales (según tu pedido)
       return true
     }).sort((a, b) => {
-      // Prioridad a los que no tienen grupo (más nuevos)
       if (!a.groupId && b.groupId) return -1
       if (a.groupId && !b.groupId) return 1
       return 0
@@ -148,14 +136,20 @@ export default function PaymentsManagementPage() {
     try {
       await runTransaction(db, async (transaction) => {
         const treasurySnap = await transaction.get(treasurySettingsRef);
-        if (!treasurySnap.exists()) throw "Settings not found";
+        const regSnap = await transaction.get(regRef);
         
-        const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
+        if (!regSnap.exists()) throw "Registro no encontrado en la base de datos";
+        const regData = regSnap.data();
+        
+        const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
         
         if (selectedEventId === "inscripcion") {
-          const newPaid = (selectedReg.amountPaid || 0) + paymentAmount
-          const status = newPaid >= (selectedReg.registrationCost || 0) ? "PAGADO" : "PARCIAL"
+          const currentPaid = regData.amountPaid || 0;
+          const newPaid = currentPaid + paymentAmount;
+          const regCost = regData.registrationCost || (regData.catechesisYear === "ADULTOS" ? 50000 : 35000);
+          const status = newPaid >= regCost ? "PAGADO" : "PARCIAL";
+          
           transaction.update(regRef, { 
             amountPaid: newPaid, 
             paymentStatus: status, 
@@ -164,9 +158,9 @@ export default function PaymentsManagementPage() {
             validatedBy: catechistName,
             receiptNumber: formattedReceipt,
             lastPaymentMethod: paymentType
-          })
+          });
         } else {
-          const currentPaid = (selectedReg.eventPayments?.[selectedEventId]?.paid || 0) + paymentAmount
+          const currentPaid = (regData.eventPayments?.[selectedEventId]?.paid || 0) + paymentAmount;
           transaction.update(regRef, {
             [`eventPayments.${selectedEventId}`]: {
               name: selectedEvent?.category || "Evento",
@@ -177,10 +171,14 @@ export default function PaymentsManagementPage() {
             },
             validatedBy: catechistName,
             receiptNumber: formattedReceipt
-          })
+          });
         }
 
-        transaction.update(treasurySettingsRef, { nextReceiptNumber: currentNext + 1 });
+        if (!treasurySnap.exists()) {
+          transaction.set(treasurySettingsRef, { nextReceiptNumber: currentNext + 1 }, { merge: true });
+        } else {
+          transaction.update(treasurySettingsRef, { nextReceiptNumber: currentNext + 1 });
+        }
 
         const logRef = doc(collection(db, "audit_logs"));
         transaction.set(logRef, {
@@ -188,17 +186,21 @@ export default function PaymentsManagementPage() {
           userName: catechistName,
           action: `Cobro (${paymentType})`,
           module: "pagos",
-          details: `Cobro de ${paymentAmount.toLocaleString('es-PY')} Gs. por ${selectedEventId === 'inscripcion' ? 'Inscripción' : selectedEvent?.category} a ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          details: `Cobro de ${paymentAmount.toLocaleString('es-PY')} Gs. por ${selectedEventId === 'inscripcion' ? 'Inscripción' : selectedEvent?.category} a ${regData.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
-        })
+        });
+
+        // Actualizar el estado local para el recibo
+        const updatedReg = { ...regData, id: regSnap.id, receiptNumber: formattedReceipt, amountPaid: (regData.amountPaid || 0) + paymentAmount, validatedBy: catechistName };
+        setSelectedReg(updatedReg);
       });
       
       toast({ title: "Pago registrado con éxito" })
       setIsPaymentDialogOpen(false)
       setIsReceiptOpen(true)
-    } catch (error) {
-      console.error(error)
-      toast({ variant: "destructive", title: "Error al procesar" })
+    } catch (error: any) {
+      console.error("Error en transacción:", error)
+      toast({ variant: "destructive", title: "Error al procesar", description: error.message || "No se pudo completar la operación." })
     } finally {
       setIsSubmitting(false)
     }

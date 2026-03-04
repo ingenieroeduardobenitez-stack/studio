@@ -45,7 +45,8 @@ service cloud.firestore {
 
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isAdmin() || isTesorero();
+      // Se permite write a usuarios firmados para que catequistas puedan incrementar el nro de recibo
+      allow write: if isSignedIn();
     }
 
     match /audit_logs/{logId} {
