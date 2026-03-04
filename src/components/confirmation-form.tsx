@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -27,7 +28,9 @@ import {
   Download,
   QrCode,
   ShieldCheck,
-  Search
+  Search,
+  Banknote,
+  ArrowRightLeft
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,6 +62,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
@@ -119,6 +123,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
   
   const [customPaymentAmount, setCustomPaymentAmount] = useState<number>(0)
+  const [paymentType, setPaymentType] = useState<"EFECTIVO" | "TRANSFERENCIA">("EFECTIVO")
   
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -463,6 +468,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           validatedAt: immediatePayment ? serverTimestamp() : null,
           validatedBy: catechistName,
           receiptNumber: assignedReceiptNumber,
+          lastPaymentMethod: immediatePayment ? paymentType : null,
           createdAt: serverTimestamp()
         }
 
@@ -472,7 +478,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         transaction.set(logRef, {
           userId: user?.uid || "public",
           userName: catechistName,
-          action: immediatePayment ? "Inscripción con Pago" : "Envío de Inscripción",
+          action: immediatePayment ? `Inscripción con Pago (${paymentType})` : "Envío de Inscripción",
           module: "inscripcion",
           details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString('es-PY')} Gs. verificado (${assignedReceiptNumber}). ` : ''}Inscripción completa de ${values.fullName}`,
           timestamp: serverTimestamp()
@@ -1128,52 +1134,84 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </CardContent>
 
-            <CardFooter className="bg-slate-50 p-10 border-t flex flex-col md:flex-row items-center justify-end gap-6">
+            <CardFooter className="bg-slate-50 p-10 border-t flex flex-col items-center justify-end gap-8">
+              {!isPublic && (
+                <div className="w-full space-y-6 animate-in slide-in-from-bottom-2 duration-500">
+                  <div className="flex flex-col md:flex-row items-center justify-center gap-8 bg-white p-8 rounded-[2.5rem] border shadow-sm">
+                    <div className="flex flex-col gap-2 min-w-[220px]">
+                      <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Monto Recibido (Gs.)</Label>
+                      <div className="relative">
+                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <input 
+                          type="text" 
+                          value={formatNumberWithDots(customPaymentAmount)} 
+                          onChange={(e) => handleAmountChange(e.target.value)}
+                          className={cn(
+                            "flex h-14 w-full rounded-2xl border bg-slate-50 px-3 py-2 pl-10 text-xl font-black text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                            customPaymentAmount > totalCost ? "border-red-500 ring-2 ring-red-100" : "border-primary/20"
+                          )}
+                        />
+                      </div>
+                      {customPaymentAmount >= totalCost && (
+                        <p className="text-[9px] text-green-600 font-bold text-center uppercase tracking-tighter flex items-center justify-center gap-1">
+                          <CheckCircle2 className="h-2.5 w-2.5" /> Arancel cubierto al 100%
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="h-16 w-px bg-slate-100 hidden md:block" />
+
+                    <div className="flex flex-col gap-3 flex-1 max-w-md">
+                      <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Discriminación de Pago</Label>
+                      <RadioGroup value={paymentType} onValueChange={(v: any) => setPaymentType(v)} className="grid grid-cols-2 gap-4">
+                        <div 
+                          className={cn(
+                            "flex flex-col items-center justify-center p-4 border-2 rounded-2xl cursor-pointer transition-all gap-2",
+                            paymentType === "EFECTIVO" ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200 bg-white"
+                          )}
+                          onClick={() => setPaymentType("EFECTIVO")}
+                        >
+                          <RadioGroupItem value="EFECTIVO" id="type-cash" className="sr-only" />
+                          <Banknote className={cn("h-6 w-6", paymentType === "EFECTIVO" ? "text-primary" : "text-slate-400")} />
+                          <span className={cn("text-[10px] font-black uppercase", paymentType === "EFECTIVO" ? "text-primary" : "text-slate-500")}>Efectivo</span>
+                        </div>
+                        <div 
+                          className={cn(
+                            "flex flex-col items-center justify-center p-4 border-2 rounded-2xl cursor-pointer transition-all gap-2",
+                            paymentType === "TRANSFERENCIA" ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200 bg-white"
+                          )}
+                          onClick={() => setPaymentType("TRANSFERENCIA")}
+                        >
+                          <RadioGroupItem value="TRANSFERENCIA" id="type-bank" className="sr-only" />
+                          <ArrowRightLeft className={cn("h-6 w-6", paymentType === "TRANSFERENCIA" ? "text-primary" : "text-slate-400")} />
+                          <span className={cn("text-[10px] font-black uppercase", paymentType === "TRANSFERENCIA" ? "text-primary" : "text-slate-500")}>Transferencia</span>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
                 {!isPublic && (
-                  <div className="flex flex-col gap-2 min-w-[180px]">
-                    <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Monto Recibido (Gs.)</Label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <input 
-                        type="text" 
-                        value={formatNumberWithDots(customPaymentAmount)} 
-                        onChange={(e) => handleAmountChange(e.target.value)}
-                        className={cn(
-                          "flex h-14 w-full rounded-2xl border bg-white px-3 py-2 pl-10 text-lg font-black text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                          customPaymentAmount > totalCost ? "border-red-500 ring-2 ring-red-100" : "border-primary/20"
-                        )}
-                      />
-                    </div>
-                    {customPaymentAmount >= totalCost && (
-                      <p className="text-[9px] text-green-600 font-bold text-center uppercase tracking-tighter flex items-center justify-center gap-1">
-                        <CheckCircle2 className="h-2 w-2" /> Arancel cubierto al 100%
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                  {!isPublic && (
-                    <Button 
-                      type="button" 
-                      variant="outline"
-                      disabled={loading || loadingWithPayment} 
-                      className="h-14 border-green-600 text-green-700 hover:bg-green-50 rounded-2xl px-8 font-bold gap-2 transition-all active:scale-95 shadow-sm"
-                      onClick={form.handleSubmit((v) => handleRegistration(v, true, customPaymentAmount))}
-                    >
-                      {loadingWithPayment ? <Loader2 className="animate-spin h-5 w-5" /> : <><CheckCircle2 className="h-5 w-5" /> Confirmar Pago y Registrar</>}
-                    </Button>
-                  )}
-                  
                   <Button 
-                    type="submit" 
+                    type="button" 
+                    variant="outline"
                     disabled={loading || loadingWithPayment} 
-                    className="h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl px-12 font-bold shadow-xl transition-all active:scale-95"
+                    className="h-16 border-green-600 text-green-700 hover:bg-green-50 rounded-2xl px-10 font-bold gap-3 transition-all active:scale-95 shadow-xl group"
+                    onClick={form.handleSubmit((v) => handleRegistration(v, true, customPaymentAmount))}
                   >
-                    {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <span>Completar Inscripción</span>}
+                    {loadingWithPayment ? <Loader2 className="animate-spin h-6 w-6" /> : <><CheckCircle2 className="h-6 w-6 group-hover:scale-110 transition-transform" /> Confirmar Pago y Registrar</>}
                   </Button>
-                </div>
+                )}
+                
+                <Button 
+                  type="submit" 
+                  disabled={loading || loadingWithPayment} 
+                  className="h-16 bg-primary hover:bg-primary/90 text-white rounded-2xl px-12 font-bold shadow-2xl transition-all active:scale-95"
+                >
+                  {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <span>Completar Inscripción</span>}
+                </Button>
               </div>
             </CardFooter>
           </form>
