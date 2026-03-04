@@ -979,8 +979,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                                 <>
                                   <img src={baptismPreview} alt="Certificado" className="w-full h-full object-cover" />
                                   <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    <Button type="button" size="icon" variant="secondary" className="rounded-full h-8 w-8" onClick={() => startCamera("BAPTISM_CERT")}><Camera className="h-4 w-4" /></Button>
-                                    <Button type="button" size="icon" variant="secondary" className="rounded-full h-8 w-8" onClick={() => baptismInputRef.current?.click()}><ImageIcon className="h-4 w-4" /></Button>
+                                    <button type="button" onClick={() => startCamera("BAPTISM_CERT")} className="h-8 w-8 bg-white/20 rounded-full flex items-center justify-center text-white"><Camera className="h-4 w-4" /></button>
+                                    <button type="button" onClick={() => baptismInputRef.current?.click()} className="h-8 w-8 bg-white/20 rounded-full flex items-center justify-center text-white"><ImageIcon className="h-4 w-4" /></button>
                                   </div>
                                 </>
                               ) : (
