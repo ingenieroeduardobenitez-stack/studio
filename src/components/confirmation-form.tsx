@@ -821,7 +821,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <h3 className="font-headline font-bold text-lg text-slate-800">Familia y Tutores</h3>
                 </div>
 
-                <div className="grid gap-8 md:grid-cols-3">
+                <div className="grid gap-6 grid-cols-1">
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información de la Madre</p>
                     <FormField control={form.control} name="motherName" render={({ field }) => (
@@ -830,7 +830,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormControl>
                           <Input 
                             {...field} 
-                            className="h-10 bg-white uppercase" 
+                            className="h-12 bg-white uppercase" 
                             onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                           />
                         </FormControl>
@@ -842,7 +842,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormControl>
                           <Input 
                             {...field} 
-                            className="h-10 bg-white" 
+                            className="h-12 bg-white" 
                             placeholder="09XX-XXX-XXX"
                             inputMode="numeric"
                             type="tel"
@@ -861,7 +861,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormControl>
                           <Input 
                             {...field} 
-                            className="h-10 bg-white uppercase" 
+                            className="h-12 bg-white uppercase" 
                             onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                           />
                         </FormControl>
@@ -873,7 +873,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormControl>
                           <Input 
                             {...field} 
-                            className="h-10 bg-white" 
+                            className="h-12 bg-white" 
                             placeholder="09XX-XXX-XXX"
                             inputMode="numeric"
                             type="tel"
@@ -892,7 +892,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormControl>
                           <Input 
                             {...field} 
-                            className="h-10 bg-white uppercase" 
+                            className="h-12 bg-white uppercase" 
                             placeholder="OPCIONAL" 
                             onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                           />
@@ -905,7 +905,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormControl>
                           <Input 
                             {...field} 
-                            className="h-10 bg-white" 
+                            className="h-12 bg-white" 
                             placeholder="09XX-XXX-XXX"
                             inputMode="numeric"
                             type="tel"
@@ -982,9 +982,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                                 (baptismPreview || field.value) ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
                               )}
                             >
-                              {baptismPreview ? (
+                              {(baptismPreview || field.value) ? (
                                 <div className="w-full h-full relative group">
-                                  <img src={baptismPreview} alt="Certificado" className="w-full h-full object-cover" />
+                                  <img src={baptismPreview || field.value} alt="Certificado" className="w-full h-full object-cover" />
                                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                     <button type="button" onClick={() => startCamera("BAPTISM_CERT")} className="h-8 w-8 bg-white/40 rounded-full flex items-center justify-center text-white hover:bg-white/60"><Camera className="h-4 w-4" /></button>
                                     <button type="button" onClick={() => baptismInputRef.current?.click()} className="h-8 w-8 bg-white/40 rounded-full flex items-center justify-center text-white hover:bg-white/60"><ImageIcon className="h-4 w-4" /></button>
@@ -1087,9 +1087,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                               (proofPreview || field.value) ? "border-green-500 bg-green-50" : "border-slate-300 bg-white hover:border-primary"
                             )}
                           >
-                            {proofPreview ? (
+                            {(proofPreview || field.value) ? (
                               <div className="w-full h-full relative group">
-                                <img src={proofPreview} alt="Comprobante de Pago" className="w-full h-full object-cover" />
+                                <img src={proofPreview || field.value} alt="Comprobante de Pago" className="w-full h-full object-cover" />
                                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                   <Button type="button" variant="secondary" className="rounded-xl h-10 gap-2 font-bold" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> RECAPTURAR</Button>
                                   <Button type="button" variant="destructive" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setProofPreview(null); setValue("paymentProofUrl", ""); }}><X className="h-4 w-4" /></Button>
