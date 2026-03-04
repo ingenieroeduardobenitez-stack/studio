@@ -1,5 +1,5 @@
 
-// Service Worker mínimo para cumplir con los requisitos de instalación de PWA
+// Service Worker básico para habilitar la instalación PWA
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -9,6 +9,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // No hacemos nada especial aquí, pero el evento debe existir
-  return;
+  // Estrategia de red primero para asegurar datos actualizados
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
+    })
+  );
 });

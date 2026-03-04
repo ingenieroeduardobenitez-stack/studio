@@ -25,22 +25,22 @@ export function PwaInstallPrompt() {
     const ios = /iphone|ipad|ipod/.test(userAgent)
     setIsIOS(ios)
 
-    // Escuchar el evento de instalación en Android/Chrome/Computadora
+    // Escuchar el evento de instalación
     const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      // Mostrar el prompt después de un momento de interacción
-      setTimeout(() => setShowPrompt(true), 2500)
+      // Mostrar el prompt después de un momento
+      setTimeout(() => setShowPrompt(true), 3000)
     }
 
     window.addEventListener("beforeinstallprompt", handler)
 
-    // Para iOS o computadoras donde el evento no se dispara rápido
+    // Para casos donde el evento no se dispara (ej. iOS o ya instalada en cache)
     const timer = setTimeout(() => {
       if (!isStandalone) {
         setShowPrompt(true)
       }
-    }, 5000)
+    }, 6000)
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler)
@@ -50,8 +50,7 @@ export function PwaInstallPrompt() {
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) {
-      // Si no hay prompt diferido (ej. escritorio Safari/Firefox), mostramos ayuda
-      alert("Para instalar esta aplicación, busca el botón de instalación en la barra de direcciones o usa el menú de tu navegador.")
+      alert("Para instalar en este navegador, usa el menú de opciones (tres puntos o flecha) y selecciona 'Instalar aplicación' o 'Agregar a pantalla de inicio'.")
       return
     }
     deferredPrompt.prompt()
@@ -66,7 +65,7 @@ export function PwaInstallPrompt() {
 
   return (
     <div className="fixed bottom-6 left-4 right-4 z-[100] animate-in slide-in-from-bottom-10 duration-500 md:left-auto md:right-6 md:w-96">
-      <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-visible relative">
+      <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-visible relative border-t-4 border-t-primary">
         <button 
           onClick={() => setShowPrompt(false)}
           className="absolute -top-2 -right-2 h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 shadow-md hover:bg-slate-200 transition-colors z-10"
@@ -75,36 +74,48 @@ export function PwaInstallPrompt() {
         </button>
         
         <div className="p-5 flex items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-white border-2 border-primary/10 shadow-sm flex items-center justify-center p-1.5 shrink-0 overflow-hidden relative">
-            <Image src="/icon.png" alt="Logo App" fill className="object-contain p-1" />
+          <div className="h-16 w-16 rounded-2xl bg-white border-2 border-slate-100 shadow-sm flex items-center justify-center p-1 shrink-0 overflow-hidden relative">
+            {/* Fallback para el logo si el archivo no existe aún */}
+            <Image 
+              src="/icon.png" 
+              alt="Logo Santuario" 
+              width={64}
+              height={64}
+              className="object-contain"
+              onError={(e) => {
+                // Si icon.png falla, intenta cargar logo.png
+                const target = e.target as HTMLImageElement;
+                target.src = "/logo.png";
+              }}
+            />
           </div>
           <div className="flex-1 space-y-0.5">
-            <p className="text-sm font-black text-slate-900 leading-tight uppercase">Instalar Aplicación</p>
-            <p className="text-[10px] text-slate-500 leading-tight font-medium uppercase tracking-tight">Acceso directo desde tu pantalla</p>
+            <p className="text-sm font-black text-slate-900 leading-tight uppercase tracking-tight">Instalar Aplicación</p>
+            <p className="text-[10px] text-slate-500 leading-tight font-bold uppercase tracking-widest">Acceso directo desde tu pantalla</p>
           </div>
         </div>
 
         <div className="px-5 pb-5 pt-0">
           {isIOS ? (
-            <div className="bg-slate-50 p-3 rounded-2xl space-y-2 border border-slate-100">
-              <p className="text-[10px] font-bold text-primary flex items-center gap-2 uppercase tracking-tighter">
-                <Info className="h-3 w-3" /> Instrucciones para iPhone
+            <div className="bg-slate-50 p-4 rounded-2xl space-y-3 border border-slate-100">
+              <p className="text-[10px] font-black text-primary flex items-center gap-2 uppercase tracking-widest">
+                <Info className="h-3 w-3" /> Pasos para iPhone
               </p>
-              <div className="flex items-center gap-2 text-[11px] text-slate-600 font-medium">
-                <span>1. Toca compartir</span>
-                <Share className="h-3.5 w-3.5 text-blue-500" />
+              <div className="flex items-center gap-3 text-xs text-slate-600 font-bold">
+                <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center shadow-sm text-[10px]">1</div>
+                <span className="flex items-center gap-2">Toca compartir <Share className="h-4 w-4 text-blue-500" /></span>
               </div>
-              <div className="flex items-center gap-2 text-[11px] text-slate-600 font-medium">
-                <span>2. Selecciona "Agregar a inicio"</span>
-                <PlusSquare className="h-3.5 w-3.5 text-slate-700" />
+              <div className="flex items-center gap-3 text-xs text-slate-600 font-bold">
+                <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center shadow-sm text-[10px]">2</div>
+                <span className="flex items-center gap-2">"Agregar a inicio" <PlusSquare className="h-4 w-4 text-slate-700" /></span>
               </div>
             </div>
           ) : (
             <Button 
               onClick={handleInstallClick}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl shadow-lg gap-2 active:scale-95 transition-all"
+              className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl shadow-xl gap-3 active:scale-95 transition-all text-sm uppercase tracking-widest"
             >
-              <Download className="h-4 w-4" /> INSTALAR EN DISPOSITIVO
+              <Download className="h-5 w-5" /> INSTALAR AHORA
             </Button>
           )}
         </div>

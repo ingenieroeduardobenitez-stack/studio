@@ -17,11 +17,9 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'Santuario Nacional NSPS - Sistema de Gestión',
   description: 'Sistema de Gestión de Sacramentos - Santuario Nacional Nuestra Señora del Perpetuo Socorro',
+  manifest: '/manifest.json',
   icons: {
-    icon: [
-      { url: '/icon.png', sizes: 'any' },
-      { url: '/icon.png', type: 'image/png', sizes: '32x32' },
-    ],
+    icon: '/icon.png',
     shortcut: '/icon.png',
     apple: '/icon.png',
   },
@@ -57,10 +55,10 @@ export default function RootLayout({
               window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/sw.js').then(
                   function(registration) {
-                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    console.log('ServiceWorker registrado con éxito:', registration.scope);
                   },
                   function(err) {
-                    console.log('ServiceWorker registration failed: ', err);
+                    console.log('Error al registrar ServiceWorker:', err);
                   }
                 );
               });
