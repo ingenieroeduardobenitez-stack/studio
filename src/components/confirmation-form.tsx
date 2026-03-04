@@ -25,7 +25,8 @@ import {
   Share2,
   AlertTriangle,
   Download,
-  QrCode
+  QrCode,
+  ShieldCheck
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -398,11 +399,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const handleRegistration = async (values: FormValues, immediatePayment = false, amount = 0) => {
     if (!db || !treasuryRef) return;
     
-    if (isPublic && !values.paymentProofUrl) {
-      form.setError("paymentProofUrl", { type: "manual", message: "Debe adjuntar la foto de su comprobante" });
-      return;
-    }
-
+    // El comprobante ya no es obligatorio en modo público
     if (immediatePayment) setLoadingWithPayment(true);
     else setLoading(true);
 
@@ -467,7 +464,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           timestamp: serverTimestamp()
         });
 
-        setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() });
+        // Preparamos los datos para la vista de éxito
+        setSubmittedData({ 
+          ...registrationData, 
+          id: regId, 
+          createdAt: new Date().toISOString() 
+        });
       });
       
       toast({ 
@@ -475,7 +477,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         description: "Los datos han sido guardados correctamente." 
       });
       
-      setIsSubmittedSuccessfully(true)
+      // Delay corto para asegurar que el estado se actualice antes de cambiar la vista
+      setTimeout(() => setIsSubmittedSuccessfully(true), 100);
     } catch (error: any) {
       console.error("Error en registro:", error);
       const permissionError = new FirestorePermissionError({
@@ -537,7 +540,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }
 
-  if (isSubmittedSuccessfully) {
+  if (isSubmittedSuccessfully && submittedData) {
     const amount = submittedData?.amountPaid || 0;
     const pending = (submittedData?.registrationCost || 0) - amount;
     const receiptNum = submittedData.receiptNumber || `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
@@ -719,7 +722,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <UserPlus className="h-5 w-5 text-primary" />
-                  <h3 className="font-headline font-bold text-lg text-slate-800">Datos del Alumno</h3>
+                  <h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3>
                 </div>
                 
                 <div className="grid gap-6 md:grid-cols-3">
@@ -772,7 +775,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <h3 className="font-headline font-bold text-lg text-slate-800">Padres y Tutores</h3>
                 </div>
 
-                <div className="grid gap-8 md:grid-cols-2">
+                <div className="grid gap-8 md:grid-cols-3">
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información de la Madre</p>
                     <FormField control={form.control} name="motherName" render={({ field }) => (
@@ -811,6 +814,28 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                             inputMode="numeric"
                             type="tel"
                             onChange={(e) => handlePhoneChange(e, "fatherPhone")}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border border-dashed border-primary/30">
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2 flex items-center gap-2"><ShieldCheck className="h-3 w-3" /> Información del Tutor</p>
+                    <FormField control={form.control} name="tutorName" render={({ field }) => (
+                      <FormItem><FormLabel>Nombre del Tutor</FormLabel><FormControl><Input {...field} className="h-10 bg-white" placeholder="Opcional" /></FormControl></FormItem>
+                    )} />
+                    <FormField control={form.control} name="tutorPhone" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Celular del Tutor</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            className="h-10 bg-white" 
+                            placeholder="09XX-XXX-XXX"
+                            inputMode="numeric"
+                            type="tel"
+                            onChange={(e) => handlePhoneChange(e, "tutorPhone")}
                           />
                         </FormControl>
                       </FormItem>
@@ -988,7 +1013,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                             ) : (
                               <div className="flex flex-col items-center text-center p-4">
                                 <ImageIcon className="h-10 w-10 text-slate-300 mb-2" />
-                                <span className="text-xs text-slate-400 font-medium mb-4">Adjunta el comprobante SIPAP/Transferencia</span>
+                                <span className="text-xs text-slate-400 font-medium mb-4">Opcional: Adjunta el comprobante si ya pagaste</span>
                                 <div className="flex gap-2">
                                   <Button type="button" className="h-10 rounded-xl font-bold gap-2" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> CÁMARA</Button>
                                   <Button type="button" variant="outline" className="h-10 rounded-xl font-bold gap-2" onClick={() => proofInputRef.current?.click()}><ImageIcon className="h-4 w-4" /> ARCHIVO</Button>
