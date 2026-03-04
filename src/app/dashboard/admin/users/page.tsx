@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Camera, User, Check, X, Circle } from "lucide-react"
+import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Camera, User, Check, X, Circle, Download } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
@@ -25,6 +25,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { cn } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
 import { es } from "date-fns/locale"
+import * as XLSX from 'xlsx'
 
 const AVAILABLE_MODULES = [
   { id: "inicio", name: "Inicio", category: "Operaciones" },
@@ -114,6 +115,26 @@ export default function UsersAdminPage() {
       return 0
     })
   }, [users, searchTerm])
+
+  const handleExportUsers = () => {
+    if (!users || users.length === 0) return;
+    
+    const exportData = users.map(u => ({
+      Nombre: u.firstName || "",
+      Apellido: u.lastName || "",
+      Email: u.email || "",
+      Rol: u.role || "Catequista",
+      Estado: isOnline(u) ? "En Línea" : "Desconectado",
+      Ultima_Vez: u.lastSeen?.toDate ? u.lastSeen.toDate().toLocaleString() : "Sin registro"
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Usuarios");
+    XLSX.writeFile(workbook, `Lista-Usuarios-Santuario-NSPS-${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    toast({ title: "Lista exportada", description: "El archivo Excel se ha descargado correctamente." });
+  }
 
   const handleTogglePermission = (moduleId: string, permId: string) => {
     const permissionKey = `${moduleId}:${permId}`
@@ -312,80 +333,86 @@ export default function UsersAdminPage() {
           <p className="text-muted-foreground">Administra los accesos y permisos detallados por módulo.</p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-          setIsCreateDialogOpen(open)
-          if (!open) { setTempPhoto(null); setSelectedModules([]); }
-        }}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
-              <UserPlus className="mr-2 h-4 w-4" /> Nuevo Catequista
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl">
-            <form onSubmit={handleCreateUser} className="flex flex-col h-full overflow-hidden">
-              <DialogHeader className="p-6 bg-primary text-white shrink-0">
-                <DialogTitle>Añadir Catequista</DialogTitle>
-                <DialogDescription className="text-white/80">
-                  Ingresa los datos y define los permisos específicos.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div className="flex justify-center">
-                  <div className="relative group cursor-pointer" onClick={() => createPhotoRef.current?.click()}>
-                    <Avatar className="h-20 w-20 border-2 border-slate-100">
-                      <AvatarImage src={tempPhoto || undefined} />
-                      <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-10 w-10" /></AvatarFallback>
-                    </Avatar>
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Camera className="h-5 w-5 text-white" />
+        <div className="flex gap-2">
+          <Button variant="outline" className="border-slate-200 hover:bg-slate-50 font-bold rounded-xl gap-2 h-11" onClick={handleExportUsers}>
+            <Download className="h-4 w-4" /> Exportar a Excel
+          </Button>
+          
+          <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+            setIsCreateDialogOpen(open)
+            if (!open) { setTempPhoto(null); setSelectedModules([]); }
+          }}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 h-11 rounded-xl font-bold shadow-lg px-6">
+                <UserPlus className="mr-2 h-4 w-4" /> Nuevo Catequista
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl">
+              <form onSubmit={handleCreateUser} className="flex flex-col h-full overflow-hidden">
+                <DialogHeader className="p-6 bg-primary text-white shrink-0">
+                  <DialogTitle>Añadir Catequista</DialogTitle>
+                  <DialogDescription className="text-white/80">
+                    Ingresa los datos y define los permisos específicos.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  <div className="flex justify-center">
+                    <div className="relative group cursor-pointer" onClick={() => createPhotoRef.current?.click()}>
+                      <Avatar className="h-20 w-20 border-2 border-slate-100">
+                        <AvatarImage src={tempPhoto || undefined} />
+                        <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-10 w-10" /></AvatarFallback>
+                      </Avatar>
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Camera className="h-5 w-5 text-white" />
+                      </div>
+                      <input type="file" ref={createPhotoRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                     </div>
-                    <input type="file" ref={createPhotoRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">Nombre</Label>
+                      <Input id="firstName" name="firstName" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Apellido</Label>
+                      <Input id="lastName" name="lastName" required />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Correo Electrónico</Label>
+                      <Input id="email" name="email" type="email" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Rol Principal</Label>
+                      <Select name="role" defaultValue="Catequista">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Catequista">Catequista</SelectItem>
+                          <SelectItem value="Coordinador">Coordinador</SelectItem>
+                          <SelectItem value="Tesorero">Tesorero</SelectItem>
+                          <SelectItem value="Administrador">Administrador</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">Nombre</Label>
-                    <Input id="firstName" name="firstName" required />
+                    <Label htmlFor="password">Contraseña Inicial</Label>
+                    <Input id="password" name="password" type="password" required />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Apellido</Label>
-                    <Input id="lastName" name="lastName" required />
-                  </div>
+                  {renderPermissionsGrid()}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Correo Electrónico</Label>
-                    <Input id="email" name="email" type="email" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Rol Principal</Label>
-                    <Select name="role" defaultValue="Catequista">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Catequista">Catequista</SelectItem>
-                        <SelectItem value="Coordinador">Coordinador</SelectItem>
-                        <SelectItem value="Tesorero">Tesorero</SelectItem>
-                        <SelectItem value="Administrador">Administrador</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña Inicial</Label>
-                  <Input id="password" name="password" type="password" required />
-                </div>
-                {renderPermissionsGrid()}
-              </div>
-              
-              <DialogFooter className="p-6 bg-slate-50 border-t mt-auto shrink-0">
-                <Button type="submit" disabled={isSubmitting} className="w-full h-12 rounded-xl text-base font-bold shadow-lg">
-                  {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : "Registrar Catequista"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                
+                <DialogFooter className="p-6 bg-slate-50 border-t mt-auto shrink-0">
+                  <Button type="submit" disabled={isSubmitting} className="w-full h-12 rounded-xl text-base font-bold shadow-lg">
+                    {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : "Registrar Catequista"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card className="border-border/50 shadow-sm overflow-hidden bg-white">
