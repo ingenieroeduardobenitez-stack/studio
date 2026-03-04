@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { Bell, Cake, FileWarning, AlertTriangle, ChevronRight, Loader2, Info, UserCheck } from "lucide-react"
+import { Bell, Cake, FileWarning, AlertTriangle, ChevronRight, Loader2, Info, UserCheck, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -46,19 +46,14 @@ export function NotificationBell() {
     const items: any[] = []
     const today = new Date()
     
-    // Función para obtener mes-día (MM-DD) para comparaciones de cumpleaños
     const getMonthDay = (date: Date) => `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-    
     const todayMD = getMonthDay(today)
     
-    // Fecha de dentro de 3 días
     const inThreeDays = new Date()
     inThreeDays.setDate(today.getDate() + 3)
     const inThreeDaysMD = getMonthDay(inThreeDays)
 
-    // 1. Notificaciones de Confirmandos
     registrations.filter(r => !r.isArchived).forEach(reg => {
-      // Alertas de inasistencia
       if ((reg.absenceCount || 0) >= 3) {
         items.push({
           id: `abs-${reg.id}`,
@@ -72,7 +67,6 @@ export function NotificationBell() {
         })
       }
 
-      // Documentación pendiente
       const needsCert = reg.hasBaptism && !reg.baptismCertificatePhotoUrl
       if (needsCert || !reg.hasBaptism || !reg.hasFirstCommunion) {
         items.push({
@@ -87,7 +81,6 @@ export function NotificationBell() {
         })
       }
 
-      // CUMPLEAÑOS CONFIRMANDOS (Hoy o en 3 días)
       if (reg.birthDate) {
         if (reg.birthDate.includes(`-${todayMD}`)) {
           items.push({
@@ -105,7 +98,7 @@ export function NotificationBell() {
             id: `bday-pre-${reg.id}`,
             type: "BIRTHDAY_PRE",
             title: "Cumpleaños en 3 días",
-            description: `${reg.fullName} (Confirmando) cumple años el ${inThreeDays.toLocaleDateString('es-PY', { day: 'numeric', month: 'long' })}.`,
+            description: `${reg.fullName} cumple años el ${inThreeDays.toLocaleDateString('es-PY', { day: 'numeric', month: 'long' })}.`,
             href: "/dashboard/registrations",
             icon: Clock,
             color: "text-blue-500",
@@ -115,7 +108,6 @@ export function NotificationBell() {
       }
     })
 
-    // 2. Notificaciones de Catequistas (Cumpleaños)
     catechists?.forEach(cat => {
       if (cat.birthDate) {
         if (cat.birthDate.includes(`-${todayMD}`)) {
@@ -146,6 +138,29 @@ export function NotificationBell() {
 
     return items
   }, [registrations, catechists])
+
+  // LÓGICA DE NOTIFICACIONES DE SISTEMA (GLOBOS EN EL CELULAR)
+  useEffect(() => {
+    if (notifications.length > 0 && Notification.permission === 'granted') {
+      notifications.forEach(n => {
+        // Solo enviamos notificación de sistema para cosas "Críticas" como Cumpleaños Hoy o Alertas Rojas
+        if (n.type === 'BIRTHDAY' || n.type === 'BIRTHDAY_CAT' || n.type === 'ABSENCE') {
+          const storageKey = `sys-notif-${n.id}-${new Date().toISOString().split('T')[0]}`;
+          const alreadyNotified = localStorage.getItem(storageKey);
+          
+          if (!alreadyNotified) {
+            new Notification(n.title, {
+              body: n.description,
+              icon: '/icon.png',
+              badge: '/icon.png',
+              tag: n.id
+            });
+            localStorage.setItem(storageKey, 'true');
+          }
+        }
+      });
+    }
+  }, [notifications]);
 
   if (!mounted || !user) return null
 

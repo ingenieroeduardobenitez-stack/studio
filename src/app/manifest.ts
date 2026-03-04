@@ -5,9 +5,10 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Santuario Nacional Nuestra Señora del Perpetuo Socorro',
     short_name: 'Santuario NSPS',
-    description: 'Sistema de Gestión de Sacramentos - Santuario Nacional Nuestra Señora del Perpetuo Socorro',
-    start_url: '/',
+    description: 'Gestión Institucional de Catequesis y Sacramentos',
+    start_url: '/dashboard',
     display: 'standalone',
+    orientation: 'portrait',
     background_color: '#ffffff',
     theme_color: '#2e44a3',
     icons: [
@@ -15,26 +16,26 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/icon.png',
         sizes: '192x192',
         type: 'image/png',
-        purpose: 'any',
+        purpose: 'any'
       },
       {
         src: '/icon.png',
         sizes: '192x192',
         type: 'image/png',
-        purpose: 'maskable',
+        purpose: 'maskable'
       },
       {
         src: '/icon.png',
         sizes: '512x512',
         type: 'image/png',
-        purpose: 'any',
+        purpose: 'any'
       },
       {
         src: '/icon.png',
         sizes: '512x512',
         type: 'image/png',
-        purpose: 'maskable',
-      },
-    ],
+        purpose: 'maskable'
+      }
+    ]
   }
 }
