@@ -484,19 +484,33 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           timestamp: serverTimestamp()
         });
 
-        setSubmittedData({ 
-          ...registrationData, 
-          id: regId, 
-          createdAt: new Date().toISOString() 
+        if (immediatePayment) {
+          setSubmittedData({ 
+            ...registrationData, 
+            id: regId, 
+            createdAt: new Date().toISOString() 
+          });
+        }
+      });
+      
+      if (immediatePayment) {
+        toast({ 
+          title: "Inscripción y Pago registrados", 
+          description: "Los datos han sido guardados correctamente." 
         });
-      });
-      
-      toast({ 
-        title: immediatePayment ? "Inscripción y Pago registrados" : "Inscripción registrada", 
-        description: "Los datos han sido guardados correctamente." 
-      });
-      
-      setTimeout(() => setIsSubmittedSuccessfully(true), 100);
+        setTimeout(() => setIsSubmittedSuccessfully(true), 100);
+      } else {
+        // Inscripción sin pago inmediato
+        form.reset();
+        setPhotoPreview(null);
+        setProofPreview(null);
+        setBaptismPreview(null);
+        toast({ 
+          title: "¡Éxito!", 
+          description: "Se ha inscripto satisfactoriamente.",
+        });
+        // Permanecemos en el módulo (isSubmittedSuccessfully sigue en false)
+      }
     } catch (error: any) {
       console.error("Error en registro:", error);
       const permissionError = new FirestorePermissionError({
