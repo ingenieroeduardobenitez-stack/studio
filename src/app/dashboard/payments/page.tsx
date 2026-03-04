@@ -57,41 +57,61 @@ export default function PaymentsManagementPage() {
   const treasurySettingsRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   const { data: treasurySettings } = useDoc(treasurySettingsRef)
 
+  // Obtenemos los grupos del catequista para la lógica de filtrado
   const myGroupsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return query(collection(db, "groups"), where("catequistaIds", "array-contains", user.uid))
   }, [db, user?.uid])
 
-  const { data: myGroups, loading: loadingGroups } = useCollection(myGroupsQuery)
+  const { data: myGroups } = useCollection(myGroupsQuery)
 
+  // Obtenemos todos los confirmandos para filtrar en memoria (más confiable para mostrar "sin grupo")
   const confirmandsQuery = useMemoFirebase(() => {
-    if (!db || loadingGroups) return null
-    
-    if (myGroups && myGroups.length > 0) {
-      const groupIds = myGroups.map(g => g.id)
-      return query(
-        collection(db, "confirmations"), 
-        where("groupId", "in", groupIds.slice(0, 10))
-      )
-    } else {
-      return collection(db, "confirmations")
-    }
-  }, [db, myGroups, loadingGroups])
+    if (!db) return null
+    return collection(db, "confirmations")
+  }, [db])
 
-  const { data: confirmands, loading: loadingRegs } = useCollection(confirmandsQuery)
+  const { data: allConfirmands, loading: loadingRegs } = useCollection(confirmandsQuery)
 
   const eventsQuery = useMemoFirebase(() => db ? collection(db, "events") : null, [db])
   const { data: events } = useCollection(eventsQuery)
 
   const filteredConfirmands = useMemo(() => {
-    if (!confirmands) return []
-    return confirmands.filter(r => 
-      !r.isArchived && (
+    if (!allConfirmands) return []
+    
+    return allConfirmands.filter(r => {
+      // 1. Solo activos (no archivados ni bajas definitivas)
+      if (r.isArchived) return false
+
+      // 2. Filtro de búsqueda por nombre o CI
+      const matchesSearch = !searchTerm || 
         r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         r.ciNumber?.includes(searchTerm)
-      )
-    )
-  }, [confirmands, searchTerm])
+      
+      if (!matchesSearch) return false
+
+      // 3. Lógica de visibilidad:
+      // Si eres administrador o tesorero, ves todo.
+      if (profile?.role === "Administrador" || profile?.role === "Tesorero") return true
+
+      // Si eres catequista con grupos:
+      // Mostramos alumnos de tus grupos O alumnos que aún NO tienen grupo (nuevos inscriptos)
+      if (myGroups && myGroups.length > 0) {
+        const myGroupIds = myGroups.map(g => g.id)
+        const isInMyGroup = r.groupId && myGroupIds.includes(r.groupId)
+        const isUnassigned = !r.groupId || r.groupId === "none"
+        return isInMyGroup || isUnassigned
+      }
+
+      // Si eres catequista sin grupo asignado aún, ves a todos los generales (según tu pedido)
+      return true
+    }).sort((a, b) => {
+      // Prioridad a los que no tienen grupo (más nuevos)
+      if (!a.groupId && b.groupId) return -1
+      if (a.groupId && !b.groupId) return 1
+      return 0
+    })
+  }, [allConfirmands, searchTerm, myGroups, profile])
 
   const handleOpenPayment = (reg: any) => {
     setSelectedReg(reg)
@@ -166,9 +186,9 @@ export default function PaymentsManagementPage() {
         transaction.set(logRef, {
           userId: user?.uid || "unknown",
           userName: catechistName,
-          action: "Cobro de Inscripción",
+          action: `Cobro (${paymentType})`,
           module: "pagos",
-          details: `Cobro de ${paymentAmount.toLocaleString('es-PY')} Gs. (${paymentType}) a ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          details: `Cobro de ${paymentAmount.toLocaleString('es-PY')} Gs. por ${selectedEventId === 'inscripcion' ? 'Inscripción' : selectedEvent?.category} a ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
         })
       });
@@ -206,7 +226,7 @@ export default function PaymentsManagementPage() {
 
       <Card className="border-none shadow-xl overflow-hidden bg-white">
         <CardContent className="p-0">
-          {loadingRegs || loadingGroups ? (
+          {loadingRegs ? (
             <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : (
             <Table>
@@ -230,14 +250,18 @@ export default function PaymentsManagementPage() {
                   filteredConfirmands.map((reg) => {
                     const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
                     const isSettled = pending <= 0 && reg.paymentStatus === "PAGADO"
+                    const noGroup = !reg.groupId || reg.groupId === "none"
                     
                     return (
-                      <TableRow key={reg.id} className="hover:bg-slate-50/30 h-20 transition-colors">
+                      <TableRow key={reg.id} className={cn("hover:bg-slate-50/30 h-20 transition-colors", noGroup && "bg-blue-50/20")}>
                         <TableCell className="pl-8">
                           <div className="flex items-center gap-4">
                             <Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={reg.photoUrl} className="object-cover"/><AvatarFallback><User className="h-5 w-5" /></AvatarFallback></Avatar>
                             <div className="flex flex-col">
-                              <span className="font-bold text-sm text-slate-900 uppercase tracking-tight leading-none mb-1">{reg.fullName}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>
+                                {noGroup && <Badge variant="outline" className="text-[7px] h-4 bg-blue-50 text-blue-600 border-blue-100 font-black">NUEVO</Badge>}
+                              </div>
                               <span className="text-[10px] text-slate-500 font-bold">{reg.ciNumber}</span>
                             </div>
                           </div>
@@ -316,7 +340,7 @@ export default function PaymentsManagementPage() {
             </div>
 
             <div className="space-y-4">
-              <Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Método de Pago</Label>
+              <Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Método de Pago (Discriminación)</Label>
               <RadioGroup value={paymentType} onValueChange={(v: any) => setPaymentType(v)} className="grid grid-cols-2 gap-4">
                 <div 
                   className={cn(
