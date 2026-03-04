@@ -1108,7 +1108,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                             {(proofPreview || field.value) ? (
                               <div className="w-full h-full relative group">
                                 <img src={proofPreview || field.value} alt="Comprobante de Pago" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                   <Button type="button" variant="secondary" className="rounded-xl h-10 gap-2 font-bold" onClick={() => startCamera("PAYMENT_PROOF")}><Camera className="h-4 w-4" /> RECAPTURAR</Button>
                                   <Button type="button" variant="destructive" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setProofPreview(null); setValue("paymentProofUrl", ""); }}><X className="h-4 w-4" /></Button>
                                 </div>
