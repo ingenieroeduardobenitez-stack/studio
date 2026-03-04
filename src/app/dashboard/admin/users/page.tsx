@@ -33,15 +33,17 @@ const AVAILABLE_MODULES = [
   { id: "confirmandos", name: "Confirmandos", category: "Operaciones" },
   { id: "inscripcion", name: "Nueva Inscripción", category: "Operaciones" },
   { id: "cambio_grupo", name: "Cambio de Grupo", category: "Operaciones" },
-  { id: "pagos_alumnos", name: "Gestión de Pagos", category: "Operaciones" },
+  { id: "pagos_alumnos", name: "Control de Cobros de Inscripción", category: "Operaciones" },
   { id: "pagos_catequistas", name: "Cobro a Catequistas", category: "Operaciones" },
   { id: "tesoreria", name: "Gestión Tesorería", category: "Tesorería" },
   { id: "estadisticas", name: "Estadísticas Financieras", category: "Tesorería" },
+  { id: "qr_lab", name: "Laboratorio QR", category: "Tesorería" },
   { id: "perfil", name: "Mi Perfil", category: "Configuración" },
   { id: "usuarios", name: "Gestión de Usuarios", category: "Administración" },
   { id: "grupos", name: "Gestión de Grupos", category: "Administración" },
-  { id: "archivar", name: "Cierre de Año / Archivo", category: "Administración" },
   { id: "conexiones", name: "Monitoreo de Conexiones", category: "Administración" },
+  { id: "auditoria", name: "Auditoría de Acciones", category: "Administración" },
+  { id: "archivar", name: "Cierre de Año / Archivo", category: "Administración" },
 ]
 
 const PERMISSIONS = [
