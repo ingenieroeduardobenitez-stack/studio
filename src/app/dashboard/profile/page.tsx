@@ -1,12 +1,13 @@
+
 "use client"
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Camera, Shield, Mail, User, MapPin, Loader2, Save, Key, Lock, FlipHorizontal, X } from "lucide-react"
+import { Camera, Shield, Mail, User, MapPin, Loader2, Save, Key, Lock, FlipHorizontal, X, Cake } from "lucide-react"
 import { useUser, useDoc, useFirestore, useAuth, useMemoFirebase } from "@/firebase"
 import { doc, updateDoc } from "firebase/firestore"
 import { updatePassword } from "firebase/auth"
@@ -44,7 +45,8 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    photoUrl: ""
+    photoUrl: "",
+    birthDate: ""
   })
 
   const [newPassword, setNewPassword] = useState("")
@@ -54,7 +56,8 @@ export default function ProfilePage() {
       setFormData({
         firstName: profile.firstName || "",
         lastName: profile.lastName || "",
-        photoUrl: profile.photoUrl || ""
+        photoUrl: profile.photoUrl || "",
+        birthDate: profile.birthDate || ""
       })
     }
   }, [profile])
@@ -96,7 +99,7 @@ export default function ProfilePage() {
       const constraints = {
         video: {
           ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" },
-          aspectRatio: { ideal: 0.75 } // Vertical 3:4
+          aspectRatio: { ideal: 0.75 } 
         }
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -260,7 +263,7 @@ export default function ProfilePage() {
                     onClick={() => fileInputRef.current?.click()}
                     title="Subir Archivo"
                   >
-                    <User className="h-4 w-4" />
+                    <ImageIcon className="h-4 w-4" />
                   </button>
                 </div>
                 
@@ -301,7 +304,7 @@ export default function ProfilePage() {
           <Card className="border-none shadow-xl bg-white">
             <CardHeader>
               <CardTitle className="font-headline text-xl">Detalles Personales</CardTitle>
-              <CardDescription>Actualiza tu nombre y apellido en el sistema.</CardDescription>
+              <CardDescription>Actualiza tu nombre y fecha de nacimiento para el sistema de alertas.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-6 md:grid-cols-2">
@@ -322,6 +325,21 @@ export default function ProfilePage() {
                     onChange={(e) => setFormData({...formData, lastName: e.target.value})}
                     className="h-12 rounded-xl bg-slate-50 border-slate-200"
                   />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="birthDate" className="font-bold text-slate-700 flex items-center gap-2">
+                    <Cake className="h-4 w-4 text-primary" /> Fecha de Nacimiento
+                  </Label>
+                  <Input 
+                    id="birthDate" 
+                    type="date"
+                    value={formData.birthDate} 
+                    onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
+                    className="h-12 rounded-xl bg-slate-50 border-slate-200"
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">
+                    * El sistema notificará a tus compañeros de equipo 3 días antes de tu cumpleaños.
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -358,9 +376,6 @@ export default function ProfilePage() {
                     className="h-12 rounded-xl bg-slate-50 border-slate-200 pl-10"
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground italic">
-                  Se recomienda usar una combinación de letras, números y símbolos.
-                </p>
               </div>
             </CardContent>
             <CardFooter className="justify-end bg-slate-50/50 p-6 rounded-b-xl border-t">

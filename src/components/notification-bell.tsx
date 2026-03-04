@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { Bell, Cake, FileWarning, AlertTriangle, ChevronRight, Loader2, Info } from "lucide-react"
+import { Bell, Cake, FileWarning, AlertTriangle, ChevronRight, Loader2, Info, UserCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -33,15 +33,32 @@ export function NotificationBell() {
     return collection(db, "confirmations")
   }, [db, user])
 
-  const { data: registrations, loading } = useCollection(regsQuery)
+  const usersQuery = useMemoFirebase(() => {
+    if (!db || !user) return null
+    return collection(db, "users")
+  }, [db, user])
+
+  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
+  const { data: catechists, loading: loadingUsers } = useCollection(usersQuery)
 
   const notifications = useMemo(() => {
     if (!registrations) return []
     const items: any[] = []
     const today = new Date()
-    const todayMonthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    
+    // Función para obtener mes-día (MM-DD) para comparaciones de cumpleaños
+    const getMonthDay = (date: Date) => `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    
+    const todayMD = getMonthDay(today)
+    
+    // Fecha de dentro de 3 días
+    const inThreeDays = new Date()
+    inThreeDays.setDate(today.getDate() + 3)
+    const inThreeDaysMD = getMonthDay(inThreeDays)
 
+    // 1. Notificaciones de Confirmandos
     registrations.filter(r => !r.isArchived).forEach(reg => {
+      // Alertas de inasistencia
       if ((reg.absenceCount || 0) >= 3) {
         items.push({
           id: `abs-${reg.id}`,
@@ -55,21 +72,14 @@ export function NotificationBell() {
         })
       }
 
+      // Documentación pendiente
       const needsCert = reg.hasBaptism && !reg.baptismCertificatePhotoUrl
-      const noBaptism = !reg.hasBaptism
-      const noCommunion = !reg.hasFirstCommunion
-
-      if (needsCert || noBaptism || noCommunion) {
-        let reason = ""
-        if (noBaptism) reason = "Sin Bautismo"
-        else if (noCommunion) reason = "Sin Comunión"
-        else reason = "Falta Certificado"
-
+      if (needsCert || !reg.hasBaptism || !reg.hasFirstCommunion) {
         items.push({
           id: `doc-${reg.id}`,
           type: "DOCUMENT",
-          title: "Documentación Pendiente",
-          description: `${reg.fullName}: ${reason}`,
+          title: "Documento Pendiente",
+          description: `${reg.fullName} tiene sacramentos/fotos pendientes.`,
           href: "/dashboard/documentation",
           icon: FileWarning,
           color: "text-orange-500",
@@ -77,22 +87,65 @@ export function NotificationBell() {
         })
       }
 
-      if (reg.birthDate && reg.birthDate.includes(`-${todayMonthDay}`)) {
-        items.push({
-          id: `bday-${reg.id}`,
-          type: "BIRTHDAY",
-          title: "¡Hoy es su Cumpleaños!",
-          description: `Felicita a ${reg.fullName} en su día.`,
-          href: "/dashboard/registrations",
-          icon: Cake,
-          color: "text-pink-500",
-          bgColor: "bg-pink-50"
-        })
+      // CUMPLEAÑOS CONFIRMANDOS (Hoy o en 3 días)
+      if (reg.birthDate) {
+        if (reg.birthDate.includes(`-${todayMD}`)) {
+          items.push({
+            id: `bday-now-${reg.id}`,
+            type: "BIRTHDAY",
+            title: "¡Cumpleaños Hoy!",
+            description: `Felicita a ${reg.fullName} (Confirmando) en su día.`,
+            href: "/dashboard/registrations",
+            icon: Cake,
+            color: "text-pink-500",
+            bgColor: "bg-pink-50"
+          })
+        } else if (reg.birthDate.includes(`-${inThreeDaysMD}`)) {
+          items.push({
+            id: `bday-pre-${reg.id}`,
+            type: "BIRTHDAY_PRE",
+            title: "Cumpleaños en 3 días",
+            description: `${reg.fullName} (Confirmando) cumple años el ${inThreeDays.toLocaleDateString('es-PY', { day: 'numeric', month: 'long' })}.`,
+            href: "/dashboard/registrations",
+            icon: Clock,
+            color: "text-blue-500",
+            bgColor: "bg-blue-50"
+          })
+        }
+      }
+    })
+
+    // 2. Notificaciones de Catequistas (Cumpleaños)
+    catechists?.forEach(cat => {
+      if (cat.birthDate) {
+        if (cat.birthDate.includes(`-${todayMD}`)) {
+          items.push({
+            id: `cat-bday-now-${cat.id}`,
+            type: "BIRTHDAY_CAT",
+            title: "Cumpleaños de Colega",
+            description: `Hoy es el cumpleaños de ${cat.firstName} ${cat.lastName}.`,
+            href: "/dashboard/admin/users",
+            icon: UserCheck,
+            color: "text-purple-500",
+            bgColor: "bg-purple-50"
+          })
+        } else if (cat.birthDate.includes(`-${inThreeDaysMD}`)) {
+          items.push({
+            id: `cat-bday-pre-${cat.id}`,
+            type: "BIRTHDAY_CAT_PRE",
+            title: "Colega cumple en 3 días",
+            description: `${cat.firstName} cumple años este ${inThreeDays.toLocaleDateString('es-PY', { day: 'numeric', month: 'long' })}.`,
+            href: "/dashboard/admin/users",
+            icon: Clock,
+            color: "text-purple-400",
+            bgColor: "bg-purple-50/50"
+          })
+        }
       }
     })
 
     return items
-  }, [registrations])
+  }, [registrations, catechists])
 
   if (!mounted || !user) return null
 
@@ -114,7 +167,7 @@ export function NotificationBell() {
             <span className="font-bold text-slate-900">Notificaciones</span>
             <Badge variant="outline" className="bg-white text-[10px]">{notifications.length}</Badge>
           </div>
-          {loading && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
+          {(loadingRegs || loadingUsers) && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
         </DropdownMenuLabel>
         
         <ScrollArea className="h-[400px]">

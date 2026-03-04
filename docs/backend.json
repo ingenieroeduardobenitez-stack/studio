@@ -12,6 +12,7 @@
         "email": { "type": "string", "format": "email" },
         "role": { "type": "string", "enum": ["Catequista", "Coordinador", "Tesorero", "Administrador"] },
         "photoUrl": { "type": "string", "format": "uri" },
+        "birthDate": { "type": "string", "format": "date", "description": "Fecha de nacimiento del catequista" },
         "allowedModules": { "type": "array", "items": { "type": "string" } },
         "status": { "type": "string" },
         "lastSeen": { "type": "string", "format": "date-time" },
