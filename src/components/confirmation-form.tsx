@@ -369,9 +369,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.NOMBRE && data.APELLIDO) setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim());
-        if (data.NOM_MADRE) setValue("motherName", data.NOM_MADRE);
-        if (data.NOM_PADRE) setValue("fatherName", data.NOM_PADRE);
+        if (data.NOMBRE && data.APELLIDO) setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim().toUpperCase());
+        if (data.NOM_MADRE) setValue("motherName", data.NOM_MADRE.toUpperCase());
+        if (data.NOM_PADRE) setValue("fatherName", data.NOM_PADRE.toUpperCase());
         if (data.FECHA_NACI) setValue("birthDate", data.FECHA_NACI);
         toast({ title: "Datos encontrados", description: "Campos precargados con éxito." });
       } else {
@@ -767,7 +767,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </div>
 
                 <FormField control={form.control} name="fullName" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel className="font-bold">Nombre Completo</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        className="h-12 rounded-xl uppercase" 
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
 
                 <div className="grid gap-6 md:grid-cols-3">
@@ -808,7 +818,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información de la Madre</p>
                     <FormField control={form.control} name="motherName" render={({ field }) => (
-                      <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
+                      <FormItem>
+                        <FormLabel>Nombre Completo</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            className="h-10 bg-white uppercase" 
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          />
+                        </FormControl>
+                      </FormItem>
                     )} />
                     <FormField control={form.control} name="motherPhone" render={({ field }) => (
                       <FormItem>
@@ -830,7 +849,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información del Padre</p>
                     <FormField control={form.control} name="fatherName" render={({ field }) => (
-                      <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>
+                      <FormItem>
+                        <FormLabel>Nombre Completo</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            className="h-10 bg-white uppercase" 
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          />
+                        </FormControl>
+                      </FormItem>
                     )} />
                     <FormField control={form.control} name="fatherPhone" render={({ field }) => (
                       <FormItem>
@@ -852,7 +880,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border border-dashed border-primary/30">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2 flex items-center gap-2"><ShieldCheck className="h-3 w-3" /> Información del Tutor</p>
                     <FormField control={form.control} name="tutorName" render={({ field }) => (
-                      <FormItem><FormLabel>Nombre del Tutor</FormLabel><FormControl><Input {...field} className="h-10 bg-white" placeholder="Opcional" /></FormControl></FormItem>
+                      <FormItem>
+                        <FormLabel>Nombre del Tutor</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            className="h-10 bg-white uppercase" 
+                            placeholder="OPCIONAL" 
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          />
+                        </FormControl>
+                      </FormItem>
                     )} />
                     <FormField control={form.control} name="tutorPhone" render={({ field }) => (
                       <FormItem>
@@ -907,7 +945,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <div className="animate-in slide-in-from-right duration-300 space-y-4 p-6 border-2 border-dashed border-primary/20 rounded-3xl bg-primary/[0.02]">
                       <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Datos del Acta de Bautismo</p>
                       <FormField control={form.control} name="baptismParish" render={({ field }) => (
-                        <FormItem><FormLabel>Parroquia de Bautismo</FormLabel><FormControl><Input {...field} className="h-10 bg-white" placeholder="Santuario Nacional NSPS" /></FormControl></FormItem>
+                        <FormItem>
+                          <FormLabel>Parroquia de Bautismo</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              className="h-10 bg-white uppercase" 
+                              placeholder="SANTUARIO NACIONAL NSPS" 
+                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            />
+                          </FormControl>
+                        </FormItem>
                       )} />
                       <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="baptismBook" render={({ field }) => (
