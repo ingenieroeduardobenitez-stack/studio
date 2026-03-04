@@ -27,7 +27,8 @@ import {
   X,
   MessageCircle,
   FileText,
-  Church
+  Church,
+  Image as ImageIcon
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -283,9 +284,13 @@ export default function RegistrationsListPage() {
       const { jsPDF } = await import("jspdf");
 
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         backgroundColor: "#ffffff",
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-area-details");
+          if (el) el.style.transform = "none";
+        }
       });
       
       const imgData = canvas.toDataURL("image/png");
@@ -305,6 +310,38 @@ export default function RegistrationsListPage() {
     } catch (err) {
       console.error("PDF Error:", err);
       toast({ variant: "destructive", title: "Error al generar PDF" });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }
+
+  const handleDownloadImage = async () => {
+    const element = document.getElementById("receipt-area-details");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-area-details");
+          if (el) el.style.transform = "none";
+        }
+      });
+      
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `Recibo-Santuario-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.png`;
+      link.href = url;
+      link.click();
+      
+      toast({ title: "Imagen generada", description: "Se ha guardado en tu dispositivo para compartir." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al generar imagen" });
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -520,7 +557,7 @@ export default function RegistrationsListPage() {
             <div className="p-6 space-y-10 bg-slate-50">
               <div className="flex justify-center bg-white p-4 rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                 <div 
-                  className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-10 shadow-sm transform scale-[0.95] origin-top" 
+                  className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-10 shadow-sm" 
                   id="receipt-area-details"
                 >
                   <div className="grid grid-cols-3 gap-4 items-center mb-4">
@@ -662,6 +699,13 @@ export default function RegistrationsListPage() {
                   {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <><CheckCircle2 className="h-4 w-4" /> Validar Pago</>}
                 </Button>
               )}
+              <Button 
+                className="rounded-xl px-8 h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2 shadow-lg" 
+                onClick={handleDownloadImage}
+                disabled={isGeneratingPDF}
+              >
+                <ImageIcon className="h-4 w-4" /> Imagen
+              </Button>
               <Button 
                 className="rounded-xl px-8 h-12 bg-green-600 hover:bg-green-700 text-white font-bold gap-2 shadow-lg" 
                 onClick={handleShareReceipt}

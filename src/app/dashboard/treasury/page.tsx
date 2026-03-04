@@ -222,7 +222,7 @@ export default function TreasuryPage() {
       console.error("Error al procesar pago:", error)
       toast({ variant: "destructive", title: "Error al procesar pago", description: error.message || "Inténtelo de nuevo." })
     } finally {
-      setIsSubmittingPayment(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -243,9 +243,13 @@ export default function TreasuryPage() {
       const { jsPDF } = await import("jspdf");
 
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         backgroundColor: "#ffffff",
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-content-official");
+          if (el) el.style.transform = "none";
+        }
       });
       
       const imgData = canvas.toDataURL("image/png");
@@ -265,6 +269,38 @@ export default function TreasuryPage() {
     } catch (err) {
       console.error(err);
       toast({ variant: "destructive", title: "Error al generar PDF" });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }
+
+  const handleDownloadImage = async () => {
+    const element = document.getElementById("receipt-content-official");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-content-official");
+          if (el) el.style.transform = "none";
+        }
+      });
+      
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `Recibo-Tesorería-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.png`;
+      link.href = url;
+      link.click();
+      
+      toast({ title: "Imagen generada", description: "Se ha guardado para compartir por WhatsApp." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al generar imagen" });
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -694,16 +730,15 @@ export default function TreasuryPage() {
           <ScrollArea className="max-h-[85vh]">
             <div className="p-4 md:p-6 bg-white flex justify-center">
               <div 
-                className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-10 shadow-sm transform scale-[0.95] origin-top" 
+                className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-10 shadow-sm" 
                 id="receipt-content-official"
               >
                 <div className="grid grid-cols-3 gap-4 items-center mb-6">
                   <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
                     <img 
-                      src="/logo-recibo.png" 
+                      src="/logo.png" 
                       alt="Logo Santuario" 
                       className="max-h-24 object-contain" 
-                      onError={(e) => { e.currentTarget.src = "/logo.png" }}
                     />
                     <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right leading-tight">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
                   </div>
@@ -787,6 +822,14 @@ export default function TreasuryPage() {
 
           <DialogFooter className="p-4 bg-slate-100 border-t flex flex-row gap-2">
             <Button type="button" variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
+            <Button 
+              type="button" 
+              className="flex-1 gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white h-12 font-bold shadow-lg" 
+              onClick={handleDownloadImage}
+              disabled={isGeneratingPDF}
+            >
+              <ImageIcon className="h-4 w-4" /> IMAGEN
+            </Button>
             <Button type="button" className="flex-1 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white h-12 font-bold shadow-lg" onClick={handleShareReceipt}>
               <MessageCircle className="h-4 w-4" /> WHATSAPP
             </Button>

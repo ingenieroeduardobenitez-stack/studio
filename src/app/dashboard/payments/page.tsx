@@ -20,7 +20,10 @@ import {
   Info, 
   Copy,
   Banknote,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Image as ImageIcon,
+  Download,
+  MessageCircle
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -42,6 +45,7 @@ export default function PaymentsManagementPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
 
   const { user } = useUser()
   const { toast } = useToast()
@@ -190,7 +194,6 @@ export default function PaymentsManagementPage() {
           timestamp: serverTimestamp()
         });
 
-        // Actualizar el estado local para el recibo
         const updatedReg = { ...regData, id: regSnap.id, receiptNumber: formattedReceipt, amountPaid: (regData.amountPaid || 0) + paymentAmount, validatedBy: catechistName };
         setSelectedReg(updatedReg);
       });
@@ -204,6 +207,87 @@ export default function PaymentsManagementPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById("receipt-content-official");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-content-official");
+          if (el) el.style.transform = "none";
+        }
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Recibo-Santuario-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
+      
+      toast({ title: "PDF Descargado", description: "El comprobante se guardó correctamente." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al generar PDF" });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }
+
+  const handleDownloadImage = async () => {
+    const element = document.getElementById("receipt-content-official");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-content-official");
+          if (el) el.style.transform = "none";
+        }
+      });
+      
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `Recibo-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.png`;
+      link.href = url;
+      link.click();
+      
+      toast({ title: "Imagen guardada", description: "Ya puedes enviarla por WhatsApp desde tu galería." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al generar imagen" });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }
+
+  const handleShareWhatsApp = () => {
+    if (!selectedReg) return;
+    const amount = paymentAmount || 0;
+    const receiptNum = selectedReg.receiptNumber || "PENDIENTE";
+    const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NSPS*\n\n¡Hola *${selectedReg.fullName}*! Hemos registrado tu pago por inscripción.\n\n*Recibo N°:* ${receiptNum}\n*Monto:* ${amount.toLocaleString('es-PY')} Gs.\n\n_Tesorería de Catequesis_`);
+    window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank');
   }
 
   if (!mounted) return null
@@ -342,7 +426,7 @@ export default function PaymentsManagementPage() {
             </div>
 
             <div className="space-y-4">
-              <Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Método de Pago (Discriminación)</Label>
+              <Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Método de Pago</Label>
               <RadioGroup value={paymentType} onValueChange={(v: any) => setPaymentType(v)} className="grid grid-cols-2 gap-4">
                 <div 
                   className={cn(
@@ -398,7 +482,7 @@ export default function PaymentsManagementPage() {
           <DialogHeader className="sr-only"><DialogTitle>Recibo de Pago</DialogTitle></DialogHeader>
           <div className="p-6 bg-white flex justify-center overflow-y-auto max-h-[85vh]">
             <div 
-              className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-8 space-y-10 shadow-sm" 
+              className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-8 space-y-10" 
               id="receipt-content-official"
             >
               <div className="grid grid-cols-3 gap-4 items-center mb-6">
@@ -485,8 +569,25 @@ export default function PaymentsManagementPage() {
 
           <DialogFooter className="p-4 bg-slate-100 border-t flex flex-row gap-2">
             <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 gap-2 rounded-xl bg-slate-900 text-white h-12 font-bold shadow-lg" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> IMPRIMIR
+            <Button 
+              className="flex-1 gap-2 rounded-xl bg-blue-600 text-white h-12 font-bold shadow-lg" 
+              onClick={handleDownloadImage}
+              disabled={isGeneratingPDF}
+            >
+              <ImageIcon className="h-4 w-4" /> IMAGEN
+            </Button>
+            <Button 
+              className="flex-1 gap-2 rounded-xl bg-green-600 text-white h-12 font-bold shadow-lg" 
+              onClick={handleShareWhatsApp}
+            >
+              <MessageCircle className="h-4 w-4" /> WHATSAPP
+            </Button>
+            <Button 
+              className="flex-1 gap-2 rounded-xl bg-slate-900 text-white h-12 font-bold shadow-lg" 
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPDF}
+            >
+              {isGeneratingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} PDF
             </Button>
           </DialogFooter>
         </DialogContent>

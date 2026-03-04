@@ -561,10 +561,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const { jsPDF } = await import("jspdf");
 
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-area");
+          if (el) el.style.transform = "none";
+        }
       });
       
       const imgData = canvas.toDataURL("image/png");
@@ -584,6 +588,38 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     } catch (err) {
       console.error("PDF Error:", err);
       toast({ variant: "destructive", title: "Error al generar PDF" });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }
+
+  const handleDownloadImage = async () => {
+    const element = document.getElementById("receipt-area");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-area");
+          if (el) el.style.transform = "none";
+        }
+      });
+      
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `Recibo-Santuario-NSPS-${submittedData?.fullName?.replace(/\s+/g, '-')}.png`;
+      link.href = url;
+      link.click();
+      
+      toast({ title: "Imagen generada", description: "Se ha guardado en tu dispositivo para compartir." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al generar imagen" });
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -613,90 +649,92 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </div>
 
           <ScrollArea className="max-h-[75vh] md:max-h-none print:overflow-visible flex justify-center">
-            <div 
-              className="bg-white p-6 md:p-10 border-2 border-slate-900 text-slate-900 space-y-10 font-serif print:border-slate-900 print:p-12 m-2 w-full max-w-[700px] transform scale-[0.95] md:scale-100 origin-top" 
-              id="receipt-area"
-            >
-              <div className="grid grid-cols-3 gap-4 items-center mb-4">
-                <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
-                  <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
-                  <img 
-                    src="/logo.png" 
-                    alt="Santuario Nacional NSPS" 
-                    className="max-h-24 object-contain"
-                  />
-                </div>
-                <div className="flex flex-col gap-2 h-full justify-between">
-                  <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
-                    <p className="text-[10px] font-black uppercase">Gs.</p>
-                    <p className="text-xl font-black">{amount.toLocaleString('es-PY')}</p>
+            <div className="p-4 bg-white flex justify-center">
+              <div 
+                className="bg-white p-6 md:p-10 border-2 border-slate-900 text-slate-900 space-y-10 font-serif print:border-slate-900 print:p-12 w-full max-w-[700px]" 
+                id="receipt-area"
+              >
+                <div className="grid grid-cols-3 gap-4 items-center mb-4">
+                  <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
+                    <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
+                    <img 
+                      src="/logo.png" 
+                      alt="Santuario Nacional NSPS" 
+                      className="max-h-24 object-contain"
+                    />
                   </div>
-                  <div className="border-2 border-slate-900 p-2 text-center bg-white">
-                    <p className="text-[8px] font-bold uppercase">Recibo N°</p>
-                    <p className="text-xs font-black">{receiptNum}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-center border-b-2 border-slate-900 pb-2 mb-4">
-                <h1 className="text-3xl font-black italic tracking-tighter uppercase">RECIBO</h1>
-              </div>
-
-              <div className="space-y-10 text-sm md:text-base">
-                <div className="flex items-baseline gap-2 py-1">
-                  <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">Recibí(mos) de:</span>
-                  <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-2 leading-relaxed truncate">
-                    {submittedData?.fullName}
-                  </div>
-                </div>
-
-                <div className="flex items-baseline gap-2 py-1">
-                  <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">la cantidad de:</span>
-                  <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 italic leading-relaxed">
-                    {amount.toLocaleString('es-PY')} Guaraníes
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-baseline gap-2 py-1">
-                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">en concepto de:</span>
-                    <div className="flex-1 border-2 border-slate-900 px-4 py-2 font-bold text-xs bg-slate-50 uppercase leading-relaxed">
-                      Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}
+                  <div className="flex flex-col gap-2 h-full justify-between">
+                    <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
+                      <p className="text-[10px] font-black uppercase">Gs.</p>
+                      <p className="text-xl font-black">{amount.toLocaleString('es-PY')}</p>
+                    </div>
+                    <div className="border-2 border-slate-900 p-2 text-center bg-white">
+                      <p className="text-[8px] font-bold uppercase">Recibo N°</p>
+                      <p className="text-xs font-black">{receiptNum}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-baseline gap-2 py-1">
-                  <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">en concepto de:</span>
-                  <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 text-sm text-slate-700 font-medium italic leading-relaxed">
-                    Saldo Pendiente: {pending.toLocaleString('es-PY')} Gs.
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
-                <div className="flex flex-col justify-end space-y-3">
-                  <p className="text-sm italic font-medium">
-                    Asunción, {currentDateInfo.day} de {currentDateInfo.month} de {currentDateInfo.year}
-                  </p>
-                  <div className="flex flex-col items-start pt-4">
-                    <div className="w-48 border-t border-slate-900"></div>
-                    <p className="text-[8px] font-bold uppercase mt-1 tracking-widest">(Firma y aclaración)</p>
-                  </div>
+                <div className="text-center border-b-2 border-slate-900 pb-2 mb-4">
+                  <h1 className="text-3xl font-black italic tracking-tighter uppercase">RECIBO</h1>
                 </div>
 
-                <div className="flex flex-col items-center md:items-end gap-3">
-                  <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
-                    <QRCodeCanvas 
-                      value={`VERIFICADO-NSPS-${submittedData?.id}-${amount}-${receiptNum}`}
-                      size={80}
-                      level="H"
-                    />
+                <div className="space-y-10 text-sm md:text-base">
+                  <div className="flex items-baseline gap-2 py-1">
+                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">Recibí(mos) de:</span>
+                    <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-2 leading-relaxed truncate">
+                      {submittedData?.fullName}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
-                    <p className="text-xs font-bold text-slate-900 uppercase mt-1">{submittedData?.validatedBy || 'Secretaría del Santuario'}</p>
-                    <p className="text-[8px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p>
+
+                  <div className="flex items-baseline gap-2 py-1">
+                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">la cantidad de:</span>
+                    <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 italic leading-relaxed">
+                      {amount.toLocaleString('es-PY')} Guaraníes
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-baseline gap-2 py-1">
+                      <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">en concepto de:</span>
+                      <div className="flex-1 border-2 border-slate-900 px-4 py-2 font-bold text-xs bg-slate-50 uppercase leading-relaxed">
+                        Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-baseline gap-2 py-1">
+                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">en concepto de:</span>
+                    <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 text-sm text-slate-700 font-medium italic leading-relaxed">
+                      Saldo Pendiente: {pending.toLocaleString('es-PY')} Gs.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
+                  <div className="flex flex-col justify-end space-y-3">
+                    <p className="text-sm italic font-medium">
+                      Asunción, {currentDateInfo.day} de {currentDateInfo.month} de {currentDateInfo.year}
+                    </p>
+                    <div className="flex flex-col items-start pt-4">
+                      <div className="w-48 border-t border-slate-900"></div>
+                      <p className="text-[8px] font-bold uppercase mt-1 tracking-widest">(Firma y aclaración)</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center md:items-end gap-3">
+                    <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
+                      <QRCodeCanvas 
+                        value={`VERIFICADO-NSPS-${submittedData?.id}-${amount}-${receiptNum}`}
+                        size={80}
+                        level="H"
+                      />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
+                      <p className="text-xs font-bold text-slate-900 uppercase mt-1">{submittedData?.validatedBy || 'Secretaría del Santuario'}</p>
+                      <p className="text-[8px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -715,12 +753,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             </Button>
             <Button 
               type="button"
-              className="h-14 rounded-2xl font-black bg-green-600 hover:bg-green-700 text-white gap-3 shadow-xl active:scale-95 group" 
+              className="h-14 rounded-2xl font-black bg-blue-600 hover:bg-blue-700 text-white gap-3 shadow-xl active:scale-95 group" 
+              onClick={handleDownloadImage}
+              disabled={isGeneratingPDF}
+            >
+              <ImageIcon className="h-6 w-6 transition-transform group-hover:scale-110" /> IMAGEN (WHATSAPP)
+            </Button>
+            <Button 
+              type="button"
+              variant="outline"
+              className="h-14 rounded-2xl font-black bg-green-600 hover:bg-green-700 text-white border-none gap-3 shadow-xl active:scale-95 group" 
               onClick={handleShareReceipt}
             >
               <MessageCircle className="h-6 w-6 transition-transform group-hover:scale-110" /> WHATSAPP
             </Button>
-            <Button asChild variant="ghost" className="h-12 rounded-xl font-bold col-span-1 sm:col-span-2 text-slate-400 hover:text-primary">
+            <Button asChild variant="ghost" className="h-14 rounded-xl font-bold text-slate-400 hover:text-primary">
               <Link href={isPublic ? "/" : "/dashboard"}>Finalizar Gestión</Link>
             </Button>
           </div>
