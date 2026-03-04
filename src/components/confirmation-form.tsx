@@ -738,12 +738,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <FormField control={form.control} name="ciNumber" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="font-bold">N° de C.I.</FormLabel>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
+                      <div className="flex gap-2 items-center">
+                        <div className="relative w-full max-w-[250px]">
                           <FormControl>
                             <Input 
                               placeholder="Ej. 1234567" 
                               {...field} 
+                              maxLength={9}
                               className="h-12 rounded-xl" 
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
