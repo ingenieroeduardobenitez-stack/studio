@@ -248,16 +248,16 @@ export default function DashboardPage() {
       </div>
 
       <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl h-[90vh] max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
             <DialogTitle>Código QR de Inscripción</DialogTitle>
             <DialogDescription>Genera el cartel oficial para exhibir en el santuario.</DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="max-h-[70vh]">
-            <div className="p-6 md:p-10 bg-white flex justify-center">
+          <div className="flex-1 overflow-y-auto bg-white flex justify-center p-4">
+            <div className="w-full max-w-[400px] flex flex-col items-center">
               <div 
-                className="w-full max-w-[400px] bg-white flex flex-col items-center space-y-8 p-10 border-2 border-slate-100 rounded-3xl shadow-sm transform scale-[0.95] origin-top" 
+                className="w-full bg-white flex flex-col items-center space-y-8 p-10 border-2 border-slate-100 rounded-[2.5rem] shadow-sm transform origin-top scale-[0.9] sm:scale-100" 
                 id="qr-print-area"
               >
                 <div className="text-center space-y-3">
@@ -265,10 +265,10 @@ export default function DashboardPage() {
                     <div className="bg-primary/10 p-2 rounded-xl">
                       <Church className="h-6 w-6 text-primary" />
                     </div>
-                    <h2 className="font-headline font-bold text-sm uppercase tracking-tight text-slate-800 leading-tight px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</h2>
+                    <h2 className="font-headline font-bold text-xs uppercase tracking-tight text-slate-800 leading-tight px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</h2>
                   </div>
-                  <h3 className="text-4xl font-headline font-black text-slate-900 leading-none tracking-tighter">INSCRIBITE AQUÍ</h3>
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Ciclo de Catequesis 2026</p>
+                  <h3 className="text-4xl font-headline font-black text-slate-900 leading-none tracking-tighter uppercase">INSCRIBITE AQUÍ</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Ciclo de Catequesis 2026</p>
                 </div>
 
                 <div className="p-6 border-4 border-primary rounded-[3rem] bg-white shadow-xl">
@@ -281,17 +281,17 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="text-center space-y-6">
-                  <p className="text-xs font-bold text-slate-500 max-w-[250px] mx-auto italic leading-relaxed">
+                  <p className="text-[11px] font-bold text-slate-500 max-w-[250px] mx-auto italic leading-relaxed">
                     Escanea este código con la cámara de tu celular para completar el formulario digital.
                   </p>
                   <div className="flex flex-col items-center gap-3">
                     <div className="h-px w-20 bg-slate-200"></div>
-                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Secretaría de Catequesis</p>
+                    <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">Secretaría de Catequesis</p>
                   </div>
                 </div>
               </div>
             </div>
-          </ScrollArea>
+          </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t grid grid-cols-2 gap-3 shrink-0">
             <Button 
