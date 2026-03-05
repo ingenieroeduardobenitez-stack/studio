@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -25,7 +25,8 @@ import {
   Download,
   MessageCircle,
   X,
-  Camera
+  Camera,
+  FlipHorizontal
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -50,7 +51,17 @@ export default function PaymentsManagementPage() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
 
+  // Estados de Cámara
+  const [showCamera, setShowCamera] = useState(false)
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
+  const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
+
   const proofInputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
   const { user } = useUser()
   const { toast } = useToast()
   const db = useFirestore()
@@ -141,6 +152,77 @@ export default function PaymentsManagementPage() {
       const reader = new FileReader()
       reader.onloadend = () => setPaymentProofUrl(reader.result as string)
       reader.readAsDataURL(file)
+    }
+  }
+
+  // Funciones de Cámara
+  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node && currentStream) {
+      if (node.srcObject !== currentStream) {
+        node.srcObject = currentStream;
+        node.play().catch(err => console.error("Video play error:", err));
+      }
+    }
+    videoRef.current = node;
+  }, [currentStream]);
+
+  const startCamera = async (deviceId?: string) => {
+    try {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+
+      const constraints = {
+        video: {
+          ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "environment" },
+          aspectRatio: { ideal: 0.75 }
+        }
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      setCurrentStream(stream)
+      setHasCameraPermission(true)
+      
+      const availableDevices = await navigator.mediaDevices.enumerateDevices()
+      const videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
+      setDevices(videoDevices)
+      if (!selectedDeviceId && videoDevices.length > 0) {
+        setSelectedDeviceId(deviceId || videoDevices[0].deviceId)
+      }
+      setShowCamera(true)
+    } catch (error) {
+      console.error('Error accessing camera:', error)
+      setHasCameraPermission(false)
+      toast({
+        variant: 'destructive',
+        title: 'Acceso denegado',
+        description: 'Por favor, permite el acceso a la cámara.',
+      })
+    }
+  }
+
+  const stopCamera = () => {
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop())
+      setCurrentStream(null)
+    }
+    setShowCamera(false)
+  }
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        setPaymentProofUrl(dataUrl)
+        stopCamera()
+      }
     }
   }
 
@@ -488,15 +570,24 @@ export default function PaymentsManagementPage() {
                   "border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all",
                   paymentProofUrl ? "border-green-500 bg-green-50" : "border-slate-200 bg-slate-50 hover:bg-slate-100"
                 )}
-                onClick={() => proofInputRef.current?.click()}
               >
                 {paymentProofUrl ? (
-                  <img src={paymentProofUrl} className="w-full h-full object-cover" />
+                  <div className="w-full h-full relative group">
+                    <img src={paymentProofUrl} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button type="button" size="sm" variant="secondary" className="rounded-xl h-9 gap-2 font-bold" onClick={() => startCamera()}><Camera className="h-4 w-4" /> Recapturar</Button>
+                      <Button type="button" size="sm" variant="destructive" className="rounded-xl h-9 w-9 p-0" onClick={() => setPaymentProofUrl(null)}><X className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
                 ) : (
-                  <>
+                  <div className="flex flex-col items-center p-4 w-full h-full" onClick={() => startCamera()}>
                     <ImageIcon className="h-8 w-8 text-slate-300 mb-1" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Cargar Foto de Comprobante</span>
-                  </>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Capturar o Subir Comprobante</span>
+                    <div className="flex gap-2 mt-2">
+                      <Button type="button" size="sm" variant="outline" className="h-7 text-[8px] rounded-lg px-2" onClick={(e) => { e.stopPropagation(); startCamera(); }}>CÁMARA</Button>
+                      <Button type="button" size="sm" variant="outline" className="h-7 text-[8px] rounded-lg px-2" onClick={(e) => { e.stopPropagation(); proofInputRef.current?.click(); }}>ARCHIVO</Button>
+                    </div>
+                  </div>
                 )}
               </div>
               <input 
@@ -634,6 +725,59 @@ export default function PaymentsManagementPage() {
             >
               {isGeneratingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} PDF
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO DE CÁMARA */}
+      <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          <DialogHeader className="p-6 bg-primary text-white">
+            <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Comprobante</DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
+            <video 
+              ref={onVideoRef} 
+              autoPlay 
+              muted 
+              playsInline 
+              className="w-full h-full object-cover" 
+            />
+            <canvas ref={canvasRef} className="hidden" />
+            
+            {hasCameraPermission === false && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4">
+                <X className="h-12 w-12 text-red-500" />
+                <p className="font-bold">Acceso a cámara requerido</p>
+                <p className="text-xs text-slate-400">Habilita los permisos en tu navegador para usar esta función.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
+            {devices.length > 1 && (
+              <div className="flex items-center gap-2 w-full">
+                <FlipHorizontal className="h-4 w-4 text-slate-400" />
+                <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(val); }}>
+                  <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                  <SelectContent>
+                    {devices.map((device) => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label || `Cámara ${device.deviceId.slice(0, 5)}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            <div className="flex gap-3 w-full">
+              <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button>
+              <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 font-bold gap-2" onClick={takePhoto}>
+                <Camera className="h-5 w-5" /> Capturar
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
