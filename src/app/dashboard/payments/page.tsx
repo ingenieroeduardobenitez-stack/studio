@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -23,7 +23,9 @@ import {
   ArrowRightLeft,
   Image as ImageIcon,
   Download,
-  MessageCircle
+  MessageCircle,
+  X,
+  Camera
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -46,7 +48,9 @@ export default function PaymentsManagementPage() {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
 
+  const proofInputRef = useRef<HTMLInputElement>(null)
   const { user } = useUser()
   const { toast } = useToast()
   const db = useFirestore()
@@ -111,6 +115,7 @@ export default function PaymentsManagementPage() {
     setPaymentAmount(pending > 0 ? pending : 0)
     setSelectedEventId("inscripcion")
     setPaymentType("EFECTIVO")
+    setPaymentProofUrl(null)
     setIsPaymentDialogOpen(true)
   }
 
@@ -129,6 +134,15 @@ export default function PaymentsManagementPage() {
   }
 
   const pendingBalance = selectedReg ? calculatePending(selectedReg) : 0
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => setPaymentProofUrl(reader.result as string)
+      reader.readAsDataURL(file)
+    }
+  }
 
   const handleProcessPayment = async () => {
     if (!db || !selectedReg || !treasurySettingsRef || isSubmitting) return
@@ -161,7 +175,8 @@ export default function PaymentsManagementPage() {
             lastPaymentDate: serverTimestamp(),
             validatedBy: catechistName,
             receiptNumber: formattedReceipt,
-            lastPaymentMethod: paymentType
+            lastPaymentMethod: paymentType,
+            paymentProofUrl: paymentProofUrl || regData.paymentProofUrl || null
           });
         } else {
           const currentPaid = (regData.eventPayments?.[selectedEventId]?.paid || 0) + paymentAmount;
@@ -174,7 +189,8 @@ export default function PaymentsManagementPage() {
               method: paymentType
             },
             validatedBy: catechistName,
-            receiptNumber: formattedReceipt
+            receiptNumber: formattedReceipt,
+            paymentProofUrl: paymentProofUrl || regData.paymentProofUrl || null
           });
         }
 
@@ -381,14 +397,16 @@ export default function PaymentsManagementPage() {
                             >
                               <CheckCircle2 className="h-4 w-4" /> Confirmar Pago
                             </Button>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl"
-                              onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}
-                            >
-                              <FileText className="h-5 w-5" />
-                            </Button>
+                            {isSettled && (
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl"
+                                onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}
+                              >
+                                <FileText className="h-5 w-5" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -408,7 +426,7 @@ export default function PaymentsManagementPage() {
             <DialogDescription className="text-white/80">Recibiendo pago de {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
           
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
             <div className="space-y-3">
               <Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Concepto del Pago</Label>
               <Select value={selectedEventId} onValueChange={setSelectedEventId}>
@@ -460,6 +478,33 @@ export default function PaymentsManagementPage() {
                 className="h-14 text-2xl font-black rounded-2xl bg-white border-primary/20 text-primary shadow-inner"
                 value={paymentAmount} 
                 onChange={(e) => setPaymentAmount(Number(e.target.value))}
+              />
+            </div>
+
+            <div className="space-y-3">
+              <Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Adjuntar Comprobante (Foto)</Label>
+              <div 
+                className={cn(
+                  "border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all",
+                  paymentProofUrl ? "border-green-500 bg-green-50" : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                )}
+                onClick={() => proofInputRef.current?.click()}
+              >
+                {paymentProofUrl ? (
+                  <img src={paymentProofUrl} className="w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <ImageIcon className="h-8 w-8 text-slate-300 mb-1" />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Cargar Foto de Comprobante</span>
+                  </>
+                )}
+              </div>
+              <input 
+                type="file" 
+                ref={proofInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleFileChange} 
               />
             </div>
           </div>
