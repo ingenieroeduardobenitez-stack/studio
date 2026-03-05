@@ -34,7 +34,14 @@ import {
   Download,
   QrCode,
   Hash,
-  RefreshCcw
+  RefreshCcw,
+  UserCircle,
+  Users,
+  BookOpen,
+  Calendar,
+  Phone,
+  ShieldCheck,
+  Book
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction } from "firebase/firestore"
@@ -59,6 +66,7 @@ export default function TreasuryPage() {
   const [paymentAmount, setPaymentAmount] = useState(0)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false)
   const [isProofViewOpen, setIsProofViewOpen] = useState(false)
@@ -160,6 +168,11 @@ export default function TreasuryPage() {
     const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
     setPaymentAmount(pending > 0 ? pending : 0)
     setIsPaymentDialogOpen(true)
+  }
+
+  const openDetailsDialog = (reg: any) => {
+    setSelectedReg(reg)
+    setIsDetailsDialogOpen(true)
   }
 
   const handleProcessPayment = async () => {
@@ -453,7 +466,13 @@ export default function TreasuryPage() {
                         <TableRow key={reg.id} className="hover:bg-slate-50/30 h-16">
                           <TableCell className="pl-8">
                             <div className="flex items-center gap-3">
-                              <Avatar className="h-9 w-9 border"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar>
+                              <Avatar 
+                                className="h-9 w-9 border cursor-pointer hover:scale-110 transition-transform"
+                                onClick={() => { if(reg.photoUrl) { setSelectedProof(reg.photoUrl); setIsProofViewOpen(true); } }}
+                              >
+                                <AvatarImage src={reg.photoUrl} className="object-cover" />
+                                <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                              </Avatar>
                               <div className="flex flex-col"><span className="font-bold text-sm text-slate-900">{reg.fullName}</span><span className="text-[10px] text-muted-foreground uppercase">{reg.ciNumber}</span></div>
                             </div>
                           </TableCell>
@@ -475,12 +494,23 @@ export default function TreasuryPage() {
                               <Button 
                                 size="sm" 
                                 variant="ghost" 
-                                className="h-8 w-8 p-0" 
-                                title="Ver Recibo / Descargar PDF"
-                                onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}
+                                className="h-8 w-8 p-0 bg-primary/5 text-primary hover:bg-primary/10 rounded-lg" 
+                                title="Ver Ficha Institucional"
+                                onClick={() => openDetailsDialog(reg)}
                               >
-                                <FileText className="h-4 w-4 text-slate-400" />
+                                <Eye className="h-4 w-4" />
                               </Button>
+                              {isSettled && (
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  className="h-8 w-8 p-0 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg" 
+                                  title="Ver Recibo / Descargar PDF"
+                                  onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -841,6 +871,102 @@ export default function TreasuryPage() {
             >
               {isGeneratingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} PDF
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO DE FICHA DETALLADA (VER FICHA) */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Avatar 
+                  className="h-20 w-20 border-4 border-white/20 shadow-xl cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => { if(selectedReg?.photoUrl) { setSelectedProof(selectedReg.photoUrl); setIsProofViewOpen(true); } }}
+                >
+                  <AvatarImage src={selectedReg?.photoUrl} className="object-cover" />
+                  <AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback>
+                </Avatar>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Ficha Institucional</p>
+                  <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight">{selectedReg?.fullName}</DialogTitle>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Badge variant="outline" className="text-white border-white/30 font-bold text-[10px]">C.I. {selectedReg?.ciNumber}</Badge>
+                    <Badge variant="secondary" className="bg-white text-primary font-black uppercase text-[10px]">{formatYear(selectedReg?.catechesisYear)}</Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-8 space-y-8">
+            <section className="space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+                <UserCircle className="h-5 w-5 text-primary" />
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Información Personal</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-bold text-slate-400 uppercase">Fecha de Nacimiento</Label>
+                  <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-slate-400" /> {selectedReg?.birthDate || '---'}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-bold text-slate-400 uppercase">Edad</Label>
+                  <p className="text-sm font-bold text-slate-700">{selectedReg?.age} Años</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-bold text-slate-400 uppercase">WhatsApp</Label>
+                  <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-green-500" /> {selectedReg?.phone}</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+                <Users className="h-5 w-5 text-primary" />
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Entorno Familiar</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="bg-white p-4 rounded-2xl border shadow-sm">
+                  <p className="text-[8px] font-black text-primary uppercase">Madre</p>
+                  <p className="text-xs font-bold text-slate-700">{selectedReg?.motherName || '---'}</p>
+                  <p className="text-[10px] text-slate-500">{selectedReg?.motherPhone}</p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border shadow-sm">
+                  <p className="text-[8px] font-black text-primary uppercase">Padre</p>
+                  <p className="text-xs font-bold text-slate-700">{selectedReg?.fatherName || '---'}</p>
+                  <p className="text-[10px] text-slate-500">{selectedReg?.fatherPhone}</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Vida Sacramental</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={cn("p-4 rounded-2xl border flex items-center gap-4", selectedReg?.hasBaptism ? "bg-green-50" : "bg-red-50")}>
+                  <Church className={cn("h-6 w-6", selectedReg?.hasBaptism ? "text-green-600" : "text-red-600")} />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase">Bautismo</p>
+                    <p className="text-[10px]">{selectedReg?.hasBaptism ? 'Realizado' : 'Pendiente'}</p>
+                  </div>
+                </div>
+                <div className={cn("p-4 rounded-2xl border flex items-center gap-4", selectedReg?.hasFirstCommunion ? "bg-blue-50" : "bg-orange-50")}>
+                  <Book className={cn("h-6 w-6", selectedReg?.hasFirstCommunion ? "text-blue-600" : "text-orange-600")} />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase">Primera Comunión</p>
+                    <p className="text-[10px]">{selectedReg?.hasFirstCommunion ? 'Realizado' : 'Pendiente'}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <DialogFooter className="p-6 bg-white border-t shrink-0">
+            <Button variant="outline" className="w-full h-12 rounded-xl font-bold" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar Ficha</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
