@@ -963,6 +963,47 @@ export default function TreasuryPage() {
                 </div>
               </div>
             </section>
+
+            <section className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+                <ImageIcon className="h-5 w-5 text-primary" />
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Documentación y Comprobantes</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Archivos Adjuntos</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-[8px] font-black text-slate-400 uppercase">Comprobante Pago</Label>
+                      <div className="aspect-[4/3] rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-all group" onClick={() => { if(selectedReg?.paymentProofUrl) { setSelectedProof(selectedReg.paymentProofUrl); setIsProofViewOpen(true); } }}>
+                        {selectedReg?.paymentProofUrl ? <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-1"><ImageIcon className="h-6 w-6" /><span className="text-[8px]">Sin archivo</span></div>}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[8px] font-black text-slate-400 uppercase">Cert. Bautismo</Label>
+                      <div className="aspect-[4/3] rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-all group" onClick={() => { if(selectedReg?.baptismCertificatePhotoUrl) { setSelectedProof(selectedReg.baptismCertificatePhotoUrl); setIsProofViewOpen(true); } }}>
+                        {selectedReg?.baptismCertificatePhotoUrl ? <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-1"><ImageIcon className="h-6 w-6" /><span className="text-[8px]">Sin archivo</span></div>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {selectedReg?.receiptNumber && (
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recibo Oficial</p>
+                    <div className="bg-white border-2 border-slate-900 p-4 rounded-xl shadow-sm space-y-4">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <Church className="h-6 w-6 text-primary" />
+                        <div className="text-right"><p className="text-[8px] font-black uppercase text-primary">Recibo Oficial</p><p className="text-[10px] font-black">{selectedReg.receiptNumber}</p></div>
+                      </div>
+                      <div className="flex items-end justify-between">
+                        <div className="space-y-1"><p className="text-[8px] uppercase text-slate-400 font-bold">Monto Total</p><p className="text-sm font-black text-slate-900">{selectedReg.amountPaid?.toLocaleString('es-PY')} Gs.</p></div>
+                        <div className="p-1 bg-slate-50 border rounded-lg"><QRCodeCanvas value={`RECIBO-${selectedReg.receiptNumber}`} size={35} level="H" /></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
           </div>
 
           <DialogFooter className="p-6 bg-white border-t shrink-0">
