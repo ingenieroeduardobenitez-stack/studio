@@ -467,6 +467,7 @@ export default function RegistrationsListPage() {
                         onWithdraw={openWithdrawDialog}
                         onDelete={openDeleteDialog}
                         onViewDetails={openDetailsDialog}
+                        onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }}
                       />
                     </AccordionContent>
                   </div>
@@ -508,6 +509,7 @@ export default function RegistrationsListPage() {
                           onWithdraw={openWithdrawDialog}
                           onDelete={openDeleteDialog}
                           onViewDetails={openDetailsDialog}
+                          onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }}
                         />
                       </AccordionContent>
                     </div>
@@ -923,14 +925,22 @@ export default function RegistrationsListPage() {
   )
 }
 
-function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, onWithdraw, onDelete, onViewDetails }: any) {
+function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage }: any) {
   return (
     <Table>
       <TableHeader className="bg-slate-50/30"><TableRow><TableHead className="w-[60px] pl-6"></TableHead><TableHead className="font-bold text-xs uppercase">Confirmando</TableHead><TableHead className="font-bold text-xs uppercase">C.I. N°</TableHead><TableHead className="font-bold text-xs uppercase">Año</TableHead><TableHead className="font-bold text-xs uppercase">Estado</TableHead><TableHead className="text-right font-bold text-xs uppercase pr-8">Acciones</TableHead></TableRow></TableHeader>
       <TableBody>
         {students.map((reg: any) => (
           <TableRow key={reg.id} className="hover:bg-slate-50/30 h-14">
-            <TableCell className="pl-6"><Avatar className="h-8 w-8 border"><AvatarImage src={reg.photoUrl} /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar></TableCell>
+            <TableCell className="pl-6">
+              <Avatar 
+                className="h-8 w-8 border cursor-pointer hover:scale-110 transition-transform" 
+                onClick={() => reg.photoUrl && onViewImage(reg.photoUrl)}
+              >
+                <AvatarImage src={reg.photoUrl} className="object-cover" />
+                <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+              </Avatar>
+            </TableCell>
             <TableCell><div className="flex flex-col"><span className="font-bold text-slate-900 text-xs">{reg.fullName}</span><span className="text-[10px] text-slate-500">{reg.phone}</span></div></TableCell>
             <TableCell className="text-xs">{reg.ciNumber}</TableCell>
             <TableCell><span className="text-[10px] font-bold text-slate-400">{formatYear(reg.catechesisYear)}</span></TableCell>
