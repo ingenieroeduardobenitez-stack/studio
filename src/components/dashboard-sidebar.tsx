@@ -147,7 +147,7 @@ export function DashboardSidebar() {
 
       <SidebarContent className="px-3 py-6 space-y-4 bg-white">
         {filteredOperations.length > 0 && (
-          <Collapsible defaultOpen={true} className="group/collapsible">
+          <Collapsible defaultOpen={false} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex w-full items-center justify-between text-slate-500 hover:text-primary transition-colors cursor-pointer px-2 py-6">
@@ -184,7 +184,7 @@ export function DashboardSidebar() {
         )}
 
         {filteredTreasury.length > 0 && (
-          <Collapsible defaultOpen={true} className="group/collapsible">
+          <Collapsible defaultOpen={false} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex w-full items-center justify-between text-slate-500 hover:text-primary transition-colors cursor-pointer px-2 py-6">
