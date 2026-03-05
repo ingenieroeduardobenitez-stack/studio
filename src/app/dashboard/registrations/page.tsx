@@ -521,7 +521,7 @@ export default function RegistrationsListPage() {
 
       {/* DIÁLOGO DE FICHA DETALLADA */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl max-h-[95vh] flex flex-col">
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 md:gap-6">
@@ -549,8 +549,8 @@ export default function RegistrationsListPage() {
             </div>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 bg-slate-50">
-            <div className="p-6 md:p-8 space-y-8">
+          <div className="flex-1 overflow-y-auto bg-slate-50">
+            <div className="p-6 md:p-8 space-y-8 pb-20">
               {/* SECCIÓN 1: DATOS PERSONALES */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
@@ -711,15 +711,15 @@ export default function RegistrationsListPage() {
                 </div>
               </section>
             </div>
-          </ScrollArea>
+          </div>
 
-          <DialogFooter className="p-4 md:p-6 bg-slate-100 border-t flex flex-row justify-between gap-3 shrink-0">
+          <DialogFooter className="p-4 md:p-6 bg-white border-t flex flex-row justify-between gap-3 shrink-0">
             <Button variant="outline" className="rounded-xl px-4 md:px-8 h-11 md:h-12 font-bold text-xs md:text-sm" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
             
             <div className="flex gap-2">
               <Button 
                 variant="secondary"
-                className="rounded-xl px-4 md:px-8 h-11 md:h-12 bg-white text-slate-700 border shadow-sm font-bold gap-2 hover:bg-slate-50 text-xs md:text-sm"
+                className="rounded-xl px-4 md:px-8 h-11 md:h-12 bg-slate-100 text-slate-700 border shadow-sm font-bold gap-2 hover:bg-slate-200 text-xs md:text-sm"
                 onClick={() => openEditDialog(selectedReg)}
               >
                 <Edit className="h-4 w-4 text-primary" /> Editar Ficha
@@ -740,101 +740,99 @@ export default function RegistrationsListPage() {
 
       {/* DIÁLOGO DE EDICIÓN CON CARGA DE FOTOS */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Actualizar Ficha de Inscripción</DialogTitle>
             <DialogDescription className="text-slate-400">Corrige datos o completa fotos faltantes de {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditRegistration} className="flex-1 overflow-hidden flex flex-col">
-            <ScrollArea className="flex-1 p-6 bg-white">
-              <div className="space-y-10">
-                {/* BLOQUE FOTOS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Foto de Perfil</Label>
-                    <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
-                      <Avatar className="h-32 w-32 border-4 border-white shadow-md">
-                        <AvatarImage src={editPhotoPreview || selectedReg?.photoUrl} className="object-cover" />
-                        <AvatarFallback><User className="h-12 w-12" /></AvatarFallback>
-                      </Avatar>
-                      <div className="flex gap-2">
-                        <Button type="button" size="sm" className="rounded-xl h-9 gap-2" onClick={() => editPhotoInputRef.current?.click()}>
-                          <Camera className="h-4 w-4" /> Cambiar Foto
-                        </Button>
-                        <input type="file" ref={editPhotoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "photo")} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Certificado de Bautismo</Label>
-                    <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
-                      <div className="h-32 w-44 rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
-                        {editBaptismPreview || selectedReg?.baptismCertificatePhotoUrl ? (
-                          <img src={editBaptismPreview || selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" />
-                        ) : (
-                          <ImageIcon className="h-10 w-10 text-slate-200" />
-                        )}
-                      </div>
-                      <Button type="button" size="sm" variant="outline" className="rounded-xl h-9 gap-2" onClick={() => editBaptismInputRef.current?.click()}>
-                        <ImageIcon className="h-4 w-4" /> Subir Certificado
+            <div className="flex-1 overflow-y-auto p-6 bg-white space-y-10 pb-20">
+              {/* BLOQUE FOTOS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Foto de Perfil</Label>
+                  <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
+                    <Avatar className="h-32 w-32 border-4 border-white shadow-md">
+                      <AvatarImage src={editPhotoPreview || selectedReg?.photoUrl} className="object-cover" />
+                      <AvatarFallback><User className="h-12 w-12" /></AvatarFallback>
+                    </Avatar>
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" className="rounded-xl h-9 gap-2" onClick={() => editPhotoInputRef.current?.click()}>
+                        <Camera className="h-4 w-4" /> Cambiar Foto
                       </Button>
-                      <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileEdit(e, "baptism")} />
+                      <input type="file" ref={editPhotoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "photo")} />
                     </div>
                   </div>
                 </div>
-
-                <Separator />
-
-                {/* BLOQUE 1: PERSONALES */}
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Personal</h4>
-                  <div className="grid gap-4">
-                    <div className="space-y-2">
-                      <Label>Nombre Completo</Label>
-                      <Input name="fullName" defaultValue={selectedReg?.fullName} required className="h-11 rounded-xl uppercase font-bold" />
+                  <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Certificado de Bautismo</Label>
+                  <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
+                    <div className="h-32 w-44 rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
+                      {editBaptismPreview || selectedReg?.baptismCertificatePhotoUrl ? (
+                        <img src={editBaptismPreview || selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" />
+                      ) : (
+                        <ImageIcon className="h-10 w-10 text-slate-200" />
+                      )}
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2"><Label>C.I. N°</Label><Input name="ciNumber" defaultValue={selectedReg?.ciNumber} required className="h-11 rounded-xl" /></div>
-                      <div className="space-y-2"><Label>Celular</Label><Input name="phone" defaultValue={selectedReg?.phone} required className="h-11 rounded-xl" /></div>
-                    </div>
-                    <div className="space-y-2"><Label>Fecha de Nacimiento</Label><Input type="date" name="birthDate" defaultValue={selectedReg?.birthDate} required className="h-11 rounded-xl" /></div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* BLOQUE 2: FAMILIA */}
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Familia y Tutores</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
-                      <Label className="text-xs font-bold text-primary">MADRE</Label>
-                      <Input name="motherName" defaultValue={selectedReg?.motherName} placeholder="Nombre" className="h-10 uppercase bg-white" />
-                      <Input name="motherPhone" defaultValue={selectedReg?.motherPhone} placeholder="Celular" className="h-10 bg-white" />
-                    </div>
-                    <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
-                      <Label className="text-xs font-bold text-primary">PADRE</Label>
-                      <Input name="fatherName" defaultValue={selectedReg?.fatherName} placeholder="Nombre" className="h-10 uppercase bg-white" />
-                      <Input name="fatherPhone" defaultValue={selectedReg?.fatherPhone} placeholder="Celular" className="h-10 bg-white" />
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* BLOQUE 3: BAUTISMO */}
-                <div className="space-y-4 pb-10">
-                  <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Registro Sacramental</h4>
-                  <div className="grid gap-4 p-6 bg-slate-50 rounded-2xl border border-dashed border-primary/30">
-                    <div className="space-y-2"><Label>Parroquia de Bautismo</Label><Input name="baptismParish" defaultValue={selectedReg?.baptismParish} className="h-11 rounded-xl uppercase bg-white" /></div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2"><Label>N° de Libro</Label><Input name="baptismBook" defaultValue={selectedReg?.baptismBook} className="h-11 rounded-xl bg-white" /></div>
-                      <div className="space-y-2"><Label>N° de Folio</Label><Input name="baptismFolio" defaultValue={selectedReg?.baptismFolio} className="h-11 rounded-xl bg-white" /></div>
-                    </div>
+                    <Button type="button" size="sm" variant="outline" className="rounded-xl h-9 gap-2" onClick={() => editBaptismInputRef.current?.click()}>
+                      <ImageIcon className="h-4 w-4" /> Subir Certificado
+                    </Button>
+                    <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileEdit(e, "baptism")} />
                   </div>
                 </div>
               </div>
-            </ScrollArea>
+
+              <Separator />
+
+              {/* BLOQUE 1: PERSONALES */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Personal</h4>
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label>Nombre Completo</Label>
+                    <Input name="fullName" defaultValue={selectedReg?.fullName} required className="h-11 rounded-xl uppercase font-bold" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>C.I. N°</Label><Input name="ciNumber" defaultValue={selectedReg?.ciNumber} required className="h-11 rounded-xl" /></div>
+                    <div className="space-y-2"><Label>Celular</Label><Input name="phone" defaultValue={selectedReg?.phone} required className="h-11 rounded-xl" /></div>
+                  </div>
+                  <div className="space-y-2"><Label>Fecha de Nacimiento</Label><Input type="date" name="birthDate" defaultValue={selectedReg?.birthDate} required className="h-11 rounded-xl" /></div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* BLOQUE 2: FAMILIA */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Familia y Tutores</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
+                    <Label className="text-xs font-bold text-primary">MADRE</Label>
+                    <Input name="motherName" defaultValue={selectedReg?.motherName} placeholder="Nombre" className="h-10 uppercase bg-white" />
+                    <Input name="motherPhone" defaultValue={selectedReg?.motherPhone} placeholder="Celular" className="h-10 bg-white" />
+                  </div>
+                  <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
+                    <Label className="text-xs font-bold text-primary">PADRE</Label>
+                    <Input name="fatherName" defaultValue={selectedReg?.fatherName} placeholder="Nombre" className="h-10 uppercase bg-white" />
+                    <Input name="fatherPhone" defaultValue={selectedReg?.fatherPhone} placeholder="Celular" className="h-10 bg-white" />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* BLOQUE 3: BAUTISMO */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Registro Sacramental</h4>
+                <div className="grid gap-4 p-6 bg-slate-50 rounded-2xl border border-dashed border-primary/30">
+                  <div className="space-y-2"><Label>Parroquia de Bautismo</Label><Input name="baptismParish" defaultValue={selectedReg?.baptismParish} className="h-11 rounded-xl uppercase bg-white" /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>N° de Libro</Label><Input name="baptismBook" defaultValue={selectedReg?.baptismBook} className="h-11 rounded-xl bg-white" /></div>
+                    <div className="space-y-2"><Label>N° de Folio</Label><Input name="baptismFolio" defaultValue={selectedReg?.baptismFolio} className="h-11 rounded-xl bg-white" /></div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 shrink-0">
               <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
               <Button type="submit" className="flex-1 h-12 rounded-xl bg-slate-900 hover:bg-black font-bold gap-2 shadow-lg" disabled={isSubmitting}>
