@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -35,7 +35,9 @@ import {
   Phone,
   Calendar,
   ShieldCheck,
-  Book
+  Book,
+  Camera,
+  Receipt
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -101,7 +103,11 @@ export default function RegistrationsListPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [viewProofUrl, setViewProofUrl] = useState<string | null>(null)
   
-  const [currentDateInfo, setCurrentDateInfo] = useState({ day: 1, month: "", year: 2026 })
+  // Estados para edición de fotos
+  const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null)
+  const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(null)
+  const editPhotoInputRef = useRef<HTMLInputElement>(null)
+  const editBaptismInputRef = useRef<HTMLInputElement>(null)
 
   const { toast } = useToast()
   const { user } = useUser()
@@ -109,12 +115,6 @@ export default function RegistrationsListPage() {
 
   useEffect(() => {
     setMounted(true)
-    const today = new Date()
-    setCurrentDateInfo({
-      day: today.getDate(),
-      month: today.toLocaleString('es-PY', { month: 'long' }),
-      year: today.getFullYear()
-    })
   }, [])
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
@@ -123,8 +123,7 @@ export default function RegistrationsListPage() {
   const isTesorero = profile?.role === "Tesorero"
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
-  const { data: treasurySettings } = useDoc(treasuryRef)
-
+  
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
     return collection(db, "confirmations")
@@ -307,17 +306,32 @@ export default function RegistrationsListPage() {
       updatedAt: serverTimestamp()
     }
 
+    if (editPhotoPreview) updateData.photoUrl = editPhotoPreview;
+    if (editBaptismPreview) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
+
     try {
       await updateDoc(doc(db, "confirmations", selectedReg.id), updateData)
       toast({ title: "Registro Actualizado", description: "Los datos de la ficha han sido guardados." })
       setIsEditDialogOpen(false)
-      // Actualizar el estado local para reflejar cambios en el diálogo de detalles si está abierto
       setSelectedReg({ ...selectedReg, ...updateData })
     } catch (error) {
       console.error(error)
       toast({ variant: "destructive", title: "Error al actualizar" })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleFileEdit = (e: React.ChangeEvent<HTMLInputElement>, target: "photo" | "baptism") => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const b64 = reader.result as string
+        if (target === "photo") setEditPhotoPreview(b64);
+        else setEditBaptismPreview(b64);
+      }
+      reader.readAsDataURL(file)
     }
   }
 
@@ -341,6 +355,13 @@ export default function RegistrationsListPage() {
   const openDetailsDialog = (reg: any) => {
     setSelectedReg(reg)
     setIsDetailsDialogOpen(true)
+  }
+
+  const openEditDialog = (reg: any) => {
+    setSelectedReg(reg)
+    setEditPhotoPreview(null)
+    setEditBaptismPreview(null)
+    setIsEditDialogOpen(true)
   }
 
   const getStatusBadge = (status: string) => {
@@ -498,12 +519,13 @@ export default function RegistrationsListPage() {
         )}
       </div>
 
+      {/* DIÁLOGO DE FICHA DETALLADA */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl max-h-[95vh] flex flex-col">
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl max-h-[95vh] flex flex-col">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 md:gap-6">
-                <div className="relative">
+                <div className="relative cursor-pointer hover:scale-105 transition-transform" onClick={() => { if(selectedReg?.photoUrl) { setViewProofUrl(selectedReg.photoUrl); setIsProofViewOpen(true); } }}>
                   <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white/20 shadow-xl">
                     <AvatarImage src={selectedReg?.photoUrl} className="object-cover" />
                     <AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10 md:h-12 md:w-12" /></AvatarFallback>
@@ -568,15 +590,6 @@ export default function RegistrationsListPage() {
                     <p className="text-xs font-bold text-slate-700 truncate">{selectedReg?.fatherName || 'No registrado'}</p>
                     <p className="text-[10px] text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg?.fatherPhone || 'Sin celular'}</p>
                   </div>
-                  {selectedReg?.tutorName && (
-                    <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 md:col-span-2 flex items-center justify-between">
-                      <div>
-                        <p className="text-[8px] font-black text-primary uppercase tracking-tighter">Tutor / Encargado</p>
-                        <p className="text-xs font-bold text-slate-700">{selectedReg.tutorName}</p>
-                      </div>
-                      <p className="text-xs font-bold text-primary">{selectedReg.tutorPhone}</p>
-                    </div>
-                  )}
                 </div>
               </section>
 
@@ -587,7 +600,7 @@ export default function RegistrationsListPage() {
                   <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Registro Sacramental</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                  <div className={cn("p-4 md:p-5 rounded-2xl border flex items-start gap-4", selectedReg?.hasBaptism ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100")}>
+                  <div className={cn("p-4 rounded-2xl border flex items-start gap-4", selectedReg?.hasBaptism ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100")}>
                     <div className={cn("p-2 rounded-xl shrink-0", selectedReg?.hasBaptism ? "bg-green-500 text-white" : "bg-red-500 text-white")}>
                       <Church className="h-5 w-5" />
                     </div>
@@ -602,7 +615,7 @@ export default function RegistrationsListPage() {
                       )}
                     </div>
                   </div>
-                  <div className={cn("p-4 md:p-5 rounded-2xl border flex items-start gap-4", selectedReg?.hasFirstCommunion ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100")}>
+                  <div className={cn("p-4 rounded-2xl border flex items-start gap-4", selectedReg?.hasFirstCommunion ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100")}>
                     <div className={cn("p-2 rounded-xl shrink-0", selectedReg?.hasFirstCommunion ? "bg-blue-500 text-white" : "bg-orange-500 text-white")}>
                       <Book className="h-5 w-5" />
                     </div>
@@ -611,51 +624,90 @@ export default function RegistrationsListPage() {
                       <p className="text-[10px] font-bold text-slate-600 mt-0.5">
                         {selectedReg?.hasFirstCommunion ? 'Sacramento Realizado' : 'Pendiente / Nivelación obligatoria'}
                       </p>
-                      <p className="text-[9px] text-slate-400 mt-1 italic">
-                        {selectedReg?.hasFirstCommunion ? 'Nivelación no necesaria' : 'Debe asistir al curso especial'}
-                      </p>
                     </div>
                   </div>
                 </div>
               </section>
 
-              {/* SECCIÓN 4: DOCUMENTACIÓN (MINIATURAS) */}
-              <section className="space-y-4">
+              {/* SECCIÓN 4: DOCUMENTOS Y RECIBO OFICIAL */}
+              <section className="space-y-6">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <ImageIcon className="h-5 w-5 text-primary" />
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Documentación Digital</h3>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Documentación y Comprobantes</h3>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[8px] font-black text-slate-400 uppercase tracking-tight">Comprobante Pago</Label>
-                    <div 
-                      className="aspect-square rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-colors group"
-                      onClick={() => { if(selectedReg?.paymentProofUrl) { setViewProofUrl(selectedReg.paymentProofUrl); setIsProofViewOpen(true); } }}
-                    >
-                      {selectedReg?.paymentProofUrl ? (
-                        <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-300">
-                          <X className="h-5 w-5" />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* DOCUMENTOS ADJUNTOS */}
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Archivos Adjuntos</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-[8px] font-black text-slate-400 uppercase">Comprobante Alumno</Label>
+                        <div 
+                          className="aspect-[4/3] rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-all group relative"
+                          onClick={() => { if(selectedReg?.paymentProofUrl) { setViewProofUrl(selectedReg.paymentProofUrl); setIsProofViewOpen(true); } }}
+                        >
+                          {selectedReg?.paymentProofUrl ? (
+                            <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-1">
+                              <ImageIcon className="h-6 w-6" />
+                              <span className="text-[8px]">Sin archivo</span>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[8px] font-black text-slate-400 uppercase">Cert. Bautismo</Label>
+                        <div 
+                          className="aspect-[4/3] rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-all group relative"
+                          onClick={() => { if(selectedReg?.baptismCertificatePhotoUrl) { setViewProofUrl(selectedReg.baptismCertificatePhotoUrl); setIsProofViewOpen(true); } }}
+                        >
+                          {selectedReg?.baptismCertificatePhotoUrl ? (
+                            <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-1">
+                              <ImageIcon className="h-6 w-6" />
+                              <span className="text-[8px]">Sin archivo</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[8px] font-black text-slate-400 uppercase tracking-tight">Cert. Bautismo</Label>
-                    <div 
-                      className="aspect-square rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-colors group"
-                      onClick={() => { if(selectedReg?.baptismCertificatePhotoUrl) { setViewProofUrl(selectedReg.baptismCertificatePhotoUrl); setIsProofViewOpen(true); } }}
-                    >
-                      {selectedReg?.baptismCertificatePhotoUrl ? (
-                        <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-300">
-                          <X className="h-5 w-5" />
+
+                  {/* RECIBO OFICIAL (MINI PREVIEW) */}
+                  {selectedReg?.receiptNumber && (
+                    <div className="space-y-4">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recibo Oficial del Santuario</p>
+                      <div className="bg-white border-2 border-slate-900 p-4 rounded-xl shadow-sm space-y-4 relative overflow-hidden group">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                          <Church className="h-6 w-6 text-primary" />
+                          <div className="text-right">
+                            <p className="text-[8px] font-black uppercase text-primary">Recibo Oficial</p>
+                            <p className="text-[10px] font-black">{selectedReg.receiptNumber}</p>
+                          </div>
                         </div>
-                      )}
+                        <div className="space-y-1">
+                          <p className="text-[8px] uppercase text-slate-400 font-bold">Concepto</p>
+                          <p className="text-[10px] font-bold text-slate-700 leading-tight">Inscripción Catequesis 2026 - {formatCatechesisYear(selectedReg.catechesisYear)}</p>
+                        </div>
+                        <div className="flex items-end justify-between">
+                          <div className="space-y-1">
+                            <p className="text-[8px] uppercase text-slate-400 font-bold">Monto Total</p>
+                            <p className="text-sm font-black text-slate-900">{selectedReg.amountPaid?.toLocaleString('es-PY')} Gs.</p>
+                          </div>
+                          <div className="p-1 bg-slate-50 border rounded-lg">
+                            <QRCodeCanvas value={`RECIBO-${selectedReg.receiptNumber}`} size={35} level="H" />
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                          <p className="text-[8px] text-slate-400 italic">Validado por: {selectedReg.validatedBy}</p>
+                          <Badge variant="outline" className="text-[7px] h-4 bg-green-50 text-green-600 border-green-100">VÁLIDO</Badge>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </section>
             </div>
@@ -668,7 +720,7 @@ export default function RegistrationsListPage() {
               <Button 
                 variant="secondary"
                 className="rounded-xl px-4 md:px-8 h-11 md:h-12 bg-white text-slate-700 border shadow-sm font-bold gap-2 hover:bg-slate-50 text-xs md:text-sm"
-                onClick={() => setIsEditDialogOpen(true)}
+                onClick={() => openEditDialog(selectedReg)}
               >
                 <Edit className="h-4 w-4 text-primary" /> Editar Ficha
               </Button>
@@ -686,23 +738,60 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE EDICIÓN */}
+      {/* DIÁLOGO DE EDICIÓN CON CARGA DE FOTOS */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Editar Datos de Inscripción</DialogTitle>
-            <DialogDescription className="text-slate-400">Actualiza la información oficial de {selectedReg?.fullName}</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Actualizar Ficha de Inscripción</DialogTitle>
+            <DialogDescription className="text-slate-400">Corrige datos o completa fotos faltantes de {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditRegistration} className="flex-1 overflow-hidden flex flex-col">
             <ScrollArea className="flex-1 p-6 bg-white">
-              <div className="space-y-8">
+              <div className="space-y-10">
+                {/* BLOQUE FOTOS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Foto de Perfil</Label>
+                    <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
+                      <Avatar className="h-32 w-32 border-4 border-white shadow-md">
+                        <AvatarImage src={editPhotoPreview || selectedReg?.photoUrl} className="object-cover" />
+                        <AvatarFallback><User className="h-12 w-12" /></AvatarFallback>
+                      </Avatar>
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" className="rounded-xl h-9 gap-2" onClick={() => editPhotoInputRef.current?.click()}>
+                          <Camera className="h-4 w-4" /> Cambiar Foto
+                        </Button>
+                        <input type="file" ref={editPhotoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "photo")} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Certificado de Bautismo</Label>
+                    <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
+                      <div className="h-32 w-44 rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
+                        {editBaptismPreview || selectedReg?.baptismCertificatePhotoUrl ? (
+                          <img src={editBaptismPreview || selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="h-10 w-10 text-slate-200" />
+                        )}
+                      </div>
+                      <Button type="button" size="sm" variant="outline" className="rounded-xl h-9 gap-2" onClick={() => editBaptismInputRef.current?.click()}>
+                        <ImageIcon className="h-4 w-4" /> Subir Certificado
+                      </Button>
+                      <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileEdit(e, "baptism")} />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
                 {/* BLOQUE 1: PERSONALES */}
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Personal</h4>
                   <div className="grid gap-4">
                     <div className="space-y-2">
                       <Label>Nombre Completo</Label>
-                      <Input name="fullName" defaultValue={selectedReg?.fullName} required className="h-11 rounded-xl uppercase" />
+                      <Input name="fullName" defaultValue={selectedReg?.fullName} required className="h-11 rounded-xl uppercase font-bold" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2"><Label>C.I. N°</Label><Input name="ciNumber" defaultValue={selectedReg?.ciNumber} required className="h-11 rounded-xl" /></div>
@@ -718,22 +807,15 @@ export default function RegistrationsListPage() {
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Familia y Tutores</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <Label className="text-xs">Madre</Label>
-                      <Input name="motherName" defaultValue={selectedReg?.motherName} placeholder="Nombre" className="h-10 uppercase" />
-                      <Input name="motherPhone" defaultValue={selectedReg?.motherPhone} placeholder="Celular" className="h-10" />
+                    <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
+                      <Label className="text-xs font-bold text-primary">MADRE</Label>
+                      <Input name="motherName" defaultValue={selectedReg?.motherName} placeholder="Nombre" className="h-10 uppercase bg-white" />
+                      <Input name="motherPhone" defaultValue={selectedReg?.motherPhone} placeholder="Celular" className="h-10 bg-white" />
                     </div>
-                    <div className="space-y-3">
-                      <Label className="text-xs">Padre</Label>
-                      <Input name="fatherName" defaultValue={selectedReg?.fatherName} placeholder="Nombre" className="h-10 uppercase" />
-                      <Input name="fatherPhone" defaultValue={selectedReg?.fatherPhone} placeholder="Celular" className="h-10" />
-                    </div>
-                    <div className="space-y-3 md:col-span-2">
-                      <Label className="text-xs">Tutor / Encargado Especial</Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <Input name="tutorName" defaultValue={selectedReg?.tutorName} placeholder="Nombre" className="h-10 uppercase" />
-                        <Input name="tutorPhone" defaultValue={selectedReg?.tutorPhone} placeholder="Celular" className="h-10" />
-                      </div>
+                    <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
+                      <Label className="text-xs font-bold text-primary">PADRE</Label>
+                      <Input name="fatherName" defaultValue={selectedReg?.fatherName} placeholder="Nombre" className="h-10 uppercase bg-white" />
+                      <Input name="fatherPhone" defaultValue={selectedReg?.fatherPhone} placeholder="Celular" className="h-10 bg-white" />
                     </div>
                   </div>
                 </div>
@@ -741,13 +823,13 @@ export default function RegistrationsListPage() {
                 <Separator />
 
                 {/* BLOQUE 3: BAUTISMO */}
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Registro de Bautismo</h4>
-                  <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-dashed">
-                    <div className="space-y-2"><Label>Parroquia de Bautismo</Label><Input name="baptismParish" defaultValue={selectedReg?.baptismParish} className="h-11 rounded-xl uppercase" /></div>
+                <div className="space-y-4 pb-10">
+                  <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Registro Sacramental</h4>
+                  <div className="grid gap-4 p-6 bg-slate-50 rounded-2xl border border-dashed border-primary/30">
+                    <div className="space-y-2"><Label>Parroquia de Bautismo</Label><Input name="baptismParish" defaultValue={selectedReg?.baptismParish} className="h-11 rounded-xl uppercase bg-white" /></div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2"><Label>N° de Libro</Label><Input name="baptismBook" defaultValue={selectedReg?.baptismBook} className="h-11 rounded-xl" /></div>
-                      <div className="space-y-2"><Label>N° de Folio</Label><Input name="baptismFolio" defaultValue={selectedReg?.baptismFolio} className="h-11 rounded-xl" /></div>
+                      <div className="space-y-2"><Label>N° de Libro</Label><Input name="baptismBook" defaultValue={selectedReg?.baptismBook} className="h-11 rounded-xl bg-white" /></div>
+                      <div className="space-y-2"><Label>N° de Folio</Label><Input name="baptismFolio" defaultValue={selectedReg?.baptismFolio} className="h-11 rounded-xl bg-white" /></div>
                     </div>
                   </div>
                 </div>
@@ -808,8 +890,8 @@ export default function RegistrationsListPage() {
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
           <DialogHeader className="sr-only">
-            <DialogTitle>Vista de Comprobante</DialogTitle>
-            <DialogDescription>Imagen ampliada del documento.</DialogDescription>
+            <DialogTitle>Vista de Documento</DialogTitle>
+            <DialogDescription>Imagen ampliada del documento adjunto.</DialogDescription>
           </DialogHeader>
           <div className="relative">
             <Button 
@@ -820,7 +902,7 @@ export default function RegistrationsListPage() {
             >
               <X className="h-6 w-6" />
             </Button>
-            <img src={viewProofUrl || ""} alt="Comprobante Full" className="max-h-[90vh] rounded-xl shadow-2xl" />
+            <img src={viewProofUrl || ""} alt="Documento Full" className="max-h-[90vh] rounded-xl shadow-2xl" />
           </div>
         </DialogContent>
       </Dialog>
