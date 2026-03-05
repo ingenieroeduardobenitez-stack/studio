@@ -1038,7 +1038,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel className="font-bold text-primary">Tiene Primera Comunión</FormLabel>
-                          <FormDescription className="text-[10px]">Indispensable para 2° año.</FormDescription>
+                          <FormDescription className="text-[10px]">Marca si ya realizo su primera comunión</FormDescription>
                         </div>
                       </FormItem>
                     )} />
@@ -1162,7 +1162,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     
                     <div className="space-y-3 pt-2">
                       <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">{costs?.paymentMethod === "ALIAS" ? "Alias SIPAP:" : "N° de Cuenta:"}</p>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase">
+                          {costs?.paymentMethod === "ALIAS" ? (
+                            <>
+                              Alias SIPAP:
+                              <span className="block text-[8px] text-primary font-black mt-0.5">TIPO DE ALIAS: CÉDULA</span>
+                            </>
+                          ) : "N° de Cuenta:"}
+                        </div>
                         <div className="flex items-center justify-between">
                           <span className="text-lg font-black text-slate-900">{costs?.paymentMethod === "ALIAS" ? costs?.alias : costs?.accountNumber}</span>
                           <Button type="button" variant="ghost" size="icon" onClick={() => { navigator.clipboard.writeText(costs?.paymentMethod === "ALIAS" ? costs?.alias : costs?.accountNumber); toast({title: "Copiado"}); }}><Copy className="h-4 w-4 text-primary" /></Button>
