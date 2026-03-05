@@ -499,53 +499,53 @@ export default function RegistrationsListPage() {
       </div>
 
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
-          <DialogHeader className="p-8 bg-primary text-white shrink-0">
+        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl max-h-[95vh] flex flex-col">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4 md:gap-6">
                 <div className="relative">
-                  <Avatar className="h-24 w-24 border-4 border-white/20 shadow-xl">
+                  <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white/20 shadow-xl">
                     <AvatarImage src={selectedReg?.photoUrl} className="object-cover" />
-                    <AvatarFallback className="bg-white/10 text-white"><User className="h-12 w-12" /></AvatarFallback>
+                    <AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10 md:h-12 md:w-12" /></AvatarFallback>
                   </Avatar>
                   <div className="absolute -bottom-2 -right-2">
                     {getStatusBadge(selectedReg?.status)}
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60 leading-none">Ficha del Confirmando</p>
-                  <DialogTitle className="text-3xl font-black uppercase tracking-tight leading-none">{selectedReg?.fullName}</DialogTitle>
-                  <div className="flex items-center gap-4 pt-2">
-                    <Badge variant="outline" className="text-white border-white/30 font-bold gap-1.5"><ShieldCheck className="h-3 w-3" /> C.I. {selectedReg?.ciNumber}</Badge>
+                  <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-white/60 leading-none">Ficha Institucional</p>
+                  <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight truncate max-w-[250px] md:max-w-none">{selectedReg?.fullName}</DialogTitle>
+                  <div className="flex flex-wrap items-center gap-2 md:gap-4 pt-1">
+                    <Badge variant="outline" className="text-white border-white/30 font-bold gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" /> C.I. {selectedReg?.ciNumber}</Badge>
                     <Badge variant="secondary" className="bg-white text-primary font-black uppercase tracking-tighter text-[10px]">{formatCatechesisYear(selectedReg?.catechesisYear)}</Badge>
                   </div>
                 </div>
               </div>
-              <div className="bg-white/10 p-4 rounded-2xl border border-white/10 hidden md:block">
-                <QRCodeCanvas value={`FICHA-${selectedReg?.id}`} size={60} level="H" />
+              <div className="bg-white/10 p-2 md:p-3 rounded-xl border border-white/10 hidden sm:block">
+                <QRCodeCanvas value={`FICHA-${selectedReg?.id}`} size={50} level="H" />
               </div>
             </div>
           </DialogHeader>
           
-          <ScrollArea className="max-h-[70vh] bg-slate-50">
-            <div className="p-8 space-y-8">
+          <ScrollArea className="flex-1 bg-slate-50">
+            <div className="p-6 md:p-8 space-y-8">
               {/* SECCIÓN 1: DATOS PERSONALES */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <UserCircle className="h-5 w-5 text-primary" />
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Información Personal</h3>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Información Personal</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Fecha de Nacimiento</Label>
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Fecha de Nacimiento</Label>
                     <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-slate-400" /> {selectedReg?.birthDate || 'No registrada'}</p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Edad Calculada</Label>
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Edad Calculada</Label>
                     <p className="text-sm font-bold text-slate-700">{selectedReg?.age} Años</p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-bold text-slate-400 uppercase">Contacto (WhatsApp)</Label>
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Contacto (WhatsApp)</Label>
                     <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-green-500" /> {selectedReg?.phone}</p>
                   </div>
                 </div>
@@ -555,27 +555,23 @@ export default function RegistrationsListPage() {
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <Users className="h-5 w-5 text-primary" />
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Familia y Tutores</h3>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Familia y Tutores</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
-                    <p className="text-[9px] font-black text-primary uppercase tracking-tighter">Datos de la Madre</p>
-                    <div className="space-y-2">
-                      <p className="text-xs font-bold text-slate-700">{selectedReg?.motherName || 'No registrada'}</p>
-                      <p className="text-[10px] text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg?.motherPhone || 'Sin celular'}</p>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
+                    <p className="text-[8px] font-black text-primary uppercase tracking-tighter">Madre</p>
+                    <p className="text-xs font-bold text-slate-700 truncate">{selectedReg?.motherName || 'No registrada'}</p>
+                    <p className="text-[10px] text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg?.motherPhone || 'Sin celular'}</p>
                   </div>
-                  <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
-                    <p className="text-[9px] font-black text-primary uppercase tracking-tighter">Datos del Padre</p>
-                    <div className="space-y-2">
-                      <p className="text-xs font-bold text-slate-700">{selectedReg?.fatherName || 'No registrado'}</p>
-                      <p className="text-[10px] text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg?.fatherPhone || 'Sin celular'}</p>
-                    </div>
+                  <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
+                    <p className="text-[8px] font-black text-primary uppercase tracking-tighter">Padre</p>
+                    <p className="text-xs font-bold text-slate-700 truncate">{selectedReg?.fatherName || 'No registrado'}</p>
+                    <p className="text-[10px] text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg?.fatherPhone || 'Sin celular'}</p>
                   </div>
                   {selectedReg?.tutorName && (
                     <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 md:col-span-2 flex items-center justify-between">
                       <div>
-                        <p className="text-[9px] font-black text-primary uppercase tracking-tighter">Tutor / Encargado</p>
+                        <p className="text-[8px] font-black text-primary uppercase tracking-tighter">Tutor / Encargado</p>
                         <p className="text-xs font-bold text-slate-700">{selectedReg.tutorName}</p>
                       </div>
                       <p className="text-xs font-bold text-primary">{selectedReg.tutorPhone}</p>
@@ -588,71 +584,74 @@ export default function RegistrationsListPage() {
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <BookOpen className="h-5 w-5 text-primary" />
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Registro Sacramental</h3>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Registro Sacramental</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className={cn("p-5 rounded-3xl border flex items-start gap-4", selectedReg?.hasBaptism ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100")}>
-                    <div className={cn("p-2 rounded-xl", selectedReg?.hasBaptism ? "bg-green-500 text-white" : "bg-red-500 text-white")}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  <div className={cn("p-4 md:p-5 rounded-2xl border flex items-start gap-4", selectedReg?.hasBaptism ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100")}>
+                    <div className={cn("p-2 rounded-xl shrink-0", selectedReg?.hasBaptism ? "bg-green-500 text-white" : "bg-red-500 text-white")}>
                       <Church className="h-5 w-5" />
                     </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-tighter">Bautismo</p>
-                      <p className="text-[10px] font-medium text-slate-500">{selectedReg?.hasBaptism ? 'Sacramento Realizado' : 'Pendiente / Requiere curso'}</p>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-tighter">Bautismo</p>
+                      <p className="text-[10px] font-bold text-slate-600 mt-0.5">{selectedReg?.hasBaptism ? 'Sacramento Realizado' : 'Pendiente / Requiere curso'}</p>
                       {selectedReg?.hasBaptism && (
-                        <div className="mt-2 space-y-1 text-[10px] font-bold text-slate-600">
-                          <p>Parroquia: {selectedReg.baptismParish}</p>
+                        <div className="mt-2 space-y-0.5 text-[9px] font-medium text-slate-500 leading-tight">
+                          <p className="truncate">Parroquia: {selectedReg.baptismParish}</p>
                           <p>Libro: {selectedReg.baptismBook} • Folio: {selectedReg.baptismFolio}</p>
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className={cn("p-5 rounded-3xl border flex items-start gap-4", selectedReg?.hasFirstCommunion ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100")}>
-                    <div className={cn("p-2 rounded-xl", selectedReg?.hasFirstCommunion ? "bg-blue-500 text-white" : "bg-orange-500 text-white")}>
+                  <div className={cn("p-4 md:p-5 rounded-2xl border flex items-start gap-4", selectedReg?.hasFirstCommunion ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100")}>
+                    <div className={cn("p-2 rounded-xl shrink-0", selectedReg?.hasFirstCommunion ? "bg-blue-500 text-white" : "bg-orange-500 text-white")}>
                       <Book className="h-5 w-5" />
                     </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-tighter">Primera Comunión</p>
-                      <p className="text-[10px] font-medium text-slate-500">{selectedReg?.hasFirstCommunion ? 'Nivelación no necesaria' : 'Sin comunión / Nivelación obligatoria'}</p>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-tighter">Primera Comunión</p>
+                      <p className="text-[10px] font-bold text-slate-600 mt-0.5">
+                        {selectedReg?.hasFirstCommunion ? 'Sacramento Realizado' : 'Pendiente / Nivelación obligatoria'}
+                      </p>
+                      <p className="text-[9px] text-slate-400 mt-1 italic">
+                        {selectedReg?.hasFirstCommunion ? 'Nivelación no necesaria' : 'Debe asistir al curso especial'}
+                      </p>
                     </div>
                   </div>
                 </div>
               </section>
 
-              {/* SECCIÓN 4: DOCUMENTACIÓN (PREVIEWS PEQUEÑOS) */}
+              {/* SECCIÓN 4: DOCUMENTACIÓN (MINIATURAS) */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <ImageIcon className="h-5 w-5 text-primary" />
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Documentación Digital</h3>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Documentación Digital</h3>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {/* COMPROBANTE PAGO */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Recibo/Transferencia</Label>
+                    <Label className="text-[8px] font-black text-slate-400 uppercase tracking-tight">Comprobante Pago</Label>
                     <div 
-                      className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-colors group"
-                      onClick={() => { setViewProofUrl(selectedReg?.paymentProofUrl); setIsProofViewOpen(true); }}
+                      className="aspect-square rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-colors group"
+                      onClick={() => { if(selectedReg?.paymentProofUrl) { setViewProofUrl(selectedReg.paymentProofUrl); setIsProofViewOpen(true); } }}
                     >
                       {selectedReg?.paymentProofUrl ? (
                         <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-slate-300">
-                          <X className="h-6 w-6" />
+                          <X className="h-5 w-5" />
                         </div>
                       )}
                     </div>
                   </div>
-                  {/* CERTIFICADO BAUTISMO */}
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Cert. Bautismo</Label>
+                    <Label className="text-[8px] font-black text-slate-400 uppercase tracking-tight">Cert. Bautismo</Label>
                     <div 
-                      className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-colors group"
-                      onClick={() => { setViewProofUrl(selectedReg?.baptismCertificatePhotoUrl); setIsProofViewOpen(true); }}
+                      className="aspect-square rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-colors group"
+                      onClick={() => { if(selectedReg?.baptismCertificatePhotoUrl) { setViewProofUrl(selectedReg.baptismCertificatePhotoUrl); setIsProofViewOpen(true); } }}
                     >
                       {selectedReg?.baptismCertificatePhotoUrl ? (
                         <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-slate-300">
-                          <X className="h-6 w-6" />
+                          <X className="h-5 w-5" />
                         </div>
                       )}
                     </div>
@@ -662,20 +661,20 @@ export default function RegistrationsListPage() {
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-6 bg-slate-100 border-t flex flex-row justify-between gap-3">
-            <Button variant="outline" className="rounded-xl px-8 h-12 font-bold" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
+          <DialogFooter className="p-4 md:p-6 bg-slate-100 border-t flex flex-row justify-between gap-3 shrink-0">
+            <Button variant="outline" className="rounded-xl px-4 md:px-8 h-11 md:h-12 font-bold text-xs md:text-sm" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
             
             <div className="flex gap-2">
               <Button 
                 variant="secondary"
-                className="rounded-xl px-8 h-12 bg-white text-slate-700 border shadow-sm font-bold gap-2 hover:bg-slate-50"
+                className="rounded-xl px-4 md:px-8 h-11 md:h-12 bg-white text-slate-700 border shadow-sm font-bold gap-2 hover:bg-slate-50 text-xs md:text-sm"
                 onClick={() => setIsEditDialogOpen(true)}
               >
                 <Edit className="h-4 w-4 text-primary" /> Editar Ficha
               </Button>
               {selectedReg?.status === "POR_VALIDAR" && (isAdmin || isTesorero) && (
                 <Button 
-                  className="rounded-xl px-8 h-12 bg-green-600 hover:bg-green-700 font-bold gap-2 shadow-lg"
+                  className="rounded-xl px-4 md:px-8 h-11 md:h-12 bg-green-600 hover:bg-green-700 font-bold gap-2 shadow-lg text-xs md:text-sm"
                   onClick={handleValidatePayment}
                   disabled={isSubmitting}
                 >
@@ -689,13 +688,13 @@ export default function RegistrationsListPage() {
 
       {/* DIÁLOGO DE EDICIÓN */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
-          <DialogHeader className="p-6 bg-slate-900 text-white">
+        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Editar Datos de Inscripción</DialogTitle>
             <DialogDescription className="text-slate-400">Actualiza la información oficial de {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditRegistration}>
-            <ScrollArea className="max-h-[60vh] p-6 bg-white">
+          <form onSubmit={handleEditRegistration} className="flex-1 overflow-hidden flex flex-col">
+            <ScrollArea className="flex-1 p-6 bg-white">
               <div className="space-y-8">
                 {/* BLOQUE 1: PERSONALES */}
                 <div className="space-y-4">
@@ -754,7 +753,7 @@ export default function RegistrationsListPage() {
                 </div>
               </div>
             </ScrollArea>
-            <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+            <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 shrink-0">
               <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
               <Button type="submit" className="flex-1 h-12 rounded-xl bg-slate-900 hover:bg-black font-bold gap-2 shadow-lg" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />} Guardar Cambios
@@ -810,7 +809,7 @@ export default function RegistrationsListPage() {
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
           <DialogHeader className="sr-only">
             <DialogTitle>Vista de Comprobante</DialogTitle>
-            <DialogDescription>Imagen ampliada del comprobante de transferencia.</DialogDescription>
+            <DialogDescription>Imagen ampliada del documento.</DialogDescription>
           </DialogHeader>
           <div className="relative">
             <Button 
