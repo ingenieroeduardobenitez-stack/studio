@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -37,7 +37,8 @@ import {
   ShieldCheck,
   Book,
   Camera,
-  Receipt
+  Receipt,
+  FlipHorizontal
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -109,6 +110,16 @@ export default function RegistrationsListPage() {
   const editPhotoInputRef = useRef<HTMLInputElement>(null)
   const editBaptismInputRef = useRef<HTMLInputElement>(null)
 
+  // Estados de Cámara
+  const [showCamera, setShowCamera] = useState(false)
+  const [captureTarget, setCaptureTarget] = useState<"PHOTO" | "BAPTISM">("PHOTO")
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
+  const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
   const { toast } = useToast()
   const { user } = useUser()
   const db = useFirestore()
@@ -161,6 +172,82 @@ export default function RegistrationsListPage() {
 
     return grouped
   }, [filteredRegistrations, groups])
+
+  // Funciones de Cámara
+  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node && currentStream) {
+      if (node.srcObject !== currentStream) {
+        node.srcObject = currentStream;
+        node.play().catch(err => console.error("Video play error:", err));
+      }
+    }
+    videoRef.current = node;
+  }, [currentStream]);
+
+  const startCamera = async (target: "PHOTO" | "BAPTISM", deviceId?: string) => {
+    setCaptureTarget(target)
+    try {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+
+      const constraints = {
+        video: {
+          ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "environment" },
+          aspectRatio: { ideal: 0.75 }
+        }
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      setCurrentStream(stream)
+      setHasCameraPermission(true)
+      
+      const availableDevices = await navigator.mediaDevices.enumerateDevices()
+      const videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
+      setDevices(videoDevices)
+      if (!selectedDeviceId && videoDevices.length > 0) {
+        setSelectedDeviceId(deviceId || videoDevices[0].deviceId)
+      }
+      setShowCamera(true)
+    } catch (error) {
+      console.error('Error accessing camera:', error)
+      setHasCameraPermission(false)
+      toast({
+        variant: 'destructive',
+        title: 'Acceso denegado',
+        description: 'Por favor, permite el acceso a la cámara.',
+      })
+    }
+  }
+
+  const stopCamera = () => {
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop())
+      setCurrentStream(null)
+    }
+    setShowCamera(false)
+  }
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        if (captureTarget === "PHOTO") {
+          setEditPhotoPreview(dataUrl)
+        } else {
+          setEditBaptismPreview(dataUrl)
+        }
+        stopCamera()
+      }
+    }
+  }
 
   const handleValidatePayment = async () => {
     if (!db || !selectedReg || !treasuryRef) return
@@ -740,7 +827,7 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE EDICIÓN CON CARGA DE FOTOS */}
+      {/* DIÁLOGO DE EDICIÓN CON CARGA DE FOTOS Y CÁMARA */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -759,8 +846,11 @@ export default function RegistrationsListPage() {
                       <AvatarFallback><User className="h-12 w-12" /></AvatarFallback>
                     </Avatar>
                     <div className="flex gap-2">
-                      <Button type="button" size="sm" className="rounded-xl h-9 gap-2" onClick={() => editPhotoInputRef.current?.click()}>
-                        <Camera className="h-4 w-4" /> Cambiar Foto
+                      <Button type="button" size="sm" className="rounded-xl h-9 gap-2 font-bold" onClick={() => startCamera("PHOTO")}>
+                        <Camera className="h-4 w-4" /> Cámara
+                      </Button>
+                      <Button type="button" size="sm" variant="secondary" className="rounded-xl h-9 gap-2 font-bold" onClick={() => editPhotoInputRef.current?.click()}>
+                        <ImageIcon className="h-4 w-4" /> Archivo
                       </Button>
                       <input type="file" ref={editPhotoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "photo")} />
                     </div>
@@ -776,10 +866,15 @@ export default function RegistrationsListPage() {
                         <ImageIcon className="h-10 w-10 text-slate-200" />
                       )}
                     </div>
-                    <Button type="button" size="sm" variant="outline" className="rounded-xl h-9 gap-2" onClick={() => editBaptismInputRef.current?.click()}>
-                      <ImageIcon className="h-4 w-4" /> Subir Certificado
-                    </Button>
-                    <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileEdit(e, "baptism")} />
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" className="rounded-xl h-9 gap-2 font-bold" onClick={() => startCamera("BAPTISM")}>
+                        <Camera className="h-4 w-4" /> Cámara
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" className="rounded-xl h-9 gap-2 font-bold" onClick={() => editBaptismInputRef.current?.click()}>
+                        <ImageIcon className="h-4 w-4" /> Archivo
+                      </Button>
+                      <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileEdit(e, "baptism")} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -842,6 +937,59 @@ export default function RegistrationsListPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO DE CÁMARA */}
+      <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          <DialogHeader className="p-6 bg-primary text-white">
+            <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
+            <video 
+              ref={onVideoRef} 
+              autoPlay 
+              muted 
+              playsInline 
+              className="w-full h-full object-cover" 
+            />
+            <canvas ref={canvasRef} className="hidden" />
+            
+            {hasCameraPermission === false && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4">
+                <X className="h-12 w-12 text-red-500" />
+                <p className="font-bold">Acceso a cámara requerido</p>
+                <p className="text-xs text-slate-400">Habilita los permisos en tu navegador para usar esta función.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
+            {devices.length > 1 && (
+              <div className="flex items-center gap-2 w-full">
+                <FlipHorizontal className="h-4 w-4 text-slate-400" />
+                <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}>
+                  <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                  <SelectContent>
+                    {devices.map((device) => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label || `Cámara ${device.deviceId.slice(0, 5)}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            <div className="flex gap-3 w-full">
+              <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button>
+              <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 font-bold gap-2" onClick={takePhoto}>
+                <Camera className="h-5 w-5" /> Capturar
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
