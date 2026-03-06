@@ -632,9 +632,6 @@ export default function RegistrationsListPage() {
                   </div>
                 </div>
               </div>
-              <div className="bg-white/10 p-2 md:p-3 rounded-xl border border-white/10 hidden sm:block">
-                <QRCodeCanvas value={`FICHA-${selectedReg?.id}`} size={50} level="H" />
-              </div>
             </div>
           </DialogHeader>
           
