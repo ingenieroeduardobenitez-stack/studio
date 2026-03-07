@@ -42,7 +42,8 @@ import {
   ArrowUp,
   ArrowDown,
   Clock,
-  Wallet
+  Wallet,
+  Globe
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -115,6 +116,7 @@ function EditRegistrationForm({
   
   const [editCatechesisYear, setEditCatechesisYear] = useState(selectedReg?.catechesisYear || "PRIMER_AÑO")
   const [editAttendanceDay, setEditAttendanceDay] = useState(selectedReg?.attendanceDay || "SABADO")
+  const [editGender, setEditGender] = useState(selectedReg?.sexo || "M")
   
   const editPhotoInputRef = useRef<HTMLInputElement>(null)
   const editBaptismInputRef = useRef<HTMLInputElement>(null)
@@ -201,6 +203,7 @@ function EditRegistrationForm({
         baptismFolio: getVal("baptismFolio"),
         catechesisYear: editCatechesisYear,
         attendanceDay: editAttendanceDay,
+        sexo: editGender,
         updatedAt: serverTimestamp()
       }
 
@@ -215,7 +218,7 @@ function EditRegistrationForm({
         userName: catechistName,
         action: "Editar Ficha",
         module: "inscripcion",
-        details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}. Nivel: ${editCatechesisYear}, Horario: ${editAttendanceDay}`,
+        details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}.`,
         timestamp: serverTimestamp()
       })
 
@@ -311,9 +314,23 @@ function EditRegistrationForm({
         <div className="space-y-4">
           <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Personal</h4>
           <div className="grid gap-4">
-            <div className="space-y-2">
-              <Label>Nombre Completo</Label>
-              <Input name="fullName" defaultValue={selectedReg?.fullName} required className="h-11 rounded-xl uppercase font-bold" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nombre Completo</Label>
+                <Input name="fullName" defaultValue={selectedReg?.fullName} required className="h-11 rounded-xl uppercase font-bold" />
+              </div>
+              <div className="space-y-2">
+                <Label>Sexo</Label>
+                <Select value={editGender} onValueChange={setEditGender}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Seleccione sexo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Masculino</SelectItem>
+                    <SelectItem value="F">Femenino</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>C.I. N°</Label><Input name="ciNumber" defaultValue={selectedReg?.ciNumber} required className="h-11 rounded-xl" /></div>
@@ -877,12 +894,36 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
       return `${datePart} - ${timePart}`;
     } catch (e) { return "---"; }
   };
+
+  const getGenderBadge = (sexo: string) => {
+    if (sexo === "M") return <Badge className="bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100 text-[10px] font-black h-5 w-5 p-0 flex items-center justify-center rounded-sm">M</Badge>;
+    if (sexo === "F") return <Badge className="bg-pink-100 text-pink-700 border-pink-200 hover:bg-pink-100 text-[10px] font-black h-5 w-5 p-0 flex items-center justify-center rounded-sm">F</Badge>;
+    return <Badge variant="outline" className="text-[10px] font-black h-5 w-5 p-0 flex items-center justify-center rounded-sm text-slate-300">?</Badge>;
+  };
+
+  const getSourceBadge = (userId: string) => {
+    if (userId === "public_registration") {
+      return (
+        <div className="flex items-center gap-1 text-[9px] font-bold text-green-600 uppercase bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+          <Globe className="h-2.5 w-2.5" /> Público
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1 text-[9px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+        <User className="h-2.5 w-2.5" /> Manual
+      </div>
+    );
+  };
+
   return (
-    <Table><TableHeader className="bg-slate-50/30"><TableRow><TableHead className="w-[60px] pl-6"></TableHead><TableHead className="font-bold text-xs uppercase">Confirmando</TableHead><TableHead className="font-bold text-xs uppercase">C.I. N°</TableHead><TableHead className="font-bold text-xs uppercase">Año</TableHead><TableHead className="font-bold text-xs uppercase cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => onSort('createdAt')}><div className="flex items-center gap-2"><Clock className="h-3 w-3" />Fecha Insc.{sortConfig.key === 'createdAt' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />) : <ArrowUpDown className="h-3 w-3 text-slate-300" />}</div></TableHead><TableHead className="font-bold text-xs uppercase text-center">Estado</TableHead><TableHead className="text-right font-bold text-xs uppercase pr-8">Acciones</TableHead></TableRow></TableHeader><TableBody>
+    <Table><TableHeader className="bg-slate-50/30"><TableRow><TableHead className="w-[60px] pl-6"></TableHead><TableHead className="font-bold text-xs uppercase">Confirmando</TableHead><TableHead className="font-bold text-xs uppercase text-center">Sexo</TableHead><TableHead className="font-bold text-xs uppercase text-center">Origen</TableHead><TableHead className="font-bold text-xs uppercase">C.I. N°</TableHead><TableHead className="font-bold text-xs uppercase">Año</TableHead><TableHead className="font-bold text-xs uppercase cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => onSort('createdAt')}><div className="flex items-center gap-2"><Clock className="h-3 w-3" />Fecha Insc.{sortConfig.key === 'createdAt' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />) : <ArrowUpDown className="h-3 w-3 text-slate-300" />}</div></TableHead><TableHead className="font-bold text-xs uppercase text-center">Estado</TableHead><TableHead className="text-right font-bold text-xs uppercase pr-8">Acciones</TableHead></TableRow></TableHeader><TableBody>
       {students.map((reg: any) => (
         <TableRow key={reg.id} className="hover:bg-slate-50/30 h-14">
           <TableCell className="pl-6"><Avatar className="h-8 w-8 border cursor-pointer hover:scale-110 transition-transform" onClick={() => reg.photoUrl && onViewImage(reg.photoUrl)}><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar></TableCell>
           <TableCell><div className="flex flex-col"><span className="font-bold text-slate-900 text-xs">{reg.fullName}</span><span className="text-[10px] text-slate-500">{reg.phone}</span></div></TableCell>
+          <TableCell className="text-center"><div className="flex justify-center">{getGenderBadge(reg.sexo)}</div></TableCell>
+          <TableCell className="text-center"><div className="flex justify-center">{getSourceBadge(reg.userId)}</div></TableCell>
           <TableCell className="text-xs">{reg.ciNumber}</TableCell>
           <TableCell><span className="text-[10px] font-bold text-slate-400">{formatYear(reg.catechesisYear)}</span></TableCell>
           <TableCell><span className="text-[10px] font-medium text-slate-600">{formatTimestamp(reg.createdAt)}</span></TableCell>
