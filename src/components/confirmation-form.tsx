@@ -75,6 +75,7 @@ const formSchema = z.object({
   phone: z.string().min(10, "N° de celular requerido (formato XXXX-XXX-XXX)"),
   birthDate: z.string().min(1, "Fecha de nacimiento requerida"),
   age: z.coerce.number().optional(),
+  sexo: z.string().optional(),
   photoUrl: z.string().optional(),
   paymentProofUrl: z.string().optional(),
   motherName: z.string().optional(),
@@ -151,7 +152,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 800; // Aumentado para mejor resolución
+        const MAX_SIZE = 800;
         let width = img.width;
         let height = img.height;
 
@@ -170,7 +171,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8)); // Calidad 0.8 para mejor nitidez
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
       img.onerror = (e: any) => reject(e);
       img.src = source;
@@ -209,6 +210,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       phone: "",
       birthDate: "",
       age: 0,
+      sexo: "",
       photoUrl: "",
       paymentProofUrl: "",
       motherName: "",
@@ -299,7 +301,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         currentStream.getTracks().forEach(track => track.stop());
       }
 
-      // Usar cámara frontal para perfil, trasera para documentos
       const facingModeValue = target === "STUDENT_PHOTO" ? "user" : "environment";
 
       const constraints = {
@@ -379,7 +380,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const cleanCiForDoc = cleanCi.replace(/[^0-9]/g, '');
 
     try {
-      // Intento de búsqueda de duplicado (solo si hay permiso)
       try {
         const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue));
         const existingSnap = await getDocs(existingQuery);
@@ -390,9 +390,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           setIsSearchingCi(false);
           return;
         }
-      } catch (e) {
-        // Ignorar error de permisos en modo público para el check de duplicados
-      }
+      } catch (e) {}
 
       const cedulaRef = doc(db, "cedulas", cleanCiForDoc);
       const docSnap = await getDoc(cedulaRef);
@@ -403,6 +401,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         if (data.NOM_MADRE) setValue("motherName", data.NOM_MADRE.toUpperCase());
         if (data.NOM_PADRE) setValue("fatherName", data.NOM_PADRE.toUpperCase());
         if (data.FECHA_NACI) setValue("birthDate", data.FECHA_NACI);
+        
+        if (data.SEXO) {
+          const rawSexo = String(data.SEXO).trim().toUpperCase();
+          if (rawSexo.startsWith('M')) setValue("sexo", "M");
+          else if (rawSexo.startsWith('F')) setValue("sexo", "F");
+        }
+        
         toast({ title: "Datos encontrados", description: "Campos precargados con éxito." });
       }
     } catch (error) {
@@ -461,7 +466,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       
       let assignedReceiptNumber = "";
 
-      // Si es inscripción pública (sin pago inmediato), evitar la transacción por temas de permisos de lectura en settings
       if (isPublic && !immediatePayment) {
         const registrationData = {
           userId: "public_registration",
@@ -495,7 +499,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         setBaptismPreview(null);
         toast({ title: "¡Éxito!", description: "Inscripción enviada para validación." });
       } else {
-        // Proceso administrativo o con pago (requiere estar logueado para actualizar contador)
         await runTransaction(db, async (transaction) => {
           const treasurySnap = await transaction.get(treasuryRef);
           if (!treasurySnap.exists()) throw "Settings not found";
@@ -713,9 +716,26 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <FormField control={form.control} name="fullName" render={({ field }) => (
                   <FormItem><FormLabel className="font-bold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
                 )} />
-                <div className="grid gap-6 md:grid-cols-3">
+                <div className="grid gap-6 md:grid-cols-4">
                   <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel className="font-bold">Fecha Nacimiento</FormLabel><FormControl><Input type="date" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel className="font-bold">Edad</FormLabel><FormControl><Input type="number" readOnly {...field} className="h-12 rounded-xl bg-slate-50" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="sexo" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-bold">Sexo</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-12 rounded-xl">
+                            <SelectValue placeholder="Seleccione sexo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="M">Masculino</SelectItem>
+                          <SelectItem value="F">Femenino</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <FormField control={form.control} name="phone" render={({ field }) => (
                     <FormItem><FormLabel className="font-bold">Celular (WhatsApp)</FormLabel><FormControl><Input placeholder="09XX-XXX-XXX" {...field} className="h-12 rounded-xl" inputMode="numeric" type="tel" onChange={(e) => handlePhoneChange(e, "phone")} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -811,7 +831,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white"><DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle></DialogHeader>
           <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" />{hasCameraPermission === false && <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4"><X className="h-12 w-12 text-red-500" /><p className="font-bold">Acceso a cámara requerido</p></div>}</div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">{devices.length > 1 && <div className="flex items-center gap-2 w-full"><FlipHorizontal className="h-4 w-4 text-slate-400" /><Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}><SelectTrigger className="h-9 rounded-lg"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger><SelectContent>{devices.map((device) => (<SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Cámara ${device.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent></Select></div>}<div className="flex gap-3 w-full"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary font-bold gap-2" onClick={takePhoto}><Camera className="h-5 w-5" /> Tomar Foto</Button></div></DialogFooter>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">{devices.length > 1 && <div className="flex items-center gap-2 w-full"><FlipHorizontal className="h-4 w-4 text-slate-400" /><Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}><SelectTrigger className="h-10 rounded-lg"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger><SelectContent>{devices.map((device) => (<SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Cámara ${device.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent></Select></div>}<div className="flex gap-3 w-full"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary font-bold gap-2" onClick={takePhoto}><Camera className="h-5 w-5" /> Tomar Foto</Button></div></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
