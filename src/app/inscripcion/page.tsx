@@ -49,8 +49,8 @@ export default function PublicRegistrationPage() {
         <ConfirmationForm isPublic={true} />
         
         <div className="text-center pt-8">
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-            Sistema de Gestión de Santuarios • © {new Date().getFullYear()}
+          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+            © 2026 Ing. Eduardo Benítez | Desarrollo de Software - Todos los derechos reservados.
           </p>
         </div>
       </div>

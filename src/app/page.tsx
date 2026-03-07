@@ -189,8 +189,8 @@ export default function RootPage() {
           </Link>
         </div>
 
-        <p className="text-center text-[10px] text-slate-300 font-bold uppercase tracking-[0.4em]">
-          Ciclo Lectivo {new Date().getFullYear()}
+        <p className="text-center text-[9px] text-slate-300 font-bold uppercase tracking-widest">
+          © 2026 Ing. Eduardo Benítez | Desarrollo de Software - Todos los derechos reservados.
         </p>
       </div>
     </div>

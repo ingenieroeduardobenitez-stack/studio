@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -171,8 +170,8 @@ export default function LoginPage() {
           </form>
         </Card>
 
-        <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em]">
-          Parroquia Perpetuo Socorro
+        <p className="text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+          © 2026 Ing. Eduardo Benítez | Desarrollo de Software - Todos los derechos reservados.
         </p>
       </div>
     </div>

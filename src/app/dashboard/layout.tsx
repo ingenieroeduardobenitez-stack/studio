@@ -1,4 +1,3 @@
-
 "use client"
 
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
@@ -105,10 +104,15 @@ export default function DashboardLayout({
               <UserNav />
             </div>
           </header>
-          <main className="flex-1 p-4 md:p-8">
-            <div className="max-w-6xl mx-auto">
+          <main className="flex-1 p-4 md:p-8 flex flex-col">
+            <div className="max-w-6xl mx-auto w-full flex-1">
               {children}
             </div>
+            <footer className="max-w-6xl mx-auto w-full mt-12 pt-8 border-t border-slate-200 text-center pb-8">
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                © 2026 Ing. Eduardo Benítez | Desarrollo de Software - Todos los derechos reservados.
+              </p>
+            </footer>
           </main>
         </SidebarInset>
       </div>
