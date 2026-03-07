@@ -707,7 +707,7 @@ export default function RegistrationsListPage() {
       })
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "unknown",
-        userName: catechistName,
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
         action: "Asignación de Grupo",
         module: "inscripcion",
         details: `Se asignó a ${selectedReg.fullName} al grupo: ${group.name}`,
@@ -940,7 +940,22 @@ export default function RegistrationsListPage() {
       </Dialog>
 
       <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}><DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl"><DialogHeader className="p-6 bg-slate-900 text-white"><div className="flex items-center gap-3"><UserMinus className="h-6 w-6 text-red-400" /><DialogTitle>Baja de Confirmando</DialogTitle></div></DialogHeader><div className="p-6 space-y-6"><div className="p-4 bg-orange-50 rounded-2xl text-xs text-orange-800 font-medium">Esta acción cerrará el ciclo del confirmando. No aparecerá en listas regulares.</div><div className="space-y-3"><Label className="font-bold">Justificar Baja</Label><Textarea placeholder="Motivo de la baja..." className="rounded-xl min-h-[120px] bg-slate-50" value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} required /></div></div><DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-red-600 font-bold" onClick={handleWithdrawConfirmand} disabled={isSubmitting || !withdrawalReason}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Baja"}</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}><DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center"><div className="relative"><Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full text-white bg-white/20" onClick={() => setIsProofViewOpen(false)}><X className="h-6 w-6" /></Button><img src={viewProofUrl || ""} className="max-h-[90vh] rounded-xl shadow-2xl" /></div></DialogContent></Dialog>
+      
+      <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
+        <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista de Documento</DialogTitle>
+            <DialogDescription>Previsualización ampliada del archivo adjunto.</DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full text-white bg-white/20" onClick={() => setIsProofViewOpen(false)}>
+              <X className="h-6 w-6" />
+            </Button>
+            <img src={viewProofUrl || ""} className="max-h-[90vh] rounded-xl shadow-2xl" />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}><DialogContent className="sm:max-w-[450px]"><DialogHeader><DialogTitle>Asignar Grupo</DialogTitle></DialogHeader><div className="py-4"><Select value={newGroupId} onValueChange={setNewGroupId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elige un grupo" /></SelectTrigger><SelectContent>{groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>))}</SelectContent></Select></div><DialogFooter><Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Cancelar</Button><Button onClick={handleAssignGroup} disabled={isSubmitting || !newGroupId}>Guardar</Button></DialogFooter></DialogContent></Dialog>
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="bg-destructive text-white">Eliminar Definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
