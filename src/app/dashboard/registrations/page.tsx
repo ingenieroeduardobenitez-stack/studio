@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -40,7 +41,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Clock
+  Clock,
+  Wallet
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -88,6 +90,7 @@ import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
 
 type ViewMode = "LIST" | "GROUPS"
+type CaptureTarget = "PHOTO" | "BAPTISM" | "PAYMENT_PROOF"
 
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
@@ -112,15 +115,17 @@ export default function RegistrationsListPage() {
     direction: 'desc'
   })
   
-  // Estado local aislado para la edición de fotos
-  // Esto evita que la sincronización en tiempo real de Firestore sobrescriba la foto seleccionada.
+  // Estados locales aislados para la edición de fotos
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null)
   const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(null)
+  const [editPaymentProofPreview, setEditPaymentProofPreview] = useState<string | null>(null)
+  
   const editPhotoInputRef = useRef<HTMLInputElement>(null)
   const editBaptismInputRef = useRef<HTMLInputElement>(null)
+  const editPaymentProofInputRef = useRef<HTMLInputElement>(null)
 
   const [showCamera, setShowCamera] = useState(false)
-  const [captureTarget, setCaptureTarget] = useState<"PHOTO" | "BAPTISM">("PHOTO")
+  const [captureTarget, setCaptureTarget] = useState<CaptureTarget>("PHOTO")
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
@@ -247,7 +252,7 @@ export default function RegistrationsListPage() {
     videoRef.current = node;
   }, [currentStream]);
 
-  const startCamera = async (target: "PHOTO" | "BAPTISM", deviceId?: string) => {
+  const startCamera = async (target: CaptureTarget, deviceId?: string) => {
     setCaptureTarget(target)
     try {
       if (currentStream) {
@@ -309,10 +314,12 @@ export default function RegistrationsListPage() {
         try {
           const optimized = await compressImage(dataUrl);
           if (captureTarget === "PHOTO") setEditPhotoPreview(optimized);
-          else setEditBaptismPreview(optimized);
+          else if (captureTarget === "BAPTISM") setEditBaptismPreview(optimized);
+          else setEditPaymentProofPreview(optimized);
         } catch (e) {
           if (captureTarget === "PHOTO") setEditPhotoPreview(dataUrl);
-          else setEditBaptismPreview(dataUrl);
+          else if (captureTarget === "BAPTISM") setEditBaptismPreview(dataUrl);
+          else setEditPaymentProofPreview(dataUrl);
         }
         stopCamera()
       }
@@ -494,10 +501,9 @@ export default function RegistrationsListPage() {
         updatedAt: serverTimestamp()
       }
 
-      // Solo actualizamos las fotos si hay una nueva previsualización local.
-      // Esto respeta la foto original si no se cambió nada.
       if (editPhotoPreview) updateData.photoUrl = editPhotoPreview;
       if (editBaptismPreview) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
+      if (editPaymentProofPreview) updateData.paymentProofUrl = editPaymentProofPreview;
 
       await updateDoc(doc(db, "confirmations", selectedReg.id), updateData)
 
@@ -512,8 +518,6 @@ export default function RegistrationsListPage() {
 
       toast({ title: "Registro Actualizado", description: "Los datos de la ficha han sido guardados." })
       setIsEditDialogOpen(false)
-      
-      // Actualizamos localmente el selectedReg para que el diálogo de detalles refleje los cambios de inmediato
       setSelectedReg({ ...selectedReg, ...updateData })
     } catch (error) {
       console.error(error)
@@ -523,13 +527,14 @@ export default function RegistrationsListPage() {
     }
   }
 
-  const handleFileEdit = async (e: React.ChangeEvent<HTMLInputElement>, target: "photo" | "baptism") => {
+  const handleFileEdit = async (e: React.ChangeEvent<HTMLInputElement>, target: "photo" | "baptism" | "paymentProof") => {
     const file = e.target.files?.[0]
     if (file) {
       const objectUrl = URL.createObjectURL(file);
       const setPreview = (val: string) => {
         if (target === "photo") setEditPhotoPreview(val);
-        else setEditBaptismPreview(val);
+        else if (target === "baptism") setEditBaptismPreview(val);
+        else setEditPaymentProofPreview(val);
       };
 
       try {
@@ -540,7 +545,6 @@ export default function RegistrationsListPage() {
         reader.onload = () => setPreview(reader.result as string);
         reader.readAsDataURL(file);
       } finally {
-        // Retrasamos la revocación para asegurar que el navegador cargó la imagen en el canvas
         setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       }
     }
@@ -570,9 +574,9 @@ export default function RegistrationsListPage() {
 
   const openEditDialog = (reg: any) => {
     setSelectedReg(reg)
-    // Limpiamos previsualizaciones previas al abrir el diálogo
     setEditPhotoPreview(null)
     setEditBaptismPreview(null)
+    setEditPaymentProofPreview(null)
     setIsEditDialogOpen(true)
   }
 
@@ -959,43 +963,64 @@ export default function RegistrationsListPage() {
           <form onSubmit={handleEditRegistration} className="flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-y-auto p-6 bg-white space-y-10 pb-20">
               {/* Sección de Fotos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-4">
-                  <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Foto de Perfil</Label>
+                  <Label className="text-[10px] font-black text-primary uppercase tracking-widest text-center block">Foto de Perfil</Label>
                   <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
-                    <Avatar className="h-32 w-32 border-4 border-white shadow-md">
+                    <Avatar className="h-24 w-24 border-4 border-white shadow-md">
                       <AvatarImage src={editPhotoPreview || selectedReg?.photoUrl} className="object-cover" />
-                      <AvatarFallback><User className="h-12 w-12" /></AvatarFallback>
+                      <AvatarFallback><User className="h-10 w-10" /></AvatarFallback>
                     </Avatar>
                     <div className="flex gap-2">
-                      <Button type="button" size="sm" className="rounded-xl h-9 gap-2 font-bold" onClick={() => startCamera("PHOTO")}>
-                        <Camera className="h-4 w-4" /> Cámara
+                      <Button type="button" size="sm" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => startCamera("PHOTO")}>
+                        <Camera className="h-3.5 w-3.5" /> Cámara
                       </Button>
-                      <Button type="button" size="sm" variant="secondary" className="rounded-xl h-9 gap-2 font-bold" onClick={() => editPhotoInputRef.current?.click()}>
-                        <ImageIcon className="h-4 w-4" /> Archivo
+                      <Button type="button" size="sm" variant="secondary" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => editPhotoInputRef.current?.click()}>
+                        <ImageIcon className="h-3.5 w-3.5" /> Archivo
                       </Button>
                       <input type="file" ref={editPhotoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "photo")} />
                     </div>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Certificado de Bautismo</Label>
+                  <Label className="text-[10px] font-black text-primary uppercase tracking-widest text-center block">Certificado Bautismo</Label>
                   <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
-                    <div className="h-32 w-44 rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
+                    <div className="h-24 w-full rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
                       {editBaptismPreview || selectedReg?.baptismCertificatePhotoUrl ? (
                         <img src={editBaptismPreview || selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" />
                       ) : (
-                        <ImageIcon className="h-10 w-10 text-slate-200" />
+                        <ImageIcon className="h-8 w-8 text-slate-200" />
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button type="button" size="sm" className="rounded-xl h-9 gap-2 font-bold" onClick={() => startCamera("BAPTISM")}>
-                        <Camera className="h-4 w-4" /> Cámara
+                      <Button type="button" size="sm" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => startCamera("BAPTISM")}>
+                        <Camera className="h-3.5 w-3.5" /> Cámara
                       </Button>
-                      <Button type="button" size="sm" variant="outline" className="rounded-xl h-9 gap-2 font-bold" onClick={() => editBaptismInputRef.current?.click()}>
-                        <ImageIcon className="h-4 w-4" /> Archivo
+                      <Button type="button" size="sm" variant="outline" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => editBaptismInputRef.current?.click()}>
+                        <ImageIcon className="h-3.5 w-3.5" /> Archivo
                       </Button>
                       <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileEdit(e, "baptism")} />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black text-primary uppercase tracking-widest text-center block">Comprobante Pago</Label>
+                  <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
+                    <div className="h-24 w-full rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
+                      {editPaymentProofPreview || selectedReg?.paymentProofUrl ? (
+                        <img src={editPaymentProofPreview || selectedReg.paymentProofUrl} className="w-full h-full object-cover" />
+                      ) : (
+                        <Wallet className="h-8 w-8 text-slate-200" />
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => startCamera("PAYMENT_PROOF")}>
+                        <Camera className="h-3.5 w-3.5" /> Cámara
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => editPaymentProofInputRef.current?.click()}>
+                        <ImageIcon className="h-3.5 w-3.5" /> Archivo
+                      </Button>
+                      <input type="file" ref={editPaymentProofInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileEdit(e, "paymentProof")} />
                     </div>
                   </div>
                 </div>
