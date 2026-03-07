@@ -13,8 +13,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Camera, User, Check, X, Circle, Download } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
 import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth"
 import { firebaseConfig } from "@/firebase/config"
@@ -73,6 +73,10 @@ export default function UsersAdminPage() {
   
   const { toast } = useToast()
   const db = useFirestore()
+  const { user } = useUser()
+
+  const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const { data: profile } = useDoc(userProfileRef)
 
   useEffect(() => {
     setMounted(true)
@@ -85,7 +89,6 @@ export default function UsersAdminPage() {
     }
   }, [selectedUser])
 
-  // Función para comprimir imágenes y optimizar peso
   const compressImage = (base64Str: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new (window as any).Image();
@@ -96,7 +99,6 @@ export default function UsersAdminPage() {
         const MAX_HEIGHT = 300;
         let width = img.width;
         let height = img.height;
-
         if (width > height) {
           if (width > MAX_WIDTH) {
             height *= MAX_WIDTH / width;
@@ -112,7 +114,6 @@ export default function UsersAdminPage() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        // Calidad 0.6 para equilibrar peso y legibilidad
         resolve(canvas.toDataURL('image/jpeg', 0.6));
       };
     });
@@ -128,7 +129,6 @@ export default function UsersAdminPage() {
   const isOnline = (user: any) => {
     if (user.status !== "online") return false
     if (!user.lastSeen) return false
-    
     const lastSeenDate = user.lastSeen.toDate ? user.lastSeen.toDate() : new Date(user.lastSeen)
     const now = new Date()
     const diff = Math.abs((now.getTime() - lastSeenDate.getTime()) / 1000)
@@ -151,7 +151,6 @@ export default function UsersAdminPage() {
 
   const handleExportUsers = () => {
     if (!users || users.length === 0) return;
-    
     const exportData = users.map(u => ({
       Nombre: u.firstName || "",
       Apellido: u.lastName || "",
@@ -160,13 +159,11 @@ export default function UsersAdminPage() {
       Estado: isOnline(u) ? "En Línea" : "Desconectado",
       Ultima_Vez: u.lastSeen?.toDate ? u.lastSeen.toDate().toLocaleString() : "Sin registro"
     }));
-
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Usuarios");
     XLSX.writeFile(workbook, `Lista-Usuarios-Santuario-NSPS-${new Date().toISOString().split('T')[0]}.xlsx`);
-    
-    toast({ title: "Lista exportada", description: "El archivo Excel se ha descargado correctamente." });
+    toast({ title: "Lista exportada" });
   }
 
   const handleTogglePermission = (moduleId: string, permId: string) => {
@@ -194,25 +191,20 @@ export default function UsersAdminPage() {
     e.preventDefault()
     if (!db || isSubmitting) return
     setIsSubmitting(true)
-    
     const formData = new FormData(e.currentTarget)
     const email = (formData.get("email") as string).trim()
     const password = formData.get("password") as string
     const firstName = formData.get("firstName") as string
     const lastName = formData.get("lastName") as string
     const role = formData.get("role") as string
-
     const appName = `SecondaryApp-${Date.now()}`
     let secondaryApp;
-
     try {
       secondaryApp = initializeApp(firebaseConfig, appName)
       const secondaryAuth = getAuth(secondaryApp)
-      
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
       const newUser = userCredential.user
       await signOut(secondaryAuth)
-
       const userData = {
         firstName: firstName || "",
         lastName: lastName || "",
@@ -224,36 +216,27 @@ export default function UsersAdminPage() {
         lastSeen: serverTimestamp(),
         createdAt: serverTimestamp(),
       }
-
       await setDoc(doc(db, "users", newUser.uid), userData)
       
-      toast({ title: "Usuario creado", description: `Se ha registrado a ${firstName} correctamente.` })
-      
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Crear Usuario",
+        module: "usuarios",
+        details: `Se registró al nuevo catequista: ${firstName} ${lastName} (${email}) con rol ${role}`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Usuario creado" })
       setIsCreateDialogOpen(false)
       setTempPhoto(null)
       setSelectedModules([])
-
     } catch (error: any) {
-      console.error("Error creating user:", error)
-      let msg = "No se pudo completar el registro."
-      if (error.code === 'auth/email-already-in-use') {
-        msg = "Este correo electrónico ya está registrado en el sistema."
-      } else if (error.code === 'auth/weak-password') {
-        msg = "La contraseña es muy débil (mínimo 6 caracteres)."
-      } else if (error.code === 'auth/invalid-email') {
-        msg = "El formato del correo electrónico no es válido."
-      }
-      
-      toast({ variant: "destructive", title: "Error de Registro", description: msg })
+      console.error(error)
+      toast({ variant: "destructive", title: "Error" })
     } finally {
       setIsSubmitting(false)
-      if (secondaryApp) {
-        try {
-          await deleteApp(secondaryApp)
-        } catch (e) {
-          console.error("Error deleting secondary app:", e)
-        }
-      }
+      if (secondaryApp) try { await deleteApp(secondaryApp) } catch (e) {}
     }
   }
 
@@ -261,7 +244,6 @@ export default function UsersAdminPage() {
     e.preventDefault()
     if (!selectedUser || !db || isSubmitting) return
     setIsSubmitting(true)
-    
     try {
       const formData = new FormData(e.currentTarget)
       const userData = {
@@ -271,15 +253,22 @@ export default function UsersAdminPage() {
         allowedModules: selectedModules,
         photoUrl: tempPhoto || selectedUser.photoUrl || null
       }
-
       await updateDoc(doc(db, "users", selectedUser.id), userData)
 
-      toast({ title: "Usuario actualizado", description: "Cambios guardados con éxito." })
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Editar Usuario",
+        module: "usuarios",
+        details: `Se actualizaron los datos/permisos de: ${selectedUser.firstName} ${selectedUser.lastName}`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Usuario actualizado" })
       setIsEditDialogOpen(false)
       setTempPhoto(null)
     } catch (error: any) {
-      console.error("Error editing user:", error)
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." })
+      toast({ variant: "destructive", title: "Error" })
     } finally {
       setIsSubmitting(false)
     }
@@ -288,14 +277,22 @@ export default function UsersAdminPage() {
   const handleDeleteUser = async () => {
     if (!selectedUser || !db || isSubmitting) return
     setIsSubmitting(true)
-
     try {
       await deleteDoc(doc(db, "users", selectedUser.id))
-      toast({ title: "Usuario eliminado", description: "El perfil ha sido borrado de la base de datos." })
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Eliminar Usuario",
+        module: "usuarios",
+        details: `Se eliminó definitivamente la cuenta de: ${selectedUser.firstName} ${selectedUser.lastName}`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Usuario eliminado" })
       setIsDeleteDialogOpen(false)
     } catch (error: any) {
-      console.error("Error deleting user:", error)
-      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el usuario." })
+      toast({ variant: "destructive", title: "Error" })
     } finally {
       setIsSubmitting(false)
     }
@@ -366,12 +363,10 @@ export default function UsersAdminPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Gestión de Catequistas</h1>
           <p className="text-muted-foreground">Administra los accesos y permisos detallados por módulo.</p>
         </div>
-        
         <div className="flex gap-2">
           <Button variant="outline" className="border-slate-200 hover:bg-slate-50 font-bold rounded-xl gap-2 h-11" onClick={handleExportUsers}>
             <Download className="h-4 w-4" /> Exportar a Excel
           </Button>
-          
           <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
             setIsCreateDialogOpen(open)
             if (!open) { setTempPhoto(null); setSelectedModules([]); }
@@ -385,11 +380,8 @@ export default function UsersAdminPage() {
               <form onSubmit={handleCreateUser} className="flex flex-col h-full overflow-hidden">
                 <DialogHeader className="p-6 bg-primary text-white shrink-0">
                   <DialogTitle>Añadir Catequista</DialogTitle>
-                  <DialogDescription className="text-white/80">
-                    Ingresa los datos y define los permisos específicos.
-                  </DialogDescription>
+                  <DialogDescription className="text-white/80">Ingresa los datos y define los permisos específicos.</DialogDescription>
                 </DialogHeader>
-                
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                   <div className="flex justify-center">
                     <div className="relative group cursor-pointer" onClick={() => createPhotoRef.current?.click()}>
@@ -397,27 +389,16 @@ export default function UsersAdminPage() {
                         <AvatarImage src={tempPhoto || undefined} />
                         <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-10 w-10" /></AvatarFallback>
                       </Avatar>
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Camera className="h-5 w-5 text-white" />
-                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Camera className="h-5 w-5 text-white" /></div>
                       <input type="file" ref={createPhotoRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">Nombre</Label>
-                      <Input id="firstName" name="firstName" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Apellido</Label>
-                      <Input id="lastName" name="lastName" required />
-                    </div>
+                    <div className="space-y-2"><Label htmlFor="firstName">Nombre</Label><Input id="firstName" name="firstName" required /></div>
+                    <div className="space-y-2"><Label htmlFor="lastName">Apellido</Label><Input id="lastName" name="lastName" required /></div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Correo Electrónico</Label>
-                      <Input id="email" name="email" type="email" required />
-                    </div>
+                    <div className="space-y-2"><Label htmlFor="email">Correo Electrónico</Label><Input id="email" name="email" type="email" required /></div>
                     <div className="space-y-2">
                       <Label htmlFor="role">Rol Principal</Label>
                       <Select name="role" defaultValue="Catequista">
@@ -431,13 +412,9 @@ export default function UsersAdminPage() {
                       </Select>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Contraseña Inicial</Label>
-                    <Input id="password" name="password" type="password" required />
-                  </div>
+                  <div className="space-y-2"><Label htmlFor="password">Contraseña Inicial</Label><Input id="password" name="password" type="password" required /></div>
                   {renderPermissionsGrid()}
                 </div>
-                
                 <DialogFooter className="p-6 bg-slate-50 border-t mt-auto shrink-0">
                   <Button type="submit" disabled={isSubmitting} className="w-full h-12 rounded-xl text-base font-bold shadow-lg">
                     {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : "Registrar Catequista"}
@@ -448,17 +425,11 @@ export default function UsersAdminPage() {
           </Dialog>
         </div>
       </div>
-
       <Card className="border-border/50 shadow-sm overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/50 border-b p-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Buscar..." 
-              className="pl-9 bg-white border-slate-200 h-11" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <Input placeholder="Buscar..." className="pl-9 bg-white border-slate-200 h-11" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -484,49 +455,29 @@ export default function UsersAdminPage() {
                       <TableCell>
                         <div className="flex items-center gap-4">
                           <div className="relative">
-                            <Avatar className="h-10 w-10 border shadow-sm">
-                              <AvatarImage src={u.photoUrl || undefined} />
-                              <AvatarFallback>{(u.firstName?.[0] || "")}</AvatarFallback>
-                            </Avatar>
-                            {online && (
-                              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white ring-1 ring-green-200 animate-pulse" />
-                            )}
+                            <Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={u.photoUrl || undefined} /><AvatarFallback>{(u.firstName?.[0] || "")}</AvatarFallback></Avatar>
+                            {online && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white ring-1 ring-green-200 animate-pulse" />}
                           </div>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900">{u.firstName} {u.lastName}</span>
-                            <span className="text-xs text-slate-400">{u.email}</span>
-                          </div>
+                          <div className="flex flex-col"><span className="font-bold text-slate-900">{u.firstName} {u.lastName}</span><span className="text-xs text-slate-400">{u.email}</span></div>
                         </div>
                       </TableCell>
                       <TableCell>
                         {online ? (
-                          <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100 gap-1.5 h-6 animate-in zoom-in-95">
-                            <Circle className="h-2 w-2 fill-green-600 border-none animate-pulse" /> En Línea
-                          </Badge>
+                          <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100 gap-1.5 h-6 animate-in zoom-in-95"><Circle className="h-2 w-2 fill-green-600 border-none animate-pulse" /> En Línea</Badge>
                         ) : (
-                          <span className="text-[10px] text-slate-400 font-medium italic">
-                            {u.lastSeen ? `Visto ${formatDistanceToNow(u.lastSeen.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen), { addSuffix: true, locale: es })}` : "Sin actividad"}
-                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium italic">{u.lastSeen ? `Visto ${formatDistanceToNow(u.lastSeen.toDate ? u.lastSeen.toDate() : new Date(u.lastSeen), { addSuffix: true, locale: es })}` : "Sin actividad"}</span>
                         )}
                       </TableCell>
                       <TableCell><Badge variant="outline" className="gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />{u.role || "Catequista"}</Badge></TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1 max-w-[250px]">
-                          {moduleNames.map((name, idx) => (<Badge key={idx} variant="secondary" className="text-[9px]">{name}</Badge>))}
-                        </div>
-                      </TableCell>
+                      <TableCell><div className="flex flex-wrap gap-1 max-w-[250px]">{moduleNames.map((name, idx) => (<Badge key={idx} variant="secondary" className="text-[9px]">{name}</Badge>))}</div></TableCell>
                       <TableCell className="text-right pr-8">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><button className="p-2 hover:bg-slate-100 rounded-full"><MoreHorizontal className="h-5 w-5 text-slate-400" /></button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-xl shadow-xl border-none">
                             <DropdownMenuLabel className="text-[10px] uppercase text-slate-400">Opciones</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => { setSelectedUser(u); setIsEditDialogOpen(true); }} className="h-11 rounded-lg gap-3">
-                              <Edit className="h-4 w-4 text-slate-400" /> Editar Permisos
-                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setSelectedUser(u); setIsEditDialogOpen(true); }} className="h-11 rounded-lg gap-3"><Edit className="h-4 w-4 text-slate-400" /> Editar Permisos</DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive h-11 rounded-lg gap-3" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}>
-                              <Trash2 className="h-4 w-4" /> Eliminar Cuenta
-                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive h-11 rounded-lg gap-3" onClick={() => { setSelectedUser(u); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /> Eliminar Cuenta</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -538,24 +489,17 @@ export default function UsersAdminPage() {
           )}
         </CardContent>
       </Card>
-
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
         setIsEditDialogOpen(open)
         if (!open) { setSelectedUser(null); setTempPhoto(null); setSelectedModules([]); }
       }}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl">
           <form onSubmit={handleEditUser} className="flex flex-col h-full overflow-hidden">
-            <DialogHeader className="p-6 bg-primary text-white shrink-0">
-              <DialogTitle>Editar Catequista</DialogTitle>
-              <DialogDescription className="text-white/80">Actualiza datos o permisos.</DialogDescription>
-            </DialogHeader>
+            <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Editar Catequista</DialogTitle><DialogDescription className="text-white/80">Actualiza datos o permisos.</DialogDescription></DialogHeader>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div className="flex justify-center">
                 <div className="relative group cursor-pointer" onClick={() => editPhotoRef.current?.click()}>
-                  <Avatar className="h-20 w-20 border-2 border-slate-100">
-                    <AvatarImage src={tempPhoto || selectedUser?.photoUrl || undefined} />
-                    <AvatarFallback><User className="h-10 w-10" /></AvatarFallback>
-                  </Avatar>
+                  <Avatar className="h-20 w-20 border-2 border-slate-100"><AvatarImage src={tempPhoto || selectedUser?.photoUrl || undefined} /><AvatarFallback><User className="h-10 w-10" /></AvatarFallback></Avatar>
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100"><Camera className="h-5 w-5 text-white" /></div>
                   <input type="file" ref={editPhotoRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                 </div>
@@ -581,28 +525,12 @@ export default function UsersAdminPage() {
               </div>
               {renderPermissionsGrid()}
             </div>
-            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
-              <Button type="submit" disabled={isSubmitting} className="w-full h-12 rounded-xl font-bold shadow-lg">
-                {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : "Guardar Cambios"}
-              </Button>
-            </DialogFooter>
+            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0"><Button type="submit" disabled={isSubmitting} className="w-full h-12 rounded-xl font-bold shadow-lg">{isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : "Guardar Cambios"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar catequista?</AlertDialogTitle>
-            <AlertDialogDescription>Esta acción borrará el perfil definitivamente del sistema administrativo.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-white" onClick={handleDeleteUser}>
-              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Eliminar catequista?</AlertDialogTitle><AlertDialogDescription>Esta acción borrará el perfil definitivamente del sistema administrativo.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction className="bg-destructive text-white" onClick={handleDeleteUser}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
     </div>
   )

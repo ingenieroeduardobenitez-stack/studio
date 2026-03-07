@@ -13,8 +13,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Shapes, Plus, Search, MoreHorizontal, Loader2, Edit, Trash2, Users, User, X, Check } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -33,6 +33,10 @@ export default function GroupsAdminPage() {
   
   const { toast } = useToast()
   const db = useFirestore()
+  const { user } = useUser()
+
+  const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const { data: profile } = useDoc(userProfileRef)
 
   useEffect(() => {
     setMounted(true)
@@ -49,44 +53,26 @@ export default function GroupsAdminPage() {
     return groups.filter(g => g.name?.toLowerCase().includes(searchTerm.toLowerCase()))
   }, [groups, searchTerm])
 
-  // LÓGICA DE FILTRADO: Excluir catequistas que ya tienen grupo
   const filteredUsersForDialog = useMemo(() => {
     if (!users) return []
-    
-    // Obtener todos los IDs de catequistas que ya pertenecen a algún grupo
     const allAssignedIds = new Set<string>()
     groups?.forEach(g => {
       if (g.catequistaIds && Array.isArray(g.catequistaIds)) {
         g.catequistaIds.forEach((id: string) => allAssignedIds.add(id))
       }
     })
-
     return users.filter(u => {
-      // Filtro de búsqueda por texto
-      const matchesSearch = `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(memberSearch.toLowerCase()) ||
-                            (u.email || "").toLowerCase().includes(memberSearch.toLowerCase())
-      
+      const matchesSearch = `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(memberSearch.toLowerCase()) || (u.email || "").toLowerCase().includes(memberSearch.toLowerCase())
       if (!matchesSearch) return false
-
       const isAlreadyAssigned = allAssignedIds.has(u.id)
-      
-      // Si estamos editando, permitimos ver a los que ya están en ESTE grupo específico
-      // aunque técnicamente estén "asignados", ya que son parte del grupo que estamos viendo.
       const isInCurrentGroup = selectedGroup?.catequistaIds?.includes(u.id)
-
-      if (isEditDialogOpen) {
-        return isInCurrentGroup || !isAlreadyAssigned
-      }
-
-      // Si es creación, solo mostramos los que no tienen ningún grupo asignado
+      if (isEditDialogOpen) return isInCurrentGroup || !isAlreadyAssigned
       return !isAlreadyAssigned
     })
   }, [users, groups, memberSearch, isEditDialogOpen, selectedGroup])
 
   const handleToggleCatequista = useCallback((userId: string) => {
-    setSelectedCatequistaIds(prev => 
-      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
-    )
+    setSelectedCatequistaIds(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId])
   }, [])
 
   const handleCreateGroup = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -96,14 +82,12 @@ export default function GroupsAdminPage() {
       toast({ variant: "destructive", title: "Atención", description: "Selecciona al menos un catequista." })
       return
     }
-
     setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     const name = formData.get("name") as string
     const attendanceDay = formData.get("attendanceDay") as string
     const catechesisYear = formData.get("catechesisYear") as string
     const schedule = attendanceDay === "SABADO" ? "15:30 a 18:30 hs" : "08:00 a 11:00 hs"
-
     const groupId = `group_${Date.now()}`
     try {
       await setDoc(doc(db, "groups", groupId), {
@@ -114,11 +98,20 @@ export default function GroupsAdminPage() {
         catechesisYear: catechesisYear || "PRIMER_AÑO",
         createdAt: serverTimestamp(),
       })
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Crear Grupo",
+        module: "grupos",
+        details: `Se creó el grupo "${name}" para ${catechesisYear.replace('_', ' ')} (${attendanceDay})`,
+        timestamp: serverTimestamp()
+      })
+
       toast({ title: "Grupo creado" })
       setIsCreateDialogOpen(false)
       setMemberSearch("")
     } catch (error) {
-      console.error(error)
       toast({ variant: "destructive", title: "Error" })
     } finally {
       setIsSubmitting(false)
@@ -129,24 +122,32 @@ export default function GroupsAdminPage() {
     e.preventDefault()
     if (!db || !selectedGroup || isSubmitting) return
     setIsSubmitting(true)
-    
     const formData = new FormData(e.currentTarget)
+    const name = formData.get("name") as string
     const attendanceDay = formData.get("attendanceDay") as string
     const schedule = attendanceDay === "SABADO" ? "15:30 a 18:30 hs" : "08:00 a 11:00 hs"
-
     try {
       await updateDoc(doc(db, "groups", selectedGroup.id), {
-        name: formData.get("name") as string || "",
+        name: name || "",
         catequistaIds: selectedCatequistaIds,
         attendanceDay: attendanceDay || "SABADO",
         schedule: schedule || "",
         catechesisYear: formData.get("catechesisYear") as string || "PRIMER_AÑO"
       })
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Editar Grupo",
+        module: "grupos",
+        details: `Se actualizaron los datos del grupo "${name}". Integrantes: ${selectedCatequistaIds.length}`,
+        timestamp: serverTimestamp()
+      })
+
       toast({ title: "Grupo actualizado" })
       setIsEditDialogOpen(false)
       setMemberSearch("")
     } catch (error) {
-      console.error(error)
       toast({ variant: "destructive", title: "Error" })
     } finally {
       setIsSubmitting(false)
@@ -157,11 +158,21 @@ export default function GroupsAdminPage() {
     if (!db || !selectedGroup || isSubmitting) return
     setIsSubmitting(true)
     try {
+      const gName = selectedGroup.name
       await deleteDoc(doc(db, "groups", selectedGroup.id))
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Eliminar Grupo",
+        module: "grupos",
+        details: `Se eliminó definitivamente el grupo "${gName}"`,
+        timestamp: serverTimestamp()
+      })
+
       toast({ title: "Grupo eliminado" })
       setIsDeleteDialogOpen(false)
     } catch (error) {
-      console.error(error)
       toast({ variant: "destructive", title: "Error" })
     } finally {
       setIsSubmitting(false)
@@ -181,7 +192,6 @@ export default function GroupsAdminPage() {
           <Plus className="mr-2 h-4 w-4" /> Crear Nuevo Grupo
         </Button>
       </div>
-
       <Card className="border-border/50 shadow-sm overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/50 border-b">
           <div className="relative">
@@ -194,25 +204,13 @@ export default function GroupsAdminPage() {
             <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : (
             <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50/50"><TableHead className="font-bold">Nombre</TableHead><TableHead className="font-bold">Día / Año</TableHead><TableHead className="font-bold">Miembros</TableHead><TableHead className="text-right pr-8 font-bold">Acciones</TableHead></TableRow>
-              </TableHeader>
+              <TableHeader><TableRow className="bg-slate-50/50"><TableHead className="font-bold">Nombre</TableHead><TableHead className="font-bold">Día / Año</TableHead><TableHead className="font-bold">Miembros</TableHead><TableHead className="text-right pr-8 font-bold">Acciones</TableHead></TableRow></TableHeader>
               <TableBody>
                 {filteredGroups.map((group: any) => (
                   <TableRow key={group.id}>
                     <TableCell className="font-bold">{group.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="mr-2">{group.attendanceDay}</Badge>
-                      <Badge variant="outline">{group.catechesisYear?.replace("_", " ")}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex -space-x-2">
-                        {group.catequistaIds?.slice(0, 3).map((id: string) => {
-                          const u = users?.find(u => u.id === id)
-                          return (<Avatar key={id} className="h-7 w-7 border-2 border-white"><AvatarImage src={u?.photoUrl || undefined} /><AvatarFallback><User className="h-3 w-3"/></AvatarFallback></Avatar>)
-                        })}
-                      </div>
-                    </TableCell>
+                    <TableCell><Badge variant="secondary" className="mr-2">{group.attendanceDay}</Badge><Badge variant="outline">{group.catechesisYear?.replace("_", " ")}</Badge></TableCell>
+                    <TableCell><div className="flex -space-x-2">{group.catequistaIds?.slice(0, 3).map((id: string) => { const u = users?.find(u => u.id === id); return (<Avatar key={id} className="h-7 w-7 border-2 border-white"><AvatarImage src={u?.photoUrl || undefined} /><AvatarFallback><User className="h-3 w-3"/></AvatarFallback></Avatar>) })}</div></TableCell>
                     <TableCell className="text-right pr-8">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -229,7 +227,6 @@ export default function GroupsAdminPage() {
           )}
         </CardContent>
       </Card>
-
       <Dialog open={isCreateDialogOpen} onOpenChange={(open) => { setIsCreateDialogOpen(open); if(!open) setMemberSearch(""); }}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
           <form onSubmit={handleCreateGroup} className="flex flex-col h-full overflow-hidden">
@@ -242,44 +239,15 @@ export default function GroupsAdminPage() {
               </div>
               <div className="space-y-3">
                 <Label>Seleccionar Miembros disponibles ({selectedCatequistaIds.length})</Label>
-                <div className="border rounded-xl p-3 bg-slate-50 flex flex-wrap gap-2 mb-2">
-                  {selectedCatequistaIds.map(id => {
-                    const u = users?.find(u => u.id === id)
-                    return (<Badge key={id} variant="secondary" className="gap-1">{u?.firstName} <X className="h-3 w-3 cursor-pointer" onClick={() => handleToggleCatequista(id)} /></Badge>)
-                  })}
-                  {selectedCatequistaIds.length === 0 && <span className="text-[10px] text-slate-400 italic">Ningún catequista seleccionado</span>}
-                </div>
-                
-                <div className="relative mb-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input 
-                    placeholder="Buscar catequista sin grupo..." 
-                    className="pl-9 h-9 text-xs" 
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                  />
-                </div>
-
-                <ScrollArea className="h-[150px] border rounded-xl p-2 bg-white">
-                  {filteredUsersForDialog.length === 0 ? (
-                    <p className="text-center text-[10px] text-slate-400 py-4 italic">No hay catequistas disponibles o no coinciden con la búsqueda</p>
-                  ) : (
-                    filteredUsersForDialog.map(u => (
-                      <div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1 transition-colors", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}>
-                        <span className="text-sm">{u.firstName} {u.lastName}</span>
-                        {selectedCatequistaIds.includes(u.id) && <Check className="h-4 w-4" />}
-                      </div>
-                    ))
-                  )}
-                </ScrollArea>
-                <p className="text-[10px] text-muted-foreground italic">Nota: Solo se muestran catequistas que aún no pertenecen a ningún grupo.</p>
+                <div className="border rounded-xl p-3 bg-slate-50 flex flex-wrap gap-2 mb-2">{selectedCatequistaIds.map(id => { const u = users?.find(u => u.id === id); return (<Badge key={id} variant="secondary" className="gap-1">{u?.firstName} <X className="h-3 w-3 cursor-pointer" onClick={() => handleToggleCatequista(id)} /></Badge>) })} {selectedCatequistaIds.length === 0 && <span className="text-[10px] text-slate-400 italic">Ningún catequista seleccionado</span>}</div>
+                <div className="relative mb-2"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" /><Input placeholder="Buscar catequista sin grupo..." className="pl-9 h-9 text-xs" value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} /></div>
+                <ScrollArea className="h-[150px] border rounded-xl p-2 bg-white">{filteredUsersForDialog.length === 0 ? (<p className="text-center text-[10px] text-slate-400 py-4 italic">No hay catequistas disponibles</p>) : (filteredUsersForDialog.map(u => (<div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1 transition-colors", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}><span className="text-sm">{u.firstName} {u.lastName}</span>{selectedCatequistaIds.includes(u.id) && <Check className="h-4 w-4" />}</div>)))}</ScrollArea>
               </div>
             </div>
             <DialogFooter className="p-6 bg-slate-50 border-t shrink-0"><Button type="submit" disabled={isSubmitting} className="w-full h-11">{isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Crear Grupo"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => { setIsEditDialogOpen(open); if(!open) setMemberSearch(""); }}>
         <DialogContent className="sm:max-w-[500px] flex flex-col max-h-[90vh] p-0 overflow-hidden">
           <form onSubmit={handleEditGroup} className="flex flex-col h-full overflow-hidden">
@@ -292,45 +260,16 @@ export default function GroupsAdminPage() {
               </div>
               <div className="space-y-3">
                 <Label>Miembros ({selectedCatequistaIds.length})</Label>
-                <div className="relative mb-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input 
-                    placeholder="Buscar catequistas disponibles..." 
-                    className="pl-9 h-9 text-xs" 
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                  />
-                </div>
-                <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">
-                  {filteredUsersForDialog.length === 0 ? (
-                    <p className="text-center text-[10px] text-slate-400 py-4 italic">No se encontraron resultados disponibles</p>
-                  ) : (
-                    filteredUsersForDialog.map(u => (
-                      <div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1 transition-colors", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}>
-                        <span className="text-sm">{u.firstName} {u.lastName}</span>
-                        {selectedCatequistaIds.includes(u.id) && <Check className="h-4 w-4" />}
-                      </div>
-                    ))
-                  )}
-                </ScrollArea>
-                <p className="text-[10px] text-muted-foreground italic">Nota: Se muestran miembros actuales y catequistas libres.</p>
+                <div className="relative mb-2"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" /><Input placeholder="Buscar catequistas disponibles..." className="pl-9 h-9 text-xs" value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} /></div>
+                <ScrollArea className="h-[200px] border rounded-xl p-2 bg-white">{filteredUsersForDialog.length === 0 ? (<p className="text-center text-[10px] text-slate-400 py-4 italic">No se encontraron resultados</p>) : (filteredUsersForDialog.map(u => (<div key={u.id} className={cn("flex items-center justify-between p-2 rounded-lg cursor-pointer mb-1 transition-colors", selectedCatequistaIds.includes(u.id) ? "bg-primary text-white" : "hover:bg-slate-100")} onClick={() => handleToggleCatequista(u.id)}><span className="text-sm">{u.firstName} {u.lastName}</span>{selectedCatequistaIds.includes(u.id) && <Check className="h-4 w-4" />}</div>)))}</ScrollArea>
               </div>
             </div>
-            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0"><Button type="submit" disabled={isSubmitting} className="w-full h-11">{isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Guardar Cambios"}</Button></DialogFooter>
+            <DialogFooter className="p-6 bg-slate-50 border-t shrink-0"><Button type="submit" disabled={isSubmitting} className="w-full h-12 rounded-xl font-bold shadow-lg">{isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Guardar Cambios"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle></AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-white" onClick={handleDeleteGroup}>
-              {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction className="bg-destructive text-white" onClick={handleDeleteGroup}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Eliminar"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
     </div>
   )
