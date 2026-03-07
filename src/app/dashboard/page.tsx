@@ -132,7 +132,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{regsLoading ? "..." : (registrations?.length || 0)}</div>
-            <p className="text-[10px] text-muted-foreground">© 2026 Ing. Eduardo Benítez | Desarrollo de Software - Todos los derechos reservados.</p>
+            <p className="text-[10px] text-muted-foreground">Ciclo Lectivo 2026</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-accent">
