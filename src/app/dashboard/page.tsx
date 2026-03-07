@@ -132,7 +132,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{regsLoading ? "..." : (registrations?.length || 0)}</div>
-            <p className="text-[10px] text-muted-foreground">Ciclo Lectivo 2026</p>
+            <p className="text-[10px] text-muted-foreground">© 2026 Ing. Eduardo Benítez | Desarrollo de Software - Todos los derechos reservados.</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-accent">
@@ -173,8 +173,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2 border-border/50 shadow-sm bg-white overflow-hidden">
+      <div className="grid gap-6">
+        <Card className="border-border/50 shadow-sm bg-white overflow-hidden">
           <CardHeader className="bg-slate-50/50 border-b">
             <CardTitle className="font-headline text-lg">Últimas Inscripciones</CardTitle>
             <CardDescription>Resumen de los últimos registros realizados en el sistema.</CardDescription>
@@ -209,41 +209,6 @@ export default function DashboardPage() {
               )}
             </div>
           </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-xl bg-primary text-white flex flex-col justify-between overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <QrCode className="h-32 w-32 rotate-12" />
-          </div>
-          <CardHeader>
-            <CardTitle className="font-headline flex items-center gap-2">
-              <Share2 className="h-5 w-5" /> Compartir Acceso
-            </CardTitle>
-            <CardDescription className="text-white/80">
-              Distribuye el link o el QR para que los postulantes se inscriban desde casa.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-6 pt-4">
-            <div className="bg-white p-3 rounded-2xl shadow-lg">
-              <QRCodeCanvas 
-                value={registrationUrl} 
-                size={140}
-                level="H"
-                includeMargin={false}
-              />
-            </div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-center">
-              Escanear para inscripción 2026
-            </p>
-          </CardContent>
-          <CardFooter className="pt-2 flex flex-col gap-2">
-            <Button className="w-full bg-white text-primary hover:bg-white/90 font-bold rounded-xl gap-2 h-11" onClick={() => setIsQrOpen(true)}>
-              <QrCode className="h-4 w-4" /> Gestionar QR
-            </Button>
-            <Button variant="outline" className="w-full bg-green-500 hover:bg-green-600 text-white border-none font-bold rounded-xl gap-2 h-11" onClick={handleShareWhatsApp}>
-              <MessageCircle className="h-4 w-4" /> Enviar por WhatsApp
-            </Button>
-          </CardFooter>
         </Card>
       </div>
 
