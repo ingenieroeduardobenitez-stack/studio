@@ -29,7 +29,7 @@ import {
   MessageCircle,
   FileText,
   Church,
-  Image as ImageIcon,
+  ImageIcon,
   Edit,
   Save,
   Phone,
@@ -37,7 +37,11 @@ import {
   ShieldCheck,
   Book,
   Camera,
-  FlipHorizontal
+  FlipHorizontal,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Clock
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -103,6 +107,12 @@ export default function RegistrationsListPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [viewProofUrl, setViewProofUrl] = useState<string | null>(null)
   
+  // Estado de ordenamiento
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({
+    key: 'createdAt',
+    direction: 'desc'
+  })
+  
   // Estados para edición de fotos
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null)
   const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(null)
@@ -129,7 +139,7 @@ export default function RegistrationsListPage() {
 
   const compressImage = (base64Str: string, maxWidth = 480, maxHeight = 640): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const img = new Image();
+      const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
         let width = img.width;
@@ -177,6 +187,13 @@ export default function RegistrationsListPage() {
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
   const { data: groups, loading: loadingGroups } = useCollection(groupsQuery)
 
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }))
+  }
+
   const filteredRegistrations = useMemo(() => {
     if (!registrations) return []
     return registrations.filter(reg => 
@@ -194,13 +211,32 @@ export default function RegistrationsListPage() {
     groups.forEach(g => { grouped[g.id] = [] })
     grouped["none"] = []
 
-    filteredRegistrations.forEach(reg => {
+    // Aplicar ordenamiento antes de agrupar
+    const sorted = [...filteredRegistrations].sort((a, b) => {
+      const valA = a[sortConfig.key];
+      const valB = b[sortConfig.key];
+      
+      const getTime = (val: any) => {
+        if (!val) return 0;
+        if (val.toDate) return val.toDate().getTime();
+        return new Date(val).getTime();
+      };
+
+      const timeA = getTime(valA);
+      const timeB = getTime(valB);
+
+      if (timeA < timeB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (timeA > timeB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    sorted.forEach(reg => {
       const gId = reg.groupId && grouped[reg.groupId] ? reg.groupId : "none"
       grouped[gId].push(reg)
     })
 
     return grouped
-  }, [filteredRegistrations, groups])
+  }, [filteredRegistrations, groups, sortConfig])
 
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
@@ -595,6 +631,8 @@ export default function RegistrationsListPage() {
                         onDelete={openDeleteDialog}
                         onViewDetails={openDetailsDialog}
                         onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }}
+                        onSort={handleSort}
+                        sortConfig={sortConfig}
                       />
                     </AccordionContent>
                   </div>
@@ -637,6 +675,8 @@ export default function RegistrationsListPage() {
                           onDelete={openDeleteDialog}
                           onViewDetails={openDetailsDialog}
                           onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }}
+                          onSort={handleSort}
+                          sortConfig={sortConfig}
                         />
                       </AccordionContent>
                     </div>
@@ -706,12 +746,12 @@ export default function RegistrationsListPage() {
                   <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
                     <p className="text-[8px] font-black text-primary uppercase tracking-tighter">Madre</p>
                     <p className="text-xs font-bold text-slate-700 truncate">{selectedReg?.motherName || 'No registrada'}</p>
-                    <p className="text-[10px] text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg?.motherPhone || 'Sin celular'}</p>
+                    <p className="text-[10px] text-slate-500 flex items-center gap-2"><Phone className="h-3.3 w-3" /> {selectedReg?.motherPhone || 'Sin celular'}</p>
                   </div>
                   <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
                     <p className="text-[8px] font-black text-primary uppercase tracking-tighter">Padre</p>
                     <p className="text-xs font-bold text-slate-700 truncate">{selectedReg?.fatherName || 'No registrado'}</p>
-                    <p className="text-[10px] text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg?.fatherPhone || 'Sin celular'}</p>
+                    <p className="text-[10px] text-slate-500 flex items-center gap-2"><Phone className="h-3.3 w-3" /> {selectedReg?.fatherPhone || 'Sin celular'}</p>
                   </div>
                 </div>
               </section>
@@ -1097,10 +1137,63 @@ export default function RegistrationsListPage() {
   )
 }
 
-function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage }: any) {
+function StudentTable({ 
+  students, 
+  formatYear, 
+  getBadge, 
+  isAdmin, 
+  onAssignGroup, 
+  onWithdraw, 
+  onDelete, 
+  onViewDetails, 
+  onViewImage,
+  onSort,
+  sortConfig
+}: any) {
+  
+  const formatTimestamp = (ts: any) => {
+    if (!ts) return "---";
+    try {
+      const date = ts.toDate ? ts.toDate() : new Date(ts);
+      return date.toLocaleString('es-PY', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return "---";
+    }
+  };
+
+  const isSorted = sortConfig.key === 'createdAt';
+
   return (
     <Table>
-      <TableHeader className="bg-slate-50/30"><TableRow><TableHead className="w-[60px] pl-6"></TableHead><TableHead className="font-bold text-xs uppercase">Confirmando</TableHead><TableHead className="font-bold text-xs uppercase">C.I. N°</TableHead><TableHead className="font-bold text-xs uppercase">Año</TableHead><TableHead className="font-bold text-xs uppercase">Estado</TableHead><TableHead className="text-right font-bold text-xs uppercase pr-8">Acciones</TableHead></TableRow></TableHeader>
+      <TableHeader className="bg-slate-50/30">
+        <TableRow>
+          <TableHead className="w-[60px] pl-6"></TableHead>
+          <TableHead className="font-bold text-xs uppercase">Confirmando</TableHead>
+          <TableHead className="font-bold text-xs uppercase">C.I. N°</TableHead>
+          <TableHead className="font-bold text-xs uppercase">Año</TableHead>
+          <TableHead 
+            className="font-bold text-xs uppercase cursor-pointer hover:bg-slate-100 transition-colors group"
+            onClick={() => onSort('createdAt')}
+          >
+            <div className="flex items-center gap-2">
+              <Clock className="h-3 w-3" />
+              Fecha Insc.
+              {isSorted ? (
+                sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+              ) : (
+                <ArrowUpDown className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100" />
+              )}
+            </div>
+          </TableHead>
+          <TableHead className="font-bold text-xs uppercase text-center">Estado</TableHead>
+          <TableHead className="text-right font-bold text-xs uppercase pr-8">Acciones</TableHead>
+        </TableRow>
+      </TableHeader>
       <TableBody>
         {students.map((reg: any) => (
           <TableRow key={reg.id} className="hover:bg-slate-50/30 h-14">
@@ -1116,7 +1209,12 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
             <TableCell><div className="flex flex-col"><span className="font-bold text-slate-900 text-xs">{reg.fullName}</span><span className="text-[10px] text-slate-500">{reg.phone}</span></div></TableCell>
             <TableCell className="text-xs">{reg.ciNumber}</TableCell>
             <TableCell><span className="text-[10px] font-bold text-slate-400">{formatYear(reg.catechesisYear)}</span></TableCell>
-            <TableCell>{getBadge(reg.status)}</TableCell>
+            <TableCell>
+              <span className="text-[10px] font-medium text-slate-600">
+                {formatTimestamp(reg.createdAt)}
+              </span>
+            </TableCell>
+            <TableCell className="text-center">{getBadge(reg.status)}</TableCell>
             <TableCell className="text-right pr-8">
               <div className="flex justify-end gap-2">
                 <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all shadow-sm" onClick={() => onViewDetails(reg)}><Eye className="h-4 w-4" /></Button>
