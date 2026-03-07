@@ -107,19 +107,16 @@ export default function RegistrationsListPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [viewProofUrl, setViewProofUrl] = useState<string | null>(null)
   
-  // Estado de ordenamiento
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({
     key: 'createdAt',
     direction: 'desc'
   })
   
-  // Estados para edición de fotos
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null)
   const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(null)
   const editPhotoInputRef = useRef<HTMLInputElement>(null)
   const editBaptismInputRef = useRef<HTMLInputElement>(null)
 
-  // Estados de Cámara
   const [showCamera, setShowCamera] = useState(false)
   const [captureTarget, setCaptureTarget] = useState<"PHOTO" | "BAPTISM">("PHOTO")
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
@@ -137,7 +134,7 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 1000): Promise<string> => {
+  const compressImage = (source: string, maxWidth = 600, maxHeight = 800): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.onload = () => {
@@ -160,10 +157,10 @@ export default function RegistrationsListPage() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
       img.onerror = (e) => reject(e);
-      img.src = base64Str;
+      img.src = source;
     });
   };
 
@@ -211,7 +208,6 @@ export default function RegistrationsListPage() {
     groups.forEach(g => { grouped[g.id] = [] })
     grouped["none"] = []
 
-    // Aplicar ordenamiento antes de agrupar
     const sorted = [...filteredRegistrations].sort((a, b) => {
       const valA = a[sortConfig.key];
       const valB = b[sortConfig.key];
@@ -255,7 +251,6 @@ export default function RegistrationsListPage() {
         currentStream.getTracks().forEach(track => track.stop());
       }
 
-      // Cámara frontal para perfil, trasera para documentos
       const facingModeValue = target === "PHOTO" ? "user" : "environment";
 
       const constraints = {
@@ -475,29 +470,30 @@ export default function RegistrationsListPage() {
     if (!db || !selectedReg || isSubmitting) return
     setIsSubmitting(true)
 
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
-    const formData = new FormData(e.currentTarget)
-    const updateData: any = {
-      fullName: (formData.get("fullName") as string).toUpperCase(),
-      ciNumber: formData.get("ciNumber") as string,
-      phone: formData.get("phone") as string,
-      birthDate: formData.get("birthDate") as string,
-      motherName: (formData.get("motherName") as string).toUpperCase(),
-      motherPhone: formData.get("motherPhone") as string,
-      fatherName: (formData.get("fatherName") as string).toUpperCase(),
-      fatherPhone: formData.get("fatherPhone") as string,
-      tutorName: (formData.get("tutorName") as string).toUpperCase(),
-      tutorPhone: formData.get("tutorPhone") as string,
-      baptismParish: (formData.get("baptismParish") as string).toUpperCase(),
-      baptismBook: formData.get("baptismBook") as string,
-      baptismFolio: formData.get("baptismFolio") as string,
-      updatedAt: serverTimestamp()
-    }
-
-    if (editPhotoPreview) updateData.photoUrl = editPhotoPreview;
-    if (editBaptismPreview) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
-
     try {
+      const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
+      const formData = new FormData(e.currentTarget)
+      
+      const getVal = (name: string) => (formData.get(name) as string || "").trim();
+
+      const updateData: any = {
+        fullName: getVal("fullName").toUpperCase(),
+        ciNumber: getVal("ciNumber"),
+        phone: getVal("phone"),
+        birthDate: getVal("birthDate"),
+        motherName: getVal("motherName").toUpperCase(),
+        motherPhone: getVal("motherPhone"),
+        fatherName: getVal("fatherName").toUpperCase(),
+        fatherPhone: getVal("fatherPhone"),
+        baptismParish: getVal("baptismParish").toUpperCase(),
+        baptismBook: getVal("baptismBook"),
+        baptismFolio: getVal("baptismFolio"),
+        updatedAt: serverTimestamp()
+      }
+
+      if (editPhotoPreview) updateData.photoUrl = editPhotoPreview;
+      if (editBaptismPreview) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
+
       await updateDoc(doc(db, "confirmations", selectedReg.id), updateData)
 
       await addDoc(collection(db, "audit_logs"), {
