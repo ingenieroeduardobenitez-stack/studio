@@ -32,6 +32,8 @@ export default function ProfilePage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
   
+  const [isInitialized, setIsInitialized] = useState(false)
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -56,18 +58,20 @@ export default function ProfilePage() {
 
   const [newPassword, setNewPassword] = useState("")
 
+  // CRITICAL FIX: Solo inicializar los datos una vez para evitar que la sincronización en tiempo real
+  // sobrescriba los cambios locales (como fotos nuevas) antes de guardar.
   useEffect(() => {
-    if (profile) {
+    if (profile && !isInitialized) {
       setFormData({
         firstName: profile.firstName || "",
         lastName: profile.lastName || "",
         photoUrl: profile.photoUrl || "",
         birthDate: profile.birthDate || ""
       })
+      setIsInitialized(true)
     }
-  }, [profile])
+  }, [profile, isInitialized])
 
-  // Función de compresión ultra-eficiente
   const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -127,7 +131,6 @@ export default function ProfilePage() {
       toast({ title: "Imagen lista", description: "La foto se ha optimizado correctamente." });
     } catch (error) {
       console.error("Error al procesar archivo:", error);
-      // Fallback a FileReader si ObjectURL falla
       const reader = new FileReader();
       reader.onload = () => setFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
       reader.readAsDataURL(file);

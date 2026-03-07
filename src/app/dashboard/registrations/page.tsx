@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -126,7 +127,6 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  // Función para comprimir imágenes mejorada
   const compressImage = (base64Str: string, maxWidth = 480, maxHeight = 640): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -202,7 +202,6 @@ export default function RegistrationsListPage() {
     return grouped
   }, [filteredRegistrations, groups])
 
-  // Funciones de Cámara
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
       if (node.srcObject !== currentStream) {
@@ -441,22 +440,25 @@ export default function RegistrationsListPage() {
     }
   }
 
-  const handleFileEdit = (e: React.ChangeEvent<HTMLInputElement>, target: "photo" | "baptism") => {
+  const handleFileEdit = async (e: React.ChangeEvent<HTMLInputElement>, target: "photo" | "baptism") => {
     const file = e.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = async () => {
-        const b64 = reader.result as string
-        try {
-          const optimized = await compressImage(b64);
-          if (target === "photo") setEditPhotoPreview(optimized);
-          else setEditBaptismPreview(optimized);
-        } catch (err) {
-          if (target === "photo") setEditPhotoPreview(b64);
-          else setEditBaptismPreview(b64);
-        }
+      const objectUrl = URL.createObjectURL(file);
+      const setPreview = (val: string) => {
+        if (target === "photo") setEditPhotoPreview(val);
+        else setEditBaptismPreview(val);
+      };
+
+      try {
+        const optimized = await compressImage(objectUrl);
+        setPreview(optimized);
+      } catch (err) {
+        const reader = new FileReader();
+        reader.onload = () => setPreview(reader.result as string);
+        reader.readAsDataURL(file);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
       }
-      reader.readAsDataURL(file)
     }
   }
 
@@ -646,7 +648,6 @@ export default function RegistrationsListPage() {
         )}
       </div>
 
-      {/* DIÁLOGO DE FICHA DETALLADA */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -675,7 +676,6 @@ export default function RegistrationsListPage() {
           
           <div className="flex-1 overflow-y-auto bg-slate-50">
             <div className="p-6 md:p-8 space-y-8 pb-20">
-              {/* SECCIÓN 1: DATOS PERSONALES */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <UserCircle className="h-5 w-5 text-primary" />
@@ -697,7 +697,6 @@ export default function RegistrationsListPage() {
                 </div>
               </section>
 
-              {/* SECCIÓN 2: FAMILIA Y TUTORES */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <Users className="h-5 w-5 text-primary" />
@@ -717,7 +716,6 @@ export default function RegistrationsListPage() {
                 </div>
               </section>
 
-              {/* SECCIÓN 3: SACRAMENTOS */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <BookOpen className="h-5 w-5 text-primary" />
@@ -753,7 +751,6 @@ export default function RegistrationsListPage() {
                 </div>
               </section>
 
-              {/* SECCIÓN 4: DOCUMENTOS Y RECIBO OFICIAL */}
               <section className="space-y-6">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <ImageIcon className="h-5 w-5 text-primary" />
@@ -761,7 +758,6 @@ export default function RegistrationsListPage() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* DOCUMENTOS ADJUNTOS */}
                   <div className="space-y-4">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Archivos Adjuntos</p>
                     <div className="grid grid-cols-2 gap-4">
@@ -800,7 +796,6 @@ export default function RegistrationsListPage() {
                     </div>
                   </div>
 
-                  {/* RECIBO OFICIAL (MINI PREVIEW) */}
                   {selectedReg?.receiptNumber && (
                     <div className="space-y-4">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recibo Oficial del Santuario</p>
@@ -862,7 +857,6 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE EDICIÓN CON CARGA DE FOTOS Y CÁMARA */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -871,7 +865,6 @@ export default function RegistrationsListPage() {
           </DialogHeader>
           <form onSubmit={handleEditRegistration} className="flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-y-auto p-6 bg-white space-y-10 pb-20">
-              {/* BLOQUE FOTOS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Foto de Perfil</Label>
@@ -916,7 +909,6 @@ export default function RegistrationsListPage() {
 
               <Separator />
 
-              {/* BLOQUE 1: PERSONALES */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Personal</h4>
                 <div className="grid gap-4">
@@ -934,7 +926,6 @@ export default function RegistrationsListPage() {
 
               <Separator />
 
-              {/* BLOQUE 2: FAMILIA */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Familia y Tutores</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -953,7 +944,6 @@ export default function RegistrationsListPage() {
 
               <Separator />
 
-              {/* BLOQUE 3: BAUTISMO */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Registro Sacramental</h4>
                 <div className="grid gap-4 p-6 bg-slate-50 rounded-2xl border border-dashed border-primary/30">
@@ -975,7 +965,6 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE CÁMARA */}
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
