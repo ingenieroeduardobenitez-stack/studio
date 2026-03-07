@@ -146,13 +146,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     })
   }, [])
 
-  // Función de compresión mejorada para móviles
   const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 600;
+        const MAX_SIZE = 800; // Aumentado para mejor resolución
         let width = img.width;
         let height = img.height;
 
@@ -171,7 +170,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        resolve(canvas.toDataURL('image/jpeg', 0.8)); // Calidad 0.8 para mejor nitidez
       };
       img.onerror = (e: any) => reject(e);
       img.src = source;
@@ -300,10 +299,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         currentStream.getTracks().forEach(track => track.stop());
       }
 
+      // Usar cámara frontal para perfil, trasera para documentos
+      const facingModeValue = target === "STUDENT_PHOTO" ? "user" : "environment";
+
       const constraints = {
         video: {
-          ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" },
-          aspectRatio: { ideal: 0.75 }
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          facingMode: deviceId ? undefined : facingModeValue,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         }
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -341,39 +345,25 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const video = videoRef.current
       const canvas = canvasRef.current
       
-      const targetRatio = 3 / 4;
-      let sourceWidth = video.videoWidth;
-      let sourceHeight = video.videoHeight;
-      let sourceX = 0;
-      let sourceY = 0;
-
-      if (sourceWidth / sourceHeight > targetRatio) {
-        const newWidth = sourceHeight * targetRatio;
-        sourceX = (sourceWidth - newWidth) / 2;
-        sourceWidth = newWidth;
-      } else {
-        const newHeight = sourceWidth / targetRatio;
-        sourceY = (sourceHeight - newHeight) / 2;
-        sourceHeight = newHeight;
-      }
-
-      canvas.width = 480;
-      canvas.height = 640;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       
       const ctx = canvas.getContext('2d')
       if (ctx) {
-        ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+        
+        const optimized = await compressImage(dataUrl);
         
         if (captureTarget === "STUDENT_PHOTO") {
-          setPhotoPreview(dataUrl);
-          setValue("photoUrl", dataUrl);
+          setPhotoPreview(optimized);
+          setValue("photoUrl", optimized);
         } else if (captureTarget === "PAYMENT_PROOF") {
-          setProofPreview(dataUrl);
-          setValue("paymentProofUrl", dataUrl);
+          setProofPreview(optimized);
+          setValue("paymentProofUrl", optimized);
         } else if (captureTarget === "BAPTISM_CERT") {
-          setBaptismPreview(dataUrl);
-          setValue("baptismCertificatePhotoUrl", dataUrl);
+          setBaptismPreview(optimized);
+          setValue("baptismCertificatePhotoUrl", optimized);
         }
         
         stopCamera()
@@ -389,6 +379,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const cleanCiForDoc = cleanCi.replace(/[^0-9]/g, '');
 
     try {
+      // Intento de búsqueda de duplicado (solo si hay permiso)
       try {
         const existingQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue));
         const existingSnap = await getDocs(existingQuery);
@@ -398,11 +389,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           toast({ variant: "destructive", title: "Inscripción Duplicada", description: "Esta persona ya se encuentra registrada." });
           setIsSearchingCi(false);
           return;
-        } else {
-          form.clearErrors("ciNumber");
         }
-      } catch (permError) {
-        console.warn("Seguridad: Búsqueda limitada en modo público");
+      } catch (e) {
+        // Ignorar error de permisos en modo público para el check de duplicados
       }
 
       const cedulaRef = doc(db, "cedulas", cleanCiForDoc);
@@ -446,7 +435,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     compressImage(objectUrl)
       .then(setPreview)
       .catch((err) => {
-        console.warn("Fallo compresión, usando reader...");
         const reader = new FileReader();
         reader.onload = () => setPreview(reader.result as string);
         reader.readAsDataURL(file);
@@ -473,57 +461,93 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       
       let assignedReceiptNumber = "";
 
-      await runTransaction(db, async (transaction) => {
-        const treasurySnap = await transaction.get(treasuryRef);
-        if (!treasurySnap.exists()) throw "Settings not found";
-        
-        if (immediatePayment) {
-          const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
-          assignedReceiptNumber = `001-001-${String(currentNext).padStart(7, '0')}`;
-          transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
-        }
-
+      // Si es inscripción pública (sin pago inmediato), evitar la transacción por temas de permisos de lectura en settings
+      if (isPublic && !immediatePayment) {
         const registrationData = {
-          userId: user?.uid || "public_registration",
+          userId: "public_registration",
           ...values,
-          status: immediatePayment ? "INSCRITO" : "POR_VALIDAR",
+          status: "POR_VALIDAR",
           attendanceStatus: "PENDIENTE",
           needsRecovery: false,
           registrationCost: totalCost,
-          amountPaid: amountToRegister,
-          paymentStatus: paymentStatus,
-          validatedAt: immediatePayment ? serverTimestamp() : null,
-          validatedBy: catechistName,
-          receiptNumber: assignedReceiptNumber,
-          lastPaymentMethod: immediatePayment ? paymentType : null,
+          amountPaid: 0,
+          paymentStatus: "PENDIENTE",
+          validatedAt: null,
+          validatedBy: "Sistema",
+          receiptNumber: "",
+          lastPaymentMethod: null,
           createdAt: serverTimestamp()
         }
-
-        transaction.set(regRef, registrationData);
-
-        const logRef = doc(collection(db, "audit_logs"));
-        transaction.set(logRef, {
-          userId: user?.uid || "public",
-          userName: catechistName,
-          action: immediatePayment ? `Inscripción con Pago (${paymentType})` : "Envío de Inscripción",
+        await setDoc(regRef, registrationData);
+        
+        await addDoc(collection(db, "audit_logs"), {
+          userId: "public",
+          userName: "Postulante",
+          action: "Envío de Inscripción",
           module: "inscripcion",
-          details: `${immediatePayment ? `Pago ${paymentStatus} de ${amountToRegister.toLocaleString('es-PY')} Gs. verificado. ` : ''}Inscripción de ${values.fullName}`,
+          details: `Inscripción pública de ${values.fullName}`,
           timestamp: serverTimestamp()
         });
 
-        if (immediatePayment) {
-          setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() });
-        }
-      });
-      
-      if (immediatePayment) {
-        setIsSubmittedSuccessfully(true);
-      } else {
         form.reset();
         setPhotoPreview(null);
         setProofPreview(null);
         setBaptismPreview(null);
         toast({ title: "¡Éxito!", description: "Inscripción enviada para validación." });
+      } else {
+        // Proceso administrativo o con pago (requiere estar logueado para actualizar contador)
+        await runTransaction(db, async (transaction) => {
+          const treasurySnap = await transaction.get(treasuryRef);
+          if (!treasurySnap.exists()) throw "Settings not found";
+          
+          if (immediatePayment) {
+            const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
+            assignedReceiptNumber = `001-001-${String(currentNext).padStart(7, '0')}`;
+            transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+          }
+
+          const registrationData = {
+            userId: user?.uid || "admin_registration",
+            ...values,
+            status: immediatePayment ? "INSCRITO" : "POR_VALIDAR",
+            attendanceStatus: "PENDIENTE",
+            needsRecovery: false,
+            registrationCost: totalCost,
+            amountPaid: amountToRegister,
+            paymentStatus: paymentStatus,
+            validatedAt: immediatePayment ? serverTimestamp() : null,
+            validatedBy: catechistName,
+            receiptNumber: assignedReceiptNumber,
+            lastPaymentMethod: immediatePayment ? paymentType : null,
+            createdAt: serverTimestamp()
+          }
+
+          transaction.set(regRef, registrationData);
+
+          const logRef = doc(collection(db, "audit_logs"));
+          transaction.set(logRef, {
+            userId: user?.uid || "system",
+            userName: catechistName,
+            action: immediatePayment ? `Inscripción con Pago (${paymentType})` : "Registro Manual",
+            module: "inscripcion",
+            details: `${immediatePayment ? `Pago verificado. ` : ''}Inscripción de ${values.fullName}`,
+            timestamp: serverTimestamp()
+          });
+
+          if (immediatePayment) {
+            setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() });
+          }
+        });
+        
+        if (immediatePayment) {
+          setIsSubmittedSuccessfully(true);
+        } else {
+          form.reset();
+          setPhotoPreview(null);
+          setProofPreview(null);
+          setBaptismPreview(null);
+          toast({ title: "¡Éxito!", description: "Inscripción registrada correctamente." });
+        }
       }
     } catch (error: any) {
       console.error("Error en registro:", error);
@@ -719,7 +743,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="flex flex-col gap-4">
                     <FormField control={form.control} name="hasBaptism" render={({ field }) => (<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-bold text-primary">Tiene Sacramento de Bautismo</FormLabel></div></FormItem>)} />
-                    <FormField control={form.control} name="hasFirstCommunion" render={({ field }) => (<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-bold text-primary">Tiene Primera Comunión</FormLabel><FormDescription className="text-[10px]">Marca si ya realizo su primera comunión</FormDescription></div></FormItem>)} />
+                    <FormField control={form.control} name="hasFirstCommunion" render={({ field }) => (<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-bold text-primary">Tiene Primera Comunión</FormLabel><FormDescription className="text-[10px]">Marca si ya realizó su primera comunión</FormDescription></div></FormItem>)} />
                   </div>
                   {hasBaptism && (
                     <div className="animate-in slide-in-from-right duration-300 space-y-4 p-6 border-2 border-dashed border-primary/20 rounded-3xl bg-primary/[0.02]">

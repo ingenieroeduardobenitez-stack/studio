@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -174,8 +175,10 @@ export default function PaymentsManagementPage() {
 
       const constraints = {
         video: {
-          ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "environment" },
-          aspectRatio: { ideal: 0.75 }
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          facingMode: deviceId ? undefined : "environment",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         }
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -219,7 +222,7 @@ export default function PaymentsManagementPage() {
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
         setPaymentProofUrl(dataUrl)
         stopCamera()
       }

@@ -1,3 +1,4 @@
+
 /**
  * SCRIPT DE IMPORTACIÓN MASIVA DE EXCEL A FIRESTORE
  * 
@@ -64,7 +65,7 @@ async function importExcel() {
   }
 
   console.log(`📂 Procesando: ${files.join(', ')}`);
-  console.log("💡 Nota: El sistema usa el N° de C.I. como clave única. NO se crearán duplicados si vuelves a subir un archivo.");
+  console.log("💡 Nota: El sistema usa el N° de C.I. (solo números) como clave única.");
 
   let totalProcessed = 0;
   const startTime = Date.now();
@@ -84,20 +85,23 @@ async function importExcel() {
       let batch = writeBatch(db);
 
       for (const row of data) {
-        const cedulaNumber = String(row.NUMERO_CED || "").trim();
-        if (!cedulaNumber || cedulaNumber === "" || cedulaNumber === "null") continue;
+        const rawCedula = String(row.NUMERO_CED || "").trim();
+        if (!rawCedula || rawCedula === "" || rawCedula === "null") continue;
 
-        // Al usar el número de cédula como ID, evitamos duplicados automáticamente
+        // LIMPIEZA CRÍTICA: Eliminar puntos y otros caracteres para que coincida con la búsqueda de la app
+        const cedulaNumber = rawCedula.replace(/[^0-9]/g, '');
+        if (!cedulaNumber) continue;
+
         const docRef = doc(db, 'cedulas', cedulaNumber);
         
         const cedulaData = {
           NUMERO_CED: cedulaNumber,
-          APELLIDO: String(row.APELLIDO || "").trim(),
-          NOMBRE: String(row.NOMBRE || "").trim(),
+          APELLIDO: String(row.APELLIDO || "").trim().toUpperCase(),
+          NOMBRE: String(row.NOMBRE || "").trim().toUpperCase(),
           SEXO: String(row.SEXO || "").trim(),
           NACIONAL: String(row.NACIONAL || "").trim(),
-          NOM_PADRE: String(row.NOM_PADRE || "").trim(),
-          NOM_MADRE: String(row.NOM_MADRE || "").trim(),
+          NOM_PADRE: String(row.NOM_PADRE || "").trim().toUpperCase(),
+          NOM_MADRE: String(row.NOM_MADRE || "").trim().toUpperCase(),
           DIRECCION: String(row.DIRECCION || "").trim(),
           NOM_CONJ: String(row.NOM_CONJ || "").trim(),
           FECHA_NACI: formatDate(row.FECHA_NACI),

@@ -58,8 +58,6 @@ export default function ProfilePage() {
 
   const [newPassword, setNewPassword] = useState("")
 
-  // CRITICAL FIX: Solo inicializar los datos una vez para evitar que la sincronización en tiempo real
-  // sobrescriba los cambios locales (como fotos nuevas) antes de guardar.
   useEffect(() => {
     if (profile && !isInitialized) {
       setFormData({
@@ -148,8 +146,10 @@ export default function ProfilePage() {
 
       const constraints = {
         video: {
-          ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" },
-          aspectRatio: { ideal: 0.75 } 
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          facingMode: deviceId ? undefined : "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -209,7 +209,7 @@ export default function ProfilePage() {
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
         setFormData(prev => ({ ...prev, photoUrl: dataUrl }))
         stopCamera()
       }

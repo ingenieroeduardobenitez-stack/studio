@@ -137,7 +137,7 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  const compressImage = (base64Str: string, maxWidth = 480, maxHeight = 640): Promise<string> => {
+  const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 1000): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.onload = () => {
@@ -160,7 +160,7 @@ export default function RegistrationsListPage() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
       img.onerror = (e) => reject(e);
       img.src = base64Str;
@@ -255,10 +255,15 @@ export default function RegistrationsListPage() {
         currentStream.getTracks().forEach(track => track.stop());
       }
 
+      // Cámara frontal para perfil, trasera para documentos
+      const facingModeValue = target === "PHOTO" ? "user" : "environment";
+
       const constraints = {
         video: {
-          ...deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "environment" },
-          aspectRatio: { ideal: 0.75 }
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          facingMode: deviceId ? undefined : facingModeValue,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         }
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -302,7 +307,7 @@ export default function RegistrationsListPage() {
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
         try {
           const optimized = await compressImage(dataUrl);
           if (captureTarget === "PHOTO") setEditPhotoPreview(optimized);
