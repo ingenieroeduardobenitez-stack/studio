@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -32,6 +31,8 @@ export default function ProfilePage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
   
+  // Flag para evitar que las actualizaciones en tiempo real de Firestore
+  // sobrescriban los cambios locales mientras el usuario está editando.
   const [isInitialized, setIsInitialized] = useState(false)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -58,6 +59,8 @@ export default function ProfilePage() {
 
   const [newPassword, setNewPassword] = useState("")
 
+  // Solo inicializamos el formulario con los datos de Firestore una vez.
+  // Esto evita el problema de "sube y luego quita" causado por la sincronización en tiempo real.
   useEffect(() => {
     if (profile && !isInitialized) {
       setFormData({
@@ -73,6 +76,7 @@ export default function ProfilePage() {
   const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const MAX_SIZE = 500;
@@ -124,16 +128,19 @@ export default function ProfilePage() {
 
     const objectUrl = URL.createObjectURL(file);
     try {
+      // Usamos el estado anterior para asegurar que no perdemos otros campos
       const compressed = await compressImage(objectUrl);
       setFormData(prev => ({ ...prev, photoUrl: compressed }));
       toast({ title: "Imagen lista", description: "La foto se ha optimizado correctamente." });
     } catch (error) {
       console.error("Error al procesar archivo:", error);
+      // Fallback a FileReader si la compresión directa falla
       const reader = new FileReader();
       reader.onload = () => setFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
       reader.readAsDataURL(file);
     } finally {
-      URL.revokeObjectURL(objectUrl);
+      // Limpieza de memoria (importante en móviles)
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       if (e.target) e.target.value = "";
     }
   }

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -101,6 +100,7 @@ export default function RegistrationsListPage() {
   const [isProofViewOpen, setIsProofViewOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [newGroupId, setNewGroupId] = useState<string>("")
   const [withdrawalReason, setWithdrawalReason] = useState("")
@@ -112,6 +112,8 @@ export default function RegistrationsListPage() {
     direction: 'desc'
   })
   
+  // Estado local aislado para la edición de fotos
+  // Esto evita que la sincronización en tiempo real de Firestore sobrescriba la foto seleccionada.
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null)
   const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(null)
   const editPhotoInputRef = useRef<HTMLInputElement>(null)
@@ -137,6 +139,7 @@ export default function RegistrationsListPage() {
   const compressImage = (source: string, maxWidth = 600, maxHeight = 800): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement('canvas');
         let width = img.width;
@@ -491,6 +494,8 @@ export default function RegistrationsListPage() {
         updatedAt: serverTimestamp()
       }
 
+      // Solo actualizamos las fotos si hay una nueva previsualización local.
+      // Esto respeta la foto original si no se cambió nada.
       if (editPhotoPreview) updateData.photoUrl = editPhotoPreview;
       if (editBaptismPreview) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
 
@@ -507,6 +512,8 @@ export default function RegistrationsListPage() {
 
       toast({ title: "Registro Actualizado", description: "Los datos de la ficha han sido guardados." })
       setIsEditDialogOpen(false)
+      
+      // Actualizamos localmente el selectedReg para que el diálogo de detalles refleje los cambios de inmediato
       setSelectedReg({ ...selectedReg, ...updateData })
     } catch (error) {
       console.error(error)
@@ -533,7 +540,8 @@ export default function RegistrationsListPage() {
         reader.onload = () => setPreview(reader.result as string);
         reader.readAsDataURL(file);
       } finally {
-        URL.revokeObjectURL(objectUrl);
+        // Retrasamos la revocación para asegurar que el navegador cargó la imagen en el canvas
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       }
     }
   }
@@ -562,6 +570,7 @@ export default function RegistrationsListPage() {
 
   const openEditDialog = (reg: any) => {
     setSelectedReg(reg)
+    // Limpiamos previsualizaciones previas al abrir el diálogo
     setEditPhotoPreview(null)
     setEditBaptismPreview(null)
     setIsEditDialogOpen(true)
@@ -756,6 +765,7 @@ export default function RegistrationsListPage() {
           
           <div className="flex-1 overflow-y-auto bg-slate-50">
             <div className="p-6 md:p-8 space-y-8 pb-20">
+              {/* Información Personal */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <UserCircle className="h-5 w-5 text-primary" />
@@ -777,6 +787,7 @@ export default function RegistrationsListPage() {
                 </div>
               </section>
 
+              {/* Familia */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <Users className="h-5 w-5 text-primary" />
@@ -796,6 +807,7 @@ export default function RegistrationsListPage() {
                 </div>
               </section>
 
+              {/* Sacramentos */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <BookOpen className="h-5 w-5 text-primary" />
@@ -831,6 +843,7 @@ export default function RegistrationsListPage() {
                 </div>
               </section>
 
+              {/* Documentación */}
               <section className="space-y-6">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
                   <ImageIcon className="h-5 w-5 text-primary" />
@@ -945,6 +958,7 @@ export default function RegistrationsListPage() {
           </DialogHeader>
           <form onSubmit={handleEditRegistration} className="flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-y-auto p-6 bg-white space-y-10 pb-20">
+              {/* Sección de Fotos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Foto de Perfil</Label>
@@ -989,6 +1003,7 @@ export default function RegistrationsListPage() {
 
               <Separator />
 
+              {/* Datos Personales */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Personal</h4>
                 <div className="grid gap-4">
@@ -1006,6 +1021,7 @@ export default function RegistrationsListPage() {
 
               <Separator />
 
+              {/* Familia */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Familia y Tutores</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1024,6 +1040,7 @@ export default function RegistrationsListPage() {
 
               <Separator />
 
+              {/* Registro Sacramental */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Registro Sacramental</h4>
                 <div className="grid gap-4 p-6 bg-slate-50 rounded-2xl border border-dashed border-primary/30">
@@ -1097,6 +1114,7 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Otros Diálogos */}
       <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
