@@ -43,10 +43,11 @@ import {
   ArrowDown,
   Clock,
   Wallet,
-  Globe
+  Globe,
+  RefreshCcw
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
+import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc } from "firebase/firestore"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -592,6 +593,68 @@ export default function RegistrationsListPage() {
     }
   }
 
+  const handleSyncSexData = async () => {
+    if (!db || !isAdmin || isSubmitting) return;
+    setIsSubmitting(true);
+    let count = 0;
+    try {
+      const batch = writeBatch(db);
+      const studentsToFix = filteredRegistrations.filter(r => !r.sexo || r.sexo === "");
+      
+      if (studentsToFix.length === 0) {
+        toast({ title: "Información al día", description: "Todos los alumnos ya tienen el campo sexo definido." });
+        setIsSubmitting(false);
+        return;
+      }
+
+      toast({ title: "Iniciando Sincronización", description: `Analizando ${studentsToFix.length} fichas pendientes...` });
+
+      for (const student of studentsToFix) {
+        const cleanCi = student.ciNumber?.replace(/[^0-9]/g, '');
+        if (!cleanCi) continue;
+        
+        const cedulaRef = doc(db, 'cedulas', cleanCi);
+        const cedulaSnap = await getDoc(cedulaRef);
+        
+        if (cedulaSnap.exists()) {
+          const data = cedulaSnap.data();
+          let sexValue = "";
+          if (data.SEXO) {
+            const raw = String(data.SEXO).trim().toUpperCase();
+            if (raw.startsWith('M')) sexValue = "M";
+            else if (raw.startsWith('F')) sexValue = "F";
+          }
+          
+          if (sexValue) {
+            const regRef = doc(db, "confirmations", student.id);
+            batch.update(regRef, { sexo: sexValue });
+            count++;
+          }
+        }
+      }
+      
+      if (count > 0) {
+        await batch.commit();
+        await addDoc(collection(db, "audit_logs"), {
+          userId: user?.uid || "unknown",
+          userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+          action: "Sincronización Masiva Sexo",
+          module: "inscripcion",
+          details: `Se completaron automáticamente ${count} fichas con datos de sexo desde el repositorio de cédulas.`,
+          timestamp: serverTimestamp()
+        });
+        toast({ title: "Sincronización completa", description: `Se actualizaron ${count} fichas con éxito.` });
+      } else {
+        toast({ title: "Sin datos nuevos", description: "No se encontró información de sexo para los registros pendientes en la base de cédulas." });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error en sincronización", description: "Hubo un fallo al procesar los lotes." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleValidatePayment = async () => {
     if (!db || !selectedReg || !treasuryRef) return
     setIsSubmitting(true)
@@ -751,7 +814,18 @@ export default function RegistrationsListPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Lista de Confirmandos</h1>
           <p className="text-muted-foreground">Consulta y valida los registros del Santuario Nacional.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              className="h-11 rounded-xl font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5 shadow-sm"
+              onClick={handleSyncSexData}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+              Sincronizar Sexo
+            </Button>
+          )}
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
             <Button variant={viewMode === "LIST" ? "default" : "ghost"} size="sm" className={cn("h-8 rounded-lg text-xs font-bold gap-2", viewMode === "LIST" ? "shadow-sm" : "text-slate-500")} onClick={() => setViewMode("LIST")}><LayoutList className="h-3.5 w-3.5" /> Lista Plana</Button>
             <Button variant={viewMode === "GROUPS" ? "default" : "ghost"} size="sm" className={cn("h-8 rounded-lg text-xs font-bold gap-2", viewMode === "GROUPS" ? "shadow-sm" : "text-slate-500")} onClick={() => setViewMode("GROUPS")}><Users className="h-3.5 w-3.5" /> Por Grupos</Button>
@@ -878,7 +952,6 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
     if (!ts) return "---";
     try {
       const date = ts.toDate ? ts.toDate() : new Date(ts);
-      // Forzar zona horaria de Paraguay
       const datePart = date.toLocaleDateString('es-PY', { 
         day: '2-digit', 
         month: '2-digit', 
