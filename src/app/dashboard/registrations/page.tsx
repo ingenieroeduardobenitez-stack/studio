@@ -115,6 +115,10 @@ function EditRegistrationForm({
   const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(null)
   const [editPaymentProofPreview, setEditPaymentProofPreview] = useState<string | null>(null)
   
+  // Estados para Nivel y Horario (se inicializan con los valores actuales)
+  const [editCatechesisYear, setEditCatechesisYear] = useState(selectedReg?.catechesisYear || "PRIMER_AÑO")
+  const [editAttendanceDay, setEditAttendanceDay] = useState(selectedReg?.attendanceDay || "SABADO")
+  
   const editPhotoInputRef = useRef<HTMLInputElement>(null)
   const editBaptismInputRef = useRef<HTMLInputElement>(null)
   const editPaymentProofInputRef = useRef<HTMLInputElement>(null)
@@ -199,6 +203,8 @@ function EditRegistrationForm({
         baptismParish: getVal("baptismParish").toUpperCase(),
         baptismBook: getVal("baptismBook"),
         baptismFolio: getVal("baptismFolio"),
+        catechesisYear: editCatechesisYear,
+        attendanceDay: editAttendanceDay,
         updatedAt: serverTimestamp()
       }
 
@@ -213,7 +219,7 @@ function EditRegistrationForm({
         userName: catechistName,
         action: "Editar Ficha",
         module: "inscripcion",
-        details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}`,
+        details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}. Nivel: ${editCatechesisYear}, Horario: ${editAttendanceDay}`,
         timestamp: serverTimestamp()
       })
 
@@ -227,11 +233,7 @@ function EditRegistrationForm({
     }
   }
 
-  // Escuchar si la cámara capturó algo (comunicación vía refs o estados globales si fuera necesario, 
-  // pero para este caso pasamos la función de disparar cámara al padre y el padre devuelve el resultado)
-  // Nota: Para máxima estabilidad, la cámara ahora inyecta el resultado directamente en estos estados locales.
   useEffect(() => {
-    // Escuchar un evento personalizado que disparemos desde el padre cuando la cámara tome la foto
     const handleCameraCapture = (e: any) => {
       const { target, dataUrl } = e.detail;
       if (target === "PHOTO") setEditPhotoPreview(dataUrl);
@@ -322,6 +324,39 @@ function EditRegistrationForm({
               <div className="space-y-2"><Label>Celular</Label><Input name="phone" defaultValue={selectedReg?.phone} required className="h-11 rounded-xl" /></div>
             </div>
             <div className="space-y-2"><Label>Fecha de Nacimiento</Label><Input type="date" name="birthDate" defaultValue={selectedReg?.birthDate} required className="h-11 rounded-xl" /></div>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Nivel y Horario de Catequesis</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-dashed">
+            <div className="space-y-2">
+              <Label className="font-bold text-slate-700">Año de Catequesis</Label>
+              <Select value={editCatechesisYear} onValueChange={setEditCatechesisYear}>
+                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
+                  <SelectValue placeholder="Seleccione el nivel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
+                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
+                  <SelectItem value="ADULTOS">Adultos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="font-bold text-slate-700">Día de Asistencia</Label>
+              <Select value={editAttendanceDay} onValueChange={setEditAttendanceDay}>
+                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
+                  <SelectValue placeholder="Seleccione el día" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SABADO">Sábados</SelectItem>
+                  <SelectItem value="DOMINGO">Domingos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
