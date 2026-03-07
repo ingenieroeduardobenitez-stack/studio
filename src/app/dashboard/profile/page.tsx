@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -67,6 +67,39 @@ export default function ProfilePage() {
     }
   }, [profile])
 
+  // Función para comprimir imágenes y optimizar peso
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new (window as any).Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 300;
+        const MAX_HEIGHT = 300;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        // Calidad 0.6 para equilibrar peso y legibilidad
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+    });
+  };
+
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
       if (node.srcObject !== currentStream) {
@@ -84,12 +117,13 @@ export default function ProfilePage() {
     videoRef.current = node;
   }, [currentStream]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, photoUrl: reader.result as string }))
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setFormData(prev => ({ ...prev, photoUrl: compressed }))
       }
       reader.readAsDataURL(file)
     }
@@ -158,13 +192,15 @@ export default function ProfilePage() {
         sourceHeight = newHeight;
       }
 
-      canvas.width = 480;
-      canvas.height = 640;
+      // Tamaño optimizado para perfil
+      canvas.width = 300;
+      canvas.height = 400;
       
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        // Comprimido al 60%
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6)
         setFormData(prev => ({ ...prev, photoUrl: dataUrl }))
         stopCamera()
       }

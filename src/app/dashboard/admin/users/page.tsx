@@ -85,6 +85,39 @@ export default function UsersAdminPage() {
     }
   }, [selectedUser])
 
+  // Función para comprimir imágenes y optimizar peso
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new (window as any).Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 300;
+        const MAX_HEIGHT = 300;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        // Calidad 0.6 para equilibrar peso y legibilidad
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+    });
+  };
+
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null
     return collection(db, "users")
@@ -145,12 +178,13 @@ export default function UsersAdminPage() {
     )
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onloadend = () => {
-        setTempPhoto(reader.result as string)
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setTempPhoto(compressed)
       }
       reader.readAsDataURL(file)
     }
