@@ -1155,12 +1155,17 @@ function StudentTable({
     if (!ts) return "---";
     try {
       const date = ts.toDate ? ts.toDate() : new Date(ts);
-      return date.toLocaleString('es-PY', {
+      const dateStr = date.toLocaleDateString('es-PY', {
         day: '2-digit',
         month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
+        year: '2-digit'
       });
+      const timeStr = date.toLocaleTimeString('es-PY', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      return `${dateStr} - ${timeStr}`;
     } catch (e) {
       return "---";
     }
