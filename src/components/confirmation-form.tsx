@@ -145,6 +145,37 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     })
   }, [])
 
+  // Función para comprimir imágenes
+  const compressImage = (base64Str: string, maxWidth = 480, maxHeight = 640): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new (window as any).Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = (e: any) => reject(e);
+      img.src = base64Str;
+    });
+  };
+
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
       if (node.srcObject !== currentStream) {
@@ -308,7 +339,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setShowCamera(false)
   }
 
-  const takePhoto = () => {
+  const takePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current
       const canvas = canvasRef.current
@@ -337,15 +368,30 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
         
-        if (captureTarget === "STUDENT_PHOTO") {
-          setPhotoPreview(dataUrl)
-          setValue("photoUrl", dataUrl)
-        } else if (captureTarget === "PAYMENT_PROOF") {
-          setProofPreview(dataUrl)
-          setValue("paymentProofUrl", dataUrl)
-        } else if (captureTarget === "BAPTISM_CERT") {
-          setBaptismPreview(dataUrl)
-          setValue("baptismCertificatePhotoUrl", dataUrl)
+        try {
+          const optimized = await compressImage(dataUrl);
+          if (captureTarget === "STUDENT_PHOTO") {
+            setPhotoPreview(optimized);
+            setValue("photoUrl", optimized);
+          } else if (captureTarget === "PAYMENT_PROOF") {
+            setProofPreview(optimized);
+            setValue("paymentProofUrl", optimized);
+          } else if (captureTarget === "BAPTISM_CERT") {
+            setBaptismPreview(optimized);
+            setValue("baptismCertificatePhotoUrl", optimized);
+          }
+        } catch (e) {
+          // Fallback if compression fails
+          if (captureTarget === "STUDENT_PHOTO") {
+            setPhotoPreview(dataUrl);
+            setValue("photoUrl", dataUrl);
+          } else if (captureTarget === "PAYMENT_PROOF") {
+            setProofPreview(dataUrl);
+            setValue("paymentProofUrl", dataUrl);
+          } else if (captureTarget === "BAPTISM_CERT") {
+            setBaptismPreview(dataUrl);
+            setValue("baptismCertificatePhotoUrl", dataUrl);
+          }
         }
         
         stopCamera()
@@ -408,12 +454,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base64String = reader.result as string
-        if (fieldName === "photoUrl") setPhotoPreview(base64String);
-        else if (fieldName === "paymentProofUrl") setProofPreview(base64String);
-        else setBaptismPreview(base64String);
-        setValue(fieldName, base64String)
+        try {
+          const optimized = await compressImage(base64String);
+          if (fieldName === "photoUrl") setPhotoPreview(optimized);
+          else if (fieldName === "paymentProofUrl") setProofPreview(optimized);
+          else setBaptismPreview(optimized);
+          setValue(fieldName, optimized)
+        } catch (e) {
+          // Fallback if compression fails
+          if (fieldName === "photoUrl") setPhotoPreview(base64String);
+          else if (fieldName === "paymentProofUrl") setProofPreview(base64String);
+          else setBaptismPreview(base64String);
+          setValue(fieldName, base64String)
+        }
       }
       reader.readAsDataURL(file)
     }
@@ -1378,7 +1433,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4">
                 <X className="h-12 w-12 text-red-500" />
                 <p className="font-bold">Acceso a cámara requerido</p>
-                <p className="text-xs text-slate-400">Para usar esta función debes habilitar los permisos en la configuración de tu navegador.</p>
+                <p className="text-xs text-slate-400">Para usar esta función debes habilitar los permisos en tu configuración de tu navegador.</p>
               </div>
             )}
           </div>

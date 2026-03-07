@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -37,7 +36,6 @@ import {
   ShieldCheck,
   Book,
   Camera,
-  Receipt,
   FlipHorizontal
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
@@ -127,6 +125,37 @@ export default function RegistrationsListPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Función para comprimir imágenes mejorada
+  const compressImage = (base64Str: string, maxWidth = 480, maxHeight = 640): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = (e) => reject(e);
+      img.src = base64Str;
+    });
+  };
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
   const { data: profile } = useDoc(userProfileRef)
@@ -227,7 +256,7 @@ export default function RegistrationsListPage() {
     setShowCamera(false)
   }
 
-  const takePhoto = () => {
+  const takePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current
       const canvas = canvasRef.current
@@ -239,10 +268,13 @@ export default function RegistrationsListPage() {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-        if (captureTarget === "PHOTO") {
-          setEditPhotoPreview(dataUrl)
-        } else {
-          setEditBaptismPreview(dataUrl)
+        try {
+          const optimized = await compressImage(dataUrl);
+          if (captureTarget === "PHOTO") setEditPhotoPreview(optimized);
+          else setEditBaptismPreview(optimized);
+        } catch (e) {
+          if (captureTarget === "PHOTO") setEditPhotoPreview(dataUrl);
+          else setEditBaptismPreview(dataUrl);
         }
         stopCamera()
       }
@@ -413,10 +445,16 @@ export default function RegistrationsListPage() {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const b64 = reader.result as string
-        if (target === "photo") setEditPhotoPreview(b64);
-        else setEditBaptismPreview(b64);
+        try {
+          const optimized = await compressImage(b64);
+          if (target === "photo") setEditPhotoPreview(optimized);
+          else setEditBaptismPreview(optimized);
+        } catch (err) {
+          if (target === "photo") setEditPhotoPreview(b64);
+          else setEditBaptismPreview(b64);
+        }
       }
       reader.readAsDataURL(file)
     }
