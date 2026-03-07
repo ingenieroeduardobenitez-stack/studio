@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
@@ -402,10 +403,11 @@ export default function TreasuryPage() {
 
   if (!mounted) return null
 
+  // Forzar zona horaria de Paraguay
   const today = new Date();
-  const dayStr = today.getDate();
-  const monthStr = today.toLocaleString('es-PY', { month: 'long' });
-  const yearStr = today.getFullYear();
+  const dayStr = today.toLocaleString('es-PY', { day: 'numeric', timeZone: 'America/Asuncion' });
+  const monthStr = today.toLocaleString('es-PY', { month: 'long', timeZone: 'America/Asuncion' });
+  const yearStr = today.toLocaleString('es-PY', { year: 'numeric', timeZone: 'America/Asuncion' });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -617,7 +619,7 @@ export default function TreasuryPage() {
                   <TableBody>
                     {expenses?.map((ex: any) => (
                       <TableRow key={ex.id} className="hover:bg-slate-50/30 h-16">
-                        <TableCell className="pl-8 text-xs font-medium text-slate-500">{ex.date?.toDate ? ex.date.toDate().toLocaleDateString() : '---'}</TableCell>
+                        <TableCell className="pl-8 text-xs font-medium text-slate-500">{ex.date?.toDate ? ex.date.toDate().toLocaleDateString('es-PY', { timeZone: 'America/Asuncion' }) : '---'}</TableCell>
                         <TableCell className="font-bold text-slate-900">{ex.concept}</TableCell>
                         <TableCell className="text-center font-bold text-red-500">{ex.amount?.toLocaleString('es-PY')} Gs.</TableCell>
                         <TableCell className="text-xs text-slate-500">{ex.registeredBy}</TableCell>

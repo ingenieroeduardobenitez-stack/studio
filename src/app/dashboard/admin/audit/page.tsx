@@ -149,7 +149,16 @@ export default function AuditPage() {
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-900">
-                          {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Reciente'}
+                          {log.timestamp?.toDate 
+                            ? log.timestamp.toDate().toLocaleString('es-PY', { 
+                                day: '2-digit', 
+                                month: '2-digit', 
+                                year: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit',
+                                timeZone: 'America/Asuncion'
+                              }) 
+                            : 'Reciente'}
                         </span>
                         <span className="text-[10px] text-slate-400 flex items-center gap-1">
                           <Clock className="h-2.5 w-2.5" />
@@ -209,7 +218,11 @@ export default function AuditPage() {
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha y Hora</Label>
-                <p className="text-sm font-bold text-slate-900">{selectedLog?.timestamp?.toDate ? selectedLog.timestamp.toDate().toLocaleString('es-PY') : 'Reciente'}</p>
+                <p className="text-sm font-bold text-slate-900">
+                  {selectedLog?.timestamp?.toDate 
+                    ? selectedLog.timestamp.toDate().toLocaleString('es-PY', { timeZone: 'America/Asuncion' }) 
+                    : 'Reciente'}
+                </p>
               </div>
             </div>
             <div className="space-y-1">

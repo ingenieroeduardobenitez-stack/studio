@@ -95,7 +95,8 @@ export default function ConnectionsMonitorPage() {
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit'
+        second: '2-digit',
+        timeZone: 'America/Asuncion'
       })
     } catch (e) {
       return "N/A"

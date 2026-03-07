@@ -393,6 +393,12 @@ export default function PaymentsManagementPage() {
 
   if (!mounted) return null
 
+  // Forzar zona horaria de Paraguay
+  const today = new Date();
+  const dayStr = today.toLocaleString('es-PY', { day: 'numeric', timeZone: 'America/Asuncion' });
+  const monthStr = today.toLocaleString('es-PY', { month: 'long', timeZone: 'America/Asuncion' });
+  const yearStr = today.toLocaleString('es-PY', { year: 'numeric', timeZone: 'America/Asuncion' });
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -680,7 +686,7 @@ export default function PaymentsManagementPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
                 <div className="flex flex-col justify-end space-y-3">
                   <p className="text-sm italic font-medium">
-                    Asunción, {new Date().getDate()} de {new Date().toLocaleString('es-PY', { month: 'long' })} de {new Date().getFullYear()}
+                    Asunción, {dayStr} de {monthStr} de {yearStr}
                   </p>
                   <div className="flex flex-col items-start pt-4">
                     <div className="w-48 border-t border-slate-900"></div>

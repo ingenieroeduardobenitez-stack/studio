@@ -94,8 +94,6 @@ type CaptureTarget = "PHOTO" | "BAPTISM" | "PAYMENT_PROOF"
 
 /**
  * COMPONENTE AISLADO PARA EL FORMULARIO DE EDICIÓN
- * Esto evita que las actualizaciones en tiempo real del padre (RegistrationsListPage)
- * interfieran con los estados locales de las fotos en dispositivos móviles.
  */
 function EditRegistrationForm({ 
   selectedReg, 
@@ -115,7 +113,6 @@ function EditRegistrationForm({
   const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(null)
   const [editPaymentProofPreview, setEditPaymentProofPreview] = useState<string | null>(null)
   
-  // Estados para Nivel y Horario (se inicializan con los valores actuales)
   const [editCatechesisYear, setEditCatechesisYear] = useState(selectedReg?.catechesisYear || "PRIMER_AÑO")
   const [editAttendanceDay, setEditAttendanceDay] = useState(selectedReg?.attendanceDay || "SABADO")
   
@@ -188,7 +185,6 @@ function EditRegistrationForm({
     try {
       const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
       const formData = new FormData(e.currentTarget)
-      
       const getVal = (name: string) => (formData.get(name) as string || "").trim();
 
       const updateData: any = {
@@ -865,7 +861,20 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
     if (!ts) return "---";
     try {
       const date = ts.toDate ? ts.toDate() : new Date(ts);
-      return date.toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' - ' + date.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: true });
+      // Forzar zona horaria de Paraguay
+      const datePart = date.toLocaleDateString('es-PY', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: '2-digit',
+        timeZone: 'America/Asuncion'
+      });
+      const timePart = date.toLocaleTimeString('es-PY', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: true,
+        timeZone: 'America/Asuncion'
+      });
+      return `${datePart} - ${timePart}`;
     } catch (e) { return "---"; }
   };
   return (
