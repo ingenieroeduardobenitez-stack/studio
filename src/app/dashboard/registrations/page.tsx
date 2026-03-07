@@ -369,12 +369,24 @@ export default function RegistrationsListPage() {
     const group = groups?.find(g => g.id === newGroupId)
     if (!group) return
 
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
+
     try {
       await updateDoc(doc(db, "confirmations", selectedReg.id), {
         groupId: newGroupId,
         attendanceDay: group.attendanceDay,
         updatedAt: serverTimestamp()
       })
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: catechistName,
+        action: "Asignación de Grupo",
+        module: "inscripcion",
+        details: `Se asignó a ${selectedReg.fullName} al grupo: ${group.name}`,
+        timestamp: serverTimestamp()
+      })
+
       toast({ title: "Grupo asignado", description: `${selectedReg.fullName} ahora pertenece a ${group.name}.` })
       setIsAssignDialogOpen(false)
     } catch (error) {
@@ -392,6 +404,8 @@ export default function RegistrationsListPage() {
     }
     
     setIsSubmitting(true)
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
+
     try {
       await updateDoc(doc(db, "confirmations", selectedReg.id), {
         status: "BAJA",
@@ -403,7 +417,7 @@ export default function RegistrationsListPage() {
 
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "unknown",
-        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        userName: catechistName,
         action: "BAJA",
         module: "inscripcion",
         details: `Baja de ${selectedReg.fullName}. Motivo: ${withdrawalReason}`,
@@ -425,8 +439,22 @@ export default function RegistrationsListPage() {
     if (!db || !selectedReg) return
     setIsSubmitting(true)
 
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
+    const regName = selectedReg.fullName
+    const regCi = selectedReg.ciNumber
+
     try {
       await deleteDoc(doc(db, "confirmations", selectedReg.id))
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: catechistName,
+        action: "Eliminar Ficha",
+        module: "inscripcion",
+        details: `Se eliminó permanentemente la ficha de: ${regName} (C.I. ${regCi})`,
+        timestamp: serverTimestamp()
+      })
+
       toast({ title: "Registro eliminado" })
       setIsDeleteDialogOpen(false)
     } catch (error) {
@@ -442,6 +470,7 @@ export default function RegistrationsListPage() {
     if (!db || !selectedReg || isSubmitting) return
     setIsSubmitting(true)
 
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
     const formData = new FormData(e.currentTarget)
     const updateData: any = {
       fullName: (formData.get("fullName") as string).toUpperCase(),
@@ -465,6 +494,16 @@ export default function RegistrationsListPage() {
 
     try {
       await updateDoc(doc(db, "confirmations", selectedReg.id), updateData)
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: catechistName,
+        action: "Editar Ficha",
+        module: "inscripcion",
+        details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}`,
+        timestamp: serverTimestamp()
+      })
+
       toast({ title: "Registro Actualizado", description: "Los datos de la ficha han sido guardados." })
       setIsEditDialogOpen(false)
       setSelectedReg({ ...selectedReg, ...updateData })
