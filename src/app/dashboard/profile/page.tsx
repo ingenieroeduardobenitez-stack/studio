@@ -67,36 +67,35 @@ export default function ProfilePage() {
     }
   }, [profile])
 
-  // Función para comprimir imágenes mejorada con manejo de errores
-  const compressImage = (base64Str: string): Promise<string> => {
+  // Función de compresión ultra-eficiente
+  const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 300;
-        const MAX_HEIGHT = 300;
+        const MAX_SIZE = 500;
         let width = img.width;
         let height = img.height;
 
         if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
           }
         } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
           }
         }
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6));
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
-      img.onerror = (e) => reject(e);
-      img.src = base64Str;
+      img.onerror = () => reject(new Error("Error al cargar la imagen"));
+      img.src = source;
     });
   };
 
@@ -104,14 +103,9 @@ export default function ProfilePage() {
     if (node && currentStream) {
       if (node.srcObject !== currentStream) {
         node.srcObject = currentStream;
-        const playPromise = node.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(err => {
-            if (err.name !== 'AbortError') {
-              console.error("Error al reproducir video:", err);
-            }
-          });
-        }
+        node.play().catch(err => {
+          if (err.name !== 'AbortError') console.error("Video play error:", err);
+        });
       }
     }
     videoRef.current = node;
@@ -121,32 +115,24 @@ export default function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return;
 
+    if (!file.type.startsWith('image/')) {
+      toast({ variant: "destructive", title: "Formato no válido", description: "Por favor selecciona una imagen." });
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
     try {
-      const reader = new FileReader()
-      reader.onload = async () => {
-        const result = reader.result as string;
-        try {
-          // Intentar comprimir la imagen
-          const compressed = await compressImage(result);
-          setFormData(prev => ({ ...prev, photoUrl: compressed }));
-        } catch (error) {
-          // Si la compresión falla, usar el original (fallback)
-          console.warn("Fallo la compresión, usando imagen original");
-          setFormData(prev => ({ ...prev, photoUrl: result }));
-        }
-      }
-      reader.onerror = () => {
-        toast({
-          variant: "destructive",
-          title: "Error de lectura",
-          description: "No se pudo leer el archivo seleccionado."
-        });
-      };
-      reader.readAsDataURL(file)
+      const compressed = await compressImage(objectUrl);
+      setFormData(prev => ({ ...prev, photoUrl: compressed }));
+      toast({ title: "Imagen lista", description: "La foto se ha optimizado correctamente." });
     } catch (error) {
       console.error("Error al procesar archivo:", error);
+      // Fallback a FileReader si ObjectURL falla
+      const reader = new FileReader();
+      reader.onload = () => setFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
+      reader.readAsDataURL(file);
     } finally {
-      // Limpiar el valor del input para permitir seleccionar el mismo archivo si es necesario
+      URL.revokeObjectURL(objectUrl);
       if (e.target) e.target.value = "";
     }
   }
@@ -193,7 +179,7 @@ export default function ProfilePage() {
     setShowCamera(false)
   }
 
-  const takePhoto = () => {
+  const takePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current
       const canvas = canvasRef.current
@@ -214,13 +200,13 @@ export default function ProfilePage() {
         sourceHeight = newHeight;
       }
 
-      canvas.width = 300;
-      canvas.height = 400;
+      canvas.width = 400;
+      canvas.height = 533;
       
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
         setFormData(prev => ({ ...prev, photoUrl: dataUrl }))
         stopCamera()
       }
@@ -332,7 +318,7 @@ export default function ProfilePage() {
                   type="file" 
                   ref={fileInputRef} 
                   className="hidden" 
-                  accept="image/jpeg,image/png,image/webp" 
+                  accept="image/*" 
                   onChange={handleFileChange} 
                 />
               </div>
