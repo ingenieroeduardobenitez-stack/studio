@@ -67,11 +67,10 @@ export default function ProfilePage() {
     }
   }, [profile])
 
-  // Función para comprimir imágenes y optimizar peso
+  // Función para comprimir imágenes mejorada con manejo de errores
   const compressImage = (base64Str: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new (window as any).Image();
-      img.src = base64Str;
+    return new Promise((resolve, reject) => {
+      const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const MAX_WIDTH = 300;
@@ -94,9 +93,10 @@ export default function ProfilePage() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        // Calidad 0.6 para equilibrar peso y legibilidad
         resolve(canvas.toDataURL('image/jpeg', 0.6));
       };
+      img.onerror = (e) => reject(e);
+      img.src = base64Str;
     });
   };
 
@@ -119,13 +119,35 @@ export default function ProfilePage() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
+    if (!file) return;
+
+    try {
       const reader = new FileReader()
-      reader.onloadend = async () => {
-        const compressed = await compressImage(reader.result as string);
-        setFormData(prev => ({ ...prev, photoUrl: compressed }))
+      reader.onload = async () => {
+        const result = reader.result as string;
+        try {
+          // Intentar comprimir la imagen
+          const compressed = await compressImage(result);
+          setFormData(prev => ({ ...prev, photoUrl: compressed }));
+        } catch (error) {
+          // Si la compresión falla, usar el original (fallback)
+          console.warn("Fallo la compresión, usando imagen original");
+          setFormData(prev => ({ ...prev, photoUrl: result }));
+        }
       }
+      reader.onerror = () => {
+        toast({
+          variant: "destructive",
+          title: "Error de lectura",
+          description: "No se pudo leer el archivo seleccionado."
+        });
+      };
       reader.readAsDataURL(file)
+    } catch (error) {
+      console.error("Error al procesar archivo:", error);
+    } finally {
+      // Limpiar el valor del input para permitir seleccionar el mismo archivo si es necesario
+      if (e.target) e.target.value = "";
     }
   }
 
@@ -192,14 +214,12 @@ export default function ProfilePage() {
         sourceHeight = newHeight;
       }
 
-      // Tamaño optimizado para perfil
       canvas.width = 300;
       canvas.height = 400;
       
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
-        // Comprimido al 60%
         const dataUrl = canvas.toDataURL('image/jpeg', 0.6)
         setFormData(prev => ({ ...prev, photoUrl: dataUrl }))
         stopCamera()
@@ -312,7 +332,7 @@ export default function ProfilePage() {
                   type="file" 
                   ref={fileInputRef} 
                   className="hidden" 
-                  accept="image/*" 
+                  accept="image/jpeg,image/png,image/webp" 
                   onChange={handleFileChange} 
                 />
               </div>
