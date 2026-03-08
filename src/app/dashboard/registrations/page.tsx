@@ -96,6 +96,7 @@ type CaptureTarget = "PHOTO" | "BAPTISM" | "PAYMENT_PROOF"
 
 /**
  * COMPONENTE AISLADO PARA EL FORMULARIO DE EDICIÓN
+ * Se usa para prevenir que las actualizaciones en tiempo real del padre reinicien el estado local.
  */
 function EditRegistrationForm({ 
   selectedReg, 
@@ -111,9 +112,11 @@ function EditRegistrationForm({
   startCameraAction: (target: CaptureTarget) => void
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null)
-  const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(null)
-  const [editPaymentProofPreview, setEditPaymentProofPreview] = useState<string | null>(null)
+  
+  // Inicializamos el estado local con los datos actuales para evitar el "sube y quita"
+  const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(selectedReg?.photoUrl || null)
+  const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(selectedReg?.baptismCertificatePhotoUrl || null)
+  const [editPaymentProofPreview, setEditPaymentProofPreview] = useState<string | null>(selectedReg?.paymentProofUrl || null)
   
   const [editCatechesisYear, setEditCatechesisYear] = useState(selectedReg?.catechesisYear || "PRIMER_AÑO")
   const [editAttendanceDay, setEditAttendanceDay] = useState(selectedReg?.attendanceDay || "SABADO")
@@ -150,7 +153,7 @@ function EditRegistrationForm({
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Bajamos un poco la calidad para ahorrar memoria móvil
       };
       img.onerror = (e) => reject(e);
       img.src = source;
@@ -208,9 +211,10 @@ function EditRegistrationForm({
         updatedAt: serverTimestamp()
       }
 
-      if (editPhotoPreview) updateData.photoUrl = editPhotoPreview;
-      if (editBaptismPreview) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
-      if (editPaymentProofPreview) updateData.paymentProofUrl = editPaymentProofPreview;
+      // Solo actualizamos fotos si se cargaron nuevas en el estado local
+      if (editPhotoPreview && editPhotoPreview !== selectedReg.photoUrl) updateData.photoUrl = editPhotoPreview;
+      if (editBaptismPreview && editBaptismPreview !== selectedReg.baptismCertificatePhotoUrl) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
+      if (editPaymentProofPreview && editPaymentProofPreview !== selectedReg.paymentProofUrl) updateData.paymentProofUrl = editPaymentProofPreview;
 
       await updateDoc(doc(db, "confirmations", selectedReg.id), updateData)
 
@@ -233,6 +237,7 @@ function EditRegistrationForm({
     }
   }
 
+  // Escuchamos el evento de captura de cámara
   useEffect(() => {
     const handleCameraCapture = (e: any) => {
       const { target, dataUrl } = e.detail;
@@ -252,8 +257,8 @@ function EditRegistrationForm({
             <Label className="text-[10px] font-black text-primary uppercase tracking-widest text-center block">Foto de Perfil</Label>
             <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
               <Avatar className="h-24 w-24 border-4 border-white shadow-md">
-                <AvatarImage src={editPhotoPreview || selectedReg?.photoUrl} className="object-cover" />
-                <AvatarFallback><User className="h-10 w-10" /></AvatarFallback>
+                <AvatarImage src={editPhotoPreview || undefined} className="object-cover" />
+                <AvatarFallback className="bg-slate-100 text-slate-300"><User className="h-10 w-10" /></AvatarFallback>
               </Avatar>
               <div className="flex gap-2">
                 <Button type="button" size="sm" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => startCameraAction("PHOTO")}>
@@ -270,8 +275,8 @@ function EditRegistrationForm({
             <Label className="text-[10px] font-black text-primary uppercase tracking-widest text-center block">Certificado Bautismo</Label>
             <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
               <div className="h-24 w-full rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
-                {editBaptismPreview || selectedReg?.baptismCertificatePhotoUrl ? (
-                  <img src={editBaptismPreview || selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" />
+                {editBaptismPreview ? (
+                  <img src={editBaptismPreview} className="w-full h-full object-cover" />
                 ) : (
                   <ImageIcon className="h-8 w-8 text-slate-200" />
                 )}
@@ -291,8 +296,8 @@ function EditRegistrationForm({
             <Label className="text-[10px] font-black text-primary uppercase tracking-widest text-center block">Comprobante Pago</Label>
             <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
               <div className="h-24 w-full rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
-                {editPaymentProofPreview || selectedReg?.paymentProofUrl ? (
-                  <img src={editPaymentProofPreview || selectedReg.paymentProofUrl} className="w-full h-full object-cover" />
+                {editPaymentProofPreview ? (
+                  <img src={editPaymentProofPreview} className="w-full h-full object-cover" />
                 ) : (
                   <Wallet className="h-8 w-8 text-slate-200" />
                 )}
@@ -406,8 +411,8 @@ function EditRegistrationForm({
         </div>
       </div>
       <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 shrink-0">
-        <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl" onClick={onClose}>Cancelar</Button>
-        <Button type="submit" className="flex-1 h-12 rounded-xl bg-slate-900 hover:bg-black font-bold gap-2 shadow-lg" disabled={isSubmitting}>
+        <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={onClose}>Cancelar</Button>
+        <Button type="submit" className="flex-1 h-12 rounded-xl bg-slate-900 hover:bg-black text-white font-bold gap-2 shadow-lg" disabled={isSubmitting}>
           {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />} Guardar Cambios
         </Button>
       </DialogFooter>
@@ -584,7 +589,7 @@ export default function RegistrationsListPage() {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-        // Disparar evento para que el EditRegistrationForm (si está abierto) lo capture
+        // Disparar evento para que el EditRegistrationForm lo capture
         window.dispatchEvent(new CustomEvent('camera-capture-success', { 
           detail: { target: captureTarget, dataUrl } 
         }));
@@ -788,7 +793,7 @@ export default function RegistrationsListPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "INSCRITO": return <Badge className="bg-green-500 hover:bg-green-600">Inscrito</Badge>
+      case "INSCRITO": return <Badge className="bg-green-500 hover:bg-green-600 text-white border-none">Inscrito</Badge>
       case "POR_VALIDAR": return <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">Por Validar</Badge>
       case "PENDIENTE_PAGO": return <Badge variant="outline" className="text-blue-500 border-blue-200">Pendiente Pago</Badge>
       case "OBSERVADO": return <Badge variant="destructive">Observado</Badge>
@@ -918,6 +923,7 @@ export default function RegistrationsListPage() {
           </DialogHeader>
           {selectedReg && (
             <EditRegistrationForm 
+              key={selectedReg.id} // CRITICAL: Esto asegura que el estado local no se resetee si el mismo alumno actualiza en el fondo
               selectedReg={selectedReg} 
               profile={profile} 
               onClose={() => setIsEditDialogOpen(false)}
@@ -935,11 +941,11 @@ export default function RegistrationsListPage() {
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white"><DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle></DialogHeader>
           <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" />{hasCameraPermission === false && <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white bg-slate-900/90 gap-4"><X className="h-12 w-12 text-red-500" /><p className="font-bold">Acceso denegado</p></div>}</div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">{devices.length > 1 && <div className="flex items-center gap-2 w-full"><FlipHorizontal className="h-4 w-4 text-slate-400" /><Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}><SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger><SelectContent>{devices.map((device) => (<SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Cámara ${device.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent></Select></div>}<div className="flex gap-3 w-full"><Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={stopCamera}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary font-bold" onClick={takePhoto}>Capturar</Button></div></DialogFooter>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">{devices.length > 1 && <div className="flex items-center gap-2 w-full"><FlipHorizontal className="h-4 w-4 text-slate-400" /><Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}><SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger><SelectContent>{devices.map((device) => (<SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Cámara ${device.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent></Select></div>}<div className="flex gap-3 w-full"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={takePhoto}>Capturar</Button></div></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}><DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl"><DialogHeader className="p-6 bg-slate-900 text-white"><div className="flex items-center gap-3"><UserMinus className="h-6 w-6 text-red-400" /><DialogTitle>Baja de Confirmando</DialogTitle></div></DialogHeader><div className="p-6 space-y-6"><div className="p-4 bg-orange-50 rounded-2xl text-xs text-orange-800 font-medium">Esta acción cerrará el ciclo del confirmando. No aparecerá en listas regulares.</div><div className="space-y-3"><Label className="font-bold">Justificar Baja</Label><Textarea placeholder="Motivo de la baja..." className="rounded-xl min-h-[120px] bg-slate-50" value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} required /></div></div><DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-red-600 font-bold" onClick={handleWithdrawConfirmand} disabled={isSubmitting || !withdrawalReason}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Baja"}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}><DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl"><DialogHeader className="p-6 bg-slate-900 text-white"><div className="flex items-center gap-3"><UserMinus className="h-6 w-6 text-red-400" /><DialogTitle>Baja de Confirmando</DialogTitle></div></DialogHeader><div className="p-6 space-y-6"><div className="p-4 bg-orange-50 rounded-2xl text-xs text-orange-800 font-medium">Esta acción cerrará el ciclo del confirmando. No aparecerá en listas regulares.</div><div className="space-y-3"><Label className="font-bold">Motivo de la Baja</Label><Textarea placeholder="Ej. Cambio de domicilio, falta de tiempo, etc." className="rounded-xl min-h-[120px] bg-slate-50 border-slate-200" value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} required /></div></div><DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-red-600 text-white font-bold shadow-lg" onClick={handleWithdrawConfirmand} disabled={isSubmitting || !withdrawalReason}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Baja"}</Button></DialogFooter></DialogContent></Dialog>
       
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
@@ -956,8 +962,8 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}><DialogContent className="sm:max-w-[450px]"><DialogHeader><DialogTitle>Asignar Grupo</DialogTitle></DialogHeader><div className="py-4"><Select value={newGroupId} onValueChange={setNewGroupId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elige un grupo" /></SelectTrigger><SelectContent>{groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>))}</SelectContent></Select></div><DialogFooter><Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Cancelar</Button><Button onClick={handleAssignGroup} disabled={isSubmitting || !newGroupId}>Guardar</Button></DialogFooter></DialogContent></Dialog>
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="bg-destructive text-white">Eliminar Definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}><DialogContent className="sm:max-w-[450px] border-none shadow-2xl rounded-3xl overflow-hidden p-0"><DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Asignar Grupo</DialogTitle></DialogHeader><div className="p-8 space-y-4"><p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p><Select value={newGroupId} onValueChange={setNewGroupId}><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Elige un grupo disponible" /></SelectTrigger><SelectContent>{groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>))}</SelectContent></Select></div><DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsAssignDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={handleAssignGroup} disabled={isSubmitting || !newGroupId}>Asignar Ahora</Button></DialogFooter></DialogContent></Dialog>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><AlertDialogContent className="rounded-3xl border-none shadow-2xl"><AlertDialogHeader><AlertDialogTitle className="text-xl font-headline font-bold">¿Eliminar registro permanentemente?</AlertDialogTitle><AlertDialogDescription className="text-slate-500">Esta acción borrará definitivamente la ficha de {selectedReg?.fullName}. No se puede deshacer.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="flex gap-3"><AlertDialogCancel className="flex-1 h-12 rounded-xl font-bold">Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold border-none">Eliminar Definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   )
 }
@@ -1016,7 +1022,7 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
           <TableCell><span className="text-[10px] font-bold text-slate-400">{formatYear(reg.catechesisYear)}</span></TableCell>
           <TableCell><span className="text-[10px] font-medium text-slate-600">{formatTimestamp(reg.createdAt)}</span></TableCell>
           <TableCell className="text-center">{getBadge(reg.status)}</TableCell>
-          <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white" onClick={() => onViewDetails(reg)}><Eye className="h-4 w-4" /></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="rounded-xl p-2 shadow-xl border-none"><DropdownMenuLabel className="text-[10px] uppercase text-slate-400 px-3 py-2">Opciones</DropdownMenuLabel><DropdownMenuItem onClick={() => onAssignGroup(reg)} className="gap-2 h-10 rounded-lg"><UserPlus className="h-4 w-4" /> Asignar Grupo</DropdownMenuItem><DropdownMenuSeparator />{isAdmin && (<><DropdownMenuItem onClick={() => onWithdraw(reg)} className="text-orange-600 gap-2 h-10 rounded-lg"><UserMinus className="h-4 w-4" /> Dar de Baja</DropdownMenuItem><DropdownMenuItem onClick={() => onDelete(reg)} className="text-destructive gap-2 h-10 rounded-lg"><Trash2 className="h-4 w-4" /> Eliminar Ficha</DropdownMenuItem></>)}</DropdownMenuContent></DropdownMenu></div></TableCell>
+          <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white" onClick={() => onViewDetails(reg)}><Eye className="h-4 w-4" /></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="rounded-xl p-2 shadow-xl border-none"><DropdownMenuLabel className="text-[10px] uppercase text-slate-400 px-3 py-2">Opciones</DropdownMenuLabel><DropdownMenuItem onClick={() => onAssignGroup(reg)} className="gap-2 h-10 rounded-lg cursor-pointer"><UserPlus className="h-4 w-4" /> Asignar Grupo</DropdownMenuItem><DropdownMenuSeparator />{isAdmin && (<><DropdownMenuItem onClick={() => onWithdraw(reg)} className="text-orange-600 gap-2 h-10 rounded-lg cursor-pointer"><UserMinus className="h-4 w-4" /> Dar de Baja</DropdownMenuItem><DropdownMenuItem onClick={() => onDelete(reg)} className="text-destructive gap-2 h-10 rounded-lg cursor-pointer"><Trash2 className="h-4 w-4" /> Eliminar Ficha</DropdownMenuItem></>)}</DropdownMenuContent></DropdownMenu></div></TableCell>
         </TableRow>
       ))}
     </TableBody></Table>

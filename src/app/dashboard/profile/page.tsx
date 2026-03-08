@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -59,8 +60,7 @@ export default function ProfilePage() {
 
   const [newPassword, setNewPassword] = useState("")
 
-  // Solo inicializamos el formulario con los datos de Firestore una vez.
-  // Esto evita el problema de "sube y luego quita" causado por la sincronización en tiempo real.
+  // Solo inicializamos el formulario con los datos de Firestore UNA VEZ por sesión.
   useEffect(() => {
     if (profile && !isInitialized) {
       setFormData({
@@ -79,7 +79,7 @@ export default function ProfilePage() {
       img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 500;
+        const MAX_SIZE = 500; // Resolución optimizada para perfil
         let width = img.width;
         let height = img.height;
 
@@ -98,7 +98,7 @@ export default function ProfilePage() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Compresión agresiva para evitar crashes en móviles
       };
       img.onerror = () => reject(new Error("Error al cargar la imagen"));
       img.src = source;
@@ -128,18 +128,16 @@ export default function ProfilePage() {
 
     const objectUrl = URL.createObjectURL(file);
     try {
-      // Usamos el estado anterior para asegurar que no perdemos otros campos
       const compressed = await compressImage(objectUrl);
+      // Usamos el estado anterior para asegurar persistencia
       setFormData(prev => ({ ...prev, photoUrl: compressed }));
       toast({ title: "Imagen lista", description: "La foto se ha optimizado correctamente." });
     } catch (error) {
       console.error("Error al procesar archivo:", error);
-      // Fallback a FileReader si la compresión directa falla
       const reader = new FileReader();
       reader.onload = () => setFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
       reader.readAsDataURL(file);
     } finally {
-      // Limpieza de memoria (importante en móviles)
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       if (e.target) e.target.value = "";
     }
@@ -494,7 +492,7 @@ export default function ProfilePage() {
             
             <div className="flex gap-3 w-full">
               <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button>
-              <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 font-bold gap-2" onClick={takePhoto}>
+              <Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold gap-2" onClick={takePhoto}>
                 <Camera className="h-5 w-5" /> Capturar
               </Button>
             </div>
