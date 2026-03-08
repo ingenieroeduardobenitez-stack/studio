@@ -333,9 +333,7 @@ export default function PaymentsManagementPage() {
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      // Centrar verticalmente si cabe
       const yPos = (pdf.internal.pageSize.getHeight() - pdfHeight) / 4;
-      
       pdf.addImage(imgData, "PNG", 0, Math.max(10, yPos), pdfWidth, pdfHeight);
       pdf.save(`Recibo-Santuario-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
       toast({ title: "PDF Descargado" });
@@ -384,10 +382,16 @@ export default function PaymentsManagementPage() {
 
   const handleShareWhatsApp = () => {
     if (!selectedReg) return;
+    
+    let phone = selectedReg.phone || "";
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    if (!cleanPhone.startsWith('595')) cleanPhone = '595' + cleanPhone;
+
     const amount = paymentAmount || 0;
     const receiptNum = selectedReg.receiptNumber || "PENDIENTE";
     const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NSPS*\n\n¡Hola *${selectedReg.fullName}*! Hemos registrado tu pago por inscripción.\n\n*Recibo N°:* ${receiptNum}\n*Monto:* ${amount.toLocaleString('es-PY')} Gs.\n\n_Tesorería de Catequesis_`);
-    window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank');
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
   }
 
   if (!mounted) return null
@@ -441,7 +445,7 @@ export default function PaymentsManagementPage() {
                         <TableCell className="text-center"><Badge variant="secondary" className="text-[9px] uppercase font-black px-3 h-6 bg-slate-100 text-slate-600 border-none">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
                         <TableCell className="text-center"><Badge variant="outline" className={cn("text-[9px] uppercase font-black px-3 h-6 border-slate-200", isSettled ? "bg-green-50 text-green-600 border-green-100" : "bg-white text-slate-400")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
                         <TableCell className="text-center"><div className="flex flex-col items-center"><span className={cn("font-black text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? pending.toLocaleString('es-PY') : "0"}</span><span className={cn("text-[10px] font-bold", pending > 0 ? "text-red-500" : "text-green-600")}>Gs.</span></div></TableCell>
-                        <TableCell className="text-right pr-8"><div className="flex justify-end items-center gap-3"><Button size="sm" variant="outline" className="h-10 px-5 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary hover:text-white transition-all shadow-sm" onClick={() => handleOpenPayment(reg)} disabled={isSettled}><CheckCircle2 className="h-4 w-4" /> Confirmar Pago</Button>{isSettled && (<Button size="icon" variant="ghost" className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-5 w-5" /></Button>)}</div></TableCell>
+                        <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" className="h-10 px-5 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary hover:text-white transition-all shadow-sm" onClick={() => handleOpenPayment(reg)} disabled={isSettled}><CheckCircle2 className="h-4 w-4" /> Confirmar Pago</Button>{isSettled && (<Button size="icon" variant="ghost" className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-5 w-5" /></Button>)}</div></TableCell>
                       </TableRow>
                     )
                   })

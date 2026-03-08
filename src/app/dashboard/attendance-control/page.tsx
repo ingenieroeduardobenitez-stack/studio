@@ -166,8 +166,13 @@ export default function AttendanceControlPage() {
   }
 
   const openWhatsApp = (phone: string, name: string) => {
+    if (!phone) return;
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    if (!cleanPhone.startsWith('595')) cleanPhone = '595' + cleanPhone;
+    
     const msg = encodeURIComponent(`Hola, le escribimos del Santuario Nacional Nuestra Señora del Perpetuo Socorro sobre la asistencia de ${name} a la catequesis de Confirmación...`)
-    window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${msg}`, '_blank')
+    window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank')
   }
 
   if (!mounted) return null

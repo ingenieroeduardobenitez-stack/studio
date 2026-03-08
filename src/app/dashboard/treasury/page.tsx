@@ -256,9 +256,15 @@ export default function TreasuryPage() {
 
   const handleShareReceipt = () => {
     if (!selectedReg) return
+    
+    let phone = selectedReg.phone || "";
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    if (!cleanPhone.startsWith('595')) cleanPhone = '595' + cleanPhone;
+
     const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
     const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NSPS*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* ha sido registrado.\n\nRecibo Oficial N°: ${receiptNum}`)
-    window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank')
   }
 
   const handleDownloadPDF = async () => {

@@ -575,11 +575,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   };
 
   const handleShareReceipt = () => {
-    if (!submittedData) return
+    if (!submittedData) return;
+    
+    let phone = submittedData.phone || "";
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    if (!cleanPhone.startsWith('595')) cleanPhone = '595' + cleanPhone;
+
     const amount = submittedData.amountPaid || 0;
     const receiptNum = submittedData.receiptNumber || `001-001-${submittedData.id?.slice(-7).padStart(7, '0')}`;
     const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NSPS*\n\n¡Hola *${submittedData.fullName}*! Tu inscripción para la *Catequesis de Confirmación 2026* ha sido registrada.\n\n*Recibo Oficial N°:* ${receiptNum}\n*Monto:* ${amount.toLocaleString('es-PY')} Gs.\n\n_Secretaría de Catequesis_`)
-    window.open(`https://wa.me/${submittedData.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank')
   }
 
   const handleDownloadPDF = async () => {

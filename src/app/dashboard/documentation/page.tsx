@@ -62,6 +62,12 @@ export default function DocumentationControlPage() {
   }, [activeConfirmands])
 
   const openWhatsApp = (student: any, reason: string) => {
+    if (!student.phone) return;
+    
+    let cleanPhone = student.phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    if (!cleanPhone.startsWith('595')) cleanPhone = '595' + cleanPhone;
+
     let msg = ""
     if (reason === "CERTIFICADO") {
       msg = `Hola ${student.fullName}, te contactamos del Santuario Nacional Nuestra Señora del Perpetuo Socorro. Notamos que en tu ficha de Confirmación falta la foto de tu Certificado de Bautismo. ¿Podrías enviárnosla por este medio?`
@@ -70,7 +76,7 @@ export default function DocumentationControlPage() {
     } else {
       msg = `Hola ${student.fullName}, te contactamos del Santuario. Vimos que aún no tienes la Primera Comunión. Te informaremos sobre el curso de nivelación obligatorio.`
     }
-    window.open(`https://wa.me/${student.phone?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank')
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
   if (!mounted) return null
