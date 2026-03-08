@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 
 export function NotificationBell() {
   const [mounted, setMounted] = useState(false)
+  const [notifications, setNotifications] = useState<any[]>([])
   const { user } = useUser()
   const db = useFirestore()
 
@@ -41,11 +42,17 @@ export function NotificationBell() {
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
   const { data: catechists, loading: loadingUsers } = useCollection(usersQuery)
 
-  const notifications = useMemo(() => {
-    if (!registrations || !mounted) return []
+  // Cálculo de notificaciones diferido al cliente para evitar errores de hidratación
+  useEffect(() => {
+    if (!mounted || !registrations) {
+      setNotifications([])
+      return
+    }
+
     const items: any[] = []
     const today = new Date()
     
+    // Formato MM-DD para comparación de cumpleaños basado en la zona horaria del dispositivo
     const getMonthDay = (date: Date) => `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
     const todayMD = getMonthDay(today)
     
@@ -54,6 +61,7 @@ export function NotificationBell() {
     const inThreeDaysMD = getMonthDay(inThreeDays)
 
     registrations.filter(r => !r.isArchived).forEach(reg => {
+      // 1. Alerta de Inasistencias
       if ((reg.absenceCount || 0) >= 3) {
         items.push({
           id: `abs-${reg.id}`,
@@ -67,6 +75,7 @@ export function NotificationBell() {
         })
       }
 
+      // 2. Alerta de Documentación
       const needsCert = reg.hasBaptism && !reg.baptismCertificatePhotoUrl
       if (needsCert || !reg.hasBaptism || !reg.hasFirstCommunion) {
         items.push({
@@ -81,6 +90,7 @@ export function NotificationBell() {
         })
       }
 
+      // 3. Cumpleaños de Alumnos
       if (reg.birthDate) {
         if (reg.birthDate.includes(`-${todayMD}`)) {
           items.push({
@@ -108,6 +118,7 @@ export function NotificationBell() {
       }
     })
 
+    // 4. Cumpleaños de Catequistas
     catechists?.forEach(cat => {
       if (cat.birthDate) {
         if (cat.birthDate.includes(`-${todayMD}`)) {
@@ -125,21 +136,26 @@ export function NotificationBell() {
       }
     })
 
-    return items
+    setNotifications(items)
   }, [registrations, catechists, mounted])
 
+  // Lógica de notificaciones nativas protegida contra errores de entorno móvil
   useEffect(() => {
-    if (mounted && typeof window !== 'undefined' && !!window.Notification && notifications.length > 0) {
-      if (window.Notification.permission === 'granted') {
-        notifications.forEach(n => {
-          if (n.type === 'BIRTHDAY' || n.type === 'ABSENCE') {
-            const key = `sys-notif-${n.id}-${new Date().toISOString().split('T')[0]}`;
-            if (!localStorage.getItem(key)) {
-              new window.Notification(n.title, { body: n.description, icon: '/icon.png' });
-              localStorage.setItem(key, 'true');
+    if (mounted && typeof window !== 'undefined' && 'Notification' in window && notifications.length > 0) {
+      try {
+        if (window.Notification.permission === 'granted') {
+          notifications.forEach(n => {
+            if (n.type === 'BIRTHDAY' || n.type === 'ABSENCE') {
+              const key = `sys-notif-${n.id}-${new Date().toISOString().split('T')[0]}`;
+              if (!localStorage.getItem(key)) {
+                new window.Notification(n.title, { body: n.description, icon: '/icon.png' });
+                localStorage.setItem(key, 'true');
+              }
             }
-          }
-        });
+          });
+        }
+      } catch (e) {
+        console.warn("Notificación nativa omitida por restricciones del navegador.");
       }
     }
   }, [notifications, mounted]);
