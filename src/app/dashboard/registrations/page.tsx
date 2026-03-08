@@ -147,7 +147,7 @@ function EditRegistrationForm({
           }
         } else {
           if (height > maxHeight) {
-            width *= maxHeight / height;
+            width *= MAX_HEIGHT / height;
             height = maxHeight;
           }
         }
@@ -155,7 +155,7 @@ function EditRegistrationForm({
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Bajamos un poco la calidad para ahorrar memoria móvil
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
       };
       img.onerror = (e) => reject(e);
       img.src = source;
@@ -213,7 +213,6 @@ function EditRegistrationForm({
         updatedAt: serverTimestamp()
       }
 
-      // Solo actualizamos fotos si se cargaron nuevas en el estado local
       if (editPhotoPreview && editPhotoPreview !== selectedReg.photoUrl) updateData.photoUrl = editPhotoPreview;
       if (editBaptismPreview && editBaptismPreview !== selectedReg.baptismCertificatePhotoUrl) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
       if (editPaymentProofPreview && editPaymentProofPreview !== selectedReg.paymentProofUrl) updateData.paymentProofUrl = editPaymentProofPreview;
@@ -239,7 +238,6 @@ function EditRegistrationForm({
     }
   }
 
-  // Escuchamos el evento de captura de cámara
   useEffect(() => {
     const handleCameraCapture = (e: any) => {
       const { target, dataUrl } = e.detail;
@@ -427,7 +425,6 @@ export default function RegistrationsListPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<ViewMode>("GROUPS")
   
-  // Estados de Filtros
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterOrigin, setFilterOrigin] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
@@ -513,7 +510,6 @@ export default function RegistrationsListPage() {
     })
   }, [registrations, searchTerm, filterSex, filterOrigin, filterYear, filterStatus])
 
-  // Cálculo de conteos demográficos
   const genderStats = useMemo(() => {
     const stats = { m: 0, f: 0 };
     filteredRegistrations.forEach(r => {
@@ -624,7 +620,6 @@ export default function RegistrationsListPage() {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-        // Disparar evento para que el EditRegistrationForm lo capture
         window.dispatchEvent(new CustomEvent('camera-capture-success', { 
           detail: { target: captureTarget, dataUrl } 
         }));
@@ -873,7 +868,6 @@ export default function RegistrationsListPage() {
         </div>
       </div>
 
-      {/* TARJETAS DE CONTADORES DEMOGRÁFICOS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="border-none shadow-sm bg-blue-50/50 border-l-4 border-l-blue-500">
           <CardContent className="p-4 flex items-center justify-between">
@@ -899,7 +893,6 @@ export default function RegistrationsListPage() {
         </Card>
       </div>
 
-      {/* BARRA DE HERRAMIENTAS Y FILTROS */}
       <div className="space-y-4">
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 space-y-6">
           <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -1029,6 +1022,7 @@ export default function RegistrationsListPage() {
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <DialogTitle className="sr-only">Detalles del Confirmando</DialogTitle>
             <div className="flex items-center gap-4 md:gap-6">
               <div className="relative cursor-pointer hover:scale-105 transition-transform" onClick={() => { if(selectedReg?.photoUrl) { setViewProofUrl(selectedReg.photoUrl); setIsProofViewOpen(true); } }}>
                 <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white/20 shadow-xl"><AvatarImage src={selectedReg?.photoUrl} className="object-cover" /><AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback></Avatar>
@@ -1065,7 +1059,7 @@ export default function RegistrationsListPage() {
           </DialogHeader>
           {selectedReg && (
             <EditRegistrationForm 
-              key={selectedReg.id} // CRITICAL: Esto asegura que el estado local no se resetee si el mismo alumno actualiza en el fondo
+              key={selectedReg.id} 
               selectedReg={selectedReg} 
               profile={profile} 
               onClose={() => setIsEditDialogOpen(false)}
@@ -1087,7 +1081,7 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}><DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl"><DialogHeader className="p-6 bg-slate-900 text-white"><div className="flex items-center gap-3"><UserMinus className="h-6 w-6 text-red-400" /><DialogTitle>Baja de Confirmando</DialogTitle></div></DialogHeader><div className="p-6 space-y-6"><div className="p-4 bg-orange-50 rounded-2xl text-xs text-orange-800 font-medium">Esta acción cerrará el ciclo del confirmando. No aparecerá en listas regulares.</div><div className="space-y-3"><Label className="font-bold">Motivo de la Baja</Label><Textarea placeholder="Ej. Cambio de domicilio, falta de tiempo, etc." className="rounded-xl min-h-[120px] bg-slate-50 border-slate-200" value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} required /></div></div><DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-red-600 text-white font-bold shadow-lg" onClick={handleWithdrawConfirmand} disabled={isSubmitting || !withdrawalReason}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Baja"}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}><DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl"><DialogHeader className="p-6 bg-slate-900 text-white"><div className="flex items-center gap-3"><UserMinus className="h-6 w-6 text-red-400" /><DialogTitle>Baja de Confirmando</DialogTitle></div></DialogHeader><div className="p-6 space-y-6"><div className="p-4 bg-orange-50 rounded-2xl text-xs text-orange-800 font-medium">Esta acción cerrará el ciclo del confirmando. No aparecerá en listas regulares.</div><div className="space-y-3"><Label className="font-bold">Motivo de la Baja</Label><Textarea placeholder="Ej. Cambio de domicilio, falta de tiempo, etc." className="rounded-xl min-h-[120px] bg-slate-50 border-slate-200" value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} required /></div></div><DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-red-600 text-white font-bold shadow-lg" onClick={handleWithdrawConfirmand} disabled={isSubmitting || !withdrawalReason}>Confirmar Baja</Button></DialogFooter></Dialog></Dialog>
       
       <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
@@ -1104,7 +1098,31 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}><DialogContent className="sm:max-w-[450px] border-none shadow-2xl rounded-3xl overflow-hidden p-0"><DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Asignar Grupo</DialogTitle></DialogHeader><div className="p-8 space-y-4"><p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p><Select value={newGroupId} onValueChange={setNewGroupId}><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Elige un grupo disponible" /></SelectTrigger><SelectContent>{groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>))}</SelectContent></Select></div><DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsAssignDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={handleAssignGroup} disabled={isSubmitting || !newGroupId}>Asignar Ahora</Button></DialogFooter></DialogContent></Accordion>
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent className="sm:max-w-[450px] border-none shadow-2xl rounded-3xl overflow-hidden p-0">
+          <DialogHeader className="p-6 bg-primary text-white">
+            <DialogTitle>Asignar Grupo</DialogTitle>
+          </DialogHeader>
+          <div className="p-8 space-y-4">
+            <p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p>
+            <Select value={newGroupId} onValueChange={setNewGroupId}>
+              <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200">
+                <SelectValue placeholder="Elige un grupo disponible" />
+              </SelectTrigger>
+              <SelectContent>
+                {groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (
+                  <SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsAssignDialogOpen(false)}>Cancelar</Button>
+            <Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={handleAssignGroup} disabled={isSubmitting || !newGroupId}>Asignar Ahora</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><AlertDialogContent className="rounded-3xl border-none shadow-2xl"><AlertDialogHeader><AlertDialogTitle className="text-xl font-headline font-bold">¿Eliminar registro permanentemente?</AlertDialogTitle><AlertDialogDescription className="text-slate-500">Esta acción borrará definitivamente la ficha de {selectedReg?.fullName}. No se puede deshacer.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="flex gap-3"><AlertDialogCancel className="flex-1 h-12 rounded-xl font-bold">Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold border-none">Eliminar Definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   )
