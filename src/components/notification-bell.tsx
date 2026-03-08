@@ -42,7 +42,7 @@ export function NotificationBell() {
   const { data: catechists, loading: loadingUsers } = useCollection(usersQuery)
 
   const notifications = useMemo(() => {
-    if (!registrations) return []
+    if (!registrations || !mounted) return []
     const items: any[] = []
     const today = new Date()
     
@@ -98,7 +98,7 @@ export function NotificationBell() {
             id: `bday-pre-${reg.id}`,
             type: "BIRTHDAY_PRE",
             title: "Cumpleaños en 3 días",
-            description: `${reg.fullName} cumple años el ${inThreeDays.toLocaleDateString('es-PY', { day: 'numeric', month: 'long' })}.`,
+            description: `${reg.fullName} cumple años pronto.`,
             href: "/dashboard/registrations",
             icon: Clock,
             color: "text-blue-500",
@@ -115,52 +115,34 @@ export function NotificationBell() {
             id: `cat-bday-now-${cat.id}`,
             type: "BIRTHDAY_CAT",
             title: "Cumpleaños de Colega",
-            description: `Hoy es el cumpleaños de ${cat.firstName} ${cat.lastName}.`,
+            description: `Hoy cumple ${cat.firstName} ${cat.lastName}.`,
             href: "/dashboard/admin/users",
             icon: UserCheck,
             color: "text-purple-500",
             bgColor: "bg-purple-50"
-          })
-        } else if (cat.birthDate.includes(`-${inThreeDaysMD}`)) {
-          items.push({
-            id: `cat-bday-pre-${cat.id}`,
-            type: "BIRTHDAY_CAT_PRE",
-            title: "Colega cumple en 3 días",
-            description: `${cat.firstName} cumple años este ${inThreeDays.toLocaleDateString('es-PY', { day: 'numeric', month: 'long' })}.`,
-            href: "/dashboard/admin/users",
-            icon: Clock,
-            color: "text-purple-400",
-            bgColor: "bg-purple-50/50"
           })
         }
       }
     })
 
     return items
-  }, [registrations, catechists])
+  }, [registrations, catechists, mounted])
 
-  // LÓGICA DE NOTIFICACIONES DE SISTEMA (GLOBOS EN EL CELULAR)
   useEffect(() => {
-    // Verificación de seguridad para evitar errores en móviles donde Notification no existe
-    if (typeof window !== 'undefined' && 'Notification' in window && notifications.length > 0 && Notification.permission === 'granted') {
-      notifications.forEach(n => {
-        if (n.type === 'BIRTHDAY' || n.type === 'BIRTHDAY_CAT' || n.type === 'ABSENCE') {
-          const storageKey = `sys-notif-${n.id}-${new Date().toISOString().split('T')[0]}`;
-          const alreadyNotified = localStorage.getItem(storageKey);
-          
-          if (!alreadyNotified) {
-            new Notification(n.title, {
-              body: n.description,
-              icon: '/icon.png',
-              badge: '/icon.png',
-              tag: n.id
-            });
-            localStorage.setItem(storageKey, 'true');
+    if (mounted && typeof window !== 'undefined' && !!window.Notification && notifications.length > 0) {
+      if (window.Notification.permission === 'granted') {
+        notifications.forEach(n => {
+          if (n.type === 'BIRTHDAY' || n.type === 'ABSENCE') {
+            const key = `sys-notif-${n.id}-${new Date().toISOString().split('T')[0]}`;
+            if (!localStorage.getItem(key)) {
+              new window.Notification(n.title, { body: n.description, icon: '/icon.png' });
+              localStorage.setItem(key, 'true');
+            }
           }
-        }
-      });
+        });
+      }
     }
-  }, [notifications]);
+  }, [notifications, mounted]);
 
   if (!mounted || !user) return null
 
@@ -170,7 +152,7 @@ export function NotificationBell() {
         <Button variant="ghost" size="icon" className="relative rounded-full hover:bg-slate-100">
           <Bell className="h-5 w-5 text-slate-500" />
           {notifications.length > 0 && (
-            <span className="absolute top-2 right-2 h-4 w-4 bg-accent text-[8px] font-black text-white rounded-full border-2 border-white flex items-center justify-center animate-in zoom-in duration-300">
+            <span className="absolute top-2 right-2 h-4 w-4 bg-accent text-[8px] font-black text-white rounded-full border-2 border-white flex items-center justify-center">
               {notifications.length}
             </span>
           )}
@@ -184,20 +166,17 @@ export function NotificationBell() {
           </div>
           {(loadingRegs || loadingUsers) && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
         </DropdownMenuLabel>
-        
         <ScrollArea className="h-[400px]">
           {notifications.length === 0 ? (
-            <div className="p-12 text-center space-y-3">
-              <div className="h-12 w-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
-                <Info className="h-6 w-6 text-slate-300" />
-              </div>
-              <p className="text-xs text-slate-400 font-medium italic">No hay alertas institucionales por ahora.</p>
+            <div className="p-12 text-center">
+              <Info className="h-6 w-6 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs text-slate-400 italic">No hay alertas institucionales.</p>
             </div>
           ) : (
             <div className="py-2">
               {notifications.map((n) => (
                 <DropdownMenuItem key={n.id} asChild>
-                  <Link href={n.href} className="flex items-start gap-4 p-4 cursor-pointer hover:bg-slate-50 focus:bg-slate-50 outline-none transition-colors border-b last:border-0 border-slate-50">
+                  <Link href={n.href} className="flex items-start gap-4 p-4 cursor-pointer hover:bg-slate-50 border-b last:border-0 border-slate-50">
                     <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", n.bgColor)}>
                       <n.icon className={cn("h-5 w-5", n.color)} />
                     </div>
@@ -212,11 +191,7 @@ export function NotificationBell() {
             </div>
           )}
         </ScrollArea>
-        
-        <DropdownMenuSeparator className="m-0" />
-        <div className="p-3 bg-slate-50/50 text-center">
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
-        </div>
+        <div className="p-3 bg-slate-50/50 text-center"><p className="text-[9px] font-bold text-slate-400 uppercase">Santuario Nacional NSPS</p></div>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -74,6 +74,7 @@ export default function TreasuryPage() {
   const [selectedProof, setSelectedProof] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
   const [expenseProof, setExpenseProof] = useState<string | null>(null)
+  const [localDate, setLocalDate] = useState({ day: "", month: "", year: "" })
 
   const expenseProofRef = useRef<HTMLInputElement>(null)
   const { user: currentUser } = useUser()
@@ -82,6 +83,13 @@ export default function TreasuryPage() {
 
   useEffect(() => {
     setMounted(true)
+    const today = new Date()
+    const options: Intl.DateTimeFormatOptions = { timeZone: 'America/Asuncion' }
+    setLocalDate({
+      day: today.toLocaleString('es-PY', { ...options, day: 'numeric' }),
+      month: today.toLocaleString('es-PY', { ...options, month: 'long' }),
+      year: today.toLocaleString('es-PY', { ...options, year: 'numeric' })
+    })
   }, [])
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
@@ -119,7 +127,6 @@ export default function TreasuryPage() {
     e.preventDefault()
     if (!db || !treasuryRef) return
     setIsCostSaving(true)
-
     const formData = new FormData(e.currentTarget)
     const data: any = {
       juvenileCost: Number(formData.get("juvenile")),
@@ -128,7 +135,6 @@ export default function TreasuryPage() {
       accountOwner: formData.get("accountOwner") as string || "",
       updatedAt: serverTimestamp()
     }
-
     if (paymentMethod === "ACCOUNT") {
       data.bankName = formData.get("bankName") as string || ""
       data.accountNumber = formData.get("accountNumber") as string || ""
@@ -140,7 +146,6 @@ export default function TreasuryPage() {
       data.accountNumber = ""
       data.ownerCi = ""
     }
-
     try {
       await setDoc(treasuryRef, data, { merge: true })
       toast({ title: "Configuración de pagos actualizada" })
@@ -156,7 +161,7 @@ export default function TreasuryPage() {
     setIsResettingCounter(true)
     try {
       await updateDoc(treasuryRef, { nextReceiptNumber: 1 })
-      toast({ title: "Contador reiniciado", description: "El próximo recibo será el N° 001-001-0000001" })
+      toast({ title: "Contador reiniciado" })
     } catch (e) {
       toast({ variant: "destructive", title: "Error al reiniciar" })
     } finally {
@@ -178,27 +183,21 @@ export default function TreasuryPage() {
 
   const handleProcessPayment = async () => {
     if (!db || !selectedReg || isSubmittingPayment || !treasuryRef) return
-    
     setIsSubmittingPayment(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero del Santuario"
-    
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
     try {
       await runTransaction(db, async (transaction) => {
         const treasurySnap = await transaction.get(treasuryRef);
         const regSnap = await transaction.get(regRef);
-        
         if (!regSnap.exists()) throw "Registro no encontrado";
         const regData = regSnap.data();
-        
         const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
-        
         const currentPaid = regData.amountPaid || 0;
         const newPaid = currentPaid + paymentAmount;
         const regCost = regData.registrationCost || (regData.catechesisYear === "ADULTOS" ? 50000 : 35000);
         const status = newPaid >= regCost ? "PAGADO" : "PARCIAL";
-        
         transaction.update(regRef, { 
           amountPaid: newPaid, 
           paymentStatus: status, 
@@ -207,34 +206,28 @@ export default function TreasuryPage() {
           validatedBy: catechistName,
           receiptNumber: formattedReceipt
         });
-
         if (!treasurySnap.exists()) {
           transaction.set(treasuryRef, { nextReceiptNumber: currentNext + 1 }, { merge: true });
         } else {
           transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
         }
-
         const logRef = doc(collection(db, "audit_logs"));
         transaction.set(logRef, {
           userId: currentUser?.uid || "unknown",
           userName: catechistName,
-          action: "Confirmación de Pago (Tesorería)",
+          action: "Confirmación de Pago",
           module: "tesoreria",
           details: `Cobro confirmado de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${regData.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
         });
-
-        // Actualizar estado local para el recibo
         const updatedReg = { ...regData, id: regSnap.id, receiptNumber: formattedReceipt, amountPaid: newPaid, validatedBy: catechistName };
         setSelectedReg(updatedReg);
       });
-      
       toast({ title: "Pago confirmado exitosamente" })
       setIsPaymentDialogOpen(false)
       setIsReceiptOpen(true)
     } catch (error: any) {
-      console.error("Error al procesar pago:", error)
-      toast({ variant: "destructive", title: "Error al procesar pago", description: error.message || "Inténtelo de nuevo." })
+      toast({ variant: "destructive", title: "Error al procesar pago" })
     } finally {
       setIsSubmittingPayment(false)
     }
@@ -243,53 +236,26 @@ export default function TreasuryPage() {
   const handleShareReceipt = () => {
     if (!selectedReg) return
     const receiptNum = selectedReg.receiptNumber || `001-001-${selectedReg.id?.slice(-7).padStart(7, '0')}`;
-    const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NTRA. SRA. DEL PERPETUO SOCORRO*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* por inscripción de Confirmación ha sido registrado con éxito.\n\nRecibo Oficial N°: ${receiptNum}\n\n_Secretaría de Tesorería_`)
+    const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NSPS*\n\n¡Hola ${selectedReg.fullName}! Tu pago de *${paymentAmount.toLocaleString('es-PY')} Gs.* ha sido registrado.\n\nRecibo Oficial N°: ${receiptNum}`)
     window.open(`https://wa.me/${selectedReg.phone?.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
   }
 
   const handleDownloadPDF = async () => {
     const element = document.getElementById("receipt-content-official");
     if (!element) return;
-    
     setIsGeneratingPDF(true);
     try {
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        width: 800,
-        windowWidth: 800,
-        onclone: (doc) => {
-          const el = doc.getElementById("receipt-content-official");
-          if (el) {
-            el.style.transform = "none";
-            el.style.width = "800px";
-            el.style.maxWidth = "800px";
-            el.style.margin = "0";
-            el.style.padding = "40px";
-          }
-        }
-      });
-      
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff", width: 800, windowWidth: 800 });
       const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-      
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Recibo-Tesorería-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
-      
-      toast({ title: "PDF Generado", description: "El recibo se ha descargado correctamente." });
+      pdf.save(`Recibo-Tesorería-NSPS.pdf`);
+      toast({ title: "PDF Generado" });
     } catch (err) {
-      console.error(err);
       toast({ variant: "destructive", title: "Error al generar PDF" });
     } finally {
       setIsGeneratingPDF(false);
@@ -299,37 +265,17 @@ export default function TreasuryPage() {
   const handleDownloadImage = async () => {
     const element = document.getElementById("receipt-content-official");
     if (!element) return;
-    
     setIsGeneratingPDF(true);
     try {
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        width: 800,
-        windowWidth: 800,
-        onclone: (doc) => {
-          const el = doc.getElementById("receipt-content-official");
-          if (el) {
-            el.style.transform = "none";
-            el.style.width = "800px";
-            el.style.maxWidth = "800px";
-            el.style.margin = "0";
-            el.style.padding = "40px";
-          }
-        }
-      });
-      
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff", width: 800, windowWidth: 800 });
       const url = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      link.download = `Recibo-Tesorería-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.png`;
+      link.download = `Recibo-Tesorería-NSPS.png`;
       link.href = url;
       link.click();
-      
-      toast({ title: "Imagen generada", description: "Se ha guardado para compartir por WhatsApp." });
+      toast({ title: "Imagen generada" });
     } catch (err) {
-      console.error(err);
       toast({ variant: "destructive", title: "Error al generar imagen" });
     } finally {
       setIsGeneratingPDF(false);
@@ -340,17 +286,11 @@ export default function TreasuryPage() {
     e.preventDefault()
     if (!db) return
     setIsEventSubmitting(true)
-
     const formData = new FormData(e.currentTarget)
     const category = formData.get("category") as string
     const cost = Number(formData.get("cost"))
-
     try {
-      await addDoc(collection(db, "events"), {
-        category,
-        cost,
-        createdAt: serverTimestamp()
-      })
+      await addDoc(collection(db, "events"), { category, cost, createdAt: serverTimestamp() })
       toast({ title: "Evento creado" })
       setIsEventDialogOpen(false)
     } catch (e) {
@@ -362,15 +302,9 @@ export default function TreasuryPage() {
 
   const handleCreateExpense = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!db) return
-    if (!expenseProof) {
-      toast({ variant: "destructive", title: "Comprobante requerido", description: "Debes adjuntar la foto de la factura o ticket." })
-      return
-    }
-
+    if (!db || !expenseProof) return
     setIsEventSubmittingExpense(true)
     const formData = new FormData(e.currentTarget)
-    
     try {
       await addDoc(collection(db, "expenses"), {
         concept: formData.get("concept") as string,
@@ -379,21 +313,11 @@ export default function TreasuryPage() {
         date: serverTimestamp(),
         registeredBy: profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
       })
-
-      await addDoc(collection(db, "audit_logs"), {
-        userId: currentUser?.uid || "unknown",
-        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero",
-        action: "Registro de Egreso",
-        module: "tesoreria",
-        details: `Gasto registrado por ${formData.get("concept")} de ${(Number(formData.get("amount"))).toLocaleString('es-PY')} Gs.`,
-        timestamp: serverTimestamp()
-      })
-
-      toast({ title: "Gasto registrado", description: "Se ha añadido el comprobante a la base de datos." })
+      toast({ title: "Gasto registrado" })
       setIsExpenseDialogOpen(false)
       setExpenseProof(null)
     } catch (e) {
-      toast({ variant: "destructive", title: "Error al registrar gasto" })
+      toast({ variant: "destructive", title: "Error al registrar" })
     } finally {
       setIsEventSubmittingExpense(false)
     }
@@ -419,124 +343,32 @@ export default function TreasuryPage() {
 
   if (!mounted) return null
 
-  // Forzar zona horaria de Paraguay de forma segura
-  const today = new Date();
-  const options: Intl.DateTimeFormatOptions = { timeZone: 'America/Asuncion' };
-  const dayStr = today.toLocaleString('es-PY', { ...options, day: 'numeric' });
-  const monthStr = today.toLocaleString('es-PY', { ...options, month: 'long' });
-  const yearStr = today.toLocaleString('es-PY', { ...options, year: 'numeric' });
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="bg-primary/10 p-3 rounded-2xl">
-            <Church className="h-8 w-8 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Tesorería Institucional</h1>
-            <p className="text-muted-foreground font-medium">Santuario Nacional Nuestra Señora del Perpetuo Socorro • 2026</p>
-          </div>
-        </div>
+        <div className="flex items-center gap-4"><div className="bg-primary/10 p-3 rounded-2xl"><Church className="h-8 w-8 text-primary" /></div><div><h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Tesorería Institucional</h1><p className="text-muted-foreground font-medium">Santuario Nacional NSPS • 2026</p></div></div>
       </div>
 
       <Tabs defaultValue="pagos" className="w-full">
         <TabsList className="grid w-full grid-cols-4 max-w-[800px] mb-6 h-12 bg-slate-100 p-1 rounded-xl">
-          <TabsTrigger value="pagos" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"><CreditCard className="h-4 w-4" /> Inscripciones</TabsTrigger>
-          <TabsTrigger value="eventos" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"><CalendarDays className="h-4 w-4" /> Eventos</TabsTrigger>
-          <TabsTrigger value="egresos" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"><Receipt className="h-4 w-4" /> Egresos</TabsTrigger>
-          <TabsTrigger value="config" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm"><Settings className="h-4 w-4" /> Ajustes</TabsTrigger>
+          <TabsTrigger value="pagos" className="gap-2 rounded-lg data-[state=active]:bg-white shadow-none"><CreditCard className="h-4 w-4" /> Inscripciones</TabsTrigger>
+          <TabsTrigger value="eventos" className="gap-2 rounded-lg data-[state=active]:bg-white shadow-none"><CalendarDays className="h-4 w-4" /> Eventos</TabsTrigger>
+          <TabsTrigger value="egresos" className="gap-2 rounded-lg data-[state=active]:bg-white shadow-none"><Receipt className="h-4 w-4" /> Egresos</TabsTrigger>
+          <TabsTrigger value="config" className="gap-2 rounded-lg data-[state=active]:bg-white shadow-none"><Settings className="h-4 w-4" /> Ajustes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pagos">
           <Card className="border-none shadow-xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/50 border-b">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <CardTitle>Control de Cobros de Inscripción</CardTitle>
-                  <CardDescription>Valida los pagos y genera recibos oficiales del Santuario.</CardDescription>
-                </div>
-                <div className="relative w-full md:w-72">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Buscar confirmando..." className="pl-9 bg-white border-slate-200 h-11 rounded-xl" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                </div>
-              </div>
-            </CardHeader>
+            <CardHeader className="bg-slate-50/50 border-b"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><CardTitle>Control de Cobros</CardTitle><CardDescription>Valida los pagos y genera recibos oficiales.</CardDescription></div><div className="relative w-full md:w-72"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar..." className="pl-9 bg-white rounded-xl" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div></div></CardHeader>
             <CardContent className="p-0">
-              {loadingRegs ? (
-                <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50/50">
-                      <TableHead className="font-bold pl-8">Confirmando</TableHead>
-                      <TableHead className="font-bold text-center">Nivel</TableHead>
-                      <TableHead className="font-bold text-center">Estado</TableHead>
-                      <TableHead className="font-bold text-center">Saldo Pendiente</TableHead>
-                      <TableHead className="text-right pr-8 font-bold">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              {loadingRegs ? (<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>) : (
+                <Table><TableHeader><TableRow className="bg-slate-50/50"><TableHead className="font-bold pl-8">Confirmando</TableHead><TableHead className="font-bold text-center">Nivel</TableHead><TableHead className="font-bold text-center">Estado</TableHead><TableHead className="font-bold text-center">Saldo Pendiente</TableHead><TableHead className="text-right pr-8 font-bold">Acciones</TableHead></TableRow></TableHeader><TableBody>
                     {filteredRegs.map((reg) => {
                       const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
                       const isSettled = pending <= 0 || reg.paymentStatus === "PAGADO"
-                      
-                      return (
-                        <TableRow key={reg.id} className="hover:bg-slate-50/30 h-16">
-                          <TableCell className="pl-8">
-                            <div className="flex items-center gap-3">
-                              <Avatar 
-                                className="h-9 w-9 border cursor-pointer hover:scale-110 transition-transform"
-                                onClick={() => { if(reg.photoUrl) { setSelectedProof(reg.photoUrl); setIsProofViewOpen(true); } }}
-                              >
-                                <AvatarImage src={reg.photoUrl} className="object-cover" />
-                                <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col"><span className="font-bold text-sm text-slate-900">{reg.fullName}</span><span className="text-[10px] text-muted-foreground uppercase">{reg.ciNumber}</span></div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center"><Badge variant="secondary" className="text-[10px] uppercase tracking-tighter">{formatYear(reg.catechesisYear)}</Badge></TableCell>
-                          <TableCell className="text-center"><Badge variant={reg.paymentStatus === "PAGADO" ? "default" : "outline"} className={cn(reg.paymentStatus === "PAGADO" && "bg-green-500")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
-                          <TableCell className="text-center"><span className={cn("font-bold text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? `${pending.toLocaleString('es-PY')} Gs.` : "Saldado"}</span></TableCell>
-                          <TableCell className="text-right pr-8">
-                            <div className="flex justify-end gap-2">
-                              {!isSettled && (
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="h-8 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary/5"
-                                  onClick={() => handleOpenPayment(reg)}
-                                >
-                                  <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar Pago
-                                </Button>
-                              )}
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0 bg-primary/5 text-primary hover:bg-primary/10 rounded-lg" 
-                                title="Ver Ficha Institucional"
-                                onClick={() => openDetailsDialog(reg)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {isSettled && (
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost" 
-                                  className="h-8 w-8 p-0 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg" 
-                                  title="Ver Recibo / Descargar PDF"
-                                  onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )
+                      return (<TableRow key={reg.id} className="hover:bg-slate-50/30 h-16"><TableCell className="pl-8"><div className="flex items-center gap-3"><Avatar className="h-9 w-9 border cursor-pointer" onClick={() => { if(reg.photoUrl) { setSelectedProof(reg.photoUrl); setIsProofViewOpen(true); } }}><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar><div className="flex flex-col"><span className="font-bold text-sm text-slate-900">{reg.fullName}</span><span className="text-[10px] text-muted-foreground uppercase">{reg.ciNumber}</span></div></div></TableCell><TableCell className="text-center"><Badge variant="secondary" className="text-[10px] uppercase">{formatYear(reg.catechesisYear)}</Badge></TableCell><TableCell className="text-center"><Badge variant={reg.paymentStatus === "PAGADO" ? "default" : "outline"} className={cn(reg.paymentStatus === "PAGADO" && "bg-green-500")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell><TableCell className="text-center"><span className={cn("font-bold text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? `${pending.toLocaleString('es-PY')} Gs.` : "Saldado"}</span></TableCell><TableCell className="text-right pr-8"><div className="flex justify-end gap-2">{!isSettled && (<Button size="sm" variant="outline" className="h-8 rounded-xl font-bold gap-2 border-primary text-primary" onClick={() => handleOpenPayment(reg)}><CheckCircle2 className="h-3.5 w-3.5" /> Cobrar</Button>)}<Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-primary/5 text-primary rounded-lg" onClick={() => openDetailsDialog(reg)}><Eye className="h-4 w-4" /></Button>{isSettled && (<Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-green-50 text-green-600 rounded-lg" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-4 w-4" /></Button>)}</div></TableCell></TableRow>)
                     })}
-                  </TableBody>
-                </Table>
+                </TableBody></Table>
               )}
             </CardContent>
           </Card>
@@ -544,187 +376,32 @@ export default function TreasuryPage() {
 
         <TabsContent value="eventos">
           <Card className="border-none shadow-xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Eventos Especiales</CardTitle>
-                <CardDescription>Crea conceptos de cobro para encuentros del Santuario.</CardDescription>
-              </div>
-              <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
-                <DialogTrigger asChild><Button className="bg-primary hover:bg-primary/90 font-bold gap-2 h-11 rounded-xl shadow-lg"><Plus className="h-4 w-4" /> Nuevo Evento</Button></DialogTrigger>
-                <DialogContent className="rounded-3xl border-none shadow-2xl">
-                  <form onSubmit={handleCreateEvent}>
-                    <DialogHeader>
-                      <DialogTitle>Añadir Concepto de Cobro</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-6 space-y-4">
-                      <div className="space-y-2"><Label>Nombre del Evento</Label><Input name="category" placeholder="Ej. Retiro de 1er Año" required className="h-12 rounded-xl" /></div>
-                      <div className="space-y-2"><Label>Costo (Gs)</Label><Input name="cost" type="number" placeholder="30000" required className="h-12 rounded-xl" /></div>
-                    </div>
-                    <DialogFooter><Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={isEventSubmitting}>{isEventSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Evento"}</Button></DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </CardHeader>
-            <CardContent className="p-0">
-              {loadingEvents ? (
-                <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-              ) : (
-                <Table>
-                  <TableHeader><TableRow className="bg-slate-50/50"><TableHead className="font-bold pl-8">Concepto</TableHead><TableHead className="font-bold text-center">Arancel</TableHead><TableHead className="text-right pr-8 font-bold">Acciones</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {events?.map((ev: any) => (
-                      <TableRow key={ev.id} className="hover:bg-slate-50/30 h-16">
-                        <TableCell className="pl-8 font-bold text-slate-900">{ev.category}</TableCell>
-                        <TableCell className="text-center font-bold text-primary">{ev.cost?.toLocaleString('es-PY')} Gs.</TableCell>
-                        <TableCell className="text-right pr-8"><Button variant="ghost" size="icon" className="text-red-400 hover:text-red-600 rounded-full" onClick={() => deleteDoc(doc(db!, "events", ev.id))}><Trash2 className="h-4 w-4" /></Button></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
+            <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between"><div><CardTitle>Eventos Especiales</CardTitle><CardDescription>Conceptos de cobro adicionales.</CardDescription></div><Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}><DialogTrigger asChild><Button className="bg-primary rounded-xl"><Plus className="h-4 w-4 mr-2" /> Nuevo Evento</Button></DialogTrigger><DialogContent className="rounded-3xl"><form onSubmit={handleCreateEvent}><DialogHeader><DialogTitle>Añadir Concepto</DialogTitle></DialogHeader><div className="py-6 space-y-4"><div><Label>Nombre del Evento</Label><Input name="category" required className="h-12 rounded-xl" /></div><div><Label>Costo (Gs)</Label><Input name="cost" type="number" required className="h-12 rounded-xl" /></div></div><DialogFooter><Button type="submit" className="w-full h-12 rounded-xl" disabled={isEventSubmitting}>Crear Evento</Button></DialogFooter></form></DialogContent></Dialog></CardHeader>
+            <CardContent className="p-0">{loadingEvents ? (<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>) : (<Table><TableHeader><TableRow className="bg-slate-50/50"><TableHead className="font-bold pl-8">Concepto</TableHead><TableHead className="font-bold text-center">Arancel</TableHead><TableHead className="text-right pr-8 font-bold">Acciones</TableHead></TableRow></TableHeader><TableBody>{events?.map((ev: any) => (<TableRow key={ev.id} className="hover:bg-slate-50/30 h-16"><TableCell className="pl-8 font-bold">{ev.category}</TableCell><TableCell className="text-center font-bold">{ev.cost?.toLocaleString('es-PY')} Gs.</TableCell><TableCell className="text-right pr-8"><Button variant="ghost" size="icon" className="text-red-400" onClick={() => deleteDoc(doc(db!, "events", ev.id))}><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>))}</TableBody></Table>)}</CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="egresos">
           <Card className="border-none shadow-xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Gestión de Egresos</CardTitle>
-                <CardDescription>Registro de compras e insumos del Santuario Nacional.</CardDescription>
-              </div>
-              <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
-                <DialogTrigger asChild><Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold gap-2 h-11 rounded-xl shadow-lg"><Plus className="h-4 w-4" /> Registrar Gasto</Button></DialogTrigger>
-                <DialogContent className="sm:max-w-[500px] border-none shadow-2xl rounded-3xl">
-                  <form onSubmit={handleCreateExpense} className="space-y-6">
-                    <DialogHeader>
-                      <DialogTitle>Nuevo Comprobante de Egreso</DialogTitle>
-                      <DialogDescription>Ingresa los detalles de la compra institucional.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2"><Label>Concepto / Detalle de Compra</Label><Input name="concept" placeholder="Ej. Compra de Merienda para Retiro" required className="h-12 rounded-xl" /></div>
-                      <div className="space-y-2"><Label>Monto Pagado (Gs)</Label><Input name="amount" type="number" placeholder="50000" required className="text-xl font-bold h-12 rounded-xl" /></div>
-                      <div className="space-y-2">
-                        <Label>Foto de Comprobante / Factura</Label>
-                        <div className={cn("border-2 border-dashed rounded-3xl h-40 flex flex-col items-center justify-center cursor-pointer overflow-hidden bg-slate-50 hover:bg-slate-100 transition-all", expenseProof && "border-green-500 bg-green-50")} onClick={() => expenseProofRef.current?.click()}>
-                          {expenseProof ? <img src={expenseProof} className="w-full h-full object-cover" /> : <><ImageIcon className="h-8 w-8 text-slate-300 mb-2" /><span className="text-[10px] font-bold text-slate-400 uppercase">Subir Foto de Ticket/Factura</span></>}
-                        </div>
-                        <input type="file" ref={expenseProofRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                      </div>
-                    </div>
-                    <DialogFooter><Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={isExpenseSubmitting}>{isExpenseSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Registro"}</Button></DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </CardHeader>
-            <CardContent className="p-0">
-              {loadingExpenses ? (
-                <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-              ) : expenses?.length === 0 ? (
-                <div className="py-20 text-center text-slate-400 italic">No hay egresos registrados recientemente.</div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50/50">
-                      <TableHead className="font-bold pl-8">Fecha</TableHead>
-                      <TableHead className="font-bold">Concepto</TableHead>
-                      <TableHead className="font-bold text-center">Monto</TableHead>
-                      <TableHead className="font-bold">Registrado por</TableHead>
-                      <TableHead className="text-right pr-8 font-bold">Comprobante</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {expenses?.map((ex: any) => (
-                      <TableRow key={ex.id} className="hover:bg-slate-50/30 h-16">
-                        <TableCell className="pl-8 text-xs font-medium text-slate-500">{ex.date?.toDate ? ex.date.toDate().toLocaleDateString('es-PY', { timeZone: 'America/Asuncion' }) : '---'}</TableCell>
-                        <TableCell className="font-bold text-slate-900">{ex.concept}</TableCell>
-                        <TableCell className="text-center font-bold text-red-500">{ex.amount?.toLocaleString('es-PY')} Gs.</TableCell>
-                        <TableCell className="text-xs text-slate-500">{ex.registeredBy}</TableCell>
-                        <TableCell className="text-right pr-8">
-                          <Button variant="outline" size="sm" className="gap-2 rounded-xl h-8" onClick={() => { setSelectedProof(ex.proofUrl); setIsProofViewOpen(true); }}><Eye className="h-3 w-3" /> Ver</Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
+            <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between"><div><CardTitle>Gestión de Egresos</CardTitle></div><Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}><DialogTrigger asChild><Button className="bg-orange-500 hover:bg-orange-600 rounded-xl"><Plus className="h-4 w-4 mr-2" /> Registrar Gasto</Button></DialogTrigger><DialogContent className="sm:max-w-[500px] rounded-3xl"><form onSubmit={handleCreateExpense} className="space-y-6"><DialogHeader><DialogTitle>Nuevo Comprobante</DialogTitle></DialogHeader><div className="space-y-4"><div><Label>Concepto</Label><Input name="concept" required className="h-12 rounded-xl" /></div><div><Label>Monto Pagado</Label><Input name="amount" type="number" required className="h-12 rounded-xl" /></div><div className="space-y-2"><Label>Foto Comprobante</Label><div className={cn("border-2 border-dashed rounded-3xl h-40 flex flex-col items-center justify-center bg-slate-50", expenseProof && "border-green-500 bg-green-50")} onClick={() => expenseProofRef.current?.click()}>{expenseProof ? <img src={expenseProof} className="w-full h-full object-cover" /> : <span className="text-[10px] font-bold">Subir Foto</span>}</div><input type="file" ref={expenseProofRef} className="hidden" accept="image/*" onChange={handleFileChange} /></div></div><DialogFooter><Button type="submit" className="w-full h-12 rounded-xl" disabled={isExpenseSubmitting}>Guardar Registro</Button></DialogFooter></form></DialogContent></Dialog></CardHeader>
+            <CardContent className="p-0">{loadingExpenses ? (<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>) : (<Table><TableHeader><TableRow className="bg-slate-50/50"><TableHead className="font-bold pl-8">Fecha</TableHead><TableHead className="font-bold">Concepto</TableHead><TableHead className="font-bold text-center">Monto</TableHead><TableHead className="text-right pr-8 font-bold">Ver</TableHead></TableRow></TableHeader><TableBody>{expenses?.map((ex: any) => (<TableRow key={ex.id} className="hover:bg-slate-50/30 h-16"><TableCell className="pl-8 text-xs">{ex.date?.toDate ? ex.date.toDate().toLocaleDateString('es-PY', { timeZone: 'America/Asuncion' }) : '---'}</TableCell><TableCell className="font-bold">{ex.concept}</TableCell><TableCell className="text-center font-bold text-red-500">-{ex.amount?.toLocaleString('es-PY')} Gs.</TableCell><TableCell className="text-right pr-8"><Button variant="outline" size="sm" onClick={() => { setSelectedProof(ex.proofUrl); setIsProofViewOpen(true); }}><Eye className="h-3 w-3" /></Button></TableCell></TableRow>))}</TableBody></Table>)}</CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="config">
           <div className="grid gap-8 lg:grid-cols-2">
             <Card className="border-none shadow-xl bg-white overflow-hidden">
-              <CardHeader className="bg-primary text-white"><CardTitle className="flex items-center gap-2 font-headline"><Settings className="h-5 w-5" /> Parámetros de Cobro</CardTitle></CardHeader>
+              <CardHeader className="bg-primary text-white"><CardTitle>Parámetros</CardTitle></CardHeader>
               <form onSubmit={handleUpdateCosts}>
                 <CardContent className="p-8 space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2"><Label className="font-bold">Juvenil (Gs)</Label><Input name="juvenile" type="number" defaultValue={costs?.juvenileCost || 35000} className="h-12 rounded-xl" required /></div>
-                    <div className="space-y-2"><Label className="font-bold">Adultos (Gs)</Label><Input name="adult" type="number" defaultValue={costs?.adultCost || 50000} className="h-12 rounded-xl" required /></div>
-                  </div>
-                  
+                  <div className="grid gap-4 md:grid-cols-2"><div><Label>Juvenil (Gs)</Label><Input name="juvenile" type="number" defaultValue={costs?.juvenileCost} className="h-12 rounded-xl" /></div><div><Label>Adultos (Gs)</Label><Input name="adult" type="number" defaultValue={costs?.adultCost} className="h-12 rounded-xl" /></div></div>
                   <Separator />
-                  
-                  <div className="space-y-4">
-                    <Label className="text-primary font-bold uppercase text-xs tracking-widest flex items-center gap-2">
-                      <Hash className="h-4 w-4" /> Gestión de Talonario
-                    </Label>
-                    <div className="flex items-center justify-between p-4 bg-orange-50 rounded-2xl border border-orange-100">
-                      <div>
-                        <p className="text-sm font-bold text-orange-900">Numeración Correlativa</p>
-                        <p className="text-[10px] text-orange-700">Próximo recibo: <span className="font-black">001-001-{String(costs?.nextReceiptNumber || 1).padStart(7, '0')}</span></p>
-                      </div>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-9 rounded-xl border-orange-200 text-orange-700 hover:bg-orange-100 font-bold gap-2"
-                        onClick={handleResetCounter}
-                        disabled={isResettingCounter}
-                      >
-                        {isResettingCounter ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                        Reiniciar a 1
-                      </Button>
-                    </div>
-                  </div>
-
+                  <div className="flex items-center justify-between p-4 bg-orange-50 rounded-2xl border border-orange-100"><div><p className="text-sm font-bold">Contador Recibos</p></div><Button type="button" variant="outline" size="sm" onClick={handleResetCounter} disabled={isResettingCounter} className="rounded-xl">Reiniciar a 1</Button></div>
                   <Separator />
-
-                  <div className="space-y-6">
-                    <Label className="text-primary font-bold uppercase text-xs tracking-widest">Método de Pago Predeterminado</Label>
-                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="flex gap-6 p-4 bg-slate-50 rounded-2xl border">
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="ACCOUNT" id="mode-acc" /><Label htmlFor="mode-acc" className="font-bold cursor-pointer">Cuenta Completa</Label></div>
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="ALIAS" id="mode-ali" /><Label htmlFor="mode-ali" className="font-bold cursor-pointer">Solo Alias</Label></div>
-                    </RadioGroup>
-                    <div className="grid gap-4 p-6 border rounded-3xl bg-white shadow-sm">
-                      {paymentMethod === "ALIAS" ? (
-                        <>
-                          <div className="space-y-2"><Label className="font-bold">Alias de Transferencia</Label><Input name="alias" defaultValue={costs?.alias} placeholder="Ej. 0981123456" className="h-12 rounded-xl font-bold text-primary" required /></div>
-                          <div className="space-y-2"><Label className="font-bold">Titular de la Cuenta</Label><Input name="accountOwner" defaultValue={costs?.accountOwner} placeholder="Nombre completo" className="h-12 rounded-xl" required /></div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="space-y-2"><Label className="font-bold">Nombre del Banco</Label><Input name="bankName" defaultValue={costs?.bankName} className="h-12 rounded-xl" /></div>
-                          <div className="space-y-2"><Label className="font-bold">N° de Cuenta</Label><Input name="accountNumber" defaultValue={costs?.accountNumber} className="h-12 rounded-xl" /></div>
-                          <div className="space-y-2"><Label className="font-bold">Titular de Cuenta</Label><Input name="accountOwner" defaultValue={costs?.accountOwner} className="h-12 rounded-xl" /></div>
-                          <div className="space-y-2"><Label className="font-bold">C.I. del Titular</Label><Input name="ownerCi" defaultValue={costs?.ownerCi} className="h-12 rounded-xl" /></div>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="flex gap-6 p-4 bg-slate-50 rounded-2xl border"><div className="flex items-center space-x-2"><RadioGroupItem value="ACCOUNT" id="m-acc" /><Label htmlFor="mode-acc">Cuenta</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="ALIAS" id="m-ali" /><Label htmlFor="mode-ali">Alias</Label></div></RadioGroup>
                 </CardContent>
-                <CardFooter className="bg-slate-50 p-6 border-t flex justify-end"><Button type="submit" disabled={isCostSaving} className="h-12 px-8 rounded-xl font-bold shadow-lg">{isCostSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Guardar Cambios"}</Button></CardFooter>
+                <CardFooter className="bg-slate-50 p-6 border-t flex justify-end"><Button type="submit" disabled={isCostSaving} className="h-12 px-8 rounded-xl font-bold">Guardar Cambios</Button></CardFooter>
               </form>
-            </Card>
-            <Card className="border-none shadow-xl bg-slate-50 p-8 flex flex-col items-center justify-center space-y-6">
-              <div className="bg-white p-10 rounded-[2.5rem] border shadow-md w-full max-w-[350px] space-y-6 text-center">
-                <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-inner"><Wallet className="h-8 w-8 text-green-600" /></div>
-                <div className="space-y-2">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Vista Previa para Postulantes</p>
-                  <p className="text-2xl font-black text-primary uppercase break-all">{paymentMethod === "ALIAS" ? (costs?.alias || "---") : (costs?.accountNumber || "---")}</p>
-                  <p className="text-xs text-slate-500 font-bold">{costs?.accountOwner || "---"}</p>
-                </div>
-              </div>
             </Card>
           </div>
         </TabsContent>
@@ -732,314 +409,26 @@ export default function TreasuryPage() {
 
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white shrink-0">
-            <DialogTitle className="font-headline">Confirmar Cobro de Inscripción</DialogTitle>
-            <DialogDescription className="text-white/80">Alumno: {selectedReg?.fullName}</DialogDescription>
-          </DialogHeader>
-          
-          <div className="p-6 space-y-6">
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Saldo Pendiente:</p>
-              <p className="text-xl font-black text-slate-900">{((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.</p>
-            </div>
-
-            <div className="space-y-3">
-              <Label className="font-bold text-slate-700">Monto Recibido (Gs)</Label>
-              <Input 
-                type="number" 
-                className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-primary/20 text-primary"
-                value={paymentAmount} 
-                onChange={(e) => setPaymentAmount(Number(e.target.value))}
-              />
-              <p className="text-[10px] text-muted-foreground italic">* Ingresa el monto total recibido en efectivo o transferencia.</p>
-            </div>
-          </div>
-
-          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
-            <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
-            <Button 
-              type="button"
-              className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700 font-bold shadow-lg gap-2" 
-              onClick={handleProcessPayment} 
-              disabled={paymentAmount <= 0 || isSubmittingPayment}
-            >
-              {isSubmittingPayment ? <Loader2 className="animate-spin h-4 w-4" /> : <><CheckCircle2 className="h-4 w-4" /> Confirmar Pago</>}
-            </Button>
-          </DialogFooter>
+          <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Confirmar Cobro</DialogTitle></DialogHeader>
+          <div className="p-6 space-y-6"><div className="p-4 bg-slate-50 rounded-2xl border flex justify-between"><span>Saldo:</span><span className="font-black">{(pendingBalance).toLocaleString('es-PY')} Gs.</span></div><div className="space-y-3"><Label>Monto Recibido</Label><Input type="number" className="h-14 text-2xl font-black rounded-2xl" value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} /></div></div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button><Button className="flex-1 bg-green-600" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isSubmittingPayment}>Confirmar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-xl">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Recibo de Pago Oficial</DialogTitle>
-            <DialogDescription>Comprobante de cobro del Santuario Nacional.</DialogDescription>
-          </DialogHeader>
-          
-          <ScrollArea className="max-h-[85vh]">
-            <div className="p-4 md:p-6 bg-white flex justify-center">
-              <div 
-                className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-10 shadow-sm" 
-                id="receipt-content-official"
-              >
-                <div className="grid grid-cols-3 gap-4 items-center mb-6">
-                  <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center relative bg-white">
-                    <img 
-                      src="/logo.png" 
-                      alt="Logo Santuario" 
-                      className="max-h-24 object-contain" 
-                    />
-                    <div className="absolute top-1 right-2 text-[7px] font-black uppercase tracking-tighter text-slate-400 text-right leading-tight">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
-                  </div>
-                  <div className="flex flex-col gap-2 h-full justify-between">
-                    <div className="border-2 border-slate-900 p-2 text-center bg-slate-50">
-                      <p className="text-[10px] font-black uppercase tracking-tighter">Gs.</p>
-                      <p className="text-xl font-black">{paymentAmount.toLocaleString('es-PY')}</p>
-                    </div>
-                    <div className="border-2 border-slate-900 p-2 text-center bg-white">
-                      <p className="text-[8px] font-bold uppercase">Recibo N°</p>
-                      <p className="text-xs font-black">{selectedReg?.receiptNumber || `001-001-${selectedReg?.id?.slice(-7).padStart(7, '0')}`}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-center border-b-2 border-slate-900 pb-2 mb-4">
-                  <h1 className="text-3xl font-black italic tracking-tighter uppercase">RECIBO</h1>
-                </div>
-
-                <div className="space-y-10 text-sm md:text-base">
-                  <div className="flex items-baseline gap-2 py-1">
-                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">Recibí(mos) de:</span>
-                    <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-1 px-2 leading-relaxed truncate">
-                      {selectedReg?.fullName}
-                    </div>
-                  </div>
-
-                  <div className="flex items-baseline gap-2 py-1">
-                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">la cantidad de:</span>
-                    <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 italic leading-relaxed">
-                      {paymentAmount.toLocaleString('es-PY')} Guaraníes
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-baseline gap-2 py-1">
-                      <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">en concepto de:</span>
-                      <div className="flex-1 border-2 border-slate-900 px-4 py-2 font-bold text-xs bg-slate-50 uppercase leading-relaxed">
-                        Inscripción Catequesis de Confirmación - {selectedReg?.catechesisYear?.replace('_', ' ')}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-baseline gap-2 py-1">
-                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide">en concepto de:</span>
-                    <div className="flex-1 border-b border-dotted border-slate-400 pb-1 px-2 text-sm text-slate-700 font-medium italic leading-relaxed">
-                      Saldo Pendiente: {((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
-                  <div className="flex flex-col justify-end space-y-3">
-                    <p className="text-sm italic font-medium">
-                      Asunción, {dayStr} de {monthStr} de {yearStr}
-                    </p>
-                    <div className="flex flex-col items-start pt-4">
-                      <div className="w-48 border-t border-slate-900"></div>
-                      <p className="text-[8px] font-bold uppercase mt-1 tracking-widest">(Firma y aclaración)</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-center md:items-end gap-3">
-                    <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm">
-                      <QRCodeCanvas 
-                        value={`RECIBO-NSPS-${selectedReg?.id}-${paymentAmount}-${selectedReg?.receiptNumber}`}
-                        size={80}
-                        level="H"
-                      />
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
-                      <p className="text-xs font-bold text-slate-900 uppercase mt-1">{selectedReg?.validatedBy || (profile ? `${profile.firstName} ${profile.lastName}` : 'Secretaría del Santuario')}</p>
-                      <p className="text-[8px] text-slate-500 font-bold uppercase">{profile?.role || 'Personal Institucional'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </ScrollArea>
-
-          <DialogFooter className="p-4 bg-slate-100 border-t flex flex-row gap-2">
-            <Button type="button" variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button 
-              type="button" 
-              className="flex-1 gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white h-12 font-bold shadow-lg" 
-              onClick={handleDownloadImage}
-              disabled={isGeneratingPDF}
-            >
-              <ImageIcon className="h-4 w-4" /> IMAGEN
-            </Button>
-            <Button type="button" className="flex-1 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white h-12 font-bold shadow-lg" onClick={handleShareReceipt}>
-              <MessageCircle className="h-4 w-4" /> WHATSAPP
-            </Button>
-            <Button 
-              type="button"
-              className="flex-1 gap-2 rounded-xl bg-slate-900 text-white h-12 font-bold shadow-lg group" 
-              onClick={handleDownloadPDF}
-              disabled={isGeneratingPDF}
-            >
-              {isGeneratingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} PDF
-            </Button>
-          </DialogFooter>
+        <DialogContent className="sm:max-w-[800px] p-0 bg-white rounded-xl shadow-2xl">
+          <DialogHeader className="sr-only"><DialogTitle>Recibo</DialogTitle></DialogHeader>
+          <ScrollArea className="max-h-[85vh]"><div className="p-6 flex justify-center"><div className="w-full max-w-[700px] bg-white text-slate-900 border-2 border-slate-900 p-8 space-y-10" id="receipt-content-official">
+            <div className="grid grid-cols-3 gap-4"><div className="col-span-2 border-2 border-slate-900 p-4 min-h-[120px] flex items-center justify-center"><img src="/logo.png" className="max-h-24" /></div><div className="flex flex-col gap-2 h-full justify-between"><div className="border-2 border-slate-900 p-2 text-center bg-slate-50"><p className="text-xl font-black">{paymentAmount.toLocaleString('es-PY')}</p></div><div className="border-2 border-slate-900 p-2 text-center"><p className="text-xs font-black">{selectedReg?.receiptNumber}</p></div></div></div>
+            <div className="text-center border-b-2 border-slate-900 pb-2"><h1 className="text-3xl font-black">RECIBO</h1></div>
+            <div className="space-y-10"><div>Recibí de: <span className="font-bold uppercase">{selectedReg?.fullName}</span></div><div>La cantidad de: <span className="italic">{paymentAmount.toLocaleString('es-PY')} Guaraníes</span></div><div>En concepto de: <span className="font-bold">Inscripción Catequesis 2026</span></div></div>
+            <div className="grid grid-cols-2 gap-6 pt-10"><div>Asunción, {localDate.day} de {localDate.month} de {localDate.year}</div><div className="flex flex-col items-end gap-3"><QRCodeCanvas value={`RECIBO-NSPS-${selectedReg?.receiptNumber}`} size={80} /><p className="text-xs font-bold">{selectedReg?.validatedBy}</p></div></div>
+          </div></div></ScrollArea>
+          <DialogFooter className="p-4 bg-slate-100 border-t flex flex-row gap-2"><Button variant="outline" className="flex-1" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button><Button className="flex-1 bg-green-600" onClick={handleShareReceipt}>WhatsApp</Button><Button className="flex-1 bg-slate-900" onClick={handleDownloadPDF} disabled={isGeneratingPDF}>PDF</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE FICHA DETALLADA (VER FICHA) */}
-      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
-          <DialogHeader className="p-6 bg-primary text-white shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Avatar 
-                  className="h-20 w-20 border-4 border-white/20 shadow-xl cursor-pointer hover:scale-105 transition-transform"
-                  onClick={() => { if(selectedReg?.photoUrl) { setSelectedProof(selectedReg.photoUrl); setIsProofViewOpen(true); } }}
-                >
-                  <AvatarImage src={selectedReg?.photoUrl} className="object-cover" />
-                  <AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback>
-                </Avatar>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Ficha Institucional</p>
-                  <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight">{selectedReg?.fullName}</DialogTitle>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Badge variant="outline" className="text-white border-white/30 font-bold text-[10px]">C.I. {selectedReg?.ciNumber}</Badge>
-                    <Badge variant="secondary" className="bg-white text-primary font-black uppercase text-[10px]">{formatYear(selectedReg?.catechesisYear)}</Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-8 space-y-8">
-            <section className="space-y-4">
-              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-                <UserCircle className="h-5 w-5 text-primary" />
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Información Personal</h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-bold text-slate-400 uppercase">Fecha de Nacimiento</Label>
-                  <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-slate-400" /> {selectedReg?.birthDate || '---'}</p>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-bold text-slate-400 uppercase">Edad</Label>
-                  <p className="text-sm font-bold text-slate-700">{selectedReg?.age} Años</p>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-bold text-slate-400 uppercase">WhatsApp</Label>
-                  <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-green-500" /> {selectedReg?.phone}</p>
-                </div>
-              </div>
-            </section>
-
-            <section className="space-y-4">
-              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-                <Users className="h-5 w-5 text-primary" />
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Entorno Familiar</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div className="bg-white p-4 rounded-2xl border shadow-sm">
-                  <p className="text-[8px] font-black text-primary uppercase">Madre</p>
-                  <p className="text-xs font-bold text-slate-700">{selectedReg?.motherName || '---'}</p>
-                  <p className="text-[10px] text-slate-500">{selectedReg?.motherPhone}</p>
-                </div>
-                <div className="bg-white p-4 rounded-2xl border shadow-sm">
-                  <p className="text-[8px] font-black text-primary uppercase">Padre</p>
-                  <p className="text-xs font-bold text-slate-700">{selectedReg?.fatherName || '---'}</p>
-                  <p className="text-[10px] text-slate-500">{selectedReg?.fatherPhone}</p>
-                </div>
-              </div>
-            </section>
-
-            <section className="space-y-4">
-              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-                <BookOpen className="h-5 w-5 text-primary" />
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Vida Sacramental</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={cn("p-4 rounded-2xl border flex items-center gap-4", selectedReg?.hasBaptism ? "bg-green-50" : "bg-red-50")}>
-                  <Church className={cn("h-6 w-6", selectedReg?.hasBaptism ? "text-green-600" : "text-red-600")} />
-                  <div>
-                    <p className="text-[10px] font-bold uppercase">Bautismo</p>
-                    <p className="text-[10px]">{selectedReg?.hasBaptism ? 'Realizado' : 'Pendiente'}</p>
-                  </div>
-                </div>
-                <div className={cn("p-4 rounded-2xl border flex items-center gap-4", selectedReg?.hasFirstCommunion ? "bg-blue-50" : "bg-orange-50")}>
-                  <Book className={cn("h-6 w-6", selectedReg?.hasFirstCommunion ? "text-blue-600" : "text-orange-600")} />
-                  <div>
-                    <p className="text-[10px] font-bold uppercase">Primera Comunión</p>
-                    <p className="text-[10px]">{selectedReg?.hasFirstCommunion ? 'Realizado' : 'Pendiente'}</p>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="space-y-6">
-              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-                <ImageIcon className="h-5 w-5 text-primary" />
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Documentación y Comprobantes</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Archivos Adjuntos</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-[8px] font-black text-slate-400 uppercase">Comprobante Pago</Label>
-                      <div className="aspect-[4/3] rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-all group" onClick={() => { if(selectedReg?.paymentProofUrl) { setSelectedProof(selectedReg.paymentProofUrl); setIsProofViewOpen(true); } }}>
-                        {selectedReg?.paymentProofUrl ? <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-1"><ImageIcon className="h-6 w-6" /><span className="text-[8px]">Sin archivo</span></div>}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[8px] font-black text-slate-400 uppercase">Cert. Bautismo</Label>
-                      <div className="aspect-[4/3] rounded-xl border-2 border-dashed border-slate-200 overflow-hidden bg-white cursor-pointer hover:border-primary transition-all group" onClick={() => { if(selectedReg?.baptismCertificatePhotoUrl) { setSelectedProof(selectedReg.baptismCertificatePhotoUrl); setIsProofViewOpen(true); } }}>
-                        {selectedReg?.baptismCertificatePhotoUrl ? <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-1"><ImageIcon className="h-6 w-6" /><span className="text-[8px]">Sin archivo</span></div>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {selectedReg?.receiptNumber && (
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recibo Oficial</p>
-                    <div className="bg-white border-2 border-slate-900 p-4 rounded-xl shadow-sm space-y-4">
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <Church className="h-6 w-6 text-primary" />
-                        <div className="text-right"><p className="text-[8px] font-black uppercase text-primary">Recibo Oficial</p><p className="text-[10px] font-black">{selectedReg.receiptNumber}</p></div>
-                      </div>
-                      <div className="flex items-end justify-between">
-                        <div className="space-y-1"><p className="text-[8px] uppercase text-slate-400 font-bold">Monto Total</p><p className="text-sm font-black text-slate-900">{selectedReg.amountPaid?.toLocaleString('es-PY')} Gs.</p></div>
-                        <div className="p-1 bg-slate-50 border rounded-lg"><QRCodeCanvas value={`RECIBO-${selectedReg.receiptNumber}`} size={35} level="H" /></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
-
-          <DialogFooter className="p-6 bg-white border-t shrink-0">
-            <Button variant="outline" className="w-full h-12 rounded-xl font-bold" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar Ficha</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
-        <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
-          <DialogHeader className="sr-only"><DialogTitle>Comprobante de Egreso</DialogTitle></DialogHeader>
-          <div className="relative flex items-center justify-center">
-            <button type="button" className="absolute -top-12 -right-12 rounded-full h-10 w-10 bg-white/20 text-white flex items-center justify-center" onClick={() => setIsProofViewOpen(false)}><X className="h-6 w-6" /></button>
-            <img src={selectedProof || ""} className="max-h-[90vh] rounded-xl shadow-2xl" />
-          </div>
-        </DialogContent>
-      </Dialog>
+      <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}><DialogContent className="max-w-3xl p-0 bg-transparent shadow-none"><DialogHeader className="sr-only"><DialogTitle>Ver</DialogTitle></DialogHeader><div className="relative"><Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full" onClick={() => setIsProofViewOpen(false)}><X /></Button><img src={selectedProof || ""} className="max-h-[90vh] rounded-xl shadow-2xl" /></div></DialogContent></Dialog>
     </div>
   )
 }
