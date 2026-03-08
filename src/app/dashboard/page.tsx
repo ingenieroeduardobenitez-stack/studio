@@ -59,6 +59,34 @@ export default function DashboardPage() {
     }
   }
 
+  const handleDownloadImage = async () => {
+    const element = document.getElementById("qr-print-area");
+    if (!element) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = "Poster-QR-Inscripcion-NSPS-2026.png";
+      link.href = url;
+      link.click();
+      
+      toast({ title: "Imagen Generada", description: "El poster se ha descargado correctamente." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al generar imagen" });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }
+
   const handleDownloadPDF = async () => {
     const element = document.getElementById("qr-print-area");
     if (!element) return;
