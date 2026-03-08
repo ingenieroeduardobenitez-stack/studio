@@ -147,7 +147,7 @@ function EditRegistrationForm({
           }
         } else {
           if (height > maxHeight) {
-            width *= MAX_HEIGHT / height;
+            width *= maxWidth / height;
             height = maxHeight;
           }
         }
@@ -510,13 +510,14 @@ export default function RegistrationsListPage() {
     })
   }, [registrations, searchTerm, filterSex, filterOrigin, filterYear, filterStatus])
 
-  const genderStats = useMemo(() => {
-    const stats = { m: 0, f: 0 };
+  const stats = useMemo(() => {
+    const s = { m: 0, f: 0, total: 0 };
     filteredRegistrations.forEach(r => {
-      if (r.sexo === "M") stats.m++;
-      else if (r.sexo === "F") stats.f++;
+      s.total++;
+      if (r.sexo === "M") s.m++;
+      else if (r.sexo === "F") s.f++;
     });
-    return stats;
+    return s;
   }, [filteredRegistrations]);
 
   const registrationsByGroup = useMemo(() => {
@@ -589,7 +590,7 @@ export default function RegistrationsListPage() {
       setCurrentStream(stream)
       setHasCameraPermission(true)
       const availableDevices = await navigator.mediaDevices.enumerateDevices()
-      const videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
+      videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
       setDevices(videoDevices)
       if (!selectedDeviceId && videoDevices.length > 0) {
         setSelectedDeviceId(deviceId || videoDevices[0].deviceId)
@@ -868,15 +869,15 @@ export default function RegistrationsListPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-blue-50/50 border-l-4 border-l-blue-500">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Masculino</p>
-              <p className="text-2xl font-black text-blue-900">{genderStats.m}</p>
+              <p className="text-2xl font-black text-blue-900">{stats.m}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-              <span className="font-black">M</span>
+              <span className="font-black text-sm">M</span>
             </div>
           </CardContent>
         </Card>
@@ -884,10 +885,21 @@ export default function RegistrationsListPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Femenino</p>
-              <p className="text-2xl font-black text-pink-900">{genderStats.f}</p>
+              <p className="text-2xl font-black text-pink-900">{stats.f}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600">
-              <span className="font-black">F</span>
+              <span className="font-black text-sm">F</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-slate-100/50 border-l-4 border-l-slate-500 col-span-2 md:col-span-1">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Total General</p>
+              <p className="text-2xl font-black text-slate-900">{stats.total}</p>
+            </div>
+            <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600">
+              <span className="font-black text-sm">Σ</span>
             </div>
           </CardContent>
         </Card>
