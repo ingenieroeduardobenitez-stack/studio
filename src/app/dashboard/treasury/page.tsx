@@ -31,7 +31,8 @@ import {
   Globe,
   Download,
   CalendarDays,
-  ImageIcon
+  ImageIcon,
+  Share2
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
@@ -329,6 +330,29 @@ export default function TreasuryPage() {
         }
       });
       const url = canvas.toDataURL("image/png");
+
+      // SOPORTE PARA COMPARTIR IMAGEN NATIVA
+      if (navigator.share && navigator.canShare) {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const file = new File([blob], `Recibo-${selectedReg?.fullName?.split(' ')[0] || 'NSPS'}.png`, { type: 'image/png' });
+        
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Recibo Oficial',
+              text: `Recibo de Pago - Santuario Nacional NSPS`,
+            });
+            setIsGeneratingPDF(false);
+            return;
+          } catch (shareErr) {
+            console.log("Share cancelled", shareErr);
+          }
+        }
+      }
+
+      // Fallback: Descarga
       const link = document.createElement("a");
       link.download = `Recibo-Tesorería-NSPS.png`;
       link.href = url;
@@ -685,7 +709,7 @@ export default function TreasuryPage() {
               </div>
             </div>
           </div>
-          <DialogFooter className="p-4 bg-slate-100 border-t flex flex-row gap-2"><Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button><Button className="flex-1 gap-2 rounded-xl bg-blue-600 text-white h-12 font-bold shadow-lg" onClick={handleDownloadImage} disabled={isGeneratingPDF}><ImageIcon className="h-4 w-4" /> IMAGEN</Button><Button className="flex-1 gap-2 rounded-xl bg-green-600 text-white h-12 font-bold shadow-lg" onClick={handleShareReceipt}>WhatsApp</Button><Button className="flex-1 gap-2 rounded-xl bg-slate-900 text-white h-12 font-bold shadow-lg" onClick={handleDownloadPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} PDF</Button></DialogFooter>
+          <DialogFooter className="p-4 bg-slate-100 border-t flex flex-row gap-2"><Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button><Button className="flex-1 gap-2 rounded-xl bg-blue-600 text-white h-12 font-bold shadow-lg" onClick={handleDownloadImage} disabled={isGeneratingPDF}><Share2 className="h-4 w-4" /> IMAGEN</Button><Button className="flex-1 gap-2 rounded-xl bg-green-600 text-white h-12 font-bold shadow-lg" onClick={handleShareReceipt}><MessageCircle className="h-4 w-4" /> WhatsApp</Button><Button className="flex-1 gap-2 rounded-xl bg-slate-900 text-white h-12 font-bold shadow-lg" onClick={handleDownloadPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} PDF</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

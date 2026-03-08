@@ -650,6 +650,29 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         }
       });
       const url = canvas.toDataURL("image/png");
+
+      // SOPORTE PARA COMPARTIR IMAGEN NATIVA
+      if (navigator.share && navigator.canShare) {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const file = new File([blob], `Recibo-${submittedData?.fullName?.split(' ')[0] || 'NSPS'}.png`, { type: 'image/png' });
+        
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Recibo de Inscripción',
+              text: `Recibo de Pago - ${submittedData?.fullName}`,
+            });
+            setIsGeneratingPDF(false);
+            return;
+          } catch (shareErr) {
+            console.log("Share failed or cancelled");
+          }
+        }
+      }
+
+      // Fallback
       const link = document.createElement("a");
       link.download = `Recibo-NSPS-${submittedData?.fullName?.replace(/\s+/g, '-')}.png`;
       link.href = url;
@@ -708,7 +731,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </ScrollArea>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 no-print mt-6">
             <Button className="h-14 rounded-2xl font-black bg-slate-900 text-white gap-3 shadow-xl" onClick={handleDownloadPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? <Loader2 className="h-6 w-6 animate-spin" /> : <Download className="h-6 w-6" />} DESCARGAR PDF</Button>
-            <Button className="h-14 rounded-2xl font-black bg-blue-600 text-white gap-3 shadow-xl" onClick={handleDownloadImage} disabled={isGeneratingPDF}><ImageIcon className="h-6 w-6" /> WHATSAPP (IMG)</Button>
+            <Button className="h-14 rounded-2xl font-black bg-blue-600 text-white gap-3 shadow-xl" onClick={handleDownloadImage} disabled={isGeneratingPDF}><Share2 className="h-6 w-6" /> IMAGEN / COMPARTIR</Button>
             <Button variant="outline" className="h-14 rounded-2xl font-black bg-green-600 text-white border-none gap-3 shadow-xl" onClick={handleShareReceipt}><MessageCircle className="h-6 w-6" /> WHATSAPP</Button>
             <Button asChild variant="ghost" className="h-14 rounded-xl font-bold text-slate-400"><Link href={isPublic ? "/" : "/dashboard"}>Finalizar Gestión</Link></Button>
           </div>
