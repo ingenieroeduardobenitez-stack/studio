@@ -49,7 +49,7 @@ import {
   Filter
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc } from "firebase/firestore"
+import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy, limit } from "firebase/firestore"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -98,7 +98,6 @@ type CaptureTarget = "PHOTO" | "BAPTISM" | "PAYMENT_PROOF"
 
 /**
  * COMPONENTE AISLADO PARA EL FORMULARIO DE EDICIÓN
- * Se usa para prevenir que las actualizaciones en tiempo real del padre reinicien el estado local.
  */
 function EditRegistrationForm({ 
   selectedReg, 
@@ -114,12 +113,9 @@ function EditRegistrationForm({
   startCameraAction: (target: CaptureTarget) => void
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
-  // Inicializamos el estado local con los datos actuales para evitar el "sube y quita"
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(selectedReg?.photoUrl || null)
   const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(selectedReg?.baptismCertificatePhotoUrl || null)
   const [editPaymentProofPreview, setEditPaymentProofPreview] = useState<string | null>(selectedReg?.paymentProofUrl || null)
-  
   const [editCatechesisYear, setEditCatechesisYear] = useState(selectedReg?.catechesisYear || "PRIMER_AÑO")
   const [editAttendanceDay, setEditAttendanceDay] = useState(selectedReg?.attendanceDay || "SABADO")
   const [editGender, setEditGender] = useState(selectedReg?.sexo || "M")
@@ -472,9 +468,10 @@ export default function RegistrationsListPage() {
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   
+  // OPTIMIZACIÓN: Límite de 300 para velocidad inicial
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return collection(db, "confirmations")
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(300))
   }, [db, user])
 
   const groupsQuery = useMemoFirebase(() => {
@@ -590,7 +587,7 @@ export default function RegistrationsListPage() {
       setCurrentStream(stream)
       setHasCameraPermission(true)
       const availableDevices = await navigator.mediaDevices.enumerateDevices()
-      videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
+      const videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
       setDevices(videoDevices)
       if (!selectedDeviceId && videoDevices.length > 0) {
         setSelectedDeviceId(deviceId || videoDevices[0].deviceId)
@@ -734,7 +731,6 @@ export default function RegistrationsListPage() {
     setIsSubmitting(true)
     const group = groups?.find(g => g.id === newGroupId)
     if (!group) return
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
     try {
       await updateDoc(doc(db, "confirmations", selectedReg.id), {
         groupId: newGroupId,
@@ -841,7 +837,7 @@ export default function RegistrationsListPage() {
   }
 
   if (!mounted) return null
-  const loading = loadingRegs || loadingGroups
+  const isActuallyLoading = loadingRegs || !registrations;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -874,7 +870,7 @@ export default function RegistrationsListPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Masculino</p>
-              <p className="text-2xl font-black text-blue-900">{stats.m}</p>
+              <p className="text-2xl font-black text-blue-900">{isActuallyLoading ? "..." : stats.m}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
               <span className="font-black text-sm">M</span>
@@ -885,7 +881,7 @@ export default function RegistrationsListPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Femenino</p>
-              <p className="text-2xl font-black text-pink-900">{stats.f}</p>
+              <p className="text-2xl font-black text-pink-900">{isActuallyLoading ? "..." : stats.f}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600">
               <span className="font-black text-sm">F</span>
@@ -896,7 +892,7 @@ export default function RegistrationsListPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Total General</p>
-              <p className="text-2xl font-black text-slate-900">{stats.total}</p>
+              <p className="text-2xl font-black text-slate-900">{isActuallyLoading ? "..." : stats.total}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600">
               <span className="font-black text-sm">Σ</span>
@@ -984,8 +980,11 @@ export default function RegistrationsListPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        {isActuallyLoading ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sincronizando con el Santuario...</p>
+          </div>
         ) : filteredRegistrations.length === 0 ? (
           <div className="py-20 text-center bg-white rounded-[2.5rem] border shadow-sm flex flex-col items-center gap-4">
             <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center">

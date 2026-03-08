@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from "@/components/ui/badge"
 import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download, FileText } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { doc, collection } from "firebase/firestore"
+import { doc, collection, query, orderBy, limit } from "firebase/firestore"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -33,9 +33,10 @@ export default function DashboardPage() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
 
+  // OPTIMIZACIÓN: Solo traemos los últimos 50 para el dashboard para máxima velocidad
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return collection(db, "confirmations")
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(50))
   }, [db, user])
 
   const { data: registrations, loading: regsLoading } = useCollection(registrationsQuery)
@@ -98,13 +99,19 @@ export default function DashboardPage() {
   if (!mounted || isUserLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Sincronizando con el Santuario...</p>
+        </div>
       </div>
     )
   }
 
+  // Estado de carga real para evitar el flash de ceros
+  const isActuallyLoading = regsLoading || !registrations;
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">
@@ -125,48 +132,48 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-border/50 shadow-sm border-l-4 border-l-primary">
+        <Card className="border-border/50 shadow-sm border-l-4 border-l-primary bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Inscritos</CardTitle>
+            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">Inscritos Recientes</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{regsLoading ? "..." : (registrations?.length || 0)}</div>
-            <p className="text-[10px] text-muted-foreground">Ciclo Lectivo 2026</p>
+            <div className="text-2xl font-bold">{isActuallyLoading ? "..." : (registrations?.length || 0)}</div>
+            <p className="text-[10px] text-muted-foreground">Últimos registrados</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 shadow-sm border-l-4 border-l-accent">
+        <Card className="border-border/50 shadow-sm border-l-4 border-l-accent bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">1er Año</CardTitle>
             <Church className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0)}
+              {isActuallyLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0)}
             </div>
             <p className="text-[10px] text-muted-foreground">Etapa de inicio</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 shadow-sm border-l-4 border-l-blue-500">
+        <Card className="border-border/50 shadow-sm border-l-4 border-l-blue-500 bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">2do Año</CardTitle>
             <Calendar className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length || 0)}
+              {isActuallyLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length || 0)}
             </div>
             <p className="text-[10px] text-muted-foreground">Candidatos al sacramento</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 shadow-sm border-l-4 border-l-orange-500">
+        <Card className="border-border/50 shadow-sm border-l-4 border-l-orange-500 bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">Adultos</CardTitle>
             <User className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "ADULTOS").length || 0)}
+              {isActuallyLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "ADULTOS").length || 0)}
             </div>
             <p className="text-[10px] text-muted-foreground">Formación intensiva</p>
           </CardContent>
@@ -177,18 +184,19 @@ export default function DashboardPage() {
         <Card className="border-border/50 shadow-sm bg-white overflow-hidden">
           <CardHeader className="bg-slate-50/50 border-b">
             <CardTitle className="font-headline text-lg">Últimas Inscripciones</CardTitle>
-            <CardDescription>Resumen de los últimos registros realizados en el sistema.</CardDescription>
+            <CardDescription>Resumen de los últimos 50 registros realizados en el sistema.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {regsLoading ? (
-                <div className="flex justify-center p-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+              {isActuallyLoading ? (
+                <div className="flex flex-col items-center justify-center p-12 gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Actualizando lista...</p>
                 </div>
-              ) : !registrations || registrations.length === 0 ? (
+              ) : registrations.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-12 italic">No hay inscripciones registradas aún.</p>
               ) : (
-                registrations.slice(0, 6).map((reg) => (
+                registrations.map((reg) => (
                   <div key={reg.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
                     <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center border">
                       <User className="h-5 w-5 text-primary" />
@@ -267,8 +275,8 @@ export default function DashboardPage() {
               {isGeneratingPDF ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />} DESCARGAR PDF
             </Button>
             <Button 
-              className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-black shadow-lg h-14 gap-2 active:scale-95" 
-              onClick={handleShareWhatsApp}
+              className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-14 gap-2 active:scale-95" 
+              onClick={handleDownloadImage}
             >
               <MessageCircle className="h-5 w-5" /> WHATSAPP
             </Button>
