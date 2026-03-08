@@ -44,7 +44,9 @@ import {
   Clock,
   Wallet,
   Globe,
-  RefreshCcw
+  RefreshCcw,
+  FilterX,
+  Filter
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc } from "firebase/firestore"
@@ -424,6 +426,13 @@ export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<ViewMode>("GROUPS")
+  
+  // Estados de Filtros
+  const [filterSex, setFilterSex] = useState<string>("all")
+  const [filterOrigin, setFilterOrigin] = useState<string>("all")
+  const [filterYear, setFilterYear] = useState<string>("all")
+  const [filterStatus, setFilterStatus] = useState<string>("all")
+
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
@@ -488,13 +497,31 @@ export default function RegistrationsListPage() {
 
   const filteredRegistrations = useMemo(() => {
     if (!registrations) return []
-    return registrations.filter(reg => 
-      !reg.isArchived && (
+    return registrations.filter(reg => {
+      if (reg.isArchived) return false
+      
+      const matchesSearch = !searchTerm || 
         reg.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         reg.ciNumber?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    )
-  }, [registrations, searchTerm])
+      
+      const matchesSex = filterSex === "all" || reg.sexo === filterSex
+      const matchesOrigin = filterOrigin === "all" || (filterOrigin === "PUBLIC" ? reg.userId === "public_registration" : reg.userId !== "public_registration")
+      const matchesYear = filterYear === "all" || reg.catechesisYear === filterYear
+      const matchesStatus = filterStatus === "all" || reg.status === filterStatus
+
+      return matchesSearch && matchesSex && matchesOrigin && matchesYear && matchesStatus
+    })
+  }, [registrations, searchTerm, filterSex, filterOrigin, filterYear, filterStatus])
+
+  // Cálculo de conteos demográficos
+  const genderStats = useMemo(() => {
+    const stats = { m: 0, f: 0 };
+    filteredRegistrations.forEach(r => {
+      if (r.sexo === "M") stats.m++;
+      else if (r.sexo === "F") stats.f++;
+    });
+    return stats;
+  }, [filteredRegistrations]);
 
   const registrationsByGroup = useMemo(() => {
     if (!registrations || !groups) return {}
@@ -528,6 +555,14 @@ export default function RegistrationsListPage() {
 
     return grouped
   }, [filteredRegistrations, groups, sortConfig])
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setFilterSex("all");
+    setFilterOrigin("all");
+    setFilterYear("all");
+    setFilterStatus("all");
+  }
 
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
@@ -838,18 +873,125 @@ export default function RegistrationsListPage() {
         </div>
       </div>
 
+      {/* TARJETAS DE CONTADORES DEMOGRÁFICOS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="border-none shadow-sm bg-blue-50/50 border-l-4 border-l-blue-500">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Masculino</p>
+              <p className="text-2xl font-black text-blue-900">{genderStats.m}</p>
+            </div>
+            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+              <span className="font-black">M</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-pink-50/50 border-l-4 border-l-pink-500">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Femenino</p>
+              <p className="text-2xl font-black text-pink-900">{genderStats.f}</p>
+            </div>
+            <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600">
+              <span className="font-black">F</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* BARRA DE HERRAMIENTAS Y FILTROS */}
       <div className="space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por nombre o C.I..." className="pl-9 bg-slate-50 border-none h-11 rounded-xl" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar por nombre o C.I..." 
+                className="pl-9 bg-slate-50 border-none h-12 rounded-2xl focus:ring-primary shadow-inner" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+              />
+            </div>
+            <Button variant="ghost" className="h-12 rounded-2xl gap-2 font-bold text-slate-400 hover:text-primary" onClick={resetFilters}>
+              <FilterX className="h-4 w-4" /> Limpiar Filtros
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label>
+              <Select value={filterSex} onValueChange={setFilterSex}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los sexos</SelectItem>
+                  <SelectItem value="M">Masculino (M)</SelectItem>
+                  <SelectItem value="F">Femenino (F)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Origen</Label>
+              <Select value={filterOrigin} onValueChange={setFilterOrigin}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los orígenes</SelectItem>
+                  <SelectItem value="PUBLIC">Inscripción Pública (QR)</SelectItem>
+                  <SelectItem value="MANUAL">Registro Manual (Catequista)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel / Año</Label>
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los niveles</SelectItem>
+                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
+                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
+                  <SelectItem value="ADULTOS">Adultos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="INSCRITO">Inscrito (Oficial)</SelectItem>
+                  <SelectItem value="POR_VALIDAR">Por Validar Pago</SelectItem>
+                  <SelectItem value="PENDIENTE_PAGO">Pendiente Pago</SelectItem>
+                  <SelectItem value="BAJA">Bajas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : filteredRegistrations.length === 0 ? (
-          <div className="py-20 text-center bg-white rounded-3xl border shadow-sm"><User className="h-12 w-12 text-slate-200 mx-auto mb-4" /><p className="text-slate-500 font-medium">No se encontraron inscripciones activas.</p></div>
+          <div className="py-20 text-center bg-white rounded-[2.5rem] border shadow-sm flex flex-col items-center gap-4">
+            <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center">
+              <Filter className="h-8 w-8 text-slate-200" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-slate-500 font-bold">No hay resultados para estos filtros</p>
+              <p className="text-xs text-slate-400">Intenta ajustar los parámetros de búsqueda o filtros.</p>
+            </div>
+            <Button variant="outline" className="rounded-xl font-bold mt-2" onClick={resetFilters}>Ver todos los alumnos</Button>
+          </div>
         ) : (
           <Accordion type="multiple" defaultValue={["none", ...(groups?.map(g => g.id) || [])]} className="space-y-4">
             {registrationsByGroup["none"]?.length > 0 && (
@@ -866,7 +1008,7 @@ export default function RegistrationsListPage() {
             )}
             {groups?.map((group: any) => {
               const groupStudents = registrationsByGroup[group.id] || []
-              if (groupStudents.length === 0 && searchTerm) return null
+              if (groupStudents.length === 0 && (searchTerm || filterSex !== 'all' || filterOrigin !== 'all' || filterYear !== 'all' || filterStatus !== 'all')) return null
               return (
                 <AccordionItem key={group.id} value={group.id} className="border-none">
                   <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -962,7 +1104,7 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}><DialogContent className="sm:max-w-[450px] border-none shadow-2xl rounded-3xl overflow-hidden p-0"><DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Asignar Grupo</DialogTitle></DialogHeader><div className="p-8 space-y-4"><p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p><Select value={newGroupId} onValueChange={setNewGroupId}><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Elige un grupo disponible" /></SelectTrigger><SelectContent>{groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>))}</SelectContent></Select></div><DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsAssignDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={handleAssignGroup} disabled={isSubmitting || !newGroupId}>Asignar Ahora</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}><DialogContent className="sm:max-w-[450px] border-none shadow-2xl rounded-3xl overflow-hidden p-0"><DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Asignar Grupo</DialogTitle></DialogHeader><div className="p-8 space-y-4"><p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p><Select value={newGroupId} onValueChange={setNewGroupId}><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue placeholder="Elige un grupo disponible" /></SelectTrigger><SelectContent>{groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>))}</SelectContent></Select></div><DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsAssignDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={handleAssignGroup} disabled={isSubmitting || !newGroupId}>Asignar Ahora</Button></DialogFooter></DialogContent></Accordion>
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><AlertDialogContent className="rounded-3xl border-none shadow-2xl"><AlertDialogHeader><AlertDialogTitle className="text-xl font-headline font-bold">¿Eliminar registro permanentemente?</AlertDialogTitle><AlertDialogDescription className="text-slate-500">Esta acción borrará definitivamente la ficha de {selectedReg?.fullName}. No se puede deshacer.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="flex gap-3"><AlertDialogCancel className="flex-1 h-12 rounded-xl font-bold">Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold border-none">Eliminar Definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   )
