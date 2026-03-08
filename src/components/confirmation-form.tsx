@@ -589,7 +589,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
-      const canvas = await html2canvas(element, { scale: 3, useCORS: true, backgroundColor: "#ffffff" });
+      const canvas = await html2canvas(element, { 
+        scale: 2, 
+        useCORS: true, 
+        backgroundColor: "#ffffff",
+        width: 800,
+        windowWidth: 800,
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-area");
+          if (el) {
+            el.style.width = "800px";
+            el.style.maxWidth = "800px";
+            el.style.padding = "40px";
+          }
+        }
+      });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -610,7 +624,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setIsGeneratingPDF(true);
     try {
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(element, { scale: 3, useCORS: true, backgroundColor: "#ffffff" });
+      const canvas = await html2canvas(element, { 
+        scale: 2, 
+        useCORS: true, 
+        backgroundColor: "#ffffff",
+        width: 800,
+        windowWidth: 800,
+        onclone: (doc) => {
+          const el = doc.getElementById("receipt-area");
+          if (el) {
+            el.style.width = "800px";
+            el.style.maxWidth = "800px";
+            el.style.padding = "40px";
+          }
+        }
+      });
       const url = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.download = `Recibo-NSPS-${submittedData?.fullName?.replace(/\s+/g, '-')}.png`;
@@ -660,7 +688,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10">
                   <div className="flex flex-col justify-end space-y-3"><p className="text-sm italic font-medium">Asunción, {currentDateInfo.day} de {currentDateInfo.month} de {currentDateInfo.year}</p><div className="flex flex-col items-start pt-4"><div className="w-48 border-t border-slate-900"></div><p className="text-[8px] font-bold uppercase mt-1 tracking-widest">(Firma y aclaración)</p></div></div>
-                  <div className="flex flex-col items-center md:items-end gap-3">
+                  <div className="flex items-center flex-col md:items-end gap-3">
                     <div className="p-1.5 border border-slate-900 rounded-lg bg-white shadow-sm"><QRCodeCanvas value={`VERIFICADO-NSPS-${submittedData?.id}-${amount}-${receiptNum}`} size={80} level="H" /></div>
                     <div className="text-right"><p className="text-[8px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p><p className="text-xs font-bold text-slate-900 uppercase mt-1">{submittedData?.validatedBy || 'Secretaría del Santuario'}</p><p className="text-[8px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p></div>
                   </div>
@@ -773,7 +801,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <FormField control={form.control} name="baptismFolio" render={({ field }) => (<FormItem><FormLabel>Folio</FormLabel><FormControl><Input {...field} className="h-10 bg-white" /></FormControl></FormItem>)} />
                       </div>
                       <FormField control={form.control} name="baptismCertificatePhotoUrl" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">Foto del Certificado</FormLabel><FormControl><div className={cn("border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden", (baptismPreview || field.value) ? "border-green-500 bg-green-50" : "border-slate-300 bg-white")}>{(baptismPreview || field.value) ? <div className="w-full h-full relative group">{renderFilePreview(baptismPreview || field.value || null)}<div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2"><button type="button" onClick={() => startCamera("BAPTISM_CERT")} className="h-8 w-8 bg-white/40 rounded-full flex items-center justify-center text-white"><Camera className="h-4 w-4" /></button></div></div> : <div className="flex flex-col items-center" onClick={() => startCamera("BAPTISM_CERT")}><ImageIcon className="h-8 w-8 text-slate-300 mb-1" /><span className="text-[10px] text-slate-400 font-bold">Subir Constancia</span></div>}</div></FormControl><input type="file" ref={baptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} /></FormItem>
+                        <FormItem><FormLabel className="font-bold">Foto del Certificado</FormLabel><FormControl><div className={cn("border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden", (baptismPreview || field.value) ? "border-green-500 bg-green-50" : "border-slate-300 bg-white")}>{(baptismPreview || field.value) ? <div className="w-full h-full relative group">{renderFilePreview(baptismPreview || field.value || null)}<div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2"><button type="button" onClick={() => startCamera("BAPTISM_CERT")} className="h-8 w-8 bg-white/40 rounded-full flex items-center justify-center text-white"><Camera className="h-4 w-4" /></button></div></div> : <div className="flex flex-col items-center" onClick={() => startCamera("BAPTISM_CERT")}><ImageIcon className="h-8 w-8 text-slate-300 mb-1" /><span className="text-[10px] text-slate-400 font-bold">Subir Constancia</span></div>}</div></FormControl><input type="file" ref={baptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} /></FormItem>
                       )} />
                     </div>
                   )}

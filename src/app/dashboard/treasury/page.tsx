@@ -257,12 +257,20 @@ export default function TreasuryPage() {
       const { jsPDF } = await import("jspdf");
 
       const canvas = await html2canvas(element, {
-        scale: 3,
+        scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
+        width: 800,
+        windowWidth: 800,
         onclone: (doc) => {
           const el = doc.getElementById("receipt-content-official");
-          if (el) el.style.transform = "none";
+          if (el) {
+            el.style.transform = "none";
+            el.style.width = "800px";
+            el.style.maxWidth = "800px";
+            el.style.margin = "0";
+            el.style.padding = "40px";
+          }
         }
       });
       
@@ -296,12 +304,20 @@ export default function TreasuryPage() {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(element, {
-        scale: 3,
+        scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
+        width: 800,
+        windowWidth: 800,
         onclone: (doc) => {
           const el = doc.getElementById("receipt-content-official");
-          if (el) el.style.transform = "none";
+          if (el) {
+            el.style.transform = "none";
+            el.style.width = "800px";
+            el.style.maxWidth = "800px";
+            el.style.margin = "0";
+            el.style.padding = "40px";
+          }
         }
       });
       
