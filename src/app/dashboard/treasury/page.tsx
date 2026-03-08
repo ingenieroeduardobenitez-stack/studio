@@ -236,7 +236,7 @@ export default function TreasuryPage() {
       console.error("Error al procesar pago:", error)
       toast({ variant: "destructive", title: "Error al procesar pago", description: error.message || "Inténtelo de nuevo." })
     } finally {
-      setIsSubmitting(false)
+      setIsSubmittingPayment(false)
     }
   }
 
@@ -403,11 +403,12 @@ export default function TreasuryPage() {
 
   if (!mounted) return null
 
-  // Forzar zona horaria de Paraguay
+  // Forzar zona horaria de Paraguay de forma segura
   const today = new Date();
-  const dayStr = today.toLocaleString('es-PY', { day: 'numeric', timeZone: 'America/Asuncion' });
-  const monthStr = today.toLocaleString('es-PY', { month: 'long', timeZone: 'America/Asuncion' });
-  const yearStr = today.toLocaleString('es-PY', { year: 'numeric', timeZone: 'America/Asuncion' });
+  const options: Intl.DateTimeFormatOptions = { timeZone: 'America/Asuncion' };
+  const dayStr = today.toLocaleString('es-PY', { ...options, day: 'numeric' });
+  const monthStr = today.toLocaleString('es-PY', { ...options, month: 'long' });
+  const yearStr = today.toLocaleString('es-PY', { ...options, year: 'numeric' });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

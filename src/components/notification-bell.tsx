@@ -141,9 +141,9 @@ export function NotificationBell() {
 
   // LÓGICA DE NOTIFICACIONES DE SISTEMA (GLOBOS EN EL CELULAR)
   useEffect(() => {
-    if (notifications.length > 0 && Notification.permission === 'granted') {
+    // Verificación de seguridad para evitar errores en móviles donde Notification no existe
+    if (typeof window !== 'undefined' && 'Notification' in window && notifications.length > 0 && Notification.permission === 'granted') {
       notifications.forEach(n => {
-        // Solo enviamos notificación de sistema para cosas "Críticas" como Cumpleaños Hoy o Alertas Rojas
         if (n.type === 'BIRTHDAY' || n.type === 'BIRTHDAY_CAT' || n.type === 'ABSENCE') {
           const storageKey = `sys-notif-${n.id}-${new Date().toISOString().split('T')[0]}`;
           const alreadyNotified = localStorage.getItem(storageKey);

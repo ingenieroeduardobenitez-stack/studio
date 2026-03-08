@@ -393,11 +393,12 @@ export default function PaymentsManagementPage() {
 
   if (!mounted) return null
 
-  // Forzar zona horaria de Paraguay
+  // Forzar zona horaria de Paraguay de forma segura para evitar errores de hidratación
   const today = new Date();
-  const dayStr = today.toLocaleString('es-PY', { day: 'numeric', timeZone: 'America/Asuncion' });
-  const monthStr = today.toLocaleString('es-PY', { month: 'long', timeZone: 'America/Asuncion' });
-  const yearStr = today.toLocaleString('es-PY', { year: 'numeric', timeZone: 'America/Asuncion' });
+  const options: Intl.DateTimeFormatOptions = { timeZone: 'America/Asuncion' };
+  const dayStr = today.toLocaleString('es-PY', { ...options, day: 'numeric' });
+  const monthStr = today.toLocaleString('es-PY', { ...options, month: 'long' });
+  const yearStr = today.toLocaleString('es-PY', { ...options, year: 'numeric' });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -624,7 +625,10 @@ export default function PaymentsManagementPage() {
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-xl">
-          <DialogHeader className="sr-only"><DialogTitle>Recibo de Pago</DialogTitle></DialogHeader>
+          <DialogHeader className="sr-only">
+            <DialogTitle>Recibo de Pago Oficial</DialogTitle>
+            <DialogDescription>Generación de comprobante institucional.</DialogDescription>
+          </DialogHeader>
           <div className="p-6 bg-white flex justify-center overflow-y-auto max-h-[85vh]">
             <div 
               className="w-full max-w-[700px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-8 space-y-10" 
