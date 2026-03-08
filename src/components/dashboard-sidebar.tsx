@@ -23,7 +23,8 @@ import {
   BarChart3,
   CalendarCheck,
   FileWarning,
-  QrCode
+  QrCode,
+  Dices
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -69,6 +70,7 @@ const treasuryItems = [
 const adminItems = [
   { id: "usuarios", name: "Gestión de Usuarios", href: "/dashboard/admin/users", icon: Users },
   { id: "grupos", name: "Gestión de Grupos", href: "/dashboard/admin/groups", icon: Shapes },
+  { id: "sorteo", name: "Sorteo de Grupos", href: "/dashboard/admin/sorting", icon: Dices },
   { id: "conexiones", name: "Monitoreo Conexiones", href: "/dashboard/admin/connections", icon: Globe },
   { id: "auditoria", name: "Auditoría de Acciones", href: "/dashboard/admin/audit", icon: ShieldCheck },
   { id: "archivar", name: "Cierre de Año / Archivo", href: "/dashboard/admin/archive", icon: Archive },
