@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
@@ -22,33 +21,19 @@ import {
   Church, 
   Plus, 
   Trash2, 
-  CalendarDays, 
   CheckCircle2, 
-  Info, 
-  Printer, 
-  ImageIcon, 
   Receipt, 
   Eye,
   X,
   MessageCircle,
-  AlertTriangle,
-  Download,
-  QrCode,
-  Hash,
-  RefreshCcw,
-  UserCircle,
-  Users,
-  BookOpen,
-  Calendar,
-  Phone,
-  ShieldCheck,
-  Book,
-  Filter,
   FilterX,
-  Globe
+  Globe,
+  Download,
+  CalendarDays,
+  ImageIcon
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction } from "firebase/firestore"
+import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -61,7 +46,6 @@ export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   
-  // Estados para Filtros
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterOrigin, setFilterOrigin] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
@@ -112,8 +96,12 @@ export default function TreasuryPage() {
   const expensesQuery = useMemoFirebase(() => db ? collection(db, "expenses") : null, [db])
   const { data: expenses, loading: loadingExpenses } = useCollection(expensesQuery)
 
-  const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
-  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
+  // Optimización: Consulta con ordenamiento y límite
+  const regsQuery = useMemoFirebase(() => {
+    if (!db) return null
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(300))
+  }, [db])
+  const { data: registrations, isLoading: loadingRegs } = useCollection(regsQuery)
 
   const userProfileRef = useMemoFirebase(() => db && currentUser?.uid ? doc(db, "users", currentUser.uid) : null, [db, currentUser?.uid])
   const { data: profile } = useDoc(userProfileRef)
@@ -262,7 +250,7 @@ export default function TreasuryPage() {
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al procesar pago" })
     } finally {
-      setIsSubmitting(false)
+      setIsSubmittingPayment(false)
     }
   }
 
@@ -389,6 +377,8 @@ export default function TreasuryPage() {
 
   if (!mounted) return null
 
+  const isActuallyLoading = loadingRegs || !registrations;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -484,7 +474,12 @@ export default function TreasuryPage() {
 
             <Card className="border-none shadow-xl overflow-hidden bg-white">
               <CardContent className="p-0">
-                {loadingRegs ? (<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>) : (
+                {isActuallyLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-4">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sincronizando con el Santuario...</p>
+                  </div>
+                ) : (
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-slate-50/50 hover:bg-transparent">
@@ -568,7 +563,7 @@ export default function TreasuryPage() {
                   <Separator />
                   <div className="flex items-center justify-between p-4 bg-orange-50 rounded-2xl border border-orange-100"><div><p className="text-sm font-bold">Contador Recibos</p></div><Button type="button" variant="outline" size="sm" onClick={handleResetCounter} disabled={isResettingCounter} className="rounded-xl">Reiniciar a 1</Button></div>
                   <Separator />
-                  <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="flex gap-6 p-4 bg-slate-50 rounded-2xl border"><div className="flex items-center space-x-2"><RadioGroupItem value="ACCOUNT" id="m-acc" /><Label htmlFor="mode-acc">Cuenta</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="ALIAS" id="m-ali" /><Label htmlFor="mode-ali">Alias</Label></div></RadioGroup>
+                  <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="flex gap-6 p-4 bg-slate-50 rounded-2xl border"><div className="flex items-center space-x-2"><RadioGroupItem value="ACCOUNT" id="m-acc" /><Label htmlFor="m-acc">Cuenta</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="ALIAS" id="m-ali" /><Label htmlFor="m-ali">Alias</Label></div></RadioGroup>
                 </CardContent>
                 <CardFooter className="bg-slate-50 p-6 border-t flex justify-end"><Button type="submit" disabled={isCostSaving} className="h-12 px-8 rounded-xl font-bold">Guardar Cambios</Button></CardFooter>
               </form>
