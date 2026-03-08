@@ -42,7 +42,10 @@ import {
   Calendar,
   Phone,
   ShieldCheck,
-  Book
+  Book,
+  Filter,
+  FilterX,
+  Globe
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction } from "firebase/firestore"
@@ -51,11 +54,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { QRCodeCanvas } from "qrcode.react"
 
 export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  
+  // Estados para Filtros
+  const [filterSex, setFilterSex] = useState<string>("all")
+  const [filterOrigin, setFilterOrigin] = useState<string>("all")
+  const [filterYear, setFilterYear] = useState<string>("all")
+  const [filterStatus, setFilterStatus] = useState<string>("all")
+
   const [isCostSaving, setIsCostSaving] = useState(false)
   const [isEventSubmitting, setIsEventSubmitting] = useState(false)
   const [isExpenseSubmitting, setIsEventSubmittingExpense] = useState(false)
@@ -113,15 +124,31 @@ export default function TreasuryPage() {
     }
   }, [costs])
 
+  const resetFilters = () => {
+    setSearchTerm("");
+    setFilterSex("all");
+    setFilterOrigin("all");
+    setFilterYear("all");
+    setFilterStatus("all");
+  }
+
   const filteredRegs = useMemo(() => {
     if (!registrations) return []
-    return registrations.filter(r => 
-      !r.isArchived && (
-        r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        r.ciNumber?.includes(searchTerm)
-      )
-    )
-  }, [registrations, searchTerm])
+    return registrations.filter(reg => {
+      if (reg.isArchived) return false
+      
+      const matchesSearch = !searchTerm || 
+        reg.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        reg.ciNumber?.includes(searchTerm)
+      
+      const matchesSex = filterSex === "all" || reg.sexo === filterSex
+      const matchesOrigin = filterOrigin === "all" || (filterOrigin === "PUBLIC" ? reg.userId === "public_registration" : reg.userId !== "public_registration")
+      const matchesYear = filterYear === "all" || reg.catechesisYear === filterYear
+      const matchesStatus = filterStatus === "all" || reg.status === filterStatus
+
+      return matchesSearch && matchesSex && matchesOrigin && matchesYear && matchesStatus
+    })
+  }, [registrations, searchTerm, filterSex, filterOrigin, filterYear, filterStatus])
 
   const pendingBalance = useMemo(() => {
     if (!selectedReg) return 0;
@@ -347,6 +374,19 @@ export default function TreasuryPage() {
     }
   }
 
+  const getSourceBadge = (userId: string) => {
+    if (userId === "public_registration") {
+      return <div className="flex items-center gap-1 text-[9px] font-bold text-green-600 uppercase bg-green-50 px-2 py-0.5 rounded-full border border-green-100"><Globe className="h-2.5 w-2.5" /> Público</div>;
+    }
+    return <div className="flex items-center gap-1 text-[9px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100"><User className="h-2.5 w-2.5" /> Manual</div>;
+  };
+
+  const getGenderBadge = (sexo: string) => {
+    if (sexo === "M") return <Badge className="bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100 text-[10px] font-black h-5 w-5 p-0 flex items-center justify-center rounded-sm">M</Badge>;
+    if (sexo === "F") return <Badge className="bg-pink-100 text-pink-700 border-pink-200 hover:bg-pink-100 text-[10px] font-black h-5 w-5 p-0 flex items-center justify-center rounded-sm">F</Badge>;
+    return <Badge variant="outline" className="text-[10px] font-black h-5 w-5 p-0 flex items-center justify-center rounded-sm text-slate-300">?</Badge>;
+  };
+
   if (!mounted) return null
 
   return (
@@ -364,20 +404,144 @@ export default function TreasuryPage() {
         </TabsList>
 
         <TabsContent value="pagos">
-          <Card className="border-none shadow-xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/50 border-b"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><CardTitle>Control de Cobros</CardTitle><CardDescription>Valida los pagos y genera recibos oficiales.</CardDescription></div><div className="relative w-full md:w-72"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar..." className="pl-9 bg-white rounded-xl" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div></div></CardHeader>
-            <CardContent className="p-0">
-              {loadingRegs ? (<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>) : (
-                <Table><TableHeader><TableRow className="bg-slate-50/50"><TableHead className="font-bold pl-8">Confirmando</TableHead><TableHead className="font-bold text-center">Nivel</TableHead><TableHead className="font-bold text-center">Estado</TableHead><TableHead className="font-bold text-center">Saldo Pendiente</TableHead><TableHead className="text-right pr-8 font-bold">Acciones</TableHead></TableRow></TableHeader><TableBody>
-                    {filteredRegs.map((reg) => {
-                      const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
-                      const isSettled = pending <= 0 || reg.paymentStatus === "PAGADO"
-                      return (<TableRow key={reg.id} className="hover:bg-slate-50/30 h-16"><TableCell className="pl-8"><div className="flex items-center gap-3"><Avatar className="h-9 w-9 border cursor-pointer" onClick={() => { if(reg.photoUrl) { setSelectedProof(reg.photoUrl); setIsProofViewOpen(true); } }}><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar><div className="flex flex-col"><span className="font-bold text-sm text-slate-900">{reg.fullName}</span><span className="text-[10px] text-muted-foreground uppercase">{reg.ciNumber}</span></div></div></TableCell><TableCell className="text-center"><Badge variant="secondary" className="text-[10px] uppercase">{formatYear(reg.catechesisYear)}</Badge></TableCell><TableCell className="text-center"><Badge variant={reg.paymentStatus === "PAGADO" ? "default" : "outline"} className={cn(reg.paymentStatus === "PAGADO" && "bg-green-500")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell><TableCell className="text-center"><span className={cn("font-bold text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? `${pending.toLocaleString('es-PY')} Gs.` : "Saldado"}</span></TableCell><TableCell className="text-right pr-8"><div className="flex justify-end gap-2">{!isSettled && (<Button size="sm" variant="outline" className="h-8 rounded-xl font-bold gap-2 border-primary text-primary" onClick={() => handleOpenPayment(reg)}><CheckCircle2 className="h-3.5 w-3.5" /> Cobrar</Button>)}<Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-primary/5 text-primary rounded-lg" onClick={() => openDetailsDialog(reg)}><Eye className="h-4 w-4" /></Button>{isSettled && (<Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-green-50 text-green-600 rounded-lg" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-4 w-4" /></Button>)}</div></TableCell></TableRow>)
-                    })}
-                </TableBody></Table>
-              )}
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Buscar por nombre o C.I..." 
+                    className="pl-9 bg-slate-50 border-none h-12 rounded-2xl focus:ring-primary shadow-inner" 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                  />
+                </div>
+                <Button variant="ghost" className="h-12 rounded-2xl gap-2 font-bold text-slate-400 hover:text-primary" onClick={resetFilters}>
+                  <FilterX className="h-4 w-4" /> Limpiar Filtros
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label>
+                  <Select value={filterSex} onValueChange={setFilterSex}>
+                    <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los sexos</SelectItem>
+                      <SelectItem value="M">Masculino (M)</SelectItem>
+                      <SelectItem value="F">Femenino (F)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Origen</Label>
+                  <Select value={filterOrigin} onValueChange={setFilterOrigin}>
+                    <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los orígenes</SelectItem>
+                      <SelectItem value="PUBLIC">Inscripción Pública (QR)</SelectItem>
+                      <SelectItem value="MANUAL">Registro Manual (Catequista)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel / Año</Label>
+                  <Select value={filterYear} onValueChange={setFilterYear}>
+                    <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los niveles</SelectItem>
+                      <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
+                      <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
+                      <SelectItem value="ADULTOS">Adultos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los estados</SelectItem>
+                      <SelectItem value="INSCRITO">Inscrito (Oficial)</SelectItem>
+                      <SelectItem value="POR_VALIDAR">Por Validar Pago</SelectItem>
+                      <SelectItem value="PENDIENTE_PAGO">Pendiente Pago</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <Card className="border-none shadow-xl overflow-hidden bg-white">
+              <CardContent className="p-0">
+                {loadingRegs ? (<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50/50 hover:bg-transparent">
+                        <TableHead className="font-bold py-5 pl-8">Confirmando</TableHead>
+                        <TableHead className="font-bold text-center">Sexo</TableHead>
+                        <TableHead className="font-bold text-center">Origen</TableHead>
+                        <TableHead className="font-bold text-center">Nivel</TableHead>
+                        <TableHead className="font-bold text-center">Estado</TableHead>
+                        <TableHead className="font-bold text-center">Saldo Pendiente</TableHead>
+                        <TableHead className="text-right pr-8 font-bold">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRegs.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="py-20 text-center text-slate-400 italic">No se encontraron inscripciones con los filtros actuales.</TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredRegs.map((reg) => {
+                          const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
+                          const isSettled = pending <= 0 || reg.paymentStatus === "PAGADO"
+                          return (
+                            <TableRow key={reg.id} className="hover:bg-slate-50/30 h-16">
+                              <TableCell className="pl-8">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-9 w-9 border cursor-pointer" onClick={() => { if(reg.photoUrl) { setSelectedProof(reg.photoUrl); setIsProofViewOpen(true); } }}>
+                                    <AvatarImage src={reg.photoUrl} className="object-cover" />
+                                    <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-sm text-slate-900">{reg.fullName}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase">{reg.ciNumber}</span>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center"><div className="flex justify-center">{getGenderBadge(reg.sexo)}</div></TableCell>
+                              <TableCell className="text-center"><div className="flex justify-center">{getSourceBadge(reg.userId)}</div></TableCell>
+                              <TableCell className="text-center"><Badge variant="secondary" className="text-[9px] uppercase">{formatYear(reg.catechesisYear)}</Badge></TableCell>
+                              <TableCell className="text-center"><Badge variant={reg.paymentStatus === "PAGADO" ? "default" : "outline"} className={cn(reg.paymentStatus === "PAGADO" && "bg-green-500")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
+                              <TableCell className="text-center"><span className={cn("font-bold text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? `${pending.toLocaleString('es-PY')} Gs.` : "Saldado"}</span></TableCell>
+                              <TableCell className="text-right pr-8">
+                                <div className="flex justify-end gap-2">
+                                  {!isSettled && (<Button size="sm" variant="outline" className="h-8 rounded-xl font-bold gap-2 border-primary text-primary" onClick={() => handleOpenPayment(reg)}><CheckCircle2 className="h-3.5 w-3.5" /> Cobrar</Button>)}
+                                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-primary/5 text-primary rounded-lg" onClick={() => openDetailsDialog(reg)}><Eye className="h-4 w-4" /></Button>
+                                  {isSettled && (<Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-green-50 text-green-600 rounded-lg" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-4 w-4" /></Button>)}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="eventos">
@@ -434,7 +598,18 @@ export default function TreasuryPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}><DialogContent className="max-w-3xl p-0 bg-transparent shadow-none"><DialogHeader className="sr-only"><DialogTitle>Ver</DialogTitle></DialogHeader><div className="relative"><Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full" onClick={() => setIsProofViewOpen(false)}><X /></Button><img src={selectedProof || ""} className="max-h-[90vh] rounded-xl shadow-2xl" /></div></DialogContent></Dialog>
+      <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
+        <DialogContent className="max-w-3xl p-0 bg-transparent shadow-none border-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista de Documento</DialogTitle>
+            <DialogDescription>Previsualización ampliada.</DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full text-white bg-white/20" onClick={() => setIsProofViewOpen(false)}><X /></Button>
+            <img src={selectedProof || ""} className="max-h-[90vh] rounded-xl shadow-2xl" />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
