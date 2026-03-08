@@ -323,7 +323,7 @@ export default function PaymentsManagementPage() {
             el.style.transform = "none";
             el.style.width = "750px";
             el.style.maxWidth = "750px";
-            el.style.margin = "0";
+            el.style.margin = "0 auto";
             el.style.padding = "20px";
           }
         }
@@ -360,7 +360,7 @@ export default function PaymentsManagementPage() {
             el.style.transform = "none";
             el.style.width = "750px";
             el.style.maxWidth = "750px";
-            el.style.margin = "0";
+            el.style.margin = "0 auto";
             el.style.padding = "20px";
           }
         }
@@ -496,9 +496,9 @@ export default function PaymentsManagementPage() {
                   <div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 italic leading-relaxed text-xs">{paymentAmount.toLocaleString('es-PY')} Guaraníes</div>
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-baseline gap-2 py-0.5">
-                    <span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-xs">en concepto de:</span>
-                    <div className="flex-1 border-2 border-slate-900 px-3 py-1.5 font-bold text-[10px] bg-slate-50 uppercase leading-relaxed">
+                  <div className="flex flex-col gap-2 py-0.5">
+                    <span className="font-bold tracking-wide text-xs">en concepto de:</span>
+                    <div className="w-full border-2 border-slate-900 px-4 py-3 font-bold text-[11px] bg-slate-50 uppercase leading-relaxed text-center">
                       {selectedEventId === 'inscripcion' ? 'Inscripción Catequesis de Confirmación' : (selectedEvent?.category || 'Evento Parroquial')} - {selectedReg?.catechesisYear?.replace('_', ' ')}
                     </div>
                   </div>
@@ -516,9 +516,9 @@ export default function PaymentsManagementPage() {
                     <p className="text-[7px] font-bold uppercase mt-0.5 tracking-widest">(Firma y aclaración)</p>
                   </div>
                 </div>
-                <div className="flex flex-col items-center md:items-end gap-2">
+                <div className="flex flex-col items-center md:items-end gap-3">
                   <div className="p-1 border border-slate-900 rounded-lg bg-white shadow-sm">
-                    <QRCodeCanvas value={`RECIBO-NSPS-${selectedReg?.id}-${paymentAmount}-${selectedReg?.receiptNumber}`} size={60} level="H" />
+                    <QRCodeCanvas value={`RECIBO-NSPS-${selectedReg?.id}-${paymentAmount}-${selectedReg?.receiptNumber}`} size={70} level="H" />
                   </div>
                   <div className="text-right">
                     <p className="text-[7px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>

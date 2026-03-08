@@ -600,6 +600,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           if (el) {
             el.style.width = "750px";
             el.style.maxWidth = "750px";
+            el.style.margin = "0 auto";
             el.style.padding = "20px";
           }
         }
@@ -635,6 +636,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           if (el) {
             el.style.width = "750px";
             el.style.maxWidth = "750px";
+            el.style.margin = "0 auto";
             el.style.padding = "20px";
           }
         }
@@ -683,13 +685,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="space-y-6 text-sm">
                   <div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-xs">Recibí(mos) de:</span><div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-0.5 px-2 leading-relaxed truncate text-xs">{submittedData?.fullName}</div></div>
                   <div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-xs">la cantidad de:</span><div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 italic leading-relaxed text-xs">{amount.toLocaleString('es-PY')} Guaraníes</div></div>
-                  <div className="space-y-2"><div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-xs">en concepto de:</span><div className="flex-1 border-2 border-slate-900 px-3 py-1.5 font-bold text-[10px] bg-slate-50 uppercase leading-relaxed">Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}</div></div></div>
+                  <div className="space-y-2"><div className="flex flex-col gap-2 py-0.5"><span className="font-bold tracking-wide text-xs">en concepto de:</span><div className="w-full border-2 border-slate-900 px-4 py-3 font-bold text-[11px] bg-slate-50 uppercase leading-relaxed text-center">Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}</div></div></div>
                   <div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-xs">Observación:</span><div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 text-[10px] text-slate-700 font-medium italic leading-relaxed">Saldo Pendiente: {pending.toLocaleString('es-PY')} Gs.</div></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
                   <div className="flex flex-col justify-end space-y-2"><p className="text-xs italic font-medium">Asunción, {currentDateInfo.day} de {currentDateInfo.month} de {currentDateInfo.year}</p><div className="flex flex-col items-start pt-2"><div className="w-40 border-t border-slate-900"></div><p className="text-[7px] font-bold uppercase mt-0.5 tracking-widest">(Firma y aclaración)</p></div></div>
-                  <div className="flex items-center flex-col md:items-end gap-2">
-                    <div className="p-1 border border-slate-900 rounded-lg bg-white shadow-sm"><QRCodeCanvas value={`VERIFICADO-NSPS-${submittedData?.id}-${amount}-${receiptNum}`} size={60} level="H" /></div>
+                  <div className="flex items-center flex-col md:items-end gap-3">
+                    <div className="p-1 border border-slate-900 rounded-lg bg-white shadow-sm"><QRCodeCanvas value={`VERIFICADO-NSPS-${submittedData?.id}-${amount}-${receiptNum}`} size={70} level="H" /></div>
                     <div className="text-right"><p className="text-[7px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p><p className="text-[10px] font-bold text-slate-900 uppercase mt-0.5">{submittedData?.validatedBy || 'Secretaría del Santuario'}</p><p className="text-[7px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p></div>
                   </div>
                 </div>
@@ -776,12 +778,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información de la Madre</p>
                     <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 bg-white uppercase" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl></FormItem>)} />
-                    <FormField control={form.control} name="motherPhone" render={({ field }) => (<FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} className="h-12 bg-white" placeholder="09XX-XXX-XXX" inputMode="numeric" type="tel" onChange={(e) => handlePhoneChange(e, "motherPhone")} /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="motherPhone" render={({ field }) => (<FormItem><Label>Celular</Label><FormControl><Input {...field} className="h-12 bg-white" placeholder="09XX-XXX-XXX" inputMode="numeric" type="tel" onChange={(e) => handlePhoneChange(e, "motherPhone")} /></FormControl></FormItem>)} />
                   </div>
                   <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest border-b pb-2">Información del Padre</p>
                     <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 bg-white uppercase" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl></FormItem>)} />
-                    <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} className="h-12 bg-white" placeholder="09XX-XXX-XXX" inputMode="numeric" type="tel" onChange={(e) => handlePhoneChange(e, "fatherPhone")} /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><Label>Celular</Label><FormControl><Input {...field} className="h-12 bg-white" placeholder="09XX-XXX-XXX" inputMode="numeric" type="tel" onChange={(e) => handlePhoneChange(e, "fatherPhone")} /></FormControl></FormItem>)} />
                   </div>
                 </div>
               </div>
