@@ -593,15 +593,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         scale: 2, 
         useCORS: true, 
         backgroundColor: "#ffffff",
-        width: 750,
-        windowWidth: 750,
+        width: 650,
+        windowWidth: 650,
         onclone: (doc) => {
           const el = doc.getElementById("receipt-area");
           if (el) {
-            el.style.width = "750px";
-            el.style.maxWidth = "750px";
+            el.style.width = "650px";
+            el.style.maxWidth = "650px";
             el.style.margin = "0 auto";
-            el.style.padding = "20px";
+            el.style.padding = "15px";
           }
         }
       });
@@ -609,7 +609,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      
+      const yPos = (pdf.internal.pageSize.getHeight() - pdfHeight) / 4;
+      pdf.addImage(imgData, "PNG", 0, Math.max(10, yPos), pdfWidth, pdfHeight);
       pdf.save(`Recibo-NSPS-${submittedData?.fullName?.replace(/\s+/g, '-')}.pdf`);
       toast({ title: "Descarga completada" });
     } catch (err) {
@@ -629,15 +631,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         scale: 2, 
         useCORS: true, 
         backgroundColor: "#ffffff",
-        width: 750,
-        windowWidth: 750,
+        width: 650,
+        windowWidth: 650,
         onclone: (doc) => {
           const el = doc.getElementById("receipt-area");
           if (el) {
-            el.style.width = "750px";
-            el.style.maxWidth = "750px";
+            el.style.width = "650px";
+            el.style.maxWidth = "650px";
             el.style.margin = "0 auto";
-            el.style.padding = "20px";
+            el.style.padding = "15px";
           }
         }
       });
@@ -671,28 +673,28 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </div>
           <ScrollArea className="max-h-[75vh] md:max-h-none print:overflow-visible flex justify-center">
             <div className="p-4 bg-white flex justify-center">
-              <div className="bg-white p-6 md:p-10 border-2 border-slate-900 text-slate-900 space-y-6 font-serif w-full max-w-[700px]" id="receipt-area">
-                <div className="grid grid-cols-3 gap-4 items-center mb-2">
-                  <div className="col-span-2 border-2 border-slate-900 p-4 min-h-[100px] flex items-center justify-center relative bg-white">
-                    <img src="/logo.png" alt="Santuario Nacional NSPS" className="max-h-20 object-contain" />
+              <div className="bg-white p-6 md:p-10 border-2 border-slate-900 text-slate-900 space-y-4 font-serif w-full max-w-[650px] shadow-sm" id="receipt-area">
+                <div className="grid grid-cols-3 gap-4 items-center mb-1">
+                  <div className="col-span-2 border-2 border-slate-900 p-3 min-h-[80px] flex items-center justify-center relative bg-white">
+                    <img src="/logo.png" alt="Santuario Nacional NSPS" className="max-h-16 object-contain" />
                   </div>
-                  <div className="flex flex-col gap-2 h-full justify-between">
-                    <div className="border-2 border-slate-900 p-2 text-center bg-slate-50"><p className="text-[8px] font-black uppercase">Gs.</p><p className="text-lg font-black">{amount.toLocaleString('es-PY')}</p></div>
-                    <div className="border-2 border-slate-900 p-1 text-center bg-white"><p className="text-[7px] font-bold uppercase">Recibo N°</p><p className="text-[10px] font-black">{receiptNum}</p></div>
+                  <div className="flex flex-col gap-1.5 h-full justify-between">
+                    <div className="border-2 border-slate-900 p-1.5 text-center bg-slate-50"><p className="text-[7px] font-black uppercase">Gs.</p><p className="text-base font-black">{amount.toLocaleString('es-PY')}</p></div>
+                    <div className="border-2 border-slate-900 p-1 text-center bg-white"><p className="text-[6px] font-bold uppercase">Recibo N°</p><p className="text-[9px] font-black">{receiptNum}</p></div>
                   </div>
                 </div>
-                <div className="text-center border-b-2 border-slate-900 pb-1 mb-2"><h1 className="text-2xl font-black italic tracking-tighter uppercase">RECIBO</h1></div>
-                <div className="space-y-6 text-sm">
-                  <div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-xs">Recibí(mos) de:</span><div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-0.5 px-2 leading-relaxed truncate text-xs">{submittedData?.fullName}</div></div>
-                  <div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-xs">la cantidad de:</span><div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 italic leading-relaxed text-xs">{amount.toLocaleString('es-PY')} Guaraníes</div></div>
-                  <div className="space-y-2"><div className="flex flex-col gap-2 py-0.5"><span className="font-bold tracking-wide text-xs">en concepto de:</span><div className="w-full border-2 border-slate-900 px-4 py-3 font-bold text-[11px] bg-slate-50 uppercase leading-relaxed text-center">Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}</div></div></div>
-                  <div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-xs">Observación:</span><div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 text-[10px] text-slate-700 font-medium italic leading-relaxed">Saldo Pendiente: {pending.toLocaleString('es-PY')} Gs.</div></div>
+                <div className="text-center border-b-2 border-slate-900 pb-0.5 mb-1"><h1 className="text-xl font-black italic tracking-tighter uppercase">RECIBO</h1></div>
+                <div className="space-y-4 text-xs">
+                  <div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-[10px]">Recibí(mos) de:</span><div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-0.5 px-2 leading-relaxed truncate text-[10px]">{submittedData?.fullName}</div></div>
+                  <div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-[10px]">la cantidad de:</span><div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 italic leading-relaxed text-[10px]">{amount.toLocaleString('es-PY')} Guaraníes</div></div>
+                  <div className="space-y-1"><div className="flex flex-col gap-1.5 py-0.5"><span className="font-bold tracking-wide text-[10px]">en concepto de:</span><div className="w-full border-2 border-slate-900 px-3 py-2 font-bold text-[10px] bg-slate-50 uppercase leading-relaxed text-center">Inscripción Catequesis de Confirmación - {submittedData?.catechesisYear?.replace('_', ' ')}</div></div></div>
+                  <div className="flex items-baseline gap-2 py-0.5"><span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-[10px]">Observación:</span><div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 text-[9px] text-slate-700 font-medium italic leading-relaxed">Saldo Pendiente: {pending.toLocaleString('es-PY')} Gs.</div></div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
-                  <div className="flex flex-col justify-end space-y-2"><p className="text-xs italic font-medium">Asunción, {currentDateInfo.day} de {currentDateInfo.month} de {currentDateInfo.year}</p><div className="flex flex-col items-start pt-2"><div className="w-40 border-t border-slate-900"></div><p className="text-[7px] font-bold uppercase mt-0.5 tracking-widest">(Firma y aclaración)</p></div></div>
-                  <div className="flex items-center flex-col md:items-end gap-3">
-                    <div className="p-1 border border-slate-900 rounded-lg bg-white shadow-sm"><QRCodeCanvas value={`VERIFICADO-NSPS-${submittedData?.id}-${amount}-${receiptNum}`} size={70} level="H" /></div>
-                    <div className="text-right"><p className="text-[7px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p><p className="text-[10px] font-bold text-slate-900 uppercase mt-0.5">{submittedData?.validatedBy || 'Secretaría del Santuario'}</p><p className="text-[7px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                  <div className="flex flex-col justify-end space-y-1"><p className="text-[10px] italic font-medium">Asunción, {currentDateInfo.day} de {currentDateInfo.month} de {currentDateInfo.year}</p><div className="flex flex-col items-start pt-1"><div className="w-32 border-t border-slate-900"></div><p className="text-[6px] font-bold uppercase mt-0.5 tracking-widest">(Firma y aclaración)</p></div></div>
+                  <div className="flex items-center flex-col md:items-end gap-2">
+                    <div className="p-1 border border-slate-900 rounded-lg bg-white shadow-sm"><QRCodeCanvas value={`VERIFICADO-NSPS-${submittedData?.id}-${amount}-${receiptNum}`} size={60} level="H" /></div>
+                    <div className="text-right"><p className="text-[6px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p><p className="text-[9px] font-bold text-slate-900 uppercase mt-0.5">{submittedData?.validatedBy || 'Secretaría del Santuario'}</p><p className="text-[6px] text-slate-500 font-bold uppercase">Catequesis de Confirmación</p></div>
                   </div>
                 </div>
               </div>
@@ -740,7 +742,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="space-y-4">
                   <p className="text-sm font-bold text-primary italic">Inicie la inscripción insertando el número de cédula del postulante</p>
                   <FormField control={form.control} name="ciNumber" render={({ field }) => (
-                    <FormItem><FormLabel className="font-bold">N° de C.I.</FormLabel><div className="flex gap-2 items-center"><div className="relative w-full max-w-[250px]"><FormControl><Input placeholder="Ej. 1234567" {...field} maxLength={9} className="h-12 rounded-xl" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleLookupCi(field.value); } }} /></FormControl><div className="absolute right-3 top-1/2 -translate-y-1/2">{isSearchingCi && <Loader2 className="h-4 w-4 animate-spin text-primary" />}</div></div><Button type="button" onClick={() => handleLookupCi(field.value)} className="h-12 px-6 rounded-xl font-bold bg-primary" disabled={isSearchingCi}>{isSearchingCi ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />} BUSCAR</Button></div><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="font-bold">N° de C.I.</FormLabel><div className="flex gap-2 items-center"><div className="relative w-full max-w-[250px]"><FormControl><Input placeholder="Ej. 1234567" {...field} maxLength={9} className="h-12 rounded-xl" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleLookupCi(field.value); } }} /></FormControl><div className="absolute right-3 top-1/2 -translate-y-1/2">{isSearchingCi && <Loader2 className="h-4 w-4 animate-spin text-primary" />}</div></div><Button type="button" onClick={() => handleLookupCi(field.value)} className="h-12 px-6 rounded-xl font-bold bg-primary" disabled={isSearchingCi}>{isSearchingCi ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Search className="h-4 w-4 mr-2" />} BUSCAR</Button></div><FormMessage /></FormItem>
                   )} />
                 </div>
                 <FormField control={form.control} name="fullName" render={({ field }) => (
