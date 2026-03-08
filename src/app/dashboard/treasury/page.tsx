@@ -123,6 +123,12 @@ export default function TreasuryPage() {
     )
   }, [registrations, searchTerm])
 
+  const pendingBalance = useMemo(() => {
+    if (!selectedReg) return 0;
+    const cost = selectedReg.registrationCost || (selectedReg.catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000));
+    return Math.max(0, cost - (selectedReg.amountPaid || 0));
+  }, [selectedReg, costs]);
+
   const handleUpdateCosts = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!db || !treasuryRef) return
@@ -229,7 +235,7 @@ export default function TreasuryPage() {
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al procesar pago" })
     } finally {
-      setIsSubmittingPayment(false)
+      setIsSubmitting(false)
     }
   }
 
