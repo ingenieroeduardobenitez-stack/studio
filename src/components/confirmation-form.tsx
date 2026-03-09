@@ -561,6 +561,29 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }
 
+  const onValidationError = (errors: any) => {
+    const fieldLabels: Record<string, string> = {
+      fullName: "Nombre Completo",
+      ciNumber: "N° de C.I.",
+      phone: "Celular",
+      birthDate: "Fecha de Nacimiento",
+      catechesisYear: "Nivel / Año",
+      attendanceDay: "Horario / Día",
+      photoUrl: "Foto del Confirmando",
+      paymentProofUrl: "Comprobante de Pago"
+    };
+
+    const missingFields = Object.keys(errors)
+      .map(key => fieldLabels[key] || key)
+      .join(", ");
+
+    toast({
+      variant: "destructive",
+      title: "Atención: Datos Faltantes",
+      description: `Faltan completar los siguientes campos: ${missingFields}. Por favor, revise los campos resaltados en rojo.`,
+    });
+  };
+
   const renderFilePreview = (preview: string | null) => {
     if (!preview) return null;
     if (preview.startsWith("data:application/pdf")) {
@@ -636,8 +659,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const canvas = await html2canvas(element, { 
         scale: 2, 
         useCORS: true, 
-        backgroundColor: "#ffffff",
-        width: 650,
+        backgroundColor: "#ffffff", 
+        width: 650, 
         windowWidth: 650,
         onclone: (doc) => {
           const el = doc.getElementById("receipt-area");
@@ -744,7 +767,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     <div className="w-full max-w-4xl mx-auto pb-12">
       <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((v) => handleRegistration(v, false))}>
+          <form onSubmit={form.handleSubmit((v) => handleRegistration(v, false), onValidationError)}>
             <CardHeader className="bg-primary text-white p-8">
               <div className="flex items-center gap-4">
                 <div className="relative h-14 w-14 bg-white rounded-2xl shadow-xl flex items-center justify-center overflow-hidden p-1.5 shrink-0"><Image src="/logo.png" alt="Santuario Nacional" fill className="object-contain" priority /></div>
@@ -881,7 +904,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </div></div>
               )}
               <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-                {!isPublic && <Button type="button" variant="outline" disabled={loading || loadingWithPayment} className="h-16 border-green-600 text-green-700 rounded-2xl px-10 font-bold gap-3" onClick={form.handleSubmit((v) => handleRegistration(v, true, customPaymentAmount))}>{loadingWithPayment ? <Loader2 className="animate-spin h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />} Confirmar Pago y Registrar</Button>}
+                {!isPublic && <Button type="button" variant="outline" disabled={loading || loadingWithPayment} className="h-16 border-green-600 text-green-700 rounded-2xl px-10 font-bold gap-3" onClick={form.handleSubmit((v) => handleRegistration(v, true, customPaymentAmount), onValidationError)}>{loadingWithPayment ? <Loader2 className="animate-spin h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />} Confirmar Pago y Registrar</Button>}
                 <Button type="submit" disabled={loading || loadingWithPayment} className="h-16 bg-primary text-white rounded-2xl px-12 font-bold shadow-2xl">{loading ? <Loader2 className="animate-spin h-6 w-6" /> : <span>Completar Inscripción</span>}</Button>
               </div>
             </CardFooter>
