@@ -463,6 +463,7 @@ export default function RegistrationsListPage() {
   const [filterOrigin, setFilterOrigin] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all")
 
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -540,10 +541,11 @@ export default function RegistrationsListPage() {
       const matchesOrigin = filterOrigin === "all" || (filterOrigin === "PUBLIC" ? reg.userId === "public_registration" : reg.userId !== "public_registration")
       const matchesYear = filterYear === "all" || reg.catechesisYear === filterYear
       const matchesStatus = filterStatus === "all" || reg.status === filterStatus
+      const matchesPayment = filterPaymentMethod === "all" || reg.lastPaymentMethod === filterPaymentMethod
 
-      return matchesSearch && matchesSex && matchesOrigin && matchesYear && matchesStatus
+      return matchesSearch && matchesSex && matchesOrigin && matchesYear && matchesStatus && matchesPayment
     })
-  }, [registrations, searchTerm, filterSex, filterOrigin, filterYear, filterStatus])
+  }, [registrations, searchTerm, filterSex, filterOrigin, filterYear, filterStatus, filterPaymentMethod])
 
   const stats = useMemo(() => {
     const s = { m: 0, f: 0, total: 0 };
@@ -594,6 +596,7 @@ export default function RegistrationsListPage() {
     setFilterOrigin("all");
     setFilterYear("all");
     setFilterStatus("all");
+    setFilterPaymentMethod("all");
   }
 
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
@@ -985,7 +988,7 @@ export default function RegistrationsListPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label>
               <Select value={filterSex} onValueChange={setFilterSex}>
@@ -1044,6 +1047,20 @@ export default function RegistrationsListPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Forma de Pago</Label>
+              <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los métodos</SelectItem>
+                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -1079,7 +1096,7 @@ export default function RegistrationsListPage() {
             )}
             {groups?.map((group: any) => {
               const groupStudents = registrationsByGroup[group.id] || []
-              if (groupStudents.length === 0 && (searchTerm || filterSex !== 'all' || filterOrigin !== 'all' || filterYear !== 'all' || filterStatus !== 'all')) return null
+              if (groupStudents.length === 0 && (searchTerm || filterSex !== 'all' || filterOrigin !== 'all' || filterYear !== 'all' || filterStatus !== 'all' || filterPaymentMethod !== 'all')) return null
               return (
                 <AccordionItem key={group.id} value={group.id} className="border-none">
                   <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
