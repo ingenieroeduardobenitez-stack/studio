@@ -50,7 +50,9 @@ import {
   Filter,
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Maximize2,
+  Banknote,
+  ArrowRightLeft
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy, limit } from "firebase/firestore"
@@ -1291,8 +1293,21 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
     );
   };
 
+  const getPaymentMethodBadge = (method: string) => {
+    if (!method) return <span className="text-[10px] text-slate-300 italic">---</span>;
+    return (
+      <Badge variant="outline" className={cn(
+        "text-[9px] uppercase font-black px-2 h-6 gap-1",
+        method === "EFECTIVO" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"
+      )}>
+        {method === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
+        {method}
+      </Badge>
+    );
+  };
+
   return (
-    <Table><TableHeader className="bg-slate-50/30"><TableRow><TableHead className="w-[60px] pl-6"></TableHead><TableHead className="font-bold text-xs uppercase">Confirmando</TableHead><TableHead className="font-bold text-xs uppercase text-center">Sexo</TableHead><TableHead className="font-bold text-xs uppercase text-center">Origen</TableHead><TableHead className="font-bold text-xs uppercase">C.I. N°</TableHead><TableHead className="font-bold text-xs uppercase">Año</TableHead><TableHead className="font-bold text-xs uppercase cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => onSort('createdAt')}><div className="flex items-center gap-2"><Clock className="h-3 w-3" />Fecha Insc.{sortConfig.key === 'createdAt' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />) : <ArrowUpDown className="h-3 w-3 text-slate-300" />}</div></TableHead><TableHead className="font-bold text-xs uppercase text-center">Estado</TableHead><TableHead className="text-right font-bold text-xs uppercase pr-8">Acciones</TableHead></TableRow></TableHeader><TableBody>
+    <Table><TableHeader className="bg-slate-50/30"><TableRow><TableHead className="w-[60px] pl-6"></TableHead><TableHead className="font-bold text-xs uppercase">Confirmando</TableHead><TableHead className="font-bold text-xs uppercase text-center">Sexo</TableHead><TableHead className="font-bold text-xs uppercase text-center">Origen</TableHead><TableHead className="font-bold text-xs uppercase">C.I. N°</TableHead><TableHead className="font-bold text-xs uppercase">Año</TableHead><TableHead className="font-bold text-xs uppercase cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => onSort('createdAt')}><div className="flex items-center gap-2"><Clock className="h-3 w-3" />Fecha Insc.{sortConfig.key === 'createdAt' ? (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />) : <ArrowUpDown className="h-3 w-3 text-slate-300" />}</div></TableHead><TableHead className="font-bold text-xs uppercase text-center">Forma de Pago</TableHead><TableHead className="font-bold text-xs uppercase text-center">Estado</TableHead><TableHead className="text-right font-bold text-xs uppercase pr-8">Acciones</TableHead></TableRow></TableHeader><TableBody>
       {students.map((reg: any) => (
         <TableRow key={reg.id} className="hover:bg-slate-50/30 h-14">
           <TableCell className="pl-6"><Avatar className="h-8 w-8 border cursor-pointer hover:scale-110 transition-transform" onClick={() => reg.photoUrl && onViewImage(reg.photoUrl)}><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar></TableCell>
@@ -1302,6 +1317,7 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
           <TableCell className="text-xs">{reg.ciNumber}</TableCell>
           <TableCell><span className="text-[10px] font-bold text-slate-400">{formatYear(reg.catechesisYear)}</span></TableCell>
           <TableCell><span className="text-[10px] font-medium text-slate-600">{formatTimestamp(reg.createdAt)}</span></TableCell>
+          <TableCell className="text-center"><div className="flex justify-center">{getPaymentMethodBadge(reg.lastPaymentMethod)}</div></TableCell>
           <TableCell className="text-center">{getBadge(reg.status)}</TableCell>
           <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white" onClick={() => onViewDetails(reg)}><Eye className="h-4 w-4" /></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="rounded-xl p-2 shadow-xl border-none"><DropdownMenuLabel className="text-[10px] uppercase text-slate-400 px-3 py-2">Opciones</DropdownMenuLabel><DropdownMenuItem onClick={() => onAssignGroup(reg)} className="gap-2 h-10 rounded-lg cursor-pointer"><UserPlus className="h-4 w-4" /> Asignar Grupo</DropdownMenuItem><DropdownMenuSeparator />{isAdmin && (<><DropdownMenuItem onClick={() => onWithdraw(reg)} className="text-orange-600 gap-2 h-10 rounded-lg cursor-pointer"><UserMinus className="h-4 w-4" /> Dar de Baja</DropdownMenuItem><DropdownMenuItem onClick={() => onDelete(reg)} className="text-destructive gap-2 h-10 rounded-lg cursor-pointer"><Trash2 className="h-4 w-4" /> Eliminar Ficha</DropdownMenuItem></>)}</DropdownMenuContent></DropdownMenu></div></TableCell>
         </TableRow>
