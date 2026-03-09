@@ -90,15 +90,15 @@ export default function RootPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-slate-50 font-body relative overflow-hidden">
+    <div className="flex min-h-screen flex-col items-center justify-center p-2 bg-slate-50 font-body relative overflow-hidden">
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none flex items-center justify-center">
-        <Church className="h-[500px] w-[500px] text-primary" />
+        <Church className="h-[400px] w-[400px] text-primary" />
       </div>
 
-      <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in-95 duration-700 relative z-10">
+      <div className="w-full max-w-md space-y-4 animate-in fade-in zoom-in-95 duration-700 relative z-10 py-4">
         
-        <div className="flex flex-col items-center text-center space-y-4">
-          <div className="relative h-24 w-24 bg-white p-2 rounded-3xl shadow-xl flex items-center justify-center border-2 border-primary/10 overflow-hidden">
+        <div className="flex flex-col items-center text-center space-y-2">
+          <div className="relative h-20 w-20 bg-white p-1.5 rounded-3xl shadow-xl flex items-center justify-center border-2 border-primary/10 overflow-hidden">
             <Image 
               src="/logo.png" 
               alt="Logo Santuario" 
@@ -107,52 +107,52 @@ export default function RootPage() {
               priority
             />
           </div>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-headline font-bold text-primary tracking-tight uppercase leading-tight">Portal de Gestión</h1>
-            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] leading-tight px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
+          <div className="space-y-0.5">
+            <h1 className="text-xl font-headline font-bold text-primary tracking-tight uppercase leading-tight">Portal de Gestión</h1>
+            <p className="text-slate-500 text-[8px] font-bold uppercase tracking-[0.2em] leading-tight px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
           </div>
         </div>
 
         {!isFirebaseReady && (
-          <Alert variant="destructive" className="bg-red-50 border-red-200">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Configuración Requerida</AlertTitle>
-            <AlertDescription>
+          <Alert variant="destructive" className="bg-red-50 border-red-200 py-2">
+            <AlertCircle className="h-3 w-3" />
+            <AlertTitle className="text-xs">Configuración Requerida</AlertTitle>
+            <AlertDescription className="text-[10px]">
               Firebase no está conectado correctamente. Contacte al administrador.
             </AlertDescription>
           </Alert>
         )}
 
-        <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
+        <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden">
           <form onSubmit={handleSubmit}>
-            <CardHeader className="space-y-1 pt-10 px-10">
-              <CardTitle className="text-xl font-headline font-bold text-slate-800">Iniciar Sesión</CardTitle>
-              <CardDescription className="text-slate-500 font-medium">Acceso para Catequistas y Coordinadores</CardDescription>
+            <CardHeader className="space-y-0.5 pt-6 px-8">
+              <CardTitle className="text-lg font-headline font-bold text-slate-800">Iniciar Sesión</CardTitle>
+              <CardDescription className="text-slate-500 font-medium text-xs">Acceso para Catequistas y Coordinadores</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 px-10 pb-10">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700 font-bold text-xs uppercase tracking-wider">Correo Electrónico</Label>
+            <CardContent className="space-y-4 px-8 pb-6">
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-slate-700 font-bold text-[10px] uppercase tracking-wider">Correo Electrónico</Label>
                 <Input 
                   id="email" 
                   type="email" 
                   placeholder="usuario@santuario.org" 
                   required 
-                  className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-primary" 
+                  className="bg-slate-50 border-slate-200 h-11 rounded-xl focus:ring-primary text-sm" 
                   value={formData.email}
                   onChange={handleChange}
                   disabled={!isFirebaseReady || loading}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" title="Contraseña" className="text-slate-700 font-bold text-xs uppercase tracking-wider">Contraseña</Label>
+                  <Label htmlFor="password" title="Contraseña" className="text-slate-700 font-bold text-[10px] uppercase tracking-wider">Contraseña</Label>
                 </div>
                 <Input 
                   id="password" 
                   type="password" 
                   required 
                   placeholder="••••••••"
-                  className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-primary" 
+                  className="bg-slate-50 border-slate-200 h-11 rounded-xl focus:ring-primary text-sm" 
                   value={formData.password}
                   onChange={handleChange}
                   disabled={!isFirebaseReady || loading}
@@ -160,36 +160,36 @@ export default function RootPage() {
               </div>
               <Button 
                 type="submit" 
-                className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-base rounded-xl transition-all shadow-lg mt-4 active:scale-95" 
+                className="w-full bg-primary hover:bg-primary/90 text-white h-11 font-bold text-sm rounded-xl transition-all shadow-lg mt-2 active:scale-95" 
                 disabled={loading || !isFirebaseReady}
               >
                 {loading ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    Ingresar al Sistema <LogIn className="h-5 w-5" />
+                    Ingresar al Sistema <LogIn className="h-4 w-4" />
                   </span>
                 )}
               </Button>
             </CardContent>
-            <CardFooter className="bg-slate-50/80 p-6 flex flex-col gap-4 border-t">
-              <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+            <CardFooter className="bg-slate-50/80 p-4 flex flex-col gap-4 border-t">
+              <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
                 Uso exclusivo para personal autorizado del Santuario Nacional.
               </p>
             </CardFooter>
           </form>
         </Card>
 
-        <div className="text-center pt-4">
+        <div className="text-center pt-2">
           <Link 
             href="/inscripcion" 
-            className="text-xs font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-[0.15em] border-b border-primary/20 pb-1"
+            className="text-[10px] font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-[0.15em] border-b border-primary/20 pb-0.5"
           >
             ¿Eres postulante? Inscripción 2026
           </Link>
         </div>
 
-        <p className="text-center text-[9px] text-slate-300 font-bold uppercase tracking-widest">
+        <p className="text-center text-[8px] text-slate-300 font-bold uppercase tracking-widest pt-2">
           © 2026 Ing. Eduardo Benítez | Desarrollo de Software - Todos los derechos reservados.
         </p>
       </div>
