@@ -23,7 +23,7 @@ import {
   BookOpen,
   Eye,
   CheckCircle2,
-  AlertCircle,
+  AlertTriangle,
   UserMinus,
   X,
   MessageCircle,
@@ -92,6 +92,8 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 type ViewMode = "LIST" | "GROUPS"
 type CaptureTarget = "PHOTO" | "BAPTISM" | "PAYMENT_PROOF"
@@ -143,7 +145,7 @@ function EditRegistrationForm({
           }
         } else {
           if (height > maxHeight) {
-            width *= maxWidth / height;
+            width *= maxHeight / height;
             height = maxHeight;
           }
         }
@@ -168,6 +170,15 @@ function EditRegistrationForm({
         else setEditPaymentProofPreview(val);
       };
 
+      // Manejo específico para PDF
+      if (file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = () => setPreview(reader.result as string);
+        reader.readAsDataURL(file);
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
       try {
         const optimized = await compressImage(objectUrl);
         setPreview(optimized);
@@ -181,58 +192,79 @@ function EditRegistrationForm({
     }
   }
 
-  const handleEditRegistration = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEditRegistration = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!db || !selectedReg || isSubmitting) return
     setIsSubmitting(true)
 
-    try {
-      const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
-      const formData = new FormData(e.currentTarget)
-      const getVal = (name: string) => (formData.get(name) as string || "").trim();
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
+    const formData = new FormData(e.currentTarget)
+    const getVal = (name: string) => (formData.get(name) as string || "").trim();
 
-      const updateData: any = {
-        fullName: getVal("fullName").toUpperCase(),
-        ciNumber: getVal("ciNumber"),
-        phone: getVal("phone"),
-        birthDate: getVal("birthDate"),
-        motherName: getVal("motherName").toUpperCase(),
-        motherPhone: getVal("motherPhone"),
-        fatherName: getVal("fatherName").toUpperCase(),
-        fatherPhone: getVal("fatherPhone"),
-        baptismParish: getVal("baptismParish").toUpperCase(),
-        baptismBook: getVal("baptismBook"),
-        baptismFolio: getVal("baptismFolio"),
-        catechesisYear: editCatechesisYear,
-        attendanceDay: editAttendanceDay,
-        sexo: editGender,
-        updatedAt: serverTimestamp()
-      }
-
-      if (editPhotoPreview && editPhotoPreview !== selectedReg.photoUrl) updateData.photoUrl = editPhotoPreview;
-      if (editBaptismPreview && editBaptismPreview !== selectedReg.baptismCertificatePhotoUrl) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
-      if (editPaymentProofPreview && editPaymentProofPreview !== selectedReg.paymentProofUrl) updateData.paymentProofUrl = editPaymentProofPreview;
-
-      await updateDoc(doc(db, "confirmations", selectedReg.id), updateData)
-
-      await addDoc(collection(db, "audit_logs"), {
-        userId: user?.uid || "unknown",
-        userName: catechistName,
-        action: "Editar Ficha",
-        module: "inscripcion",
-        details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}.`,
-        timestamp: serverTimestamp()
-      })
-
-      toast({ title: "Registro Actualizado", description: "Los datos de la ficha han sido guardados." })
-      onSaveSuccess(updateData)
-    } catch (error) {
-      console.error(error)
-      toast({ variant: "destructive", title: "Error al actualizar" })
-    } finally {
-      setIsSubmitting(false)
+    const updateData: any = {
+      fullName: getVal("fullName").toUpperCase(),
+      ciNumber: getVal("ciNumber"),
+      phone: getVal("phone"),
+      birthDate: getVal("birthDate"),
+      motherName: getVal("motherName").toUpperCase(),
+      motherPhone: getVal("motherPhone"),
+      fatherName: getVal("fatherName").toUpperCase(),
+      fatherPhone: getVal("fatherPhone"),
+      baptismParish: getVal("baptismParish").toUpperCase(),
+      baptismBook: getVal("baptismBook"),
+      baptismFolio: getVal("baptismFolio"),
+      catechesisYear: editCatechesisYear,
+      attendanceDay: editAttendanceDay,
+      sexo: editGender,
+      updatedAt: serverTimestamp()
     }
+
+    if (editPhotoPreview && editPhotoPreview !== selectedReg.photoUrl) updateData.photoUrl = editPhotoPreview;
+    if (editBaptismPreview && editBaptismPreview !== selectedReg.baptismCertificatePhotoUrl) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
+    if (editPaymentProofPreview && editPaymentProofPreview !== selectedReg.paymentProofUrl) updateData.paymentProofUrl = editPaymentProofPreview;
+
+    const regRef = doc(db, "confirmations", selectedReg.id);
+
+    // Guardado no bloqueante para mayor agilidad
+    updateDoc(regRef, updateData)
+      .then(() => {
+        addDoc(collection(db, "audit_logs"), {
+          userId: user?.uid || "unknown",
+          userName: catechistName,
+          action: "Editar Ficha",
+          module: "inscripcion",
+          details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}.`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+
+        toast({ title: "Registro Actualizado", description: "Los datos de la ficha han sido guardados." })
+        onSaveSuccess({ ...updateData, updatedAt: new Date().toISOString() })
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: regRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSubmitting(false)
+      })
   }
+
+  const renderFilePreview = (preview: string | null) => {
+    if (!preview) return null;
+    if (preview.startsWith("data:application/pdf")) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-slate-100 gap-2">
+          <FileText className="h-8 w-8 text-red-500" />
+          <span className="text-[8px] font-bold uppercase text-slate-500">Documento PDF</span>
+        </div>
+      );
+    }
+    return <img src={preview} alt="Vista Previa" className="w-full h-full object-cover" />;
+  };
 
   useEffect(() => {
     const handleCameraCapture = (e: any) => {
@@ -254,7 +286,9 @@ function EditRegistrationForm({
             <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
               <Avatar className="h-24 w-24 border-4 border-white shadow-md">
                 <AvatarImage src={editPhotoPreview || undefined} className="object-cover" />
-                <AvatarFallback className="bg-slate-100 text-slate-300"><User className="h-10 w-10" /></AvatarFallback>
+                <AvatarFallback className="bg-slate-100 text-slate-300">
+                  {editPhotoPreview ? renderFilePreview(editPhotoPreview) : <User className="h-10 w-10" />}
+                </AvatarFallback>
               </Avatar>
               <div className="flex gap-2">
                 <Button type="button" size="sm" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => startCameraAction("PHOTO")}>
@@ -272,7 +306,7 @@ function EditRegistrationForm({
             <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
               <div className="h-24 w-full rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
                 {editBaptismPreview ? (
-                  <img src={editBaptismPreview} className="w-full h-full object-cover" />
+                  renderFilePreview(editBaptismPreview)
                 ) : (
                   <ImageIcon className="h-8 w-8 text-slate-200" />
                 )}
@@ -293,7 +327,7 @@ function EditRegistrationForm({
             <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
               <div className="h-24 w-full rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
                 {editPaymentProofPreview ? (
-                  <img src={editPaymentProofPreview} className="w-full h-full object-cover" />
+                  renderFilePreview(editPaymentProofPreview)
                 ) : (
                   <Wallet className="h-8 w-8 text-slate-200" />
                 )}
@@ -468,7 +502,6 @@ export default function RegistrationsListPage() {
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   
-  // OPTIMIZACIÓN: Límite de 300 para velocidad inicial
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(300))
@@ -692,13 +725,14 @@ export default function RegistrationsListPage() {
     if (!db || !selectedReg || !treasuryRef) return
     setIsSubmitting(true)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Personal del Santuario"
+    const regRef = doc(db, "confirmations", selectedReg.id);
     try {
       await runTransaction(db, async (transaction) => {
         const treasurySnap = await transaction.get(treasuryRef);
         if (!treasurySnap.exists()) throw "Settings not found";
         const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
-        transaction.update(doc(db, "confirmations", selectedReg.id), {
+        transaction.update(regRef, {
           status: "INSCRITO",
           amountPaid: selectedReg.registrationCost || 0,
           paymentStatus: "PAGADO",
@@ -726,90 +760,118 @@ export default function RegistrationsListPage() {
     }
   }
 
-  const handleAssignGroup = async () => {
+  const handleAssignGroup = () => {
     if (!db || !selectedReg || !newGroupId) return
     setIsSubmitting(true)
     const group = groups?.find(g => g.id === newGroupId)
     if (!group) return
-    try {
-      await updateDoc(doc(db, "confirmations", selectedReg.id), {
-        groupId: newGroupId,
-        attendanceDay: group.attendanceDay,
-        updatedAt: serverTimestamp()
+    const regRef = doc(db, "confirmations", selectedReg.id);
+    const updateData = {
+      groupId: newGroupId,
+      attendanceDay: group.attendanceDay,
+      updatedAt: serverTimestamp()
+    };
+
+    updateDoc(regRef, updateData)
+      .then(() => {
+        addDoc(collection(db, "audit_logs"), {
+          userId: user?.uid || "unknown",
+          userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+          action: "Asignación de Grupo",
+          module: "inscripcion",
+          details: `Se asignó a ${selectedReg.fullName} al grupo: ${group.name}`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+        toast({ title: "Grupo asignado" })
+        setIsAssignDialogOpen(false)
       })
-      await addDoc(collection(db, "audit_logs"), {
-        userId: user?.uid || "unknown",
-        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
-        action: "Asignación de Grupo",
-        module: "inscripcion",
-        details: `Se asignó a ${selectedReg.fullName} al grupo: ${group.name}`,
-        timestamp: serverTimestamp()
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: regRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       })
-      toast({ title: "Grupo asignado" })
-      setIsAssignDialogOpen(false)
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error" })
-    } finally {
-      setIsSubmitting(false)
-    }
+      .finally(() => {
+        setIsSubmitting(false)
+      })
   }
 
-  const handleWithdrawConfirmand = async () => {
+  const handleWithdrawConfirmand = () => {
     if (!db || !selectedReg || !withdrawalReason) {
       toast({ variant: "destructive", title: "Atención", description: "Debes ingresar un motivo de baja." })
       return
     }
     setIsSubmitting(true)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
-    try {
-      await updateDoc(doc(db, "confirmations", selectedReg.id), {
-        status: "BAJA",
-        isArchived: true,
-        withdrawalReason: withdrawalReason,
-        withdrawalDate: serverTimestamp(),
-        updatedAt: serverTimestamp()
+    const regRef = doc(db, "confirmations", selectedReg.id);
+    const updateData = {
+      status: "BAJA",
+      isArchived: true,
+      withdrawalReason: withdrawalReason,
+      withdrawalDate: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    updateDoc(regRef, updateData)
+      .then(() => {
+        addDoc(collection(db, "audit_logs"), {
+          userId: user?.uid || "unknown",
+          userName: catechistName,
+          action: "BAJA",
+          module: "inscripcion",
+          details: `Baja de ${selectedReg.fullName}. Motivo: ${withdrawalReason}`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+        toast({ title: "Baja procesada" })
+        setIsWithdrawDialogOpen(false)
+        setWithdrawalReason("")
       })
-      await addDoc(collection(db, "audit_logs"), {
-        userId: user?.uid || "unknown",
-        userName: catechistName,
-        action: "BAJA",
-        module: "inscripcion",
-        details: `Baja de ${selectedReg.fullName}. Motivo: ${withdrawalReason}`,
-        timestamp: serverTimestamp()
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: regRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       })
-      toast({ title: "Baja procesada" })
-      setIsWithdrawDialogOpen(false)
-      setWithdrawalReason("")
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error" })
-    } finally {
-      setIsSubmitting(false)
-    }
+      .finally(() => {
+        setIsSubmitting(false)
+      })
   }
 
-  const handleDeleteRegistration = async () => {
+  const handleDeleteRegistration = () => {
     if (!db || !selectedReg) return
     setIsSubmitting(true)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
     const regName = selectedReg.fullName
     const regCi = selectedReg.ciNumber
-    try {
-      await deleteDoc(doc(db, "confirmations", selectedReg.id))
-      await addDoc(collection(db, "audit_logs"), {
-        userId: user?.uid || "unknown",
-        userName: catechistName,
-        action: "Eliminar Ficha",
-        module: "inscripcion",
-        details: `Se eliminó permanentemente la ficha de: ${regName} (C.I. ${regCi})`,
-        timestamp: serverTimestamp()
+    const regRef = doc(db, "confirmations", selectedReg.id);
+
+    deleteDoc(regRef)
+      .then(() => {
+        addDoc(collection(db, "audit_logs"), {
+          userId: user?.uid || "unknown",
+          userName: catechistName,
+          action: "Eliminar Ficha",
+          module: "inscripcion",
+          details: `Se eliminó permanentemente la ficha de: ${regName} (C.I. ${regCi})`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+        toast({ title: "Registro eliminado" })
+        setIsDeleteDialogOpen(false)
       })
-      toast({ title: "Registro eliminado" })
-      setIsDeleteDialogOpen(false)
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error" })
-    } finally {
-      setIsSubmitting(false)
-    }
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: regRef.path,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSubmitting(false)
+      })
   }
 
   const openAssignDialog = (reg: any) => { setSelectedReg(reg); setNewGroupId(reg.groupId || ""); setIsAssignDialogOpen(true); }
@@ -1104,7 +1166,15 @@ export default function RegistrationsListPage() {
             <Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full text-white bg-white/20" onClick={() => setIsProofViewOpen(false)}>
               <X className="h-6 w-6" />
             </Button>
-            <img src={viewProofUrl || ""} className="max-h-[90vh] rounded-xl shadow-2xl" />
+            {viewProofUrl?.startsWith("data:application/pdf") ? (
+              <div className="bg-white p-10 rounded-2xl flex flex-col items-center gap-4">
+                <FileText className="h-20 w-20 text-red-500" />
+                <p className="font-bold">Vista previa de PDF no disponible directamente.</p>
+                <Button asChild><a href={viewProofUrl} download="comprobante.pdf">Descargar para ver</a></Button>
+              </div>
+            ) : (
+              <img src={viewProofUrl || ""} className="max-h-[90vh] rounded-xl shadow-2xl" />
+            )}
           </div>
         </DialogContent>
       </Dialog>
