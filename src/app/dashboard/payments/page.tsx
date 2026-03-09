@@ -28,7 +28,10 @@ import {
   X,
   Camera,
   FlipHorizontal,
-  Share2
+  Share2,
+  Globe,
+  Filter,
+  FilterX
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
@@ -43,6 +46,14 @@ import { QRCodeCanvas } from "qrcode.react"
 export default function PaymentsManagementPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  
+  // Estados de Filtros (Iguales a Lista de Confirmandos)
+  const [filterSex, setFilterSex] = useState<string>("all")
+  const [filterOrigin, setFilterOrigin] = useState<string>("all")
+  const [filterYear, setFilterYear] = useState<string>("all")
+  const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all")
+
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState(0)
   const [selectedEventId, setSelectedEventId] = useState<string>("inscripcion")
@@ -103,17 +114,38 @@ export default function PaymentsManagementPage() {
   const eventsQuery = useMemoFirebase(() => db ? collection(db, "events") : null, [db])
   const { data: events } = useCollection(eventsQuery)
 
+  const resetFilters = () => {
+    setSearchTerm("");
+    setFilterSex("all");
+    setFilterOrigin("all");
+    setFilterYear("all");
+    setFilterStatus("all");
+    setFilterPaymentMethod("all");
+  }
+
   const filteredConfirmands = useMemo(() => {
     if (!allConfirmands) return []
     
     return allConfirmands.filter(r => {
       if (r.isArchived) return false
+      
+      // Búsqueda por texto
       const matchesSearch = !searchTerm || 
         r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         r.ciNumber?.includes(searchTerm)
       
       if (!matchesSearch) return false
 
+      // Aplicación de Filtros Avanzados
+      const matchesSex = filterSex === "all" || r.sexo === filterSex
+      const matchesOrigin = filterOrigin === "all" || (filterOrigin === "PUBLIC" ? r.userId === "public_registration" : r.userId !== "public_registration")
+      const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
+      const matchesStatus = filterStatus === "all" || r.status === filterStatus
+      const matchesPayment = filterPaymentMethod === "all" || r.lastPaymentMethod === filterPaymentMethod
+
+      if (!matchesSex || !matchesOrigin || !matchesYear || !matchesStatus || !matchesPayment) return false
+
+      // Lógica de visibilidad por rol y grupo
       if (profile?.role === "Administrador" || profile?.role === "Tesorero") return true
 
       if (myGroups && myGroups.length > 0) {
@@ -128,7 +160,7 @@ export default function PaymentsManagementPage() {
       if (a.groupId && !b.groupId) return 1
       return 0
     })
-  }, [allConfirmands, searchTerm, myGroups, profile])
+  }, [allConfirmands, searchTerm, myGroups, profile, filterSex, filterOrigin, filterYear, filterStatus, filterPaymentMethod])
 
   const handleOpenPayment = (reg: any) => {
     setSelectedReg(reg)
@@ -334,7 +366,6 @@ export default function PaymentsManagementPage() {
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
       const yPos = (pdf.internal.pageSize.getHeight() - pdfHeight) / 4;
       pdf.addImage(imgData, "PNG", 0, Math.max(10, yPos), pdfWidth, pdfHeight);
       pdf.save(`Recibo-Santuario-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
@@ -386,7 +417,7 @@ export default function PaymentsManagementPage() {
             setIsGeneratingPDF(false);
             return;
           } catch (shareErr) {
-            console.log("Share cancelled or failed", shareErr);
+            console.log("Share failed", shareErr);
           }
         }
       }
@@ -405,12 +436,10 @@ export default function PaymentsManagementPage() {
 
   const handleShareWhatsApp = () => {
     if (!selectedReg) return;
-    
     let phone = selectedReg.phone || "";
     let cleanPhone = phone.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
     if (!cleanPhone.startsWith('595')) cleanPhone = '595' + cleanPhone;
-
     const amount = paymentAmount || 0;
     const receiptNum = selectedReg.receiptNumber || "PENDIENTE";
     const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NSPS*\n\n¡Hola *${selectedReg.fullName}*! Hemos registrado tu pago por inscripción.\n\n*Recibo N°:* ${receiptNum}\n*Monto:* ${amount.toLocaleString('es-PY')} Gs.\n\n_Tesorería de Catequesis_`);
@@ -426,72 +455,177 @@ export default function PaymentsManagementPage() {
           <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Control de Cobros de Inscripción</h1>
           <p className="text-muted-foreground font-medium">Valida los pagos y genera recibos oficiales del Santuario.</p>
         </div>
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input 
-            placeholder="Buscar confirmando..." 
-            className="pl-9 bg-white border-slate-200 h-11 rounded-xl shadow-sm" 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
-          />
-        </div>
       </div>
 
-      <Card className="border-none shadow-xl overflow-hidden bg-white">
-        <CardContent className="p-0">
-          {loadingRegs ? (
-            <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50/50 hover:bg-transparent">
-                  <TableHead className="font-bold py-5 pl-8">Confirmando</TableHead>
-                  <TableHead className="font-bold text-center">Nivel</TableHead>
-                  <TableHead className="font-bold text-center">Estado</TableHead>
-                  <TableHead className="font-bold text-center">Forma de Pago</TableHead>
-                  <TableHead className="font-bold text-center">Saldo Pendiente</TableHead>
-                  <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredConfirmands.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-20 text-center text-slate-400 italic">No se encontraron inscripciones para mostrar.</TableCell>
+      <div className="space-y-4">
+        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar por nombre o C.I..." 
+                className="pl-9 bg-slate-50 border-none h-12 rounded-2xl focus:ring-primary shadow-inner" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+              />
+            </div>
+            <Button variant="ghost" className="h-12 rounded-2xl gap-2 font-bold text-slate-400 hover:text-primary" onClick={resetFilters}>
+              <FilterX className="h-4 w-4" /> Limpiar Filtros
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label>
+              <Select value={filterSex} onValueChange={setFilterSex}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los sexos</SelectItem>
+                  <SelectItem value="M">Masculino (M)</SelectItem>
+                  <SelectItem value="F">Femenino (F)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Origen</Label>
+              <Select value={filterOrigin} onValueChange={setFilterOrigin}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los orígenes</SelectItem>
+                  <SelectItem value="PUBLIC">Inscripción Pública (QR)</SelectItem>
+                  <SelectItem value="MANUAL">Registro Manual (Catequista)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel / Año</Label>
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los niveles</SelectItem>
+                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
+                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
+                  <SelectItem value="ADULTOS">Adultos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="INSCRITO">Inscrito (Oficial)</SelectItem>
+                  <SelectItem value="POR_VALIDAR">Por Validar Pago</SelectItem>
+                  <SelectItem value="PENDIENTE_PAGO">Pendiente Pago</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Forma de Pago</Label>
+              <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los métodos</SelectItem>
+                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <Card className="border-none shadow-xl overflow-hidden bg-white">
+          <CardContent className="p-0">
+            {loadingRegs ? (
+              <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/50 hover:bg-transparent">
+                    <TableHead className="font-bold py-5 pl-8">Confirmando</TableHead>
+                    <TableHead className="font-bold text-center">Origen</TableHead>
+                    <TableHead className="font-bold text-center">Nivel</TableHead>
+                    <TableHead className="font-bold text-center">Estado</TableHead>
+                    <TableHead className="font-bold text-center">Forma de Pago</TableHead>
+                    <TableHead className="font-bold text-center">Saldo Pendiente</TableHead>
+                    <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
                   </TableRow>
-                ) : (
-                  filteredConfirmands.map((reg) => {
-                    const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
-                    const isSettled = pending <= 0 && reg.paymentStatus === "PAGADO"
-                    const noGroup = !reg.groupId || reg.groupId === "none"
-                    return (
-                      <TableRow key={reg.id} className={cn("hover:bg-slate-50/30 h-20 transition-colors", noGroup && "bg-blue-50/20")}>
-                        <TableCell className="pl-8"><div className="flex items-center gap-4"><Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-5 w-5" /></AvatarFallback></Avatar><div className="flex flex-col"><div className="flex items-center gap-2"><span className="font-bold text-sm text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>{noGroup && <Badge variant="outline" className="text-[7px] h-4 bg-blue-50 text-blue-600 border-blue-100 font-black">NUEVO</Badge>}</div><span className="text-[10px] text-slate-500 font-bold">{reg.ciNumber}</span></div></div></TableCell>
-                        <TableCell className="text-center"><Badge variant="secondary" className="text-[9px] uppercase font-black px-3 h-6 bg-slate-100 text-slate-600 border-none">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
-                        <TableCell className="text-center"><Badge variant="outline" className={cn("text-[9px] uppercase font-black px-3 h-6 border-slate-200", isSettled ? "bg-green-50 text-green-600 border-green-100" : "bg-white text-slate-400")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
-                        <TableCell className="text-center">
-                          {reg.lastPaymentMethod ? (
-                            <Badge variant="outline" className={cn(
-                              "text-[9px] uppercase font-black px-2 h-6 gap-1",
-                              reg.lastPaymentMethod === "EFECTIVO" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                            )}>
-                              {reg.lastPaymentMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
-                              {reg.lastPaymentMethod}
-                            </Badge>
-                          ) : (
-                            <span className="text-[10px] text-slate-300 italic">Sin registro</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center"><div className="flex flex-col items-center"><span className={cn("font-black text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? pending.toLocaleString('es-PY') : "0"}</span><span className={cn("text-[10px] font-bold", pending > 0 ? "text-red-500" : "text-green-600")}>Gs.</span></div></TableCell>
-                        <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" className="h-10 px-5 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary hover:text-white transition-all shadow-sm" onClick={() => handleOpenPayment(reg)} disabled={isSettled}><CheckCircle2 className="h-4 w-4" /> Confirmar Pago</Button>{isSettled && (<Button size="icon" variant="ghost" className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-5 w-5" /></Button>)}</div></TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredConfirmands.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-20 text-center text-slate-400 italic">No se encontraron inscripciones para mostrar.</TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredConfirmands.map((reg) => {
+                      const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
+                      const isSettled = pending <= 0 && reg.paymentStatus === "PAGADO"
+                      const noGroup = !reg.groupId || reg.groupId === "none"
+                      return (
+                        <TableRow key={reg.id} className={cn("hover:bg-slate-50/30 h-20 transition-colors", noGroup && "bg-blue-50/20")}>
+                          <TableCell className="pl-8"><div className="flex items-center gap-4"><Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-5 w-5" /></AvatarFallback></Avatar><div className="flex flex-col"><div className="flex items-center gap-2"><span className="font-bold text-sm text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>{noGroup && <Badge variant="outline" className="text-[7px] h-4 bg-blue-50 text-blue-600 border-blue-100 font-black">NUEVO</Badge>}</div><span className="text-[10px] text-slate-500 font-bold">{reg.ciNumber}</span></div></div></TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center">
+                              {reg.userId === "public_registration" ? (
+                                <div className="flex items-center gap-1 text-[9px] font-bold text-green-600 uppercase bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                                  <Globe className="h-2.5 w-2.5" /> Público
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className="flex items-center gap-1 text-[9px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                                    <User className="h-2.5 w-2.5" /> Manual
+                                  </div>
+                                  {reg.validatedBy && (
+                                    <span className="text-[8px] text-slate-400 font-medium truncate max-w-[80px]" title={reg.validatedBy}>
+                                      {reg.validatedBy.split(' ')[0]}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center"><Badge variant="secondary" className="text-[9px] uppercase font-black px-3 h-6 bg-slate-100 text-slate-600 border-none">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
+                          <TableCell className="text-center"><Badge variant="outline" className={cn("text-[9px] uppercase font-black px-3 h-6 border-slate-200", isSettled ? "bg-green-50 text-green-600 border-green-100" : "bg-white text-slate-400")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
+                          <TableCell className="text-center">
+                            {reg.lastPaymentMethod ? (
+                              <Badge variant="outline" className={cn(
+                                "text-[9px] uppercase font-black px-2 h-6 gap-1",
+                                reg.lastPaymentMethod === "EFECTIVO" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              )}>
+                                {reg.lastPaymentMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
+                                {reg.lastPaymentMethod}
+                              </Badge>
+                            ) : (
+                              <span className="text-[10px] text-slate-300 italic">Sin registro</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center"><div className="flex flex-col items-center"><span className={cn("font-black text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? pending.toLocaleString('es-PY') : "0"}</span><span className={cn("text-[10px] font-bold", pending > 0 ? "text-red-500" : "text-green-600")}>Gs.</span></div></TableCell>
+                          <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" className="h-10 px-5 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary hover:text-white transition-all shadow-sm" onClick={() => handleOpenPayment(reg)} disabled={isSettled}><CheckCircle2 className="h-4 w-4" /> Confirmar Pago</Button>{isSettled && (<Button size="icon" variant="ghost" className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-5 w-5" /></Button>)}</div></TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
