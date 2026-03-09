@@ -32,7 +32,10 @@ import {
   Download,
   CalendarDays,
   ImageIcon,
-  Share2
+  Share2,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
@@ -69,6 +72,7 @@ export default function TreasuryPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false)
   const [isProofViewOpen, setIsProofViewOpen] = useState(false)
   const [selectedProof, setSelectedProof] = useState<string | null>(null)
+  const [zoomScale, setZoomScale] = useState(1)
   const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
   const [expenseProof, setExpenseProof] = useState<string | null>(null)
   const [localDate, setLocalDate] = useState({ day: "", month: "", year: "" })
@@ -713,15 +717,56 @@ export default function TreasuryPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
-        <DialogContent className="max-w-3xl p-0 bg-transparent shadow-none border-none">
+      <Dialog open={isProofViewOpen} onOpenChange={(open) => { setIsProofViewOpen(open); if(!open) setZoomScale(1); }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 bg-transparent shadow-none border-none flex items-center justify-center overflow-visible">
           <DialogHeader className="sr-only">
             <DialogTitle>Vista de Documento</DialogTitle>
-            <DialogDescription>Previsualización ampliada.</DialogDescription>
+            <DialogDescription>Previsualización ampliada con zoom.</DialogDescription>
           </DialogHeader>
-          <div className="relative">
-            <Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full text-white bg-white/20" onClick={() => setIsProofViewOpen(false)}><X /></Button>
-            <img src={selectedProof || ""} className="max-h-[90vh] rounded-xl shadow-2xl" />
+          <div className="relative flex flex-col items-center w-full">
+            <Button variant="secondary" size="icon" className="absolute -top-14 right-0 rounded-full text-white bg-white/20 hover:bg-white/40 border border-white/10 z-50" onClick={() => setIsProofViewOpen(false)}>
+              <X className="h-6 w-6" />
+            </Button>
+
+            {!selectedProof?.startsWith("data:application/pdf") && (
+              <div className="absolute -bottom-16 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl p-2 px-4 rounded-2xl border border-white/10 shadow-2xl z-50">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.max(0.5, prev - 0.25))}>
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <div className="w-14 text-center">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">{Math.round(zoomScale * 100)}%</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.min(4, prev + 0.25))}>
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Separator orientation="vertical" className="h-4 bg-white/20 mx-1" />
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" title="Restablecer" onClick={() => setZoomScale(1)}>
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            <div className="w-full bg-slate-950/20 backdrop-blur-sm rounded-3xl p-2 border border-white/10 shadow-2xl overflow-hidden">
+              <ScrollArea className="max-h-[75vh] w-full rounded-2xl">
+                <div className="flex items-center justify-center p-4 min-h-[400px]">
+                  {selectedProof?.startsWith("data:application/pdf") ? (
+                    <div className="bg-white p-10 rounded-2xl flex flex-col items-center gap-4 w-[300px]">
+                      <div className="p-4 bg-red-50 rounded-2xl"><FileText className="h-16 w-16 text-red-500" /></div>
+                      <p className="font-bold text-center text-sm">Vista previa de PDF no disponible.</p>
+                      <Button asChild className="w-full rounded-xl font-bold bg-red-600"><a href={selectedProof} download="comprobante.pdf">DESCARGAR</a></Button>
+                    </div>
+                  ) : (
+                    <div className="transition-all duration-300 ease-out flex items-center justify-center origin-center" style={{ width: `${zoomScale * 100}%` }}>
+                      <img 
+                        src={selectedProof || ""} 
+                        className="rounded-xl shadow-2xl w-full h-auto object-contain select-none" 
+                        alt="Comprobante"
+                      />
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

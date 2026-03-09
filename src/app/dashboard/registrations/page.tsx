@@ -47,7 +47,10 @@ import {
   Globe,
   RefreshCcw,
   FilterX,
-  Filter
+  Filter,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy, limit } from "firebase/firestore"
@@ -473,6 +476,7 @@ export default function RegistrationsListPage() {
   const [withdrawalReason, setWithdrawalReason] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [viewProofUrl, setViewProofUrl] = useState<string | null>(null)
+  const [zoomScale, setZoomScale] = useState(1)
   
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({
     key: 'createdAt',
@@ -1157,25 +1161,56 @@ export default function RegistrationsListPage() {
 
       <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}><DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl"><DialogHeader className="p-6 bg-slate-900 text-white"><div className="flex items-center gap-3"><UserMinus className="h-6 w-6 text-red-400" /><DialogTitle>Baja de Confirmando</DialogTitle></div></DialogHeader><div className="p-6 space-y-6"><div className="p-4 bg-orange-50 rounded-2xl text-xs text-orange-800 font-medium">Esta acción cerrará el ciclo del confirmando. No aparecerá en listas regulares.</div><div className="space-y-3"><Label className="font-bold">Motivo de la Baja</Label><Textarea placeholder="Ej. Cambio de domicilio, falta de tiempo, etc." className="rounded-xl min-h-[120px] bg-slate-50 border-slate-200" value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} required /></div></div><DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-red-600 text-white font-bold shadow-lg" onClick={handleWithdrawConfirmand} disabled={isSubmitting || !withdrawalReason}>Confirmar Baja</Button></DialogFooter></Dialog></Dialog>
       
-      <Dialog open={isProofViewOpen} onOpenChange={setIsProofViewOpen}>
-        <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center">
+      <Dialog open={isProofViewOpen} onOpenChange={(open) => { setIsProofViewOpen(open); if(!open) setZoomScale(1); }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 bg-transparent border-none shadow-none flex items-center justify-center overflow-visible">
           <DialogHeader className="sr-only">
             <DialogTitle>Vista de Documento</DialogTitle>
-            <DialogDescription>Previsualización ampliada del archivo adjunto.</DialogDescription>
+            <DialogDescription>Previsualización ampliada con controles de zoom.</DialogDescription>
           </DialogHeader>
-          <div className="relative">
-            <Button variant="secondary" size="icon" className="absolute -top-12 -right-12 rounded-full text-white bg-white/20" onClick={() => setIsProofViewOpen(false)}>
+          <div className="relative flex flex-col items-center w-full">
+            <Button variant="secondary" size="icon" className="absolute -top-14 right-0 rounded-full text-white bg-white/20 hover:bg-white/40 border border-white/10 z-50" onClick={() => setIsProofViewOpen(false)}>
               <X className="h-6 w-6" />
             </Button>
-            {viewProofUrl?.startsWith("data:application/pdf") ? (
-              <div className="bg-white p-10 rounded-2xl flex flex-col items-center gap-4">
-                <FileText className="h-20 w-20 text-red-500" />
-                <p className="font-bold">Vista previa de PDF no disponible directamente.</p>
-                <Button asChild><a href={viewProofUrl} download="comprobante.pdf">Descargar para ver</a></Button>
+
+            {!viewProofUrl?.startsWith("data:application/pdf") && (
+              <div className="absolute -bottom-16 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl p-2 px-4 rounded-2xl border border-white/10 shadow-2xl z-50">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.max(0.5, prev - 0.25))}>
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <div className="w-14 text-center">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">{Math.round(zoomScale * 100)}%</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.min(4, prev + 0.25))}>
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Separator orientation="vertical" className="h-4 bg-white/20 mx-1" />
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" title="Restablecer" onClick={() => setZoomScale(1)}>
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
               </div>
-            ) : (
-              <img src={viewProofUrl || ""} className="max-h-[90vh] rounded-xl shadow-2xl" />
             )}
+
+            <div className="w-full bg-slate-950/20 backdrop-blur-sm rounded-3xl p-2 border border-white/10 shadow-2xl overflow-hidden">
+              <ScrollArea className="max-h-[75vh] w-full rounded-2xl">
+                <div className="flex items-center justify-center p-4 min-h-[400px]">
+                  {viewProofUrl?.startsWith("data:application/pdf") ? (
+                    <div className="bg-white p-10 rounded-2xl flex flex-col items-center gap-4 w-[300px]">
+                      <div className="p-4 bg-red-50 rounded-2xl"><FileText className="h-16 w-16 text-red-500" /></div>
+                      <p className="font-bold text-center text-sm">Vista previa de PDF no disponible directamente.</p>
+                      <Button asChild className="w-full rounded-xl font-bold bg-red-600"><a href={viewProofUrl} download="comprobante.pdf">DESCARGAR PDF</a></Button>
+                    </div>
+                  ) : (
+                    <div className="transition-all duration-300 ease-out flex items-center justify-center origin-center" style={{ width: `${zoomScale * 100}%` }}>
+                      <img 
+                        src={viewProofUrl || ""} 
+                        className="rounded-xl shadow-2xl w-full h-auto object-contain select-none" 
+                        alt="Documento"
+                      />
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
