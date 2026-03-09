@@ -174,7 +174,6 @@ function EditRegistrationForm({
         else setEditPaymentProofPreview(val);
       };
 
-      // Manejo específico para PDF
       if (file.type === 'application/pdf') {
         const reader = new FileReader();
         reader.onload = () => setPreview(reader.result as string);
@@ -229,7 +228,6 @@ function EditRegistrationForm({
 
     const regRef = doc(db, "confirmations", selectedReg.id);
 
-    // Guardado no bloqueante para mayor agilidad
     updateDoc(regRef, updateData)
       .then(() => {
         addDoc(collection(db, "audit_logs"), {
@@ -1165,7 +1163,7 @@ export default function RegistrationsListPage() {
         <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 bg-transparent border-none shadow-none flex items-center justify-center overflow-visible">
           <DialogHeader className="sr-only">
             <DialogTitle>Vista de Documento</DialogTitle>
-            <DialogDescription>Previsualización ampliada con controles de zoom.</DialogDescription>
+            <DialogDescription>Previsualización ampliada con controles de zoom proporcional.</DialogDescription>
           </DialogHeader>
           <div className="relative flex flex-col items-center w-full">
             <Button variant="secondary" size="icon" className="absolute -top-14 right-0 rounded-full text-white bg-white/20 hover:bg-white/40 border border-white/10 z-50" onClick={() => setIsProofViewOpen(false)}>
@@ -1174,7 +1172,7 @@ export default function RegistrationsListPage() {
 
             {!viewProofUrl?.startsWith("data:application/pdf") && (
               <div className="absolute -bottom-16 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl p-2 px-4 rounded-2xl border border-white/10 shadow-2xl z-50">
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.max(0.5, prev - 0.25))}>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.max(0.25, prev - 0.25))}>
                   <ZoomOut className="h-4 w-4" />
                 </Button>
                 <div className="w-14 text-center">
@@ -1192,18 +1190,24 @@ export default function RegistrationsListPage() {
 
             <div className="w-full bg-slate-950/20 backdrop-blur-sm rounded-3xl p-2 border border-white/10 shadow-2xl overflow-hidden">
               <ScrollArea className="max-h-[75vh] w-full rounded-2xl">
-                <div className="flex items-center justify-center p-4 min-h-[400px]">
+                <div className="flex items-center justify-center p-4 md:p-10 min-h-[400px]">
                   {viewProofUrl?.startsWith("data:application/pdf") ? (
                     <div className="bg-white p-10 rounded-2xl flex flex-col items-center gap-4 w-[300px]">
                       <div className="p-4 bg-red-50 rounded-2xl"><FileText className="h-16 w-16 text-red-500" /></div>
-                      <p className="font-bold text-center text-sm">Vista previa de PDF no disponible directamente.</p>
+                      <p className="font-bold text-center text-sm text-slate-900">Vista previa de PDF no disponible.</p>
                       <Button asChild className="w-full rounded-xl font-bold bg-red-600"><a href={viewProofUrl} download="comprobante.pdf">DESCARGAR PDF</a></Button>
                     </div>
                   ) : (
-                    <div className="transition-all duration-300 ease-out flex items-center justify-center origin-center" style={{ width: `${zoomScale * 100}%` }}>
+                    <div className="transition-all duration-300 ease-out flex items-center justify-center">
                       <img 
                         src={viewProofUrl || ""} 
-                        className="rounded-xl shadow-2xl w-full h-auto object-contain select-none" 
+                        className="rounded-xl shadow-2xl transition-all duration-300 select-none h-auto" 
+                        style={{ 
+                          width: zoomScale === 1 ? 'auto' : `${zoomScale * 100}%`,
+                          maxWidth: zoomScale === 1 ? '100%' : 'none',
+                          maxHeight: zoomScale === 1 ? '75vh' : 'none',
+                          objectFit: 'contain'
+                        }}
                         alt="Documento"
                       />
                     </div>
