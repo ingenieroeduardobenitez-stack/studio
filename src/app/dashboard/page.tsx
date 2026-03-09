@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { QRCodeCanvas } from "qrcode.react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
@@ -162,12 +163,12 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-border/50 shadow-sm border-l-4 border-l-primary bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">Inscritos Recientes</CardTitle>
+            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">Inscritos Totales</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isActuallyLoading ? "..." : (registrations?.length || 0)}</div>
-            <p className="text-[10px] text-muted-foreground">Últimos registrados</p>
+            <p className="text-[10px] text-muted-foreground">Ciclo Lectivo 2026</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-accent bg-white">
@@ -226,9 +227,12 @@ export default function DashboardPage() {
               ) : (
                 registrations.map((reg) => (
                   <div key={reg.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
-                    <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center border">
-                      <User className="h-5 w-5 text-primary" />
-                    </div>
+                    <Avatar className="h-10 w-10 rounded-xl border shadow-sm">
+                      <AvatarImage src={reg.photoUrl} className="object-cover" />
+                      <AvatarFallback className="bg-primary/5 text-primary rounded-xl">
+                        <User className="h-5 w-5" />
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="flex-1">
                       <p className="text-sm font-bold text-slate-900">{reg.fullName}</p>
                       <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">
