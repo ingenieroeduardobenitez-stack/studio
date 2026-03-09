@@ -24,6 +24,7 @@ import {
   Eye,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
   UserMinus,
   X,
   MessageCircle,
@@ -818,7 +819,7 @@ export default function RegistrationsListPage() {
       .then(() => {
         addDoc(collection(db, "audit_logs"), {
           userId: user?.uid || "unknown",
-          userName: catechistName,
+          userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
           action: "BAJA",
           module: "inscripcion",
           details: `Baja de ${selectedReg.fullName}. Motivo: ${withdrawalReason}`,
@@ -853,7 +854,7 @@ export default function RegistrationsListPage() {
       .then(() => {
         addDoc(collection(db, "audit_logs"), {
           userId: user?.uid || "unknown",
-          userName: catechistName,
+          userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
           action: "Eliminar Ficha",
           module: "inscripcion",
           details: `Se eliminó permanentemente la ficha de: ${regName} (C.I. ${regCi})`,
