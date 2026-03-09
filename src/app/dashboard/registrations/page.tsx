@@ -1295,17 +1295,26 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
     return <Badge variant="outline" className="text-[10px] font-black h-5 w-5 p-0 flex items-center justify-center rounded-sm text-slate-300">?</Badge>;
   };
 
-  const getSourceBadge = (userId: string) => {
-    if (userId === "public_registration") {
+  const getSourceBadge = (reg: any) => {
+    if (reg.userId === "public_registration") {
       return (
-        <div className="flex items-center gap-1 text-[9px] font-bold text-green-600 uppercase bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-          <Globe className="h-2.5 w-2.5" /> Público
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1 text-[9px] font-bold text-green-600 uppercase bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+            <Globe className="h-2.5 w-2.5" /> Público
+          </div>
         </div>
       );
     }
     return (
-      <div className="flex items-center gap-1 text-[9px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-        <User className="h-2.5 w-2.5" /> Manual
+      <div className="flex flex-col items-center gap-0.5">
+        <div className="flex items-center gap-1 text-[9px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+          <User className="h-2.5 w-2.5" /> Manual
+        </div>
+        {reg.validatedBy && (
+          <span className="text-[8px] text-slate-400 font-medium truncate max-w-[80px]" title={reg.validatedBy}>
+            {reg.validatedBy.split(' ')[0]}
+          </span>
+        )}
       </div>
     );
   };
@@ -1330,7 +1339,7 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
           <TableCell className="pl-6"><Avatar className="h-8 w-8 border cursor-pointer hover:scale-110 transition-transform" onClick={() => reg.photoUrl && onViewImage(reg.photoUrl)}><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar></TableCell>
           <TableCell><div className="flex flex-col"><span className="font-bold text-slate-900 text-xs">{reg.fullName}</span><span className="text-[10px] text-slate-500">{reg.phone}</span></div></TableCell>
           <TableCell className="text-center"><div className="flex justify-center">{getGenderBadge(reg.sexo)}</div></TableCell>
-          <TableCell className="text-center"><div className="flex justify-center">{getSourceBadge(reg.userId)}</div></TableCell>
+          <TableCell className="text-center"><div className="flex justify-center">{getSourceBadge(reg)}</div></TableCell>
           <TableCell className="text-xs">{reg.ciNumber}</TableCell>
           <TableCell><span className="text-[10px] font-bold text-slate-400">{formatYear(reg.catechesisYear)}</span></TableCell>
           <TableCell><span className="text-[10px] font-medium text-slate-600">{formatTimestamp(reg.createdAt)}</span></TableCell>
