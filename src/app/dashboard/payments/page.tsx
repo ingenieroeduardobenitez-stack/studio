@@ -275,7 +275,8 @@ export default function PaymentsManagementPage() {
             },
             validatedBy: catechistName,
             receiptNumber: formattedReceipt,
-            paymentProofUrl: paymentProofUrl || regData.paymentProofUrl || null
+            paymentProofUrl: paymentProofUrl || regData.paymentProofUrl || null,
+            lastPaymentMethod: paymentType
           });
         }
         if (!treasurySnap.exists()) {
@@ -292,7 +293,7 @@ export default function PaymentsManagementPage() {
           details: `Cobro de ${paymentAmount.toLocaleString('es-PY')} Gs. por ${selectedEventId === 'inscripcion' ? 'Inscripción' : selectedEvent?.category} a ${regData.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
         });
-        const updatedReg = { ...regData, id: regSnap.id, receiptNumber: formattedReceipt, amountPaid: (regData.amountPaid || 0) + paymentAmount, validatedBy: catechistName };
+        const updatedReg = { ...regData, id: regSnap.id, receiptNumber: formattedReceipt, amountPaid: (regData.amountPaid || 0) + paymentAmount, validatedBy: catechistName, lastPaymentMethod: paymentType };
         setSelectedReg(updatedReg);
       });
       toast({ title: "Pago registrado con éxito" })
@@ -370,7 +371,6 @@ export default function PaymentsManagementPage() {
       });
       const url = canvas.toDataURL("image/png");
 
-      // SOPORTE PARA COMPARTIR EN MÓVILES (WHATSAPP, ETC)
       if (navigator.share && navigator.canShare) {
         const response = await fetch(url);
         const blob = await response.blob();
@@ -391,7 +391,6 @@ export default function PaymentsManagementPage() {
         }
       }
       
-      // Fallback: Descarga tradicional
       const link = document.createElement("a");
       link.download = `Recibo-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.png`;
       link.href = url;
@@ -449,6 +448,7 @@ export default function PaymentsManagementPage() {
                   <TableHead className="font-bold py-5 pl-8">Confirmando</TableHead>
                   <TableHead className="font-bold text-center">Nivel</TableHead>
                   <TableHead className="font-bold text-center">Estado</TableHead>
+                  <TableHead className="font-bold text-center">Forma de Pago</TableHead>
                   <TableHead className="font-bold text-center">Saldo Pendiente</TableHead>
                   <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
                 </TableRow>
@@ -456,7 +456,7 @@ export default function PaymentsManagementPage() {
               <TableBody>
                 {filteredConfirmands.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-20 text-center text-slate-400 italic">No se encontraron inscripciones para mostrar.</TableCell>
+                    <TableCell colSpan={6} className="py-20 text-center text-slate-400 italic">No se encontraron inscripciones para mostrar.</TableCell>
                   </TableRow>
                 ) : (
                   filteredConfirmands.map((reg) => {
@@ -468,6 +468,19 @@ export default function PaymentsManagementPage() {
                         <TableCell className="pl-8"><div className="flex items-center gap-4"><Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-5 w-5" /></AvatarFallback></Avatar><div className="flex flex-col"><div className="flex items-center gap-2"><span className="font-bold text-sm text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>{noGroup && <Badge variant="outline" className="text-[7px] h-4 bg-blue-50 text-blue-600 border-blue-100 font-black">NUEVO</Badge>}</div><span className="text-[10px] text-slate-500 font-bold">{reg.ciNumber}</span></div></div></TableCell>
                         <TableCell className="text-center"><Badge variant="secondary" className="text-[9px] uppercase font-black px-3 h-6 bg-slate-100 text-slate-600 border-none">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
                         <TableCell className="text-center"><Badge variant="outline" className={cn("text-[9px] uppercase font-black px-3 h-6 border-slate-200", isSettled ? "bg-green-50 text-green-600 border-green-100" : "bg-white text-slate-400")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
+                        <TableCell className="text-center">
+                          {reg.lastPaymentMethod ? (
+                            <Badge variant="outline" className={cn(
+                              "text-[9px] uppercase font-black px-2 h-6 gap-1",
+                              reg.lastPaymentMethod === "EFECTIVO" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            )}>
+                              {reg.lastPaymentMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
+                              {reg.lastPaymentMethod}
+                            </Badge>
+                          ) : (
+                            <span className="text-[10px] text-slate-300 italic">Sin registro</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center"><div className="flex flex-col items-center"><span className={cn("font-black text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? pending.toLocaleString('es-PY') : "0"}</span><span className={cn("text-[10px] font-bold", pending > 0 ? "text-red-500" : "text-green-600")}>Gs.</span></div></TableCell>
                         <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" className="h-10 px-5 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary hover:text-white transition-all shadow-sm" onClick={() => handleOpenPayment(reg)} disabled={isSettled}><CheckCircle2 className="h-4 w-4" /> Confirmar Pago</Button>{isSettled && (<Button size="icon" variant="ghost" className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-5 w-5" /></Button>)}</div></TableCell>
                       </TableRow>
