@@ -39,7 +39,7 @@ export default function DashboardLayout({
     const updatePresence = (status: "online" | "offline") => {
       const now = Date.now()
       
-      // Bloqueo estricto: no más de una actualización cada 5 minutos
+      // Bloqueo estricto: no más de una actualización cada 5 minutos para presencia online
       if (status === "online" && (now - lastUpdateRef.current < 300000)) {
         return
       }
