@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { 
   Search, 
   Loader2, 
-  Download, 
   MoreHorizontal, 
   User, 
   LayoutList, 
@@ -18,24 +17,18 @@ import {
   UserCircle,
   UserPlus,
   Trash2,
-  Check,
-  CreditCard,
-  BookOpen,
   Eye,
   CheckCircle2,
-  AlertTriangle,
   AlertCircle,
   UserMinus,
   X,
-  MessageCircle,
-  FileText,
-  Church,
   ImageIcon,
   Edit,
   Save,
   Phone,
   Calendar,
   ShieldCheck,
+  BookOpen,
   Book,
   Camera,
   FlipHorizontal,
@@ -53,7 +46,7 @@ import {
   Maximize2,
   Banknote,
   ArrowRightLeft,
-  CalendarDays
+  FileText
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy } from "firebase/firestore"
@@ -98,15 +91,14 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { QRCodeCanvas } from "qrcode.react"
-import Image from "next/image"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 
 type ViewMode = "LIST" | "GROUPS"
-type CaptureTarget = "PHOTO" | "BAPTISM" | "PAYMENT_PROOF"
+type CaptureTarget = "PHOTO" | "BAPTISM" | "PAY_PROOF"
 
 /**
- * COMPONENTE AISLADO PARA EL FORMULARIO DE EDICIÓN
+ * FORMULARIO DE EDICIÓN CON LÓGICA DE PAGO ACTUALIZADA
  */
 function EditRegistrationForm({ 
   selectedReg, 
@@ -141,7 +133,7 @@ function EditRegistrationForm({
 
   const isAdmin = profile?.role === "Administrador"
 
-  const compressImage = (source: string, maxWidth = 600, maxHeight = 800): Promise<string> => {
+  const compressImage = (source: string, maxWidth = 400, maxHeight = 500): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.crossOrigin = "anonymous";
@@ -161,7 +153,7 @@ function EditRegistrationForm({
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6));
+        resolve(canvas.toDataURL('image/jpeg', 0.4));
       };
       img.onerror = (e) => reject(e);
       img.src = source;
@@ -224,10 +216,11 @@ function EditRegistrationForm({
       attendanceDay: editAttendanceDay,
       sexo: editGender,
       lastPaymentMethod: editPaymentMethod === "NONE" ? null : editPaymentMethod,
-      amountPaid: editPaymentMethod === "NONE" ? 0 : editAmountPaid,
+      amountPaid: editPaymentMethod === "NONE" ? 0 : Number(editAmountPaid),
       updatedAt: serverTimestamp()
     }
 
+    // Lógica automática si se cambia a "Sin registro" o se edita el monto
     if (editPaymentMethod === "NONE") {
       updateData.amountPaid = 0;
       updateData.paymentStatus = "PENDIENTE";
@@ -235,8 +228,8 @@ function EditRegistrationForm({
       updateData.receiptNumber = ""; 
     } else {
       const regCost = selectedReg.registrationCost || (editCatechesisYear === "ADULTOS" ? 50000 : 35000);
-      updateData.paymentStatus = editAmountPaid >= regCost ? "PAGADO" : (editAmountPaid > 0 ? "PARCIAL" : "PENDIENTE");
-      if (editAmountPaid > 0) {
+      updateData.paymentStatus = updateData.amountPaid >= regCost ? "PAGADO" : (updateData.amountPaid > 0 ? "PARCIAL" : "PENDIENTE");
+      if (updateData.amountPaid > 0) {
         updateData.status = "INSCRITO";
       }
     }
@@ -254,7 +247,7 @@ function EditRegistrationForm({
           userName: catechistName,
           action: "Editar Ficha",
           module: "inscripcion",
-          details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}.${editPaymentMethod === 'NONE' ? ' Se reseteó el pago a 0.' : ` Monto editado: ${editAmountPaid} Gs.`}`,
+          details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}.${editPaymentMethod === 'NONE' ? ' Se reseteó el pago a 0.' : ` Monto editado: ${updateData.amountPaid} Gs.`}`,
           timestamp: serverTimestamp()
         }).catch(() => {});
 
@@ -400,6 +393,55 @@ function EditRegistrationForm({
         <Separator />
 
         <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Administrativa</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-amber-50/30 p-6 rounded-2xl border border-amber-100 border-dashed">
+            <div className="space-y-2">
+              <Label className="font-bold text-slate-700 flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-amber-600" /> Forma de Pago
+              </Label>
+              <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
+                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
+                  <SelectValue placeholder="Seleccione método" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">Sin registro</SelectItem>
+                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[9px] text-slate-400 italic">
+                * Al cambiar a "Sin registro", la ficha pasará a estado "Por Validar" y el monto volverá a 0.
+              </p>
+            </div>
+
+            {editPaymentMethod !== "NONE" && (
+              <div className="space-y-2 animate-in fade-in zoom-in-95 duration-300">
+                <Label className="font-bold text-slate-700 flex items-center gap-2">
+                  <Banknote className="h-4 w-4 text-green-600" /> Monto Registrado (Gs)
+                </Label>
+                <Input 
+                  type="number" 
+                  value={editAmountPaid} 
+                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
+                  readOnly={!isAdmin}
+                  className={cn(
+                    "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
+                    !isAdmin && "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  )}
+                />
+                <p className="text-[9px] text-slate-400 italic">
+                  {isAdmin 
+                    ? "* Puedes corregir el monto recibido si fue cargado incorrectamente." 
+                    : "* Solo los administradores pueden corregir montos registrados."}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
           <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Nivel y Horario de Catequesis</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-dashed">
             <div className="space-y-2">
@@ -433,57 +475,6 @@ function EditRegistrationForm({
         <Separator />
 
         <div className="space-y-4">
-          <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Administrativa</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-amber-50/30 p-6 rounded-2xl border border-amber-100 border-dashed">
-            <div className="space-y-2">
-              <Label className="font-bold text-slate-700 flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-amber-600" /> Forma de Pago
-              </Label>
-              <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
-                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
-                  <SelectValue placeholder="Seleccione método" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">Sin registro</SelectItem>
-                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[9px] text-slate-400 italic">
-                {isAdmin 
-                  ? '* Si seleccionas "Sin registro", el monto pagado se reseteará a 0 y el estado cambiará a "Por Validar".'
-                  : '* Función solo disponible para administradores.'}
-              </p>
-            </div>
-
-            {editPaymentMethod !== "NONE" && (
-              <div className="space-y-2 animate-in fade-in zoom-in-95 duration-300">
-                <Label className="font-bold text-slate-700 flex items-center gap-2">
-                  <Banknote className="h-4 w-4 text-green-600" /> Monto Registrado (Gs)
-                </Label>
-                <Input 
-                  type="number" 
-                  value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
-                  readOnly={!isAdmin}
-                  className={cn(
-                    "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
-                    !isAdmin && "bg-slate-100 text-slate-400 cursor-not-allowed"
-                  )}
-                />
-                <p className="text-[9px] text-slate-400 italic">
-                  {isAdmin 
-                    ? "* Puedes corregir el monto recibido si fue cargado incorrectamente." 
-                    : "* Solo los administradores pueden corregir montos registrados."}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-4">
           <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Familia y Tutores</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
@@ -495,19 +486,6 @@ function EditRegistrationForm({
               <Label className="text-xs font-bold text-primary">PADRE</Label>
               <Input name="fatherName" defaultValue={selectedReg?.fatherName} placeholder="Nombre" className="h-10 uppercase bg-white" />
               <Input name="fatherPhone" defaultValue={selectedReg?.fatherPhone} placeholder="Celular" className="h-10 bg-white" />
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-4">
-          <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Registro Sacramental</h4>
-          <div className="grid gap-4 p-6 bg-slate-50 rounded-2xl border border-dashed border-primary/30">
-            <div className="space-y-2"><Label>Parroquia de Bautismo</Label><Input name="baptismParish" defaultValue={selectedReg?.baptismParish} className="h-11 rounded-xl uppercase bg-white" /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>N° de Libro</Label><Input name="baptismBook" defaultValue={selectedReg?.baptismBook} className="h-11 rounded-xl bg-white" /></div>
-              <div className="space-y-2"><Label>N° de Folio</Label><Input name="baptismFolio" defaultValue={selectedReg?.baptismFolio} className="h-11 rounded-xl bg-white" /></div>
             </div>
           </div>
         </div>
@@ -527,6 +505,7 @@ export default function RegistrationsListPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<ViewMode>("GROUPS")
   
+  // Filtros Avanzados
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterOrigin, setFilterOrigin] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
@@ -553,6 +532,7 @@ export default function RegistrationsListPage() {
     direction: 'desc'
   })
   
+  // Estados de Cámara
   const [showCamera, setShowCamera] = useState(false)
   const [captureTarget, setCaptureTarget] = useState<CaptureTarget>("PHOTO")
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
@@ -577,6 +557,7 @@ export default function RegistrationsListPage() {
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   
+  // OPTIMIZACIÓN: Cargar todos para filtrado pero sin suscripciones pesadas innecesarias
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
@@ -753,7 +734,7 @@ export default function RegistrationsListPage() {
 
       toast({ title: "Iniciando Sincronización", description: `Analizando ${studentsToFix.length} fichas pendientes...` });
 
-      const batchSize = 25; // Reducido para mayor seguridad
+      const batchSize = 25; 
       for (let i = 0; i < studentsToFix.length; i += batchSize) {
         const chunk = studentsToFix.slice(i, i + batchSize);
         const batch = writeBatch(db);
@@ -788,7 +769,6 @@ export default function RegistrationsListPage() {
           await batch.commit();
         }
         
-        // Retardo mayor para evitar Rate Exceeded
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
@@ -977,9 +957,7 @@ export default function RegistrationsListPage() {
       case "INSCRITO": return <Badge className="bg-green-500 hover:bg-green-600 text-white border-none">Inscrito</Badge>
       case "POR_VALIDAR": return <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">Por Validar</Badge>
       case "PENDIENTE_PAGO": return <Badge variant="outline" className="text-blue-500 border-blue-200">Pendiente Pago</Badge>
-      case "OBSERVADO": return <Badge variant="destructive">Observado</Badge>
       case "BAJA": return <Badge variant="destructive" className="bg-slate-900">Baja</Badge>
-      case "ARCHIVADO": return <Badge variant="outline" className="bg-slate-100">Archivado</Badge>
       default: return <Badge variant="outline">{status}</Badge>
     }
   }
@@ -1172,11 +1150,8 @@ export default function RegistrationsListPage() {
             <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center">
               <Filter className="h-8 w-8 text-slate-200" />
             </div>
-            <div className="space-y-1">
-              <p className="text-slate-500 font-bold">No hay resultados para estos filtros</p>
-              <p className="text-xs text-slate-400">Intenta ajustar los parámetros de búsqueda o filtros.</p>
-            </div>
-            <Button variant="outline" className="rounded-xl font-bold mt-2" onClick={resetFilters}>Ver todos los alumnos</Button>
+            <p className="text-slate-500 font-bold">No hay resultados para estos filtros</p>
+            <Button variant="outline" className="rounded-xl font-bold" onClick={resetFilters}>Ver todos los alumnos</Button>
           </div>
         ) : (
           <Accordion type="multiple" defaultValue={["none", ...(groups?.map(g => g.id) || [])]} className="space-y-4">
@@ -1215,7 +1190,6 @@ export default function RegistrationsListPage() {
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
-            <DialogTitle className="sr-only">Detalles del Confirmando</DialogTitle>
             <div className="flex items-center gap-4 md:gap-6">
               <div className="relative cursor-pointer hover:scale-105 transition-transform" onClick={() => { if(selectedReg?.photoUrl) { setViewProofUrl(selectedReg.photoUrl); setIsProofViewOpen(true); } }}>
                 <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white/20 shadow-xl"><AvatarImage src={selectedReg?.photoUrl} className="object-cover" /><AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback></Avatar>
@@ -1223,7 +1197,7 @@ export default function RegistrationsListPage() {
               </div>
               <div className="space-y-1">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60 leading-none">Ficha Institucional</p>
-                <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight truncate max-w-[250px] md:max-w-none">{selectedReg?.fullName}</DialogTitle>
+                <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight truncate">{selectedReg?.fullName}</DialogTitle>
                 <div className="flex flex-wrap items-center gap-2 md:gap-4 pt-1"><Badge variant="outline" className="text-white border-white/30 font-bold gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" /> C.I. {selectedReg?.ciNumber}</Badge><Badge variant="secondary" className="bg-white text-primary font-black uppercase tracking-tighter text-[10px]">{formatCatechesisYear(selectedReg?.catechesisYear)}</Badge></div>
               </div>
             </div>
@@ -1231,7 +1205,7 @@ export default function RegistrationsListPage() {
           <div className="flex-1 overflow-y-auto bg-slate-50"><div className="p-6 md:p-8 space-y-8 pb-20">
             <section className="space-y-4"><div className="flex items-center gap-3 border-b pb-2"><UserCircle className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Información Personal</h3></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6"><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Nacimiento</Label><p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-slate-400" /> {selectedReg?.birthDate}</p></div><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Edad</Label><p className="text-sm font-bold text-slate-700">{selectedReg?.age} Años</p></div><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Contacto</Label><p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-green-500" /> {selectedReg?.phone}</p></div></div></section>
             <section className="space-y-4"><div className="flex items-center gap-3 border-b pb-2"><Users className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Familia</h3></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="bg-white p-4 rounded-2xl border shadow-sm"><p className="text-[8px] font-black text-primary uppercase">Madre</p><p className="text-xs font-bold text-slate-700">{selectedReg?.motherName}</p><p className="text-[10px] text-slate-500">{selectedReg?.motherPhone}</p></div><div className="bg-white p-4 rounded-2xl border shadow-sm"><p className="text-[8px] font-black text-primary uppercase">Padre</p><p className="text-xs font-bold text-slate-700">{selectedReg?.fatherName}</p><p className="text-[10px] text-slate-500">{selectedReg?.fatherPhone}</p></div></div></section>
-            <section className="space-y-4"><div className="flex items-center gap-3 border-b pb-2"><BookOpen className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Sacramentos</h3></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className={cn("p-4 rounded-2xl border flex items-start gap-4", selectedReg?.hasBaptism ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100")}><div className={cn("p-2 rounded-xl shrink-0", selectedReg?.hasBaptism ? "bg-green-500 text-white" : "bg-red-500 text-white")}><Church className="h-5 w-5" /></div><div className="min-w-0"><p className="text-[10px] font-black uppercase">Bautismo</p><p className="text-[10px] font-bold text-slate-600 mt-0.5">{selectedReg?.hasBaptism ? 'Realizado' : 'Pendiente'}</p>{selectedReg?.hasBaptism && (<div className="mt-2 text-[9px] text-slate-500"><p>{selectedReg.baptismParish}</p><p>Libro: {selectedReg.baptismBook} • Folio: {selectedReg.baptismFolio}</p></div>)}</div></div><div className={cn("p-4 rounded-2xl border flex items-start gap-4", selectedReg?.hasFirstCommunion ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100")}><div className={cn("p-2 rounded-xl shrink-0", selectedReg?.hasFirstCommunion ? "bg-blue-500 text-white" : "bg-orange-500 text-white")}><Book className="h-5 w-5" /></div><div className="min-w-0"><p className="text-[10px] font-black uppercase">Primera Comunión</p><p className="text-[10px] font-bold text-slate-600 mt-0.5">{selectedReg?.hasFirstCommunion ? 'Realizado' : 'Pendiente'}</p></div></div></div></section>
+            <section className="space-y-4"><div className="flex items-center gap-3 border-b pb-2"><BookOpen className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Sacramentos</h3></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className={cn("p-4 rounded-2xl border flex items-start gap-4", selectedReg?.hasBaptism ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100")}><div className={cn("p-2 rounded-xl shrink-0", selectedReg?.hasBaptism ? "bg-green-500 text-white" : "bg-red-500 text-white")}><Church className="h-5 w-5" /></div><div className="min-w-0"><p className="text-[10px] font-black uppercase">Bautismo</p><p className="text-[10px] font-bold text-slate-600 mt-0.5">{selectedReg?.hasBaptism ? 'Realizado' : 'Pendiente'}</p></div></div><div className={cn("p-4 rounded-2xl border flex items-start gap-4", selectedReg?.hasFirstCommunion ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100")}><div className={cn("p-2 rounded-xl shrink-0", selectedReg?.hasFirstCommunion ? "bg-blue-500 text-white" : "bg-orange-500 text-white")}><Book className="h-5 w-5" /></div><div className="min-w-0"><p className="text-[10px] font-black uppercase">Primera Comunión</p><p className="text-[10px] font-bold text-slate-600 mt-0.5">{selectedReg?.hasFirstCommunion ? 'Realizado' : 'Pendiente'}</p></div></div></div></section>
             <section className="space-y-6"><div className="flex items-center gap-3 border-b pb-2"><ImageIcon className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Documentación</h3></div><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label className="text-[8px] font-black text-slate-400 uppercase">Comprobante Pago</Label><div className="aspect-[4/3] rounded-xl border-2 border-dashed overflow-hidden bg-white cursor-pointer" onClick={() => { if(selectedReg?.paymentProofUrl) { setViewProofUrl(selectedReg.paymentProofUrl); setIsProofViewOpen(true); } }}>{selectedReg?.paymentProofUrl ? <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-300"><ImageIcon className="h-6 w-6" /></div>}</div></div>
               <div className="space-y-2"><Label className="text-[8px] font-black text-slate-400 uppercase">Cert. Bautismo</Label><div className="aspect-[4/3] rounded-xl border-2 border-dashed overflow-hidden bg-white cursor-pointer" onClick={() => { if(selectedReg?.baptismCertificatePhotoUrl) { setViewProofUrl(selectedReg.baptismCertificatePhotoUrl); setIsProofViewOpen(true); } }}>{selectedReg?.baptismCertificatePhotoUrl ? <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-300"><ImageIcon className="h-6 w-6" /></div>}</div></div>
@@ -1278,10 +1252,6 @@ export default function RegistrationsListPage() {
       
       <Dialog open={isProofViewOpen} onOpenChange={(open) => { setIsProofViewOpen(open); if(!open) setZoomScale(1); }}>
         <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 bg-transparent border-none shadow-none flex items-center justify-center overflow-visible">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Vista de Documento</DialogTitle>
-            <DialogDescription>Previsualización ampliada con controles de zoom proporcional.</DialogDescription>
-          </DialogHeader>
           <div className="relative flex flex-col items-center w-full">
             <Button variant="secondary" size="icon" className="absolute -top-14 right-0 rounded-full text-white bg-white/20 hover:bg-white/40 border border-white/10 z-50" onClick={() => setIsProofViewOpen(false)}>
               <X className="h-6 w-6" />
@@ -1342,7 +1312,7 @@ export default function RegistrationsListPage() {
             <DialogTitle>Asignar Grupo</DialogTitle>
           </DialogHeader>
           <div className="p-8 space-y-4">
-            <p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} for {selectedReg?.fullName}:</p>
+            <p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p>
             <Select value={newGroupId} onValueChange={setNewGroupId}>
               <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200">
                 <SelectValue placeholder="Elige un grupo disponible" />
@@ -1371,19 +1341,7 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
     if (!ts) return "---";
     try {
       const date = ts.toDate ? ts.toDate() : new Date(ts);
-      const datePart = date.toLocaleDateString('es-PY', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: '2-digit',
-        timeZone: 'America/Asuncion'
-      });
-      const timePart = date.toLocaleTimeString('es-PY', { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: true,
-        timeZone: 'America/Asuncion'
-      });
-      return `${datePart} - ${timePart}`;
+      return date.toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Asuncion' }) + " - " + date.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Asuncion' });
     } catch (e) { return "---"; }
   };
 

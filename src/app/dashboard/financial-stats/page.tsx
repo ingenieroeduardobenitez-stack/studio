@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
@@ -11,11 +11,8 @@ import {
   TrendingDown, 
   Wallet, 
   Loader2, 
-  Calendar, 
   ArrowUpRight, 
   ArrowDownRight,
-  CircleDollarSign,
-  PieChart as PieChartIcon,
   Filter,
   Download,
   AlertCircle,
@@ -34,7 +31,6 @@ import {
   PieChart,
   Pie
 } from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Button } from "@/components/ui/button"
 
 export default function FinancialStatsPage() {
@@ -201,7 +197,7 @@ export default function FinancialStatsPage() {
 
             <Card className="border-none shadow-xl bg-white overflow-hidden">
               <CardHeader className="bg-slate-50/50 border-b">
-                <CardTitle className="text-lg flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-primary" /> Distribución de Ingresos</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">Distribución de Ingresos</CardTitle>
                 <CardDescription>Origen de los fondos recaudados por el Santuario.</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">

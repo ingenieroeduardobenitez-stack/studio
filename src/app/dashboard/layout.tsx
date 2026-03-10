@@ -49,7 +49,7 @@ export default function DashboardLayout({
         status: status,
         lastSeen: serverTimestamp()
       }).catch(() => {
-        // Silencio para no saturar logs
+        // Silencio para no saturar logs si falla por cuota
       })
     }
 
