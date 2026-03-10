@@ -1,3 +1,4 @@
+
 "use client"
 
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
@@ -27,7 +28,8 @@ export default function DashboardLayout({
     }
   }, [user, isUserLoading, router])
 
-  // Sistema de Presencia (Heartbeat) Robusto
+  // Sistema de Presencia (Heartbeat) Optimizado
+  // Se aumenta a 60 segundos para reducir la carga de lectura/escritura (Rate Limits)
   useEffect(() => {
     if (!db || !user?.uid) return
 
@@ -44,11 +46,12 @@ export default function DashboardLayout({
 
     updatePresence("online")
 
+    // Intervalo de 60 segundos es suficiente para el monitoreo y evita "Rate exceeded"
     presenceInterval.current = setInterval(() => {
       if (document.visibilityState === 'visible') {
         updatePresence("online")
       }
-    }, 15000)
+    }, 60000)
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {

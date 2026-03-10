@@ -147,13 +147,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     })
   }, [])
 
-  // OPTIMIZACIÓN: Imagen más ligera para mayor velocidad de carga
+  // OPTIMIZACIÓN EXTREMA: Imagen más ligera para evitar "Rate exceeded" y lentitud
   const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 600; // Reducido de 800 a 600 para mayor velocidad
+        const MAX_SIZE = 400; // Reducido significativamente para agilizar la carga
         let width = img.width;
         let height = img.height;
 
@@ -172,7 +172,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Reducida calidad de 0.8 a 0.6
+        // Calidad 0.4 es ideal para vistas de tabla rápidas sin saturar la red
+        resolve(canvas.toDataURL('image/jpeg', 0.4)); 
       };
       img.onerror = (e: any) => reject(e);
       img.src = source;
