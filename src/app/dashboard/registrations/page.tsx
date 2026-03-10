@@ -55,7 +55,7 @@ import {
   ArrowRightLeft
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy, limit } from "firebase/firestore"
+import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy } from "firebase/firestore"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -144,16 +144,13 @@ function EditRegistrationForm({
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-        if (width > height) {
-          if (width > maxWidth) {
-            height *= maxWidth / width;
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width *= maxHeight / height;
-            height = maxHeight;
-          }
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
         }
         canvas.width = width;
         canvas.height = height;
@@ -510,8 +507,8 @@ export default function RegistrationsListPage() {
   
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    // OPTIMIZACIÓN: Reducción del límite para mejorar velocidad de descarga
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
+    // Sin límite para mostrar el total de inscripciones real
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
   }, [db, user])
 
   const groupsQuery = useMemoFirebase(() => {

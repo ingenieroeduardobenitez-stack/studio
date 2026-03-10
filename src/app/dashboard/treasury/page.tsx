@@ -38,7 +38,7 @@ import {
   Maximize2
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
+import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction, query, orderBy } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -104,8 +104,8 @@ export default function TreasuryPage() {
 
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
-    // OPTIMIZACIÓN: Limite de registros para acelerar tesorería
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
+    // Sin límite para que los contadores sean correctos
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
   }, [db])
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
 

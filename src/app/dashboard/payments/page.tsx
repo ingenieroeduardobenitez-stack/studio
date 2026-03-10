@@ -34,7 +34,7 @@ import {
   FilterX
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction } from "firebase/firestore"
+import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction, orderBy } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -106,7 +106,8 @@ export default function PaymentsManagementPage() {
 
   const confirmandsQuery = useMemoFirebase(() => {
     if (!db) return null
-    return collection(db, "confirmations")
+    // Sin límite para que los totales sean correctos
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
   }, [db])
 
   const { data: allConfirmands, loading: loadingRegs } = useCollection(confirmandsQuery)

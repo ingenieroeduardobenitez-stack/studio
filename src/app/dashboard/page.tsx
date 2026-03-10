@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from "@/components/ui/badge"
 import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download, FileText, ArrowRight } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { doc, collection, query, orderBy, limit } from "firebase/firestore"
+import { doc, collection, query, orderBy } from "firebase/firestore"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -34,10 +34,10 @@ export default function DashboardPage() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
 
-  // OPTIMIZACIÓN EXTREMA: Solo traemos los últimos 15 para el dashboard para máxima velocidad
+  // Sin límite para que los contadores del Dashboard muestren el total real
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(15))
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
   }, [db, user])
 
   const { data: registrations, loading: regsLoading } = useCollection(registrationsQuery)
@@ -122,7 +122,7 @@ export default function DashboardPage() {
 
   if (!mounted || isUserLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Sincronizando con el Santuario...</p>
@@ -160,7 +160,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{regsLoading ? "..." : (registrations?.length || 0)}</div>
-            <p className="text-[10px] text-muted-foreground">Últimos sincronizados</p>
+            <p className="text-[10px] text-muted-foreground">Sincronización en tiempo real</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-accent bg-white">
@@ -172,7 +172,7 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold">
               {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0)}
             </div>
-            <p className="text-[10px] text-muted-foreground">Muestra reciente</p>
+            <p className="text-[10px] text-muted-foreground">Total nivel inicial</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-blue-500 bg-white">
@@ -184,7 +184,7 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold">
               {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length || 0)}
             </div>
-            <p className="text-[10px] text-muted-foreground">Muestra reciente</p>
+            <p className="text-[10px] text-muted-foreground">Total nivel final</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-orange-500 bg-white">
@@ -196,7 +196,7 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold">
               {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "ADULTOS").length || 0)}
             </div>
-            <p className="text-[10px] text-muted-foreground">Muestra reciente</p>
+            <p className="text-[10px] text-muted-foreground">Inscripción especial</p>
           </CardContent>
         </Card>
       </div>
@@ -224,7 +224,7 @@ export default function DashboardPage() {
               ) : registrations && registrations.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-12 italic">No hay inscripciones registradas aún.</p>
               ) : registrations && (
-                registrations.map((reg) => (
+                registrations.slice(0, 15).map((reg) => (
                   <div key={reg.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
                     <Avatar className="h-10 w-10 rounded-xl border shadow-sm">
                       <AvatarImage src={reg.photoUrl} className="object-cover" />
