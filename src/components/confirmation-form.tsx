@@ -147,12 +147,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     })
   }, [])
 
+  // OPTIMIZACIÓN: Imagen más ligera para mayor velocidad de carga
   const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 800;
+        const MAX_SIZE = 600; // Reducido de 800 a 600 para mayor velocidad
         let width = img.width;
         let height = img.height;
 
@@ -171,7 +172,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
+        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Reducida calidad de 0.8 a 0.6
       };
       img.onerror = (e: any) => reject(e);
       img.src = source;
@@ -554,7 +555,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       }
     } catch (error: any) {
       console.error("Error en registro:", error);
-      toast({ variant: "destructive", title: "Error en el servidor", description: "No se pudo completar la operación." });
+      toast({ variant: "destructive", title: "Error en el servidor", description: "No se pudo completar la operation." });
     } finally {
       setLoading(false)
       setLoadingWithPayment(false)
@@ -674,7 +675,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       });
       const url = canvas.toDataURL("image/png");
 
-      // SOPORTE PARA COMPARTIR IMAGEN NATIVA
       if (navigator.share && navigator.canShare) {
         const response = await fetch(url);
         const blob = await response.blob();
@@ -695,7 +695,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         }
       }
 
-      // Fallback
       const link = document.createElement("a");
       link.download = `Recibo-NSPS-${submittedData?.fullName?.replace(/\s+/g, '-')}.png`;
       link.href = url;
@@ -868,7 +867,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="flex items-center gap-3"><Clock className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Nivel y Horario</h3></div>
                 <div className="grid gap-6 md:grid-cols-2">
                   <FormField control={form.control} name="catechesisYear" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione el año" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1er Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2do Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name="attendanceDay" render={({ field }) => (<FormItem><FormLabel className="font-bold">Horario *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione su preference" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="attendanceDay" render={({ field }) => (<FormItem><FormLabel className="font-bold">Horario *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione su preferencia" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                 </div>
               </div>
               <Separator />

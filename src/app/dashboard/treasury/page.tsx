@@ -104,9 +104,10 @@ export default function TreasuryPage() {
 
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(300))
+    // OPTIMIZACIÓN: Limite de registros para acelerar tesorería
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
   }, [db])
-  const { data: registrations, isLoading: loadingRegs } = useCollection(regsQuery)
+  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
 
   const userProfileRef = useMemoFirebase(() => db && currentUser?.uid ? doc(db, "users", currentUser.uid) : null, [db, currentUser?.uid])
   const { data: profile } = useDoc(userProfileRef)

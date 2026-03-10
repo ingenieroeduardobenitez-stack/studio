@@ -510,7 +510,8 @@ export default function RegistrationsListPage() {
   
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(300))
+    // OPTIMIZACIÓN: Reducción del límite para mejorar velocidad de descarga
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
   }, [db, user])
 
   const groupsQuery = useMemoFirebase(() => {
@@ -691,7 +692,7 @@ export default function RegistrationsListPage() {
         const cedulaSnap = await getDoc(cedulaRef);
         
         if (cedulaSnap.exists()) {
-          const data = docSnap.data();
+          const data = cedulaSnap.data();
           let sexValue = "";
           if (data.SEXO) {
             const raw = String(data.SEXO).trim().toUpperCase();

@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download, FileText } from "lucide-react"
+import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download, FileText, ArrowRight } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { doc, collection, query, orderBy, limit } from "firebase/firestore"
 import { useState, useEffect } from "react"
@@ -34,20 +34,15 @@ export default function DashboardPage() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
 
-  // OPTIMIZACIÓN: Solo traemos los últimos 50 para el dashboard para máxima velocidad
+  // OPTIMIZACIÓN EXTREMA: Solo traemos los últimos 15 para el dashboard para máxima velocidad
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(50))
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(15))
   }, [db, user])
 
   const { data: registrations, loading: regsLoading } = useCollection(registrationsQuery)
 
   const registrationUrl = typeof window !== 'undefined' ? `${window.location.origin}/inscripcion` : ""
-
-  const handleShareWhatsApp = () => {
-    const message = encodeURIComponent(`⛪ *Santuario Nacional Nuestra Señora del Perpetuo Socorro*\n\n¡Hola! Te comparto el acceso para la *Inscripción Digital de Confirmación 2026*.\n\nPuedes inscribirte directamente aquí:\n${registrationUrl}\n\n_Secretaría de Catequesis_`)
-    window.open(`https://wa.me/?text=${message}`, '_blank')
-  }
 
   const handleDownloadQR = () => {
     const canvas = document.querySelector("#qr-print-area canvas") as HTMLCanvasElement
@@ -125,7 +120,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (!mounted || isUserLoading || profileLoading) {
+  if (!mounted || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-4">
@@ -135,9 +130,6 @@ export default function DashboardPage() {
       </div>
     )
   }
-
-  // Estado de carga real para evitar el flash de ceros
-  const isActuallyLoading = regsLoading || !registrations;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -167,8 +159,8 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isActuallyLoading ? "..." : (registrations?.length || 0)}</div>
-            <p className="text-[10px] text-muted-foreground">Ciclo Lectivo 2026</p>
+            <div className="text-2xl font-bold">{regsLoading ? "..." : (registrations?.length || 0)}</div>
+            <p className="text-[10px] text-muted-foreground">Últimos sincronizados</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-accent bg-white">
@@ -178,9 +170,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {isActuallyLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0)}
+              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0)}
             </div>
-            <p className="text-[10px] text-muted-foreground">Etapa de inicio</p>
+            <p className="text-[10px] text-muted-foreground">Muestra reciente</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-blue-500 bg-white">
@@ -190,9 +182,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {isActuallyLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length || 0)}
+              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length || 0)}
             </div>
-            <p className="text-[10px] text-muted-foreground">Candidatos al sacramento</p>
+            <p className="text-[10px] text-muted-foreground">Muestra reciente</p>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm border-l-4 border-l-orange-500 bg-white">
@@ -202,29 +194,36 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {isActuallyLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "ADULTOS").length || 0)}
+              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "ADULTOS").length || 0)}
             </div>
-            <p className="text-[10px] text-muted-foreground">Formación intensiva</p>
+            <p className="text-[10px] text-muted-foreground">Muestra reciente</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-6">
         <Card className="border-border/50 shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b">
-            <CardTitle className="font-headline text-lg">Últimas Inscripciones</CardTitle>
-            <CardDescription>Resumen de los últimos 50 registros realizados en el sistema.</CardDescription>
+          <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="font-headline text-lg">Actividad Reciente</CardTitle>
+              <CardDescription>Últimas 15 inscripciones registradas.</CardDescription>
+            </div>
+            <Button asChild variant="ghost" className="text-primary font-bold gap-2">
+              <Link href="/dashboard/registrations">
+                Ver todos <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {isActuallyLoading ? (
+              {regsLoading ? (
                 <div className="flex flex-col items-center justify-center p-12 gap-3">
                   <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Actualizando lista...</p>
                 </div>
-              ) : registrations.length === 0 ? (
+              ) : registrations && registrations.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-12 italic">No hay inscripciones registradas aún.</p>
-              ) : (
+              ) : registrations && (
                 registrations.map((reg) => (
                   <div key={reg.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
                     <Avatar className="h-10 w-10 rounded-xl border shadow-sm">
