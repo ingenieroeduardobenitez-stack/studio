@@ -99,7 +99,7 @@ type ViewMode = "LIST" | "GROUPS"
 type CaptureTarget = "PHOTO" | "BAPTISM" | "PAY_PROOF"
 
 /**
- * FORMULARIO DE EDICIÓN CON LÓGICA DE PAGO ACTUALIZADA
+ * FORMULARIO DE EDICIÓN CON LÓGICA DE PAGO ACTUALIZADA Y RESTRICCIÓN DE ADMINISTRADOR
  */
 function EditRegistrationForm({ 
   selectedReg, 
@@ -559,7 +559,7 @@ export default function RegistrationsListPage() {
   
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    // OPTIMIZACIÓN: Límite de 200 para reducir el conteo de lecturas (Reads) del servidor
+    // OPTIMIZACIÓN: Límite de carga para reducir lecturas masivas
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200))
   }, [db, user])
 
@@ -928,7 +928,7 @@ export default function RegistrationsListPage() {
                     <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500"><AlertCircle className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">Pendientes de Grupo o Validación</p><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{registrationsByGroup["none"].length} registros</p></div></div>
                   </AccordionTrigger>
                   <AccordionContent className="p-0 border-t border-slate-50">
-                    <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} onAssignGroup={openAssignDialog} onWithdraw={openWithdrawDialog} onDelete={openDeleteDialog} onViewDetails={openDetailsDialog} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
+                    <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={openAssignDialog} onWithdraw={openWithdrawDialog} onDelete={openDeleteDialog} onViewDetails={openDetailsDialog} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
                   </AccordionContent>
                 </div>
               </AccordionItem>
@@ -943,7 +943,7 @@ export default function RegistrationsListPage() {
                       <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><div className="flex items-center gap-2"><p className="font-bold text-slate-900">{group.name}</p><Badge variant="secondary" className="text-[9px] h-4 uppercase tracking-tighter">{formatCatechesisYear(group.catechesisYear)}</Badge></div><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{group.attendanceDay}s • {groupStudents.length} confirmandos</p></div></div>
                     </AccordionTrigger>
                     <AccordionContent className="p-0 border-t border-slate-50">
-                      <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} onAssignGroup={openAssignDialog} onWithdraw={openWithdrawDialog} onDelete={openDeleteDialog} onViewDetails={openDetailsDialog} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
+                      <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={openAssignDialog} onWithdraw={openWithdrawDialog} onDelete={openDeleteDialog} onViewDetails={openDetailsDialog} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
                     </AccordionContent>
                   </div>
                 </AccordionItem>
@@ -1102,7 +1102,7 @@ export default function RegistrationsListPage() {
   )
 }
 
-function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage, onSort, sortConfig }: any) {
+function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage, onSort, sortConfig }: any) {
   const formatTimestamp = (ts: any) => {
     if (!ts) return "---";
     try {
@@ -1180,7 +1180,7 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, onAssignGroup, 
             <TableCell className="text-center"><div className="flex justify-center">{getPaymentMethodBadge(reg.lastPaymentMethod)}</div></TableCell>
             <TableCell className="text-center"><div className="flex flex-col items-center"><span className={cn("font-black text-xs", pending > 0 ? "text-red-500" : "text-green-600")}>{pending.toLocaleString('es-PY')}</span><span className={cn("text-[8px] font-bold uppercase", pending > 0 ? "text-red-500" : "text-green-600")}>Gs.</span></div></TableCell>
             <TableCell className="text-center">{getBadge(reg.status)}</TableCell>
-            <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white" onClick={() => onViewDetails(reg)}><Eye className="h-4 w-4" /></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="rounded-xl p-2 shadow-xl border-none"><DropdownMenuLabel className="text-[10px] uppercase text-slate-400 px-3 py-2">Opciones</DropdownMenuLabel><DropdownMenuItem onClick={() => onAssignGroup(reg)} className="gap-2 h-10 rounded-lg cursor-pointer"><UserPlus className="h-4 w-4" /> Asignar Grupo</DropdownMenuItem><DropdownMenuSeparator />{isAdmin && (<><DropdownMenuItem onClick={() => onWithdraw(reg)} className="text-orange-600 gap-2 h-10 rounded-lg cursor-pointer"><UserMinus className="h-4 w-4" /> Dar de Baja</DropdownMenuItem><DropdownMenuItem onClick={() => onDelete(reg)} className="text-destructive gap-2 h-10 rounded-lg cursor-pointer"><Trash2 className="h-4 w-4" /> Eliminar Ficha</DropdownMenuItem></>)}</DropdownMenuContent></DropdownMenu></div></TableCell>
+            <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white" onClick={() => onViewDetails(reg)}><Eye className="h-4 w-4" /></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="rounded-xl p-2 shadow-xl border-none"><DropdownMenuLabel className="text-[10px] uppercase text-slate-400 px-3 py-2">Opciones</DropdownMenuLabel><DropdownMenuItem onClick={() => onAssignGroup(reg)} className="gap-2 h-10 rounded-lg cursor-pointer"><UserPlus className="h-4 w-4" /> Asignar Grupo</DropdownMenuItem><DropdownMenuSeparator />{(isAdmin || isTesorero) && (<><DropdownMenuItem onClick={() => onWithdraw(reg)} className="text-orange-600 gap-2 h-10 rounded-lg cursor-pointer"><UserMinus className="h-4 w-4" /> Dar de Baja</DropdownMenuItem><DropdownMenuItem onClick={() => onDelete(reg)} className="text-destructive gap-2 h-10 rounded-lg cursor-pointer"><Trash2 className="h-4 w-4" /> Eliminar Ficha</DropdownMenuItem></>)}</DropdownMenuContent></DropdownMenu></div></TableCell>
           </TableRow>
         )
       })}
