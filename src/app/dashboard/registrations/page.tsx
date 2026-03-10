@@ -223,6 +223,14 @@ function EditRegistrationForm({
       updatedAt: serverTimestamp()
     }
 
+    // SI SE CAMBIA A "SIN REGISTRO", EL ESTADO VUELVE A PENDIENTE Y EL SALDO A 0
+    if (editPaymentMethod === "NONE") {
+      updateData.amountPaid = 0;
+      updateData.paymentStatus = "PENDIENTE";
+      updateData.status = "POR_VALIDAR";
+      updateData.receiptNumber = ""; // Se anula el recibo previo
+    }
+
     if (editPhotoPreview && editPhotoPreview !== selectedReg.photoUrl) updateData.photoUrl = editPhotoPreview;
     if (editBaptismPreview && editBaptismPreview !== selectedReg.baptismCertificatePhotoUrl) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
     if (editPaymentProofPreview && editPaymentProofPreview !== selectedReg.paymentProofUrl) updateData.paymentProofUrl = editPaymentProofPreview;
@@ -236,7 +244,7 @@ function EditRegistrationForm({
           userName: catechistName,
           action: "Editar Ficha",
           module: "inscripcion",
-          details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}.`,
+          details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}.${editPaymentMethod === 'NONE' ? ' Se reseteó el pago a 0.' : ''}`,
           timestamp: serverTimestamp()
         }).catch(() => {});
 
@@ -274,7 +282,7 @@ function EditRegistrationForm({
       const { target, dataUrl } = e.detail;
       if (target === "PHOTO") setEditPhotoPreview(dataUrl);
       else if (target === "BAPTISM") setEditBaptismPreview(dataUrl);
-      else if (target === "PAYMENT_PROOF") setEditPaymentProofPreview(dataUrl);
+      else if (target === "PAY_PROOF") setEditPaymentProofPreview(dataUrl);
     };
     window.addEventListener('camera-capture-success', handleCameraCapture);
     return () => window.removeEventListener('camera-capture-success', handleCameraCapture);
@@ -431,7 +439,9 @@ function EditRegistrationForm({
                   <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[9px] text-slate-400 italic">Actualiza el método si hubo un error en la carga del cobro.</p>
+              <p className="text-[9px] text-slate-400 italic">
+                * Si seleccionas "Sin registro", el monto pagado se reseteará a 0 y el estado cambiará a "Por Validar".
+              </p>
             </div>
           </div>
         </div>
