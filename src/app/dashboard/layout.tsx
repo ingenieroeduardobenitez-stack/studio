@@ -20,6 +20,7 @@ export default function DashboardLayout({
   const db = useFirestore()
   const router = useRouter()
   const presenceInterval = useRef<NodeJS.Timeout | null>(null)
+  const lastUpdateRef = useRef<number>(0)
 
   // Guardia de Autenticación
   useEffect(() => {
@@ -28,25 +29,33 @@ export default function DashboardLayout({
     }
   }, [user, isUserLoading, router])
 
-  // Sistema de Presencia (Heartbeat) Optimizado
-  // Se aumenta a 60 segundos para reducir la carga de lectura/escritura (Rate Limits)
+  // Sistema de Presencia (Heartbeat) con Throttling Agresivo
   useEffect(() => {
     if (!db || !user?.uid) return
 
     const userRef = doc(db, "users", user.uid)
     
     const updatePresence = (status: "online" | "offline") => {
+      const now = Date.now()
+      
+      // Solo permite una actualización cada 60 segundos, a menos que sea para desconectarse
+      if (status === "online" && (now - lastUpdateRef.current < 60000)) {
+        return
+      }
+
+      lastUpdateRef.current = now
       updateDoc(userRef, {
         status: status,
         lastSeen: serverTimestamp()
       }).catch(() => {
-        // Silencio en caso de error
+        // Silencio en caso de error para evitar loops de error
       })
     }
 
+    // Primera señal de vida
     updatePresence("online")
 
-    // Intervalo de 60 segundos es suficiente para el monitoreo y evita "Rate exceeded"
+    // Heartbeat regular cada 60 segundos
     presenceInterval.current = setInterval(() => {
       if (document.visibilityState === 'visible') {
         updatePresence("online")

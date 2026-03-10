@@ -743,7 +743,6 @@ export default function RegistrationsListPage() {
     setIsSubmitting(true);
     let count = 0;
     try {
-      const batch = writeBatch(db);
       const studentsToFix = filteredRegistrations.filter(r => !r.sexo || r.sexo === "");
       
       if (studentsToFix.length === 0) {
@@ -754,32 +753,49 @@ export default function RegistrationsListPage() {
 
       toast({ title: "Iniciando Sincronización", description: `Analizando ${studentsToFix.length} fichas pendientes...` });
 
-      for (const student of studentsToFix) {
-        const cleanCi = student.ciNumber?.replace(/[^0-9]/g, '');
-        if (!cleanCi) continue;
-        
-        const cedulaRef = doc(db, 'cedulas', cleanCi);
-        const cedulaSnap = await getDoc(cedulaRef);
-        
-        if (cedulaSnap.exists()) {
-          const data = cedulaSnap.data();
-          let sexValue = "";
-          if (data.SEXO) {
-            const raw = String(data.SEXO).trim().toUpperCase();
-            if (raw.startsWith('M')) sexValue = "M";
-            else if (raw.startsWith('F')) sexValue = "F";
-          }
+      // Procesar en lotes de 50 para evitar Rate Limit
+      const batchSize = 50;
+      for (let i = 0; i < studentsToFix.length; i += batchSize) {
+        const chunk = studentsToFix.slice(i, i + batchSize);
+        const batch = writeBatch(db);
+        let batchCount = 0;
+
+        for (const student of chunk) {
+          const cleanCi = student.ciNumber?.replace(/[^0-9]/g, '');
+          if (!cleanCi) continue;
           
-          if (sexValue) {
-            const regRef = doc(db, "confirmations", student.id);
-            batch.update(regRef, { sexo: sexValue });
-            count++;
+          const cedulaRef = doc(db, 'cedulas', cleanCi);
+          const cedulaSnap = await getDoc(cedulaRef);
+          
+          if (cedulaSnap.exists()) {
+            const data = cedulaSnap.data();
+            let sexValue = "";
+            if (data.SEXO) {
+              const raw = String(data.SEXO).trim().toUpperCase();
+              if (raw.startsWith('M')) sexValue = "M";
+              else if (raw.startsWith('F')) sexValue = "F";
+            }
+            
+            if (sexValue) {
+              const regRef = doc(db, "confirmations", student.id);
+              batch.update(regRef, { sexo: sexValue });
+              batchCount++;
+              count++;
+            }
           }
+        }
+
+        if (batchCount > 0) {
+          await batch.commit();
+        }
+        
+        // Pequeño retardo entre lotes para respirar
+        if (i + batchSize < studentsToFix.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
       
       if (count > 0) {
-        await batch.commit();
         await addDoc(collection(db, "audit_logs"), {
           userId: user?.uid || "unknown",
           userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
