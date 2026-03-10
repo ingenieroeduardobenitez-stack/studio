@@ -29,7 +29,8 @@ export default function DashboardLayout({
     }
   }, [user, isUserLoading, router])
 
-  // Sistema de Presencia (Heartbeat) con Throttling Agresivo para evitar Rate Exceeded
+  // Sistema de Presencia (Heartbeat) ULTRA-CONSERVADOR
+  // Solo actualiza una vez cada 5 minutos (300,000 ms) para evitar Rate Exceeded
   useEffect(() => {
     if (!db || !user?.uid) return
 
@@ -38,9 +39,8 @@ export default function DashboardLayout({
     const updatePresence = (status: "online" | "offline") => {
       const now = Date.now()
       
-      // SOLO permite una actualización cada 60 segundos por usuario.
-      // Esto elimina el error "Rate exceeded" al cambiar de pestaña o pestaña inactiva.
-      if (status === "online" && (now - lastUpdateRef.current < 60000)) {
+      // Bloqueo estricto: no más de una actualización cada 5 minutos
+      if (status === "online" && (now - lastUpdateRef.current < 300000)) {
         return
       }
 
@@ -49,19 +49,19 @@ export default function DashboardLayout({
         status: status,
         lastSeen: serverTimestamp()
       }).catch(() => {
-        // Silencio en caso de error para evitar saturar el log
+        // Silencio para no saturar logs
       })
     }
 
-    // Primera señal de vida
+    // Primera señal de vida al entrar
     updatePresence("online")
 
-    // Heartbeat regular cada 60 segundos (solo si la ventana es visible)
+    // Heartbeat cada 5 minutos
     presenceInterval.current = setInterval(() => {
       if (document.visibilityState === 'visible') {
         updatePresence("online")
       }
-    }, 60000)
+    }, 300000)
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -69,17 +69,11 @@ export default function DashboardLayout({
       }
     }
 
-    const handleFocus = () => {
-      updatePresence("online")
-    }
-
-    window.addEventListener("focus", handleFocus)
     window.addEventListener("beforeunload", () => updatePresence("offline"))
     document.addEventListener("visibilitychange", handleVisibilityChange)
     
     return () => {
       if (presenceInterval.current) clearInterval(presenceInterval.current)
-      window.removeEventListener("focus", handleFocus)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [db, user?.uid])
@@ -89,7 +83,7 @@ export default function DashboardLayout({
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Verificando Credenciales...</p>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Sincronizando con el Santuario...</p>
         </div>
       </div>
     )

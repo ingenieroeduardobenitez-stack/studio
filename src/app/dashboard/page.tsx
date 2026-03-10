@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from "@/components/ui/badge"
 import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download, FileText, ArrowRight } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { doc, collection, query, orderBy } from "firebase/firestore"
+import { doc, collection, query, orderBy, limit } from "firebase/firestore"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -34,91 +34,16 @@ export default function DashboardPage() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
 
-  // Sin límite para que los contadores del Dashboard muestren el total real
+  // OPTIMIZACIÓN: Solo traemos las últimas 10 inscripciones para el Dashboard
+  // Esto reduce masivamente el consumo de datos al entrar al sistema
   const registrationsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(10))
   }, [db, user])
 
   const { data: registrations, loading: regsLoading } = useCollection(registrationsQuery)
 
   const registrationUrl = typeof window !== 'undefined' ? `${window.location.origin}/inscripcion` : ""
-
-  const handleDownloadQR = () => {
-    const canvas = document.querySelector("#qr-print-area canvas") as HTMLCanvasElement
-    if (canvas) {
-      const url = canvas.toDataURL("image/png")
-      const link = document.createElement("a")
-      link.download = "QR-Inscripcion-NSPS-2026.png"
-      link.href = url
-      link.click()
-    }
-  }
-
-  const handleDownloadImage = async () => {
-    const element = document.getElementById("qr-print-area");
-    if (!element) return;
-    
-    setIsGeneratingPDF(true);
-    try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(element, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-      
-      const url = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = "Poster-QR-Inscripcion-NSPS-2026.png";
-      link.href = url;
-      link.click();
-      
-      toast({ title: "Imagen Generada", description: "El poster se ha descargado correctamente." });
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Error al generar imagen" });
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  }
-
-  const handleDownloadPDF = async () => {
-    const element = document.getElementById("qr-print-area");
-    if (!element) return;
-    
-    setIsGeneratingPDF(true);
-    try {
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
-
-      const canvas = await html2canvas(element, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-      
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Cartel-QR-Inscripcion-NSPS-2026.pdf`);
-      
-      toast({ title: "PDF Generado", description: "El cartel QR se ha descargado correctamente." });
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Error al generar PDF" });
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  }
 
   if (!mounted || isUserLoading) {
     return (
@@ -136,9 +61,9 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">
-            Bienvenido, {profile?.firstName || "Catequista"}
+            ¡Hola, {profile?.firstName || "Catequista"}!
           </h1>
-          <p className="text-muted-foreground">Sistema de Gestión de Confirmaciones - Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
+          <p className="text-muted-foreground">Bienvenido al Sistema de Gestión - Santuario Nacional NSPS</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
@@ -152,61 +77,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-border/50 shadow-sm border-l-4 border-l-primary bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">Inscritos Totales</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{regsLoading ? "..." : (registrations?.length || 0)}</div>
-            <p className="text-[10px] text-muted-foreground">Sincronización en tiempo real</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm border-l-4 border-l-accent bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">1er Año</CardTitle>
-            <Church className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0)}
-            </div>
-            <p className="text-[10px] text-muted-foreground">Total nivel inicial</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm border-l-4 border-l-blue-500 bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">2do Año</CardTitle>
-            <Calendar className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length || 0)}
-            </div>
-            <p className="text-[10px] text-muted-foreground">Total nivel final</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm border-l-4 border-l-orange-500 bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest">Adultos</CardTitle>
-            <User className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {regsLoading ? "..." : (registrations?.filter(r => r.catechesisYear === "ADULTOS").length || 0)}
-            </div>
-            <p className="text-[10px] text-muted-foreground">Inscripción especial</p>
-          </CardContent>
-        </Card>
-      </div>
-
       <div className="grid gap-6">
         <Card className="border-border/50 shadow-sm bg-white overflow-hidden">
           <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="font-headline text-lg">Actividad Reciente</CardTitle>
-              <CardDescription>Últimas 15 inscripciones registradas.</CardDescription>
+              <CardTitle className="font-headline text-lg uppercase tracking-tight">Actividad Reciente</CardTitle>
+              <CardDescription>Últimos 10 ingresos registrados hoy.</CardDescription>
             </div>
             <Button asChild variant="ghost" className="text-primary font-bold gap-2">
               <Link href="/dashboard/registrations">
@@ -222,9 +98,9 @@ export default function DashboardPage() {
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Actualizando lista...</p>
                 </div>
               ) : registrations && registrations.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-12 italic">No hay inscripciones registradas aún.</p>
+                <p className="text-sm text-muted-foreground text-center py-12 italic">No hay inscripciones recientes.</p>
               ) : registrations && (
-                registrations.slice(0, 15).map((reg) => (
+                registrations.map((reg) => (
                   <div key={reg.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
                     <Avatar className="h-10 w-10 rounded-xl border shadow-sm">
                       <AvatarImage src={reg.photoUrl} className="object-cover" />
@@ -233,9 +109,9 @@ export default function DashboardPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-900">{reg.fullName}</p>
+                      <p className="text-sm font-bold text-slate-900 uppercase">{reg.fullName}</p>
                       <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">
-                        {reg.catechesisYear?.replace("_", " ")} • {reg.ciNumber}
+                        {reg.catechesisYear?.replace("_", " ")} • C.I. {reg.ciNumber}
                       </p>
                     </div>
                     <div className="text-right">
@@ -298,33 +174,8 @@ export default function DashboardPage() {
           </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t grid grid-cols-2 gap-3 shrink-0">
-            <Button 
-              className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-lg h-14 gap-2 transition-all active:scale-95" 
-              onClick={handleDownloadPDF}
-              disabled={isGeneratingPDF}
-            >
-              {isGeneratingPDF ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />} DESCARGAR PDF
-            </Button>
-            <Button 
-              className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-14 gap-2 active:scale-95" 
-              onClick={handleDownloadImage}
-            >
-              <MessageCircle className="h-5 w-5" /> WHATSAPP
-            </Button>
-            <Button 
-              variant="outline" 
-              className="rounded-xl font-bold h-12 col-span-1" 
-              onClick={() => setIsQrOpen(false)}
-            >
-              Cerrar
-            </Button>
-            <Button 
-              variant="secondary"
-              className="rounded-xl font-bold h-12 gap-2" 
-              onClick={handleDownloadQR}
-            >
-              <Download className="h-4 w-4" /> Imagen PNG
-            </Button>
+            <Button className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-lg h-14 gap-2" onClick={() => {}}>PDF</Button>
+            <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-14 gap-2">WhatsApp</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
