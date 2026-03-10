@@ -52,7 +52,8 @@ import {
   ZoomOut,
   Maximize2,
   Banknote,
-  ArrowRightLeft
+  ArrowRightLeft,
+  CalendarDays
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy } from "firebase/firestore"
@@ -223,12 +224,11 @@ function EditRegistrationForm({
       updatedAt: serverTimestamp()
     }
 
-    // SI SE CAMBIA A "SIN REGISTRO", EL ESTADO VUELVE A PENDIENTE Y EL SALDO A 0
     if (editPaymentMethod === "NONE") {
       updateData.amountPaid = 0;
       updateData.paymentStatus = "PENDIENTE";
       updateData.status = "POR_VALIDAR";
-      updateData.receiptNumber = ""; // Se anula el recibo previo
+      updateData.receiptNumber = ""; 
     }
 
     if (editPhotoPreview && editPhotoPreview !== selectedReg.photoUrl) updateData.photoUrl = editPhotoPreview;
@@ -497,6 +497,7 @@ export default function RegistrationsListPage() {
   const [filterYear, setFilterYear] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all")
+  const [filterSchedule, setFilterSchedule] = useState<string>("all")
 
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -575,10 +576,11 @@ export default function RegistrationsListPage() {
       const matchesYear = filterYear === "all" || reg.catechesisYear === filterYear
       const matchesStatus = filterStatus === "all" || reg.status === filterStatus
       const matchesPayment = filterPaymentMethod === "all" || reg.lastPaymentMethod === filterPaymentMethod
+      const matchesSchedule = filterSchedule === "all" || reg.attendanceDay === filterSchedule
 
-      return matchesSearch && matchesSex && matchesOrigin && matchesYear && matchesStatus && matchesPayment
+      return matchesSearch && matchesSex && matchesOrigin && matchesYear && matchesStatus && matchesPayment && matchesSchedule
     })
-  }, [registrations, searchTerm, filterSex, filterOrigin, filterYear, filterStatus, filterPaymentMethod])
+  }, [registrations, searchTerm, filterSex, filterOrigin, filterYear, filterStatus, filterPaymentMethod, filterSchedule])
 
   const stats = useMemo(() => {
     const s = { m: 0, f: 0, total: 0 };
@@ -630,6 +632,7 @@ export default function RegistrationsListPage() {
     setFilterYear("all");
     setFilterStatus("all");
     setFilterPaymentMethod("all");
+    setFilterSchedule("all");
   }
 
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
@@ -1021,7 +1024,7 @@ export default function RegistrationsListPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label>
               <Select value={filterSex} onValueChange={setFilterSex}>
@@ -1094,6 +1097,20 @@ export default function RegistrationsListPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label>
+              <Select value={filterSchedule} onValueChange={setFilterSchedule}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los horarios</SelectItem>
+                  <SelectItem value="SABADO">Sábado (15:30)</SelectItem>
+                  <SelectItem value="DOMINGO">Domingo (08:00)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -1129,7 +1146,7 @@ export default function RegistrationsListPage() {
             )}
             {groups?.map((group: any) => {
               const groupStudents = registrationsByGroup[group.id] || []
-              if (groupStudents.length === 0 && (searchTerm || filterSex !== 'all' || filterOrigin !== 'all' || filterYear !== 'all' || filterStatus !== 'all' || filterPaymentMethod !== 'all')) return null
+              if (groupStudents.length === 0 && (searchTerm || filterSex !== 'all' || filterOrigin !== 'all' || filterYear !== 'all' || filterStatus !== 'all' || filterPaymentMethod !== 'all' || filterSchedule !== 'all')) return null
               return (
                 <AccordionItem key={group.id} value={group.id} className="border-none">
                   <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -1277,7 +1294,7 @@ export default function RegistrationsListPage() {
             <DialogTitle>Asignar Grupo</DialogTitle>
           </DialogHeader>
           <div className="p-8 space-y-4">
-            <p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p>
+            <p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} for {selectedReg?.fullName}:</p>
             <Select value={newGroupId} onValueChange={setNewGroupId}>
               <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200">
                 <SelectValue placeholder="Elige un grupo disponible" />
