@@ -127,6 +127,7 @@ function EditRegistrationForm({
   const [editCatechesisYear, setEditCatechesisYear] = useState(selectedReg?.catechesisYear || "PRIMER_AÑO")
   const [editAttendanceDay, setEditAttendanceDay] = useState(selectedReg?.attendanceDay || "SABADO")
   const [editGender, setEditGender] = useState(selectedReg?.sexo || "M")
+  const [editPaymentMethod, setEditPaymentMethod] = useState(selectedReg?.lastPaymentMethod || "NONE")
   
   const editPhotoInputRef = useRef<HTMLInputElement>(null)
   const editBaptismInputRef = useRef<HTMLInputElement>(null)
@@ -218,6 +219,7 @@ function EditRegistrationForm({
       catechesisYear: editCatechesisYear,
       attendanceDay: editAttendanceDay,
       sexo: editGender,
+      lastPaymentMethod: editPaymentMethod === "NONE" ? null : editPaymentMethod,
       updatedAt: serverTimestamp()
     }
 
@@ -406,6 +408,30 @@ function EditRegistrationForm({
                   <SelectItem value="DOMINGO">Domingos</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Administrativa</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-amber-50/30 p-6 rounded-2xl border border-amber-100 border-dashed">
+            <div className="space-y-2">
+              <Label className="font-bold text-slate-700 flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-amber-600" /> Forma de Pago
+              </Label>
+              <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
+                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
+                  <SelectValue placeholder="Seleccione método" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">Sin registro</SelectItem>
+                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[9px] text-slate-400 italic">Actualiza el método si hubo un error en la carga del cobro.</p>
             </div>
           </div>
         </div>
