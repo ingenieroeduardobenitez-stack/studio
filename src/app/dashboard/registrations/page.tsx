@@ -129,6 +129,7 @@ function EditRegistrationForm({
   const [editAttendanceDay, setEditAttendanceDay] = useState(selectedReg?.attendanceDay || "SABADO")
   const [editGender, setEditGender] = useState(selectedReg?.sexo || "M")
   const [editPaymentMethod, setEditPaymentMethod] = useState(selectedReg?.lastPaymentMethod || "NONE")
+  const [editAmountPaid, setEditAmountPaid] = useState<number>(selectedReg?.amountPaid || 0)
   
   const editPhotoInputRef = useRef<HTMLInputElement>(null)
   const editBaptismInputRef = useRef<HTMLInputElement>(null)
@@ -221,6 +222,7 @@ function EditRegistrationForm({
       attendanceDay: editAttendanceDay,
       sexo: editGender,
       lastPaymentMethod: editPaymentMethod === "NONE" ? null : editPaymentMethod,
+      amountPaid: editPaymentMethod === "NONE" ? 0 : editAmountPaid,
       updatedAt: serverTimestamp()
     }
 
@@ -229,6 +231,12 @@ function EditRegistrationForm({
       updateData.paymentStatus = "PENDIENTE";
       updateData.status = "POR_VALIDAR";
       updateData.receiptNumber = ""; 
+    } else {
+      const regCost = selectedReg.registrationCost || (editCatechesisYear === "ADULTOS" ? 50000 : 35000);
+      updateData.paymentStatus = editAmountPaid >= regCost ? "PAGADO" : (editAmountPaid > 0 ? "PARCIAL" : "PENDIENTE");
+      if (editAmountPaid > 0) {
+        updateData.status = "INSCRITO";
+      }
     }
 
     if (editPhotoPreview && editPhotoPreview !== selectedReg.photoUrl) updateData.photoUrl = editPhotoPreview;
@@ -244,7 +252,7 @@ function EditRegistrationForm({
           userName: catechistName,
           action: "Editar Ficha",
           module: "inscripcion",
-          details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}.${editPaymentMethod === 'NONE' ? ' Se reseteó el pago a 0.' : ''}`,
+          details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}.${editPaymentMethod === 'NONE' ? ' Se reseteó el pago a 0.' : ` Monto editado: ${editAmountPaid} Gs.`}`,
           timestamp: serverTimestamp()
         }).catch(() => {});
 
@@ -443,6 +451,23 @@ function EditRegistrationForm({
                 * Si seleccionas "Sin registro", el monto pagado se reseteará a 0 y el estado cambiará a "Por Validar".
               </p>
             </div>
+
+            {editPaymentMethod !== "NONE" && (
+              <div className="space-y-2 animate-in fade-in zoom-in-95 duration-300">
+                <Label className="font-bold text-slate-700 flex items-center gap-2">
+                  <Banknote className="h-4 w-4 text-green-600" /> Monto Registrado (Gs)
+                </Label>
+                <Input 
+                  type="number" 
+                  value={editAmountPaid} 
+                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
+                  className="h-11 rounded-xl bg-white border-slate-200 font-bold text-primary"
+                />
+                <p className="text-[9px] text-slate-400 italic">
+                  * Puedes corregir el monto recibido si fue cargado incorrectamente.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
