@@ -17,7 +17,9 @@ import {
   CircleDollarSign,
   PieChart as PieChartIcon,
   Filter,
-  Download
+  Download,
+  AlertCircle,
+  Clock
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection } from "firebase/firestore"
@@ -52,8 +54,18 @@ export default function FinancialStatsPage() {
   const { data: expenses, loading: loadingExpenses } = useCollection(expensesQuery)
 
   const totals = useMemo(() => {
+    // Ingresos reales (lo que ya se pagó)
     const incomeRegs = registrations?.reduce((sum, r) => sum + (r.amountPaid || 0), 0) || 0
     
+    // Lógica para "Por Validar" (Lo que se espera cobrar de inscripciones pendientes)
+    const porValidar = registrations?.filter(r => r.status === "POR_VALIDAR") || []
+    const pendingValidationCount = porValidar.length
+    const pendingValidationAmount = porValidar.reduce((sum, r) => {
+      // Usar costo registrado o fallback según nivel
+      const cost = r.registrationCost || (r.catechesisYear === "ADULTOS" ? 50000 : 35000);
+      return sum + cost;
+    }, 0)
+
     let incomeEvents = 0
     users?.forEach(u => {
       if (u.eventPayments) {
@@ -71,7 +83,9 @@ export default function FinancialStatsPage() {
       incomeEvents,
       totalIncome,
       totalExpenses,
-      balance: totalIncome - totalExpenses
+      balance: totalIncome - totalExpenses,
+      pendingValidationCount,
+      pendingValidationAmount
     }
   }, [registrations, users, expenses])
 
@@ -106,7 +120,7 @@ export default function FinancialStatsPage() {
         <div className="flex items-center justify-center py-40"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <Card className="border-none shadow-sm border-l-4 border-l-green-500 bg-white">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Ingresos</CardTitle>
@@ -120,6 +134,19 @@ export default function FinancialStatsPage() {
               </CardContent>
             </Card>
 
+            <Card className="border-none shadow-sm border-l-4 border-l-orange-500 bg-white">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Por Validar (Pendiente)</CardTitle>
+                <Clock className="h-4 w-4 text-orange-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-black text-orange-600">{totals.pendingValidationAmount.toLocaleString('es-PY')} Gs.</div>
+                <div className="flex items-center gap-1 mt-1 text-[10px] text-orange-500 font-bold">
+                  <AlertCircle className="h-3 w-3" /> {totals.pendingValidationCount} fichas por procesar
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="border-none shadow-sm border-l-4 border-l-red-500 bg-white">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Egresos</CardTitle>
@@ -128,19 +155,19 @@ export default function FinancialStatsPage() {
               <CardContent>
                 <div className="text-2xl font-black text-slate-900">{totals.totalExpenses.toLocaleString('es-PY')} Gs.</div>
                 <div className="flex items-center gap-1 mt-1 text-[10px] text-red-600 font-bold">
-                  <ArrowDownRight className="h-3 w-3" /> Comprobantes registrados
+                  <ArrowDownRight className="h-3 w-3" /> Gastos operativos
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-none shadow-sm border-l-4 border-l-primary bg-slate-900 text-white">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Balance Neto</CardTitle>
+                <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Balance Real</CardTitle>
                 <Wallet className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-black">{totals.balance.toLocaleString('es-PY')} Gs.</div>
-                <p className="text-[10px] text-slate-400 mt-1">Disponible en caja institucional</p>
+                <p className="text-[10px] text-slate-400 mt-1">Efectivo/Banco disponible</p>
               </CardContent>
             </Card>
           </div>
@@ -225,18 +252,23 @@ export default function FinancialStatsPage() {
                   <TableRow>
                     <TableHead className="font-bold">Categoría</TableHead>
                     <TableHead className="font-bold text-center">Tipo</TableHead>
-                    <TableHead className="font-bold text-right pr-8">Total Acumulado</TableHead>
+                    <TableHead className="font-bold text-right pr-8">Monto Acumulado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-bold">Inscripciones Confirmandos</TableCell>
-                    <TableCell className="text-center"><Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ingreso</Badge></TableCell>
+                    <TableCell className="font-bold">Inscripciones Confirmadas (Pagadas)</TableCell>
+                    <TableCell className="text-center"><Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ingreso Real</Badge></TableCell>
                     <TableCell className="text-right font-black pr-8 text-green-600">+{totals.incomeRegs.toLocaleString('es-PY')} Gs.</TableCell>
+                  </TableRow>
+                  <TableRow className="bg-orange-50/20">
+                    <TableCell className="font-bold">Inscripciones por Validar</TableCell>
+                    <TableCell className="text-center"><Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">Proyección</Badge></TableCell>
+                    <TableCell className="text-right font-black pr-8 text-orange-600">+{totals.pendingValidationAmount.toLocaleString('es-PY')} Gs.</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-bold">Cobros a Catequistas (Eventos)</TableCell>
-                    <TableCell className="text-center"><Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ingreso</Badge></TableCell>
+                    <TableCell className="text-center"><Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ingreso Real</Badge></TableCell>
                     <TableCell className="text-right font-black pr-8 text-green-600">+{totals.incomeEvents.toLocaleString('es-PY')} Gs.</TableCell>
                   </TableRow>
                   <TableRow>
