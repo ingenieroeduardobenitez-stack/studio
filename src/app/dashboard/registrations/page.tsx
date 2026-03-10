@@ -50,7 +50,7 @@ import {
   Church
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy } from "firebase/firestore"
+import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy, limit } from "firebase/firestore"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -559,7 +559,8 @@ export default function RegistrationsListPage() {
   
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
+    // OPTIMIZACIÓN: Límite de 200 para reducir el conteo de lecturas (Reads) del servidor
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200))
   }, [db, user])
 
   const groupsQuery = useMemoFirebase(() => {

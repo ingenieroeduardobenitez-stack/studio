@@ -45,7 +45,7 @@ import {
   Users
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction, query, orderBy } from "firebase/firestore"
+import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -112,7 +112,8 @@ export default function TreasuryPage() {
 
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
+    // OPTIMIZACIÓN: Límite de carga para evitar excesivas lecturas en Tesorería
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200))
   }, [db])
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
 
@@ -601,7 +602,7 @@ export default function TreasuryPage() {
                                   )}
                                   {!isSettled && (<Button size="sm" variant="outline" className="h-8 rounded-xl font-bold gap-2 border-primary text-primary" onClick={() => handleOpenPayment(reg)}><CheckCircle2 className="h-3.5 w-3.5" /> Cobrar</Button>)}
                                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-primary/5 text-primary rounded-lg" onClick={() => openDetailsDialog(reg)}><Eye className="h-4 w-4" /></Button>
-                                  {isSettled && (<Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-green-50 text-green-600 rounded-lg" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-4 w-4" /></Button>)}
+                                  {isSettled && (<Button size="sm" variant="ghost" className="h-4 w-4 p-0 bg-green-50 text-green-600 rounded-lg" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-4 w-4" /></Button>)}
                                 </div>
                               </TableCell>
                             </TableRow>
