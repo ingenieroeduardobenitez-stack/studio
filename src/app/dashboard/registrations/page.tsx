@@ -139,6 +139,8 @@ function EditRegistrationForm({
   const db = useFirestore()
   const { user } = useUser()
 
+  const isAdmin = profile?.role === "Administrador"
+
   const compressImage = (source: string, maxWidth = 600, maxHeight = 800): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
@@ -448,7 +450,9 @@ function EditRegistrationForm({
                 </SelectContent>
               </Select>
               <p className="text-[9px] text-slate-400 italic">
-                * Si seleccionas "Sin registro", el monto pagado se reseteará a 0 y el estado cambiará a "Por Validar".
+                {isAdmin 
+                  ? '* Si seleccionas "Sin registro", el monto pagado se reseteará a 0 y el estado cambiará a "Por Validar".'
+                  : '* Función solo disponible para administradores.'}
               </p>
             </div>
 
@@ -461,10 +465,16 @@ function EditRegistrationForm({
                   type="number" 
                   value={editAmountPaid} 
                   onChange={(e) => setEditAmountPaid(Number(e.target.value))}
-                  className="h-11 rounded-xl bg-white border-slate-200 font-bold text-primary"
+                  readOnly={!isAdmin}
+                  className={cn(
+                    "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
+                    !isAdmin && "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  )}
                 />
                 <p className="text-[9px] text-slate-400 italic">
-                  * Puedes corregir el monto recibido si fue cargado incorrectamente.
+                  {isAdmin 
+                    ? "* Puedes corregir el monto recibido si fue cargado incorrectamente." 
+                    : "* Solo los administradores pueden corregir montos registrados."}
                 </p>
               </div>
             )}
