@@ -29,7 +29,7 @@ export default function DashboardLayout({
     }
   }, [user, isUserLoading, router])
 
-  // Sistema de Presencia (Heartbeat) con Throttling Agresivo
+  // Sistema de Presencia (Heartbeat) con Throttling Agresivo para evitar Rate Exceeded
   useEffect(() => {
     if (!db || !user?.uid) return
 
@@ -38,7 +38,8 @@ export default function DashboardLayout({
     const updatePresence = (status: "online" | "offline") => {
       const now = Date.now()
       
-      // Solo permite una actualización cada 60 segundos, a menos que sea para desconectarse
+      // SOLO permite una actualización cada 60 segundos por usuario.
+      // Esto elimina el error "Rate exceeded" al cambiar de pestaña o pestaña inactiva.
       if (status === "online" && (now - lastUpdateRef.current < 60000)) {
         return
       }
@@ -48,14 +49,14 @@ export default function DashboardLayout({
         status: status,
         lastSeen: serverTimestamp()
       }).catch(() => {
-        // Silencio en caso de error para evitar loops de error
+        // Silencio en caso de error para evitar saturar el log
       })
     }
 
     // Primera señal de vida
     updatePresence("online")
 
-    // Heartbeat regular cada 60 segundos
+    // Heartbeat regular cada 60 segundos (solo si la ventana es visible)
     presenceInterval.current = setInterval(() => {
       if (document.visibilityState === 'visible') {
         updatePresence("online")

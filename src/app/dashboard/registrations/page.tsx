@@ -753,8 +753,7 @@ export default function RegistrationsListPage() {
 
       toast({ title: "Iniciando Sincronización", description: `Analizando ${studentsToFix.length} fichas pendientes...` });
 
-      // Procesar en lotes de 50 para evitar Rate Limit
-      const batchSize = 50;
+      const batchSize = 25; // Reducido para mayor seguridad
       for (let i = 0; i < studentsToFix.length; i += batchSize) {
         const chunk = studentsToFix.slice(i, i + batchSize);
         const batch = writeBatch(db);
@@ -789,10 +788,8 @@ export default function RegistrationsListPage() {
           await batch.commit();
         }
         
-        // Pequeño retardo entre lotes para respirar
-        if (i + batchSize < studentsToFix.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
+        // Retardo mayor para evitar Rate Exceeded
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
       if (count > 0) {
@@ -806,7 +803,7 @@ export default function RegistrationsListPage() {
         });
         toast({ title: "Sincronización completa", description: `Se actualizaron ${count} fichas con éxito.` });
       } else {
-        toast({ title: "Sin datos nuevos", description: "No se encontró información de sexo para los registros pendientes en la base de cédulas." });
+        toast({ title: "Sin datos nuevos", description: "No se encontró información de sexo para los registros pendientes." });
       }
     } catch (error) {
       console.error(error);
@@ -829,7 +826,7 @@ export default function RegistrationsListPage() {
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
         transaction.update(regRef, {
           status: "INSCRITO",
-          amountPaid: selectedReg.registrationCost || 0,
+          amountPaid: selectedReg.registrationCost || 35000,
           paymentStatus: "PAGADO",
           validatedAt: serverTimestamp(),
           validatedBy: catechistName,

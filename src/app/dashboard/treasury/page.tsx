@@ -35,7 +35,14 @@ import {
   Share2,
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Maximize2,
+  Calendar,
+  Phone,
+  ShieldCheck,
+  BookOpen,
+  Book,
+  UserCircle,
+  Users
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, addDoc, runTransaction, query, orderBy } from "firebase/firestore"
@@ -46,6 +53,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { QRCodeCanvas } from "qrcode.react"
+import Image from "next/image"
 
 export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
@@ -104,7 +112,6 @@ export default function TreasuryPage() {
 
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
-    // Sin límite para que los contadores sean correctos
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
   }, [db])
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
@@ -587,6 +594,11 @@ export default function TreasuryPage() {
                               <TableCell className="text-center"><span className={cn("font-bold text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? `${pending.toLocaleString('es-PY')} Gs.` : "Saldado"}</span></TableCell>
                               <TableCell className="text-right pr-8">
                                 <div className="flex justify-end gap-2">
+                                  {reg.paymentProofUrl && (
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-500 hover:bg-orange-50" onClick={() => { setSelectedProof(reg.paymentProofUrl); setIsProofViewOpen(true); }} title="Ver Comprobante">
+                                      <ImageIcon className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                   {!isSettled && (<Button size="sm" variant="outline" className="h-8 rounded-xl font-bold gap-2 border-primary text-primary" onClick={() => handleOpenPayment(reg)}><CheckCircle2 className="h-3.5 w-3.5" /> Cobrar</Button>)}
                                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-primary/5 text-primary rounded-lg" onClick={() => openDetailsDialog(reg)}><Eye className="h-4 w-4" /></Button>
                                   {isSettled && (<Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-green-50 text-green-600 rounded-lg" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-4 w-4" /></Button>)}
@@ -642,6 +654,66 @@ export default function TreasuryPage() {
           <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Confirmar Cobro</DialogTitle></DialogHeader>
           <div className="p-6 space-y-6"><div className="p-4 bg-slate-50 rounded-2xl border flex justify-between"><span>Saldo:</span><span className="font-black">{(pendingBalance).toLocaleString('es-PY')} Gs.</span></div><div className="space-y-3"><Label>Monto Recibido</Label><Input type="number" className="h-14 text-2xl font-black rounded-2xl" value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} /></div></div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button><Button className="flex-1 bg-green-600" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isSubmittingPayment}>Confirmar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <div className="flex items-center gap-4 md:gap-6">
+              <div className="relative">
+                <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white/20 shadow-xl"><AvatarImage src={selectedReg?.photoUrl} className="object-cover" /><AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback></Avatar>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60 leading-none">Ficha de Tesorería</p>
+                <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight truncate">{selectedReg?.fullName}</DialogTitle>
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 pt-1"><Badge variant="outline" className="text-white border-white/30 font-bold gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" /> C.I. {selectedReg?.ciNumber}</Badge><Badge variant="secondary" className="bg-white text-primary font-black uppercase tracking-tighter text-[10px]">{formatYear(selectedReg?.catechesisYear)}</Badge></div>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto bg-slate-50">
+            <div className="p-6 md:p-8 space-y-8 pb-20">
+              <section className="space-y-4">
+                <div className="flex items-center gap-3 border-b pb-2"><UserCircle className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Información Personal</h3></div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Nacimiento</Label><p className="text-sm font-bold text-slate-700">{selectedReg?.birthDate}</p></div>
+                  <div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Edad</Label><p className="text-sm font-bold text-slate-700">{selectedReg?.age} Años</p></div>
+                  <div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Contacto</Label><p className="text-sm font-bold text-slate-700">{selectedReg?.phone}</p></div>
+                </div>
+              </section>
+              <section className="space-y-4">
+                <div className="flex items-center gap-3 border-b pb-2"><BookOpen className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Sacramentos</h3></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={cn("p-4 rounded-2xl border flex items-start gap-4", selectedReg?.hasBaptism ? "bg-green-50" : "bg-red-50")}>
+                    <Church className={cn("h-5 w-5", selectedReg?.hasBaptism ? "text-green-600" : "text-red-600")} />
+                    <div><p className="text-[10px] font-black uppercase">Bautismo</p><p className="text-[10px] font-bold text-slate-600">{selectedReg?.hasBaptism ? 'Realizado' : 'Pendiente'}</p></div>
+                  </div>
+                  <div className={cn("p-4 rounded-2xl border flex items-start gap-4", selectedReg?.hasFirstCommunion ? "bg-blue-50" : "bg-orange-50")}>
+                    <Book className={cn("h-5 w-5", selectedReg?.hasFirstCommunion ? "text-blue-600" : "text-orange-600")} />
+                    <div><p className="text-[10px] font-black uppercase">Primera Comunión</p><p className="text-[10px] font-bold text-slate-600">{selectedReg?.hasFirstCommunion ? 'Realizado' : 'Pendiente'}</p></div>
+                  </div>
+                </div>
+              </section>
+              <section className="space-y-6">
+                <div className="flex items-center gap-3 border-b pb-2"><ImageIcon className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Documentación Adjunta</h3></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <Label className="text-[8px] font-black text-slate-400 uppercase">Comprobante de Pago / Transferencia</Label>
+                    <div className="aspect-[4/3] rounded-xl border-2 border-dashed overflow-hidden bg-white cursor-pointer hover:border-primary transition-colors" onClick={() => { if(selectedReg?.paymentProofUrl) { setSelectedProof(selectedReg.paymentProofUrl); setIsProofViewOpen(true); } }}>
+                      {selectedReg?.paymentProofUrl ? <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-300"><ImageIcon className="h-6 w-6" /></div>}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[8px] font-black text-slate-400 uppercase">Certificado de Bautismo</Label>
+                    <div className="aspect-[4/3] rounded-xl border-2 border-dashed overflow-hidden bg-white cursor-pointer hover:border-primary transition-colors" onClick={() => { if(selectedReg?.baptismCertificatePhotoUrl) { setSelectedProof(selectedReg.baptismCertificatePhotoUrl); setIsProofViewOpen(true); } }}>
+                      {selectedReg?.baptismCertificatePhotoUrl ? <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-slate-300"><ImageIcon className="h-6 w-6" /></div>}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-white border-t"><Button variant="outline" className="rounded-xl h-12 font-bold w-full" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar Ficha</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
