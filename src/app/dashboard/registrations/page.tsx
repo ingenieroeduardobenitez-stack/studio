@@ -46,7 +46,8 @@ import {
   Maximize2,
   Banknote,
   ArrowRightLeft,
-  FileText
+  FileText,
+  Church
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy } from "firebase/firestore"
@@ -220,7 +221,6 @@ function EditRegistrationForm({
       updatedAt: serverTimestamp()
     }
 
-    // Lógica automática si se cambia a "Sin registro" o se edita el monto
     if (editPaymentMethod === "NONE") {
       updateData.amountPaid = 0;
       updateData.paymentStatus = "PENDIENTE";
@@ -557,7 +557,6 @@ export default function RegistrationsListPage() {
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
   
-  // OPTIMIZACIÓN: Cargar todos para filtrado pero sin suscripciones pesadas innecesarias
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"))
@@ -725,69 +724,40 @@ export default function RegistrationsListPage() {
     let count = 0;
     try {
       const studentsToFix = filteredRegistrations.filter(r => !r.sexo || r.sexo === "");
-      
       if (studentsToFix.length === 0) {
-        toast({ title: "Información al día", description: "Todos los alumnos ya tienen el campo sexo definido." });
+        toast({ title: "Información al día" });
         setIsSubmitting(false);
         return;
       }
-
-      toast({ title: "Iniciando Sincronización", description: `Analizando ${studentsToFix.length} fichas pendientes...` });
-
       const batchSize = 25; 
       for (let i = 0; i < studentsToFix.length; i += batchSize) {
         const chunk = studentsToFix.slice(i, i + batchSize);
         const batch = writeBatch(db);
         let batchCount = 0;
-
         for (const student of chunk) {
           const cleanCi = student.ciNumber?.replace(/[^0-9]/g, '');
           if (!cleanCi) continue;
-          
           const cedulaRef = doc(db, 'cedulas', cleanCi);
           const cedulaSnap = await getDoc(cedulaRef);
-          
           if (cedulaSnap.exists()) {
             const data = cedulaSnap.data();
             let sexValue = "";
             if (data.SEXO) {
               const raw = String(data.SEXO).trim().toUpperCase();
-              if (raw.startsWith('M')) sexValue = "M";
-              else if (raw.startsWith('F')) sexValue = "F";
+              if (raw.startsWith('M')) sexValue = "M"; else if (raw.startsWith('F')) sexValue = "F";
             }
-            
             if (sexValue) {
-              const regRef = doc(db, "confirmations", student.id);
-              batch.update(regRef, { sexo: sexValue });
-              batchCount++;
-              count++;
+              batch.update(doc(db, "confirmations", student.id), { sexo: sexValue });
+              batchCount++; count++;
             }
           }
         }
-
-        if (batchCount > 0) {
-          await batch.commit();
-        }
-        
+        if (batchCount > 0) await batch.commit();
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      
-      if (count > 0) {
-        await addDoc(collection(db, "audit_logs"), {
-          userId: user?.uid || "unknown",
-          userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
-          action: "Sincronización Masiva Sexo",
-          module: "inscripcion",
-          details: `Se completaron automáticamente ${count} fichas con datos de sexo desde el repositorio de cédulas.`,
-          timestamp: serverTimestamp()
-        });
-        toast({ title: "Sincronización completa", description: `Se actualizaron ${count} fichas con éxito.` });
-      } else {
-        toast({ title: "Sin datos nuevos", description: "No se encontró información de sexo para los registros pendientes." });
-      }
+      if (count > 0) toast({ title: `Se actualizaron ${count} fichas.` });
     } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error en sincronización", description: "Hubo un fallo al procesar los lotes." });
+      toast({ variant: "destructive", title: "Error en sincronización" });
     } finally {
       setIsSubmitting(false);
     }
@@ -796,7 +766,7 @@ export default function RegistrationsListPage() {
   const handleValidatePayment = async () => {
     if (!db || !selectedReg || !treasuryRef) return
     setIsSubmitting(true)
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Personal del Santuario"
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
     const regRef = doc(db, "confirmations", selectedReg.id);
     try {
       await runTransaction(db, async (transaction) => {
@@ -813,20 +783,11 @@ export default function RegistrationsListPage() {
           receiptNumber: formattedReceipt
         });
         transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
-        const logRef = doc(collection(db, "audit_logs"));
-        transaction.set(logRef, {
-          userId: user?.uid || "unknown",
-          userName: catechistName,
-          action: "Validación de Pago",
-          module: "tesoreria",
-          details: `Se validó el pago de ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
-          timestamp: serverTimestamp()
-        });
       });
-      toast({ title: "Pago Validado", description: "Inscrito oficialmente." })
+      toast({ title: "Pago Validado" })
       setIsDetailsDialogOpen(false)
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la validación." })
+      toast({ variant: "destructive", title: "Error" })
     } finally {
       setIsSubmitting(false)
     }
@@ -838,112 +799,34 @@ export default function RegistrationsListPage() {
     const group = groups?.find(g => g.id === newGroupId)
     if (!group) return
     const regRef = doc(db, "confirmations", selectedReg.id);
-    const updateData = {
-      groupId: newGroupId,
-      attendanceDay: group.attendanceDay,
-      updatedAt: serverTimestamp()
-    };
-
-    updateDoc(regRef, updateData)
+    updateDoc(regRef, { groupId: newGroupId, attendanceDay: group.attendanceDay, updatedAt: serverTimestamp() })
       .then(() => {
-        addDoc(collection(db, "audit_logs"), {
-          userId: user?.uid || "unknown",
-          userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
-          action: "Asignación de Grupo",
-          module: "inscripcion",
-          details: `Se asignó a ${selectedReg.fullName} al grupo: ${group.name}`,
-          timestamp: serverTimestamp()
-        }).catch(() => {});
         toast({ title: "Grupo asignado" })
         setIsAssignDialogOpen(false)
       })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: regRef.path,
-          operation: 'update',
-          requestResourceData: updateData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      })
-      .finally(() => {
-        setIsSubmitting(false)
-      })
+      .finally(() => setIsSubmitting(false))
   }
 
   const handleWithdrawConfirmand = () => {
-    if (!db || !selectedReg || !withdrawalReason) {
-      toast({ variant: "destructive", title: "Atención", description: "Debes ingresar un motivo de baja." })
-      return
-    }
+    if (!db || !selectedReg || !withdrawalReason) return
     setIsSubmitting(true)
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
-    const regRef = doc(db, "confirmations", selectedReg.id);
-    const updateData = {
-      status: "BAJA",
-      isArchived: true,
-      withdrawalReason: withdrawalReason,
-      withdrawalDate: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-
-    updateDoc(regRef, updateData)
+    updateDoc(doc(db, "confirmations", selectedReg.id), { status: "BAJA", isArchived: true, withdrawalReason, withdrawalDate: serverTimestamp() })
       .then(() => {
-        addDoc(collection(db, "audit_logs"), {
-          userId: user?.uid || "unknown",
-          userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
-          action: "BAJA",
-          module: "inscripcion",
-          details: `Baja de ${selectedReg.fullName}. Motivo: ${withdrawalReason}`,
-          timestamp: serverTimestamp()
-        }).catch(() => {});
         toast({ title: "Baja procesada" })
         setIsWithdrawDialogOpen(false)
-        setWithdrawalReason("")
       })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: regRef.path,
-          operation: 'update',
-          requestResourceData: updateData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      })
-      .finally(() => {
-        setIsSubmitting(false)
-      })
+      .finally(() => setIsSubmitting(false))
   }
 
   const handleDeleteRegistration = () => {
     if (!db || !selectedReg) return
     setIsSubmitting(true)
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
-    const regName = selectedReg.fullName
-    const regCi = selectedReg.ciNumber
-    const regRef = doc(db, "confirmations", selectedReg.id);
-
-    deleteDoc(regRef)
+    deleteDoc(doc(db, "confirmations", selectedReg.id))
       .then(() => {
-        addDoc(collection(db, "audit_logs"), {
-          userId: user?.uid || "unknown",
-          userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
-          action: "Eliminar Ficha",
-          module: "inscripcion",
-          details: `Se eliminó permanentemente la ficha de: ${regName} (C.I. ${regCi})`,
-          timestamp: serverTimestamp()
-        }).catch(() => {});
         toast({ title: "Registro eliminado" })
         setIsDeleteDialogOpen(false)
       })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: regRef.path,
-          operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      })
-      .finally(() => {
-        setIsSubmitting(false)
-      })
+      .finally(() => setIsSubmitting(false))
   }
 
   const openAssignDialog = (reg: any) => { setSelectedReg(reg); setNewGroupId(reg.groupId || ""); setIsAssignDialogOpen(true); }
@@ -980,14 +863,8 @@ export default function RegistrationsListPage() {
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-3">
           {isAdmin && (
-            <Button 
-              variant="outline" 
-              className="h-11 rounded-xl font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5 shadow-sm"
-              onClick={handleSyncSexData}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-              Sincronizar Sexo
+            <Button variant="outline" className="h-11 rounded-xl font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5 shadow-sm" onClick={handleSyncSexData} disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Sincronizar Sexo
             </Button>
           )}
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
@@ -1000,35 +877,20 @@ export default function RegistrationsListPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-blue-50/50 border-l-4 border-l-blue-500">
           <CardContent className="p-4 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Masculino</p>
-              <p className="text-2xl font-black text-blue-900">{isActuallyLoading ? "..." : stats.m}</p>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-              <span className="font-black text-sm">M</span>
-            </div>
+            <div className="space-y-0.5"><p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Masculino</p><p className="text-2xl font-black text-blue-900">{isActuallyLoading ? "..." : stats.m}</p></div>
+            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><span className="font-black text-sm">M</span></div>
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm bg-pink-50/50 border-l-4 border-l-pink-500">
           <CardContent className="p-4 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Femenino</p>
-              <p className="text-2xl font-black text-pink-900">{isActuallyLoading ? "..." : stats.f}</p>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600">
-              <span className="font-black text-sm">F</span>
-            </div>
+            <div className="space-y-0.5"><p className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Femenino</p><p className="text-2xl font-black text-pink-900">{isActuallyLoading ? "..." : stats.f}</p></div>
+            <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600"><span className="font-black text-sm">F</span></div>
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm bg-slate-100/50 border-l-4 border-l-slate-500 col-span-2 md:col-span-1">
           <CardContent className="p-4 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Total General</p>
-              <p className="text-2xl font-black text-slate-900">{isActuallyLoading ? "..." : stats.total}</p>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600">
-              <span className="font-black text-sm">Σ</span>
-            </div>
+            <div className="space-y-0.5"><p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Total General</p><p className="text-2xl font-black text-slate-900">{isActuallyLoading ? "..." : stats.total}</p></div>
+            <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600"><span className="font-black text-sm">Σ</span></div>
           </CardContent>
         </Card>
       </div>
@@ -1038,121 +900,24 @@ export default function RegistrationsListPage() {
           <div className="flex flex-col md:flex-row md:items-center gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar por nombre o C.I..." 
-                className="pl-9 bg-slate-50 border-none h-12 rounded-2xl focus:ring-primary shadow-inner" 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-              />
+              <Input placeholder="Buscar por nombre o C.I..." className="pl-9 bg-slate-50 border-none h-12 rounded-2xl focus:ring-primary shadow-inner" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
-            <Button variant="ghost" className="h-12 rounded-2xl gap-2 font-bold text-slate-400 hover:text-primary" onClick={resetFilters}>
-              <FilterX className="h-4 w-4" /> Limpiar Filtros
-            </Button>
+            <Button variant="ghost" className="h-12 rounded-2xl gap-2 font-bold text-slate-400 hover:text-primary" onClick={resetFilters}><FilterX className="h-4 w-4" /> Limpiar Filtros</Button>
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label>
-              <Select value={filterSex} onValueChange={setFilterSex}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los sexos</SelectItem>
-                  <SelectItem value="M">Masculino (M)</SelectItem>
-                  <SelectItem value="F">Femenino (F)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Origen</Label>
-              <Select value={filterOrigin} onValueChange={setFilterOrigin}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los orígenes</SelectItem>
-                  <SelectItem value="PUBLIC">Inscripción Pública (QR)</SelectItem>
-                  <SelectItem value="MANUAL">Registro Manual (Catequista)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel / Año</Label>
-              <Select value={filterYear} onValueChange={setFilterYear}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los niveles</SelectItem>
-                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
-                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
-                  <SelectItem value="ADULTOS">Adultos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="INSCRITO">Inscrito (Oficial)</SelectItem>
-                  <SelectItem value="POR_VALIDAR">Por Validar Pago</SelectItem>
-                  <SelectItem value="PENDIENTE_PAGO">Pendiente Pago</SelectItem>
-                  <SelectItem value="BAJA">Bajas</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Forma de Pago</Label>
-              <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los métodos</SelectItem>
-                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label>
-              <Select value={filterSchedule} onValueChange={setFilterSchedule}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los horarios</SelectItem>
-                  <SelectItem value="SABADO">Sábado (15:30)</SelectItem>
-                  <SelectItem value="DOMINGO">Domingo (08:00)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="space-y-1.5"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label><Select value={filterSex} onValueChange={setFilterSex}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="M">M</SelectItem><SelectItem value="F">F</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1.5"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Origen</Label><Select value={filterOrigin} onValueChange={setFilterOrigin}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="PUBLIC">Público</SelectItem><SelectItem value="MANUAL">Manual</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1.5"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel</Label><Select value={filterYear} onValueChange={setFilterYear}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1.5"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label><Select value={filterStatus} onValueChange={setFilterStatus}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="INSCRITO">Inscrito</SelectItem><SelectItem value="POR_VALIDAR">Por Validar</SelectItem><SelectItem value="PENDIENTE_PAGO">Pendiente Pago</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1.5"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pago</Label><Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="EFECTIVO">Efectivo</SelectItem><SelectItem value="TRANSFERENCIA">Transferencia</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1.5"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label><Select value={filterSchedule} onValueChange={setFilterSchedule}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="SABADO">Sábado</SelectItem><SelectItem value="DOMINGO">Domingo</SelectItem></SelectContent></Select></div>
           </div>
         </div>
 
         {isActuallyLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sincronizando con el Santuario...</p>
-          </div>
+          <div className="flex flex-col items-center justify-center py-24 gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sincronizando...</p></div>
         ) : filteredRegistrations.length === 0 ? (
-          <div className="py-20 text-center bg-white rounded-[2.5rem] border shadow-sm flex flex-col items-center gap-4">
-            <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center">
-              <Filter className="h-8 w-8 text-slate-200" />
-            </div>
-            <p className="text-slate-500 font-bold">No hay resultados para estos filtros</p>
-            <Button variant="outline" className="rounded-xl font-bold" onClick={resetFilters}>Ver todos los alumnos</Button>
-          </div>
+          <div className="py-20 text-center bg-white rounded-[2.5rem] border shadow-sm flex flex-col items-center gap-4"><div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center"><Filter className="h-8 w-8 text-slate-200" /></div><p className="text-slate-500 font-bold">Sin resultados</p></div>
         ) : (
           <Accordion type="multiple" defaultValue={["none", ...(groups?.map(g => g.id) || [])]} className="space-y-4">
             {registrationsByGroup["none"]?.length > 0 && (
@@ -1169,7 +934,7 @@ export default function RegistrationsListPage() {
             )}
             {groups?.map((group: any) => {
               const groupStudents = registrationsByGroup[group.id] || []
-              if (groupStudents.length === 0 && (searchTerm || filterSex !== 'all' || filterOrigin !== 'all' || filterYear !== 'all' || filterStatus !== 'all' || filterPaymentMethod !== 'all' || filterSchedule !== 'all')) return null
+              if (groupStudents.length === 0) return null
               return (
                 <AccordionItem key={group.id} value={group.id} className="border-none">
                   <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
