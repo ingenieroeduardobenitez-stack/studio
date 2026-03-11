@@ -1,26 +1,21 @@
 
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download, FileText, ArrowRight } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { doc, collection, query, orderBy, limit } from "firebase/firestore"
+import { doc, collection } from "firebase/firestore"
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { QRCodeCanvas } from "qrcode.react"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { useToast } from "@/hooks/use-toast"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const [isQrOpen, setIsQrOpen] = useState(false)
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
-  const { toast } = useToast()
 
   useEffect(() => {
     setMounted(true)
@@ -31,7 +26,7 @@ export default function DashboardPage() {
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
 
-  const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef)
 
   // Consulta optimizada para las estadísticas: pedimos solo lo necesario para el conteo real-time ligero
   const statsQuery = useMemoFirebase(() => {
@@ -40,14 +35,6 @@ export default function DashboardPage() {
   }, [db, user])
 
   const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery)
-
-  // Consulta para la actividad reciente: limitamos a solo 5 para reducir solicitudes Blaze
-  const recentQuery = useMemoFirebase(() => {
-    if (!db || !user) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(5))
-  }, [db, user])
-
-  const { data: recentRegs, isLoading: recentLoading } = useCollection(recentQuery)
 
   const stats = useMemo(() => {
     if (!allRegs) return { total: 0, firstYear: 0, secondYear: 0, adults: 0 }
@@ -141,56 +128,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6">
-        <Card className="border-border/50 shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="font-headline text-lg uppercase tracking-tight">Actividad Reciente</CardTitle>
-              <CardDescription>Últimos ingresos del día.</CardDescription>
-            </div>
-            <Button asChild variant="ghost" className="text-primary font-bold gap-2">
-              <Link href="/dashboard/registrations">
-                Ver todos <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y">
-              {recentLoading ? (
-                <div className="flex flex-col items-center justify-center p-12 gap-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sincronizando...</p>
-                </div>
-              ) : recentRegs && recentRegs.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-12 italic">No hay inscripciones recientes.</p>
-              ) : recentRegs && (
-                recentRegs.map((reg) => (
-                  <div key={reg.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
-                    <Avatar className="h-10 w-10 rounded-xl border shadow-sm">
-                      <AvatarImage src={reg.photoUrl} className="object-cover" />
-                      <AvatarFallback className="bg-primary/5 text-primary rounded-xl">
-                        <User className="h-5 w-5" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-900 uppercase">{reg.fullName}</p>
-                      <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">
-                        {reg.catechesisYear?.replace("_", " ")} • C.I. {reg.ciNumber}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className="text-[9px] uppercase font-bold border-primary/20 bg-primary/5 text-primary">
-                        {reg.status || "RECIBIDO"}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl h-[90vh] max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
@@ -238,8 +175,10 @@ export default function DashboardPage() {
           </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t grid grid-cols-2 gap-3 shrink-0">
-            <Button className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-lg h-14 gap-2" onClick={() => {}}>PDF</Button>
-            <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-14 gap-2">WhatsApp</Button>
+            <Button className="rounded-xl bg-slate-900 hover:bg-black text-white font-black shadow-lg h-14 gap-2" onClick={() => window.print()}>IMPRIMIR</Button>
+            <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-14 gap-2" asChild>
+              <a href={`https://wa.me/?text=${encodeURIComponent('Hola! Te comparto el link de inscripción: ' + registrationUrl)}`} target="_blank">WHATSAPP</a>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
