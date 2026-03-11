@@ -206,9 +206,6 @@ function EditRegistrationForm({
       motherPhone: getVal("motherPhone"),
       fatherName: getVal("fatherName").toUpperCase(),
       fatherPhone: getVal("fatherPhone"),
-      baptismParish: getVal("baptismParish").toUpperCase(),
-      baptismBook: getVal("baptismBook"),
-      baptismFolio: getVal("baptismFolio"),
       catechesisYear: editCatechesisYear,
       attendanceDay: editAttendanceDay,
       sexo: editGender,
@@ -951,17 +948,18 @@ export default function RegistrationsListPage() {
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
-            <DialogTitle className="flex items-center gap-4 md:gap-6">
+            <div className="flex items-center gap-4 md:gap-6">
               <div className="relative cursor-pointer hover:scale-105 transition-transform" onClick={() => { if(selectedReg?.photoUrl) { setViewProofUrl(selectedReg.photoUrl); setIsProofViewOpen(true); } }}>
                 <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white/20 shadow-xl"><AvatarImage src={selectedReg?.photoUrl} className="object-cover" /><AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback></Avatar>
                 <div className="absolute -bottom-2 -right-2">{getStatusBadge(selectedReg?.status)}</div>
               </div>
               <div className="space-y-1">
+                <DialogTitle className="sr-only">Detalles del Confirmando</DialogTitle>
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60 leading-none">Ficha Institucional</p>
                 <span className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight block truncate">{selectedReg?.fullName}</span>
                 <div className="flex flex-wrap items-center gap-2 md:gap-4 pt-1"><Badge variant="outline" className="text-white border-white/30 font-bold gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" /> C.I. {selectedReg?.ciNumber}</Badge><Badge variant="secondary" className="bg-white text-primary font-black uppercase tracking-tighter text-[10px]">{formatCatechesisYear(selectedReg?.catechesisYear)}</Badge></div>
               </div>
-            </DialogTitle>
+            </div>
             <DialogDescription className="sr-only">Detalles completos del confirmando, familia y sacramentos.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto bg-slate-50"><div className="p-6 md:p-8 space-y-8 pb-20">
