@@ -31,7 +31,10 @@ import {
   Share2,
   Globe,
   Filter,
-  FilterX
+  FilterX,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction, orderBy, limit } from "firebase/firestore"
@@ -42,12 +45,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 import { QRCodeCanvas } from "qrcode.react"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default function PaymentsManagementPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   
-  // Estados de Filtros (Iguales a Lista de Confirmandos)
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterOrigin, setFilterOrigin] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
@@ -63,9 +66,10 @@ export default function PaymentsManagementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
+  const [isProofViewOpen, setIsProofViewOpen] = useState(false)
+  const [zoomScale, setZoomScale] = useState(1)
   const [localDate, setLocalDate] = useState({ day: "", month: "", year: "" })
 
-  // Estados de Cámara
   const [showCamera, setShowCamera] = useState(false)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
@@ -106,7 +110,6 @@ export default function PaymentsManagementPage() {
 
   const confirmandsQuery = useMemoFirebase(() => {
     if (!db) return null
-    // OPTIMIZACIÓN: Límite de 200 documentos para controlar el conteo de lecturas del servidor
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200))
   }, [db])
 
@@ -129,15 +132,11 @@ export default function PaymentsManagementPage() {
     
     return allConfirmands.filter(r => {
       if (r.isArchived) return false
-      
-      // Búsqueda por texto
       const matchesSearch = !searchTerm || 
         r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         r.ciNumber?.includes(searchTerm)
       
       if (!matchesSearch) return false
-
-      // Aplicación de Filtros Avanzados
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesOrigin = filterOrigin === "all" || (filterOrigin === "PUBLIC" ? r.userId === "public_registration" : r.userId !== "public_registration")
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
@@ -146,7 +145,6 @@ export default function PaymentsManagementPage() {
 
       if (!matchesSex || !matchesOrigin || !matchesYear || !matchesStatus || !matchesPayment) return false
 
-      // Lógica de visibilidad por rol y grupo
       if (profile?.role === "Administrador" || profile?.role === "Tesorero") return true
 
       if (myGroups && myGroups.length > 0) {
@@ -156,10 +154,6 @@ export default function PaymentsManagementPage() {
         return isInMyGroup || isUnassigned
       }
       return true
-    }).sort((a, b) => {
-      if (!a.groupId && b.groupId) return -1
-      if (a.groupId && !b.groupId) return 1
-      return 0
     })
   }, [allConfirmands, searchTerm, myGroups, profile, filterSex, filterOrigin, filterYear, filterStatus, filterPaymentMethod])
 
@@ -171,101 +165,6 @@ export default function PaymentsManagementPage() {
     setPaymentType("EFECTIVO")
     setPaymentProofUrl(null)
     setIsPaymentDialogOpen(true)
-  }
-
-  const selectedEvent = useMemo(() => {
-    if (selectedEventId === "inscripcion") return null
-    return events?.find(e => e.id === selectedEventId)
-  }, [selectedEventId, events])
-
-  const calculatePending = (reg: any) => {
-    if (selectedEventId === "inscripcion") {
-      return (reg.registrationCost || 0) - (reg.amountPaid || 0)
-    }
-    const eventPaid = reg.eventPayments?.[selectedEventId]?.paid || 0
-    const eventTotal = selectedEvent?.cost || 0
-    return eventTotal - eventPaid
-  }
-
-  const pendingBalance = selectedReg ? calculatePending(selectedReg) : 0
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => setPaymentProofUrl(reader.result as string)
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
-    if (node && currentStream) {
-      if (node.srcObject !== currentStream) {
-        node.srcObject = currentStream;
-        node.play().catch(err => console.error("Video play error:", err));
-      }
-    }
-    videoRef.current = node;
-  }, [currentStream]);
-
-  const startCamera = async (deviceId?: string) => {
-    try {
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
-
-      const constraints = {
-        video: {
-          deviceId: deviceId ? { exact: deviceId } : undefined,
-          facingMode: deviceId ? undefined : "environment",
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        }
-      }
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
-      setCurrentStream(stream)
-      setHasCameraPermission(true)
-      
-      const availableDevices = await navigator.mediaDevices.enumerateDevices()
-      const videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
-      setDevices(videoDevices)
-      if (!selectedDeviceId && videoDevices.length > 0) {
-        setSelectedDeviceId(deviceId || videoDevices[0].deviceId)
-      }
-      setShowCamera(true)
-    } catch (error) {
-      console.error('Error accessing camera:', error)
-      setHasCameraPermission(false)
-      toast({
-        variant: 'destructive',
-        title: 'Acceso denegado',
-        description: 'Por favor, permite el acceso a la cámara.',
-      })
-    }
-  }
-
-  const stopCamera = () => {
-    if (currentStream) {
-      currentStream.getTracks().forEach(track => track.stop())
-      setCurrentStream(null)
-    }
-    setShowCamera(false)
-  }
-
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current
-      const canvas = canvasRef.current
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-        setPaymentProofUrl(dataUrl)
-        stopCamera()
-      }
-    }
   }
 
   const handleProcessPayment = async () => {
@@ -281,14 +180,13 @@ export default function PaymentsManagementPage() {
         const regData = regSnap.data();
         const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
+        
         if (selectedEventId === "inscripcion") {
-          const currentPaid = regData.amountPaid || 0;
-          const newPaid = currentPaid + paymentAmount;
+          const newPaid = (regData.amountPaid || 0) + paymentAmount;
           const regCost = regData.registrationCost || (regData.catechesisYear === "ADULTOS" ? 50000 : 35000);
-          const status = newPaid >= regCost ? "PAGADO" : "PARCIAL";
           transaction.update(regRef, { 
             amountPaid: newPaid, 
-            paymentStatus: status, 
+            paymentStatus: newPaid >= regCost ? "PAGADO" : "PARCIAL", 
             status: "INSCRITO",
             lastPaymentDate: serverTimestamp(),
             validatedBy: catechistName,
@@ -296,155 +194,65 @@ export default function PaymentsManagementPage() {
             lastPaymentMethod: paymentType,
             paymentProofUrl: paymentProofUrl || regData.paymentProofUrl || null
           });
-        } else {
-          const currentPaid = (regData.eventPayments?.[selectedEventId]?.paid || 0) + paymentAmount;
-          transaction.update(regRef, {
-            [`eventPayments.${selectedEventId}`]: {
-              name: selectedEvent?.category || "Evento",
-              paid: currentPaid,
-              total: selectedEvent?.cost || 0,
-              date: new Date().toISOString(),
-              method: paymentType
-            },
-            validatedBy: catechistName,
-            receiptNumber: formattedReceipt,
-            paymentProofUrl: paymentProofUrl || regData.paymentProofUrl || null,
-            lastPaymentMethod: paymentType
-          });
         }
-        if (!treasurySnap.exists()) {
-          transaction.set(treasurySettingsRef, { nextReceiptNumber: currentNext + 1 }, { merge: true });
-        } else {
-          transaction.update(treasurySettingsRef, { nextReceiptNumber: currentNext + 1 });
-        }
+        
+        transaction.update(treasurySettingsRef, { nextReceiptNumber: currentNext + 1 });
         const logRef = doc(collection(db, "audit_logs"));
         transaction.set(logRef, {
           userId: user?.uid || "unknown",
           userName: catechistName,
           action: `Cobro (${paymentType})`,
           module: "pagos",
-          details: `Cobro de ${paymentAmount.toLocaleString('es-PY')} Gs. por ${selectedEventId === 'inscripcion' ? 'Inscripción' : selectedEvent?.category} a ${regData.fullName}. Recibo: ${formattedReceipt}`,
+          details: `Cobro de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${regData.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
         });
-        const updatedReg = { ...regData, id: regSnap.id, receiptNumber: formattedReceipt, amountPaid: (regData.amountPaid || 0) + paymentAmount, validatedBy: catechistName, lastPaymentMethod: paymentType };
-        setSelectedReg(updatedReg);
+        setSelectedReg({ ...regData, id: regSnap.id, receiptNumber: formattedReceipt });
       });
-      toast({ title: "Pago registrado con éxito" })
+      toast({ title: "Pago registrado" })
       setIsPaymentDialogOpen(false)
       setIsReceiptOpen(true)
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error al procesar", description: error.message || "No se pudo completar la operación." })
+      toast({ variant: "destructive", title: "Error", description: error.message })
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleDownloadPDF = async () => {
-    const element = document.getElementById("receipt-content-official");
-    if (!element) return;
-    setIsGeneratingPDF(true);
+  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node && currentStream) {
+      node.srcObject = currentStream;
+      node.play().catch(console.error);
+    }
+    videoRef.current = node;
+  }, [currentStream]);
+
+  const startCamera = async (deviceId?: string) => {
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        width: 650,
-        windowWidth: 650,
-        onclone: (doc) => {
-          const el = doc.getElementById("receipt-content-official");
-          if (el) {
-            el.style.transform = "none";
-            el.style.width = "650px";
-            el.style.maxWidth = "650px";
-            el.style.margin = "0 auto";
-            el.style.padding = "15px";
-          }
-        }
-      });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      const yPos = (pdf.internal.pageSize.getHeight() - pdfHeight) / 4;
-      pdf.addImage(imgData, "PNG", 0, Math.max(10, yPos), pdfWidth, pdfHeight);
-      pdf.save(`Recibo-Santuario-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.pdf`);
-      toast({ title: "PDF Descargado" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error al generar PDF" });
-    } finally {
-      setIsGeneratingPDF(false);
+      if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      })
+      setCurrentStream(stream);
+      setHasCameraPermission(true);
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setDevices(devices.filter(d => d.kind === 'videoinput'));
+      setShowCamera(true);
+    } catch (e) {
+      setHasCameraPermission(false);
+      toast({ variant: 'destructive', title: 'Error cámara' });
     }
   }
 
-  const handleDownloadImage = async () => {
-    const element = document.getElementById("receipt-content-official");
-    if (!element) return;
-    setIsGeneratingPDF(true);
-    try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        width: 650,
-        windowWidth: 650,
-        onclone: (doc) => {
-          const el = doc.getElementById("receipt-content-official");
-          if (el) {
-            el.style.transform = "none";
-            el.style.width = "650px";
-            el.style.maxWidth = "650px";
-            el.style.margin = "0 auto";
-            el.style.padding = "15px";
-          }
-        }
-      });
-      const url = canvas.toDataURL("image/png");
-
-      if (navigator.share && navigator.canShare) {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const file = new File([blob], `Recibo-${selectedReg?.fullName?.split(' ')[0] || 'NSPS'}.png`, { type: 'image/png' });
-        
-        if (navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: 'Recibo Oficial',
-              text: `Recibo de Pago - ${selectedReg?.fullName}`,
-            });
-            setIsGeneratingPDF(false);
-            return;
-          } catch (shareErr) {
-            console.log("Share failed", shareErr);
-          }
-        }
-      }
-      
-      const link = document.createElement("a");
-      link.download = `Recibo-NSPS-${selectedReg?.fullName?.replace(/\s+/g, '-')}.png`;
-      link.href = url;
-      link.click();
-      toast({ title: "Imagen guardada" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error al generar imagen" });
-    } finally {
-      setIsGeneratingPDF(false);
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
+      setPaymentProofUrl(canvas.toDataURL('image/jpeg', 0.8));
+      setShowCamera(false);
+      if (currentStream) currentStream.getTracks().forEach(t => t.stop());
     }
-  }
-
-  const handleShareWhatsApp = () => {
-    if (!selectedReg) return;
-    let phone = selectedReg.phone || "";
-    let cleanPhone = phone.replace(/[^0-9]/g, '');
-    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
-    if (!cleanPhone.startsWith('595')) cleanPhone = '595' + cleanPhone;
-    const amount = paymentAmount || 0;
-    const receiptNum = selectedReg.receiptNumber || "PENDIENTE";
-    const message = encodeURIComponent(`⛪ *SANTUARIO NACIONAL NSPS*\n\n¡Hola *${selectedReg.fullName}*! Hemos registrado tu pago por inscripción.\n\n*Recibo N°:* ${receiptNum}\n*Monto:* ${amount.toLocaleString('es-PY')} Gs.\n\n_Tesorería de Catequesis_`);
-    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
   }
 
   if (!mounted) return null
@@ -452,10 +260,7 @@ export default function PaymentsManagementPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Control de Cobros de Inscripción</h1>
-          <p className="text-muted-foreground font-medium">Valida los pagos y genera recibos oficiales del Santuario.</p>
-        </div>
+        <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Control de Cobros</h1>
       </div>
 
       <div className="space-y-4">
@@ -463,90 +268,9 @@ export default function PaymentsManagementPage() {
           <div className="flex flex-col md:flex-row md:items-center gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar por nombre o C.I..." 
-                className="pl-9 bg-slate-50 border-none h-12 rounded-2xl focus:ring-primary shadow-inner" 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-              />
+              <Input placeholder="Buscar por nombre o C.I..." className="pl-9 h-12 rounded-2xl" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
-            <Button variant="ghost" className="h-12 rounded-2xl gap-2 font-bold text-slate-400 hover:text-primary" onClick={resetFilters}>
-              <FilterX className="h-4 w-4" /> Limpiar Filtros
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label>
-              <Select value={filterSex} onValueChange={setFilterSex}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los sexos</SelectItem>
-                  <SelectItem value="M">Masculino (M)</SelectItem>
-                  <SelectItem value="F">Femenino (F)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Origen</Label>
-              <Select value={filterOrigin} onValueChange={setFilterOrigin}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los orígenes</SelectItem>
-                  <SelectItem value="PUBLIC">Inscripción Pública (QR)</SelectItem>
-                  <SelectItem value="MANUAL">Registro Manual (Catequista)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel / Año</Label>
-              <Select value={filterYear} onValueChange={setFilterYear}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los niveles</SelectItem>
-                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
-                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
-                  <SelectItem value="ADULTOS">Adultos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="INSCRITO">Inscrito (Oficial)</SelectItem>
-                  <SelectItem value="POR_VALIDAR">Por Validar Pago</SelectItem>
-                  <SelectItem value="PENDIENTE_PAGO">Pendiente Pago</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Forma de Pago</Label>
-              <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50/50 border-slate-100 font-medium">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los métodos</SelectItem>
-                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Button variant="ghost" className="h-12 rounded-2xl gap-2 font-bold" onClick={resetFilters}><FilterX className="h-4 w-4" /> Limpiar</Button>
           </div>
         </div>
 
@@ -556,71 +280,35 @@ export default function PaymentsManagementPage() {
               <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/50 hover:bg-transparent">
-                    <TableHead className="font-bold py-5 pl-8">Confirmando</TableHead>
-                    <TableHead className="font-bold text-center">Origen</TableHead>
+                <TableHeader className="bg-slate-50/50">
+                  <TableRow>
+                    <TableHead className="font-bold pl-8">Confirmando</TableHead>
                     <TableHead className="font-bold text-center">Nivel</TableHead>
                     <TableHead className="font-bold text-center">Estado</TableHead>
-                    <TableHead className="font-bold text-center">Forma de Pago</TableHead>
-                    <TableHead className="font-bold text-center">Saldo Pendiente</TableHead>
-                    <TableHead className="text-right font-bold pr-8">Acciones</TableHead>
+                    <TableHead className="font-bold text-center">Saldo</TableHead>
+                    <TableHead className="text-right pr-8 font-bold">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredConfirmands.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="py-20 text-center text-slate-400 italic">No se encontraron inscripciones para mostrar.</TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredConfirmands.map((reg) => {
-                      const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
-                      const isSettled = pending <= 0 && reg.paymentStatus === "PAGADO"
-                      const noGroup = !reg.groupId || reg.groupId === "none"
-                      return (
-                        <TableRow key={reg.id} className={cn("hover:bg-slate-50/30 h-20 transition-colors", noGroup && "bg-blue-50/20")}>
-                          <TableCell className="pl-8"><div className="flex items-center gap-4"><Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-5 w-5" /></AvatarFallback></Avatar><div className="flex flex-col"><div className="flex items-center gap-2"><span className="font-bold text-sm text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>{noGroup && <Badge variant="outline" className="text-[7px] h-4 bg-blue-50 text-blue-600 border-blue-100 font-black">NUEVO</Badge>}</div><span className="text-[10px] text-slate-500 font-bold">{reg.ciNumber}</span></div></div></TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex justify-center">
-                              {reg.userId === "public_registration" ? (
-                                <div className="flex items-center gap-1 text-[9px] font-bold text-green-600 uppercase bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                                  <Globe className="h-2.5 w-2.5" /> Público
-                                </div>
-                              ) : (
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <div className="flex items-center gap-1 text-[9px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                                    <User className="h-2.5 w-2.5" /> Manual
-                                  </div>
-                                  {reg.validatedBy && (
-                                    <span className="text-[8px] text-slate-400 font-medium truncate max-w-[80px]" title={reg.validatedBy}>
-                                      {reg.validatedBy.split(' ')[0]}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center"><Badge variant="secondary" className="text-[9px] uppercase font-black px-3 h-6 bg-slate-100 text-slate-600 border-none">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
-                          <TableCell className="text-center"><Badge variant="outline" className={cn("text-[9px] uppercase font-black px-3 h-6 border-slate-200", isSettled ? "bg-green-50 text-green-600 border-green-100" : "bg-white text-slate-400")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
-                          <TableCell className="text-center">
-                            {reg.lastPaymentMethod ? (
-                              <Badge variant="outline" className={cn(
-                                "text-[9px] uppercase font-black px-2 h-6 gap-1",
-                                reg.lastPaymentMethod === "EFECTIVO" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                              )}>
-                                {reg.lastPaymentMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
-                                {reg.lastPaymentMethod}
-                              </Badge>
-                            ) : (
-                              <span className="text-[10px] text-slate-300 italic">Sin registro</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center"><div className="flex flex-col items-center"><span className={cn("font-black text-sm", pending > 0 ? "text-red-500" : "text-green-600")}>{pending > 0 ? pending.toLocaleString('es-PY') : "0"}</span><span className={cn("text-[10px] font-bold", pending > 0 ? "text-red-500" : "text-green-600")}>Gs.</span></div></TableCell>
-                          <TableCell className="text-right pr-8"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" className="h-10 px-5 rounded-xl font-bold gap-2 border-primary text-primary hover:bg-primary hover:text-white transition-all shadow-sm" onClick={() => handleOpenPayment(reg)} disabled={isSettled}><CheckCircle2 className="h-4 w-4" /> Confirmar Pago</Button>{isSettled && (<Button size="icon" variant="ghost" className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl" onClick={() => { setSelectedReg(reg); setPaymentAmount(reg.amountPaid || 0); setIsReceiptOpen(true); }}><FileText className="h-5 w-5" /></Button>)}</div></TableCell>
-                        </TableRow>
-                      )
-                    })
-                  )}
+                  {filteredConfirmands.map((reg) => {
+                    const pending = (reg.registrationCost || 35000) - (reg.amountPaid || 0)
+                    return (
+                      <TableRow key={reg.id} className="h-20">
+                        <TableCell className="pl-8">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-10 w-10 border"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User /></AvatarFallback></Avatar>
+                            <div className="flex flex-col"><span className="font-bold text-sm text-slate-900 uppercase">{reg.fullName}</span><span className="text-[10px] text-slate-500 font-bold">{reg.ciNumber}</span></div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center"><Badge variant="secondary" className="text-[9px] uppercase">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
+                        <TableCell className="text-center"><Badge variant="outline" className={cn(pending <= 0 ? "bg-green-50 text-green-600" : "")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
+                        <TableCell className="text-center font-black text-sm">{pending > 0 ? pending.toLocaleString('es-PY') : "0"} Gs.</TableCell>
+                        <TableCell className="text-right pr-8">
+                          <Button size="sm" variant="outline" className="h-10 rounded-xl font-bold border-primary text-primary" onClick={() => handleOpenPayment(reg)} disabled={pending <= 0}>Confirmar Pago</Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -630,99 +318,48 @@ export default function PaymentsManagementPage() {
 
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle className="font-headline text-xl">Confirmar Cobro</DialogTitle><DialogDescription className="text-white/80">Recibiendo pago de {selectedReg?.fullName}</DialogDescription></DialogHeader>
-          <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-            <div className="space-y-3"><Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Concepto del Pago</Label><Select value={selectedEventId} onValueChange={setSelectedEventId}><SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="inscripcion">Inscripción Catequesis 2026</SelectItem>{events?.map((ev) => <SelectItem key={ev.id} value={ev.id}>{ev.category} ({ev.cost.toLocaleString('es-PY')} Gs.)</SelectItem>)}</SelectContent></Select></div>
-            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Saldo Pendiente:</p><p className="text-xl font-black text-slate-900">{pendingBalance.toLocaleString('es-PY')} Gs.</p></div>
-            <div className="space-y-4"><Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Método de Pago</Label><RadioGroup value={paymentType} onValueChange={(v: any) => setPaymentType(v)} className="grid grid-cols-2 gap-4"><div className={cn("flex flex-col items-center justify-center p-4 border-2 rounded-2xl cursor-pointer transition-all gap-2", paymentType === "EFECTIVO" ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200")} onClick={() => setPaymentType("EFECTIVO")}><RadioGroupItem value="EFECTIVO" id="type-cash" className="sr-only" /><Banknote className={cn("h-6 w-6", paymentType === "EFECTIVO" ? "text-primary" : "text-slate-400")} /><span className={cn("text-[10px] font-black uppercase", paymentType === "EFECTIVO" ? "text-primary" : "text-slate-500")}>Efectivo</span></div><div className={cn("flex flex-col items-center justify-center p-4 border-2 rounded-2xl cursor-pointer transition-all gap-2", paymentType === "TRANSFERENCIA" ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200")} onClick={() => setPaymentType("TRANSFERENCIA")}><RadioGroupItem value="TRANSFERENCIA" id="type-bank" className="sr-only" /><ArrowRightLeft className={cn("h-6 w-6", paymentType === "TRANSFERENCIA" ? "text-primary" : "text-slate-400")} /><span className={cn("text-[10px] font-black uppercase", paymentType === "TRANSFERENCIA" ? "text-primary" : "text-slate-500")}>Transferencia</span></div></RadioGroup></div>
-            <div className="space-y-3"><Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Monto a Registrar (Gs)</Label><Input type="number" className="h-14 text-2xl font-black rounded-2xl bg-white border-primary/20 text-primary shadow-inner" value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} /></div>
-            <div className="space-y-3"><Label className="font-bold text-slate-700 text-xs uppercase tracking-widest">Adjuntar Comprobante (Foto)</Label><div className={cn("border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all", paymentProofUrl ? "border-green-500 bg-green-50" : "border-slate-200 bg-slate-50 hover:bg-slate-100")}>{paymentProofUrl ? (<div className="w-full h-full relative group"><img src={paymentProofUrl} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"><Button type="button" size="sm" variant="secondary" className="rounded-xl h-9 gap-2 font-bold" onClick={() => startCamera()}><Camera className="h-4 w-4" /> Recapturar</Button><Button type="button" size="sm" variant="destructive" className="rounded-xl h-9 w-9 p-0" onClick={() => setPaymentProofUrl(null)}><X className="h-4 w-4" /></Button></div></div>) : (<div className="flex flex-col items-center p-4 w-full h-full" onClick={() => startCamera()}><ImageIcon className="h-8 w-8 text-slate-300 mb-1" /><span className="text-[10px] font-bold text-slate-400 uppercase">Capturar o Subir Comprobante</span><div className="flex gap-2 mt-2"><Button type="button" size="sm" variant="outline" className="h-7 text-[8px] rounded-lg px-2" onClick={(e) => { e.stopPropagation(); startCamera(); }}>CÁMARA</Button><Button type="button" size="sm" variant="outline" className="h-7 text-[8px] rounded-lg px-2" onClick={(e) => { e.stopPropagation(); proofInputRef.current?.click(); }}>ARCHIVO</Button></div></div>)}</div><input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={handleFileChange} /></div>
+          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Confirmar Cobro</DialogTitle></DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="space-y-3"><Label className="font-bold">Monto a Recibir</Label><Input type="number" className="h-14 text-2xl font-black rounded-2xl" value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} /></div>
+            <div className="space-y-3"><Label className="font-bold">Comprobante</Label><div className="border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center bg-slate-50 cursor-pointer" onClick={() => startCamera()}>{paymentProofUrl ? <img src={paymentProofUrl} className="h-full w-full object-cover rounded-xl" /> : <ImageIcon className="h-8 w-8 text-slate-300" />}</div></div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700 font-bold shadow-lg gap-2" onClick={handleProcessPayment} disabled={paymentAmount <= 0 || isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <><CheckCircle2 className="h-4 w-4" /> Confirmar</>}</Button></DialogFooter>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button><Button className="flex-1 bg-green-600 font-bold" onClick={handleProcessPayment} disabled={isSubmitting}>Confirmar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-xl">
-          <DialogHeader className="sr-only"><DialogTitle>Recibo de Pago Oficial</DialogTitle></DialogHeader>
-          <div className="p-4 bg-white flex justify-center overflow-y-auto max-h-[80vh]">
-            <div className="w-full max-w-[650px] bg-white text-slate-900 font-serif border-2 border-slate-900 p-6 md:p-8 space-y-4 shadow-sm" id="receipt-content-official">
-              <div className="grid grid-cols-3 gap-4 items-center mb-1">
-                <div className="col-span-2 border-2 border-slate-900 p-2 min-h-[80px] flex items-center justify-center relative bg-white">
-                  <img src="/logo.png" alt="Logo Santuario" className="max-h-16 object-contain" />
-                  <div className="absolute top-1 right-2 text-[5px] font-black uppercase tracking-tighter text-slate-400 text-right leading-tight">Santuario Nacional<br/>Nuestra Señora del Perpetuo Socorro</div>
+      <Dialog open={showCamera} onOpenChange={(open) => !open && setShowCamera(false)}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-3xl">
+          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Capturar Foto</DialogTitle></DialogHeader>
+          <div className="relative bg-black aspect-[3/4]"><video ref={onVideoRef} autoPlay playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" /></div>
+          <DialogFooter className="p-6 bg-slate-50 border-t"><Button className="w-full h-12 rounded-xl font-bold bg-primary" onClick={takePhoto}>Capturar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isProofViewOpen} onOpenChange={(open) => { setIsProofViewOpen(open); if(!open) setZoomScale(1); }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 bg-transparent border-none shadow-none flex items-center justify-center overflow-visible">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista de Documento</DialogTitle>
+            <DialogDescription>Previsualización ampliada del documento seleccionado.</DialogDescription>
+          </DialogHeader>
+          <div className="relative flex flex-col items-center w-full">
+            <Button variant="secondary" size="icon" className="absolute -top-14 right-0 rounded-full text-white bg-white/20 hover:bg-white/40 border border-white/10 z-50" onClick={() => setIsProofViewOpen(false)}>
+              <X className="h-6 w-6" />
+            </Button>
+            <div className="absolute -bottom-16 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl p-2 px-4 rounded-2xl border border-white/10 shadow-2xl z-50">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.max(0.25, prev - 0.25))}><ZoomOut className="h-4 w-4" /></Button>
+              <span className="text-[10px] font-black text-white uppercase w-14 text-center">{Math.round(zoomScale * 100)}%</span>
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.min(4, prev + 0.25))}><ZoomIn className="h-4 w-4" /></Button>
+              <Separator orientation="vertical" className="h-4 bg-white/20 mx-1" />
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(1)}><Maximize2 className="h-4 w-4" /></Button>
+            </div>
+            <div className="w-full bg-slate-950/20 backdrop-blur-sm rounded-3xl p-2 border border-white/10 shadow-2xl overflow-hidden">
+              <ScrollArea className="max-h-[75vh] w-full rounded-2xl">
+                <div className="flex items-center justify-center p-4 md:p-10 min-h-[400px]">
+                  <img src={viewProofUrl || ""} className="rounded-xl shadow-2xl transition-all duration-300 select-none h-auto" style={{ width: zoomScale === 1 ? 'auto' : `${zoomScale * 100}%`, maxWidth: zoomScale === 1 ? '100%' : 'none', maxHeight: zoomScale === 1 ? '75vh' : 'none', objectFit: 'contain' }} alt="Documento" />
                 </div>
-                <div className="flex flex-col gap-1.5 h-full justify-between">
-                  <div className="border-2 border-slate-900 p-1.5 text-center bg-slate-50">
-                    <p className="text-[7px] font-black uppercase tracking-tighter">Gs.</p>
-                    <p className="text-base font-black">{paymentAmount.toLocaleString('es-PY')}</p>
-                  </div>
-                  <div className="border-2 border-slate-900 p-1 text-center bg-white">
-                    <p className="text-[6px] font-bold uppercase">Recibo N°</p>
-                    <p className="text-[9px] font-black">{selectedReg?.receiptNumber || "PENDIENTE"}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="text-center border-b-2 border-slate-900 pb-0.5 mb-1">
-                <h1 className="text-xl font-black italic tracking-tighter uppercase">RECIBO</h1>
-              </div>
-              <div className="space-y-4 text-xs">
-                <div className="flex items-baseline gap-2 py-0.5">
-                  <span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-[10px]">Recibí(mos) de:</span>
-                  <div className="flex-1 border-b border-dotted border-slate-400 font-bold uppercase pb-0.5 px-2 leading-relaxed truncate text-[10px]">{selectedReg?.fullName}</div>
-                </div>
-                <div className="flex items-baseline gap-2 py-0.5">
-                  <span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-[10px]">la cantidad de:</span>
-                  <div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 italic leading-relaxed text-[10px]">{paymentAmount.toLocaleString('es-PY')} Guaraníes</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex flex-col gap-1.5 py-0.5">
-                    <span className="font-bold tracking-wide text-[10px]">en concepto de:</span>
-                    <div className="w-full border-2 border-slate-900 px-3 py-2 font-bold text-[10px] bg-slate-50 uppercase leading-relaxed text-center">
-                      {selectedEventId === 'inscripcion' ? 'Inscripción Catequesis de Confirmación' : (selectedEvent?.category || 'Evento Parroquial')} - {selectedReg?.catechesisYear?.replace('_', ' ')}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-baseline gap-2 py-0.5">
-                  <span className="whitespace-nowrap font-bold shrink-0 tracking-wide text-[10px]">Observación:</span>
-                  <div className="flex-1 border-b border-dotted border-slate-400 pb-0.5 px-2 text-[9px] text-slate-700 font-medium italic leading-relaxed">Saldo Pendiente: {((selectedReg?.registrationCost || 0) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.</div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                <div className="flex flex-col justify-end space-y-1">
-                  <p className="text-[10px] italic font-medium">Asunción, {localDate.day} de {localDate.month} de {localDate.year}</p>
-                  <div className="flex flex-col items-start pt-1">
-                    <div className="w-32 border-t border-slate-900"></div>
-                    <p className="text-[6px] font-bold uppercase mt-0.5 tracking-widest">(Firma y aclaración)</p>
-                  </div>
-                </div>
-                <div className="flex flex-col items-center md:items-end gap-2">
-                  <div className="p-1 border border-slate-900 rounded-lg bg-white shadow-sm">
-                    <QRCodeCanvas value={`RECIBO-NSPS-${selectedReg?.id}-${paymentAmount}-${selectedReg?.receiptNumber}`} size={60} level="H" />
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[6px] font-black uppercase text-primary tracking-widest leading-none">Firma Digitalizada</p>
-                    <p className="text-[9px] font-bold text-slate-900 uppercase mt-0.5">{selectedReg?.validatedBy || 'Secretaría del Santuario'}</p>
-                    <p className="text-[6px] text-slate-500 font-bold uppercase">{profile?.role || 'Personal Institucional'}</p>
-                  </div>
-                </div>
-              </div>
+              </ScrollArea>
             </div>
           </div>
-          <DialogFooter className="p-4 bg-slate-100 border-t flex flex-row gap-2">
-            <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 gap-2 rounded-xl bg-blue-600 text-white h-12 font-bold shadow-lg" onClick={handleDownloadImage} disabled={isGeneratingPDF}><Share2 className="h-4 w-4" /> IMAGEN</Button>
-            <Button className="flex-1 gap-2 rounded-xl bg-green-600 text-white h-12 font-bold shadow-lg" onClick={handleShareWhatsApp}><MessageCircle className="h-4 w-4" /> WHATSAPP</Button>
-            <Button className="flex-1 gap-2 rounded-xl bg-slate-900 text-white h-12 font-bold shadow-lg" onClick={handleDownloadPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} PDF</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Comprobante</DialogTitle></DialogHeader>
-          <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" />{hasCameraPermission === false && (<div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4"><X className="h-12 w-12 text-red-500" /><p className="font-bold">Acceso a cámara requerido</p><p className="text-xs text-slate-400">Habilita los permisos en tu navegador para usar esta función.</p></div>)}</div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">{devices.length > 1 && (<div className="flex items-center gap-2 w-full"><FlipHorizontal className="h-4 w-4 text-slate-400" /><Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(val); }}><SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger><SelectContent>{devices.map((device) => (<SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Cámara ${device.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent></Select></div>)}<div className="flex gap-3 w-full"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 font-bold gap-2" onClick={takePhoto}><Camera className="h-5 w-5" /> Capturar</Button></div></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

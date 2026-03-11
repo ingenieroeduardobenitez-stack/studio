@@ -98,9 +98,6 @@ import { FirestorePermissionError } from "@/firebase/errors"
 type ViewMode = "LIST" | "GROUPS"
 type CaptureTarget = "PHOTO" | "BAPTISM" | "PAY_PROOF"
 
-/**
- * FORMULARIO DE EDICIÓN CON LÓGICA DE PAGO ACTUALIZADA Y RESTRICCIÓN DE ADMINISTRADOR
- */
 function EditRegistrationForm({ 
   selectedReg, 
   profile, 
@@ -154,8 +151,7 @@ function EditRegistrationForm({
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        // Calidad 0.7 para mejor definición sin pesar demasiado
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
       };
       img.onerror = (e) => reject(e);
       img.src = source;
@@ -506,7 +502,6 @@ export default function RegistrationsListPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<ViewMode>("GROUPS")
   
-  // Filtros Avanzados
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterOrigin, setFilterOrigin] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
@@ -533,7 +528,6 @@ export default function RegistrationsListPage() {
     direction: 'desc'
   })
   
-  // Estados de Cámara
   const [showCamera, setShowCamera] = useState(false)
   const [captureTarget, setCaptureTarget] = useState<CaptureTarget>("PHOTO")
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
@@ -560,7 +554,6 @@ export default function RegistrationsListPage() {
   
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    // OPTIMIZACIÓN: Límite de carga para reducir lecturas masivas
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200))
   }, [db, user])
 
@@ -1017,10 +1010,35 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}><DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl"><DialogHeader className="p-6 bg-slate-900 text-white"><div className="flex items-center gap-3"><UserMinus className="h-6 w-6 text-red-400" /><DialogTitle>Baja de Confirmando</DialogTitle></div></DialogHeader><div className="p-6 space-y-6"><div className="p-4 bg-orange-50 rounded-2xl text-xs text-orange-800 font-medium">Esta acción cerrará el ciclo del confirmando. No aparecerá en listas regulares.</div><div className="space-y-3"><Label className="font-bold">Motivo de la Baja</Label><Textarea placeholder="Ej. Cambio de domicilio, falta de tiempo, etc." className="rounded-xl min-h-[120px] bg-slate-50 border-slate-200" value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} required /></div></div><DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-red-600 text-white font-bold shadow-lg" onClick={handleWithdrawConfirmand} disabled={isSubmitting || !withdrawalReason}>Confirmar Baja</Button></DialogFooter></Dialog></Dialog>
+      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-slate-900 text-white">
+            <div className="flex items-center gap-3">
+              <UserMinus className="h-6 w-6 text-red-400" />
+              <DialogTitle>Baja de Confirmando</DialogTitle>
+            </div>
+            <DialogDescription className="sr-only">Procesa la baja de un alumno del sistema.</DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="p-4 bg-orange-50 rounded-2xl text-xs text-orange-800 font-medium">Esta acción cerrará el ciclo del confirmando. No aparecerá en listas regulares.</div>
+            <div className="space-y-3">
+              <Label className="font-bold">Motivo de la Baja</Label>
+              <Textarea placeholder="Ej. Cambio de domicilio, falta de tiempo, etc." className="rounded-xl min-h-[120px] bg-slate-50 border-slate-200" value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} required />
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button>
+            <Button className="flex-1 h-12 rounded-xl bg-red-600 text-white font-bold shadow-lg" onClick={handleWithdrawConfirmand} disabled={isSubmitting || !withdrawalReason}>Confirmar Baja</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Dialog open={isProofViewOpen} onOpenChange={(open) => { setIsProofViewOpen(open); if(!open) setZoomScale(1); }}>
         <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 bg-transparent border-none shadow-none flex items-center justify-center overflow-visible">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista de Documento</DialogTitle>
+            <DialogDescription>Previsualización ampliada del documento o comprobante seleccionado.</DialogDescription>
+          </DialogHeader>
           <div className="relative flex flex-col items-center w-full">
             <Button variant="secondary" size="icon" className="absolute -top-14 right-0 rounded-full text-white bg-white/20 hover:bg-white/40 border border-white/10 z-50" onClick={() => setIsProofViewOpen(false)}>
               <X className="h-6 w-6" />
@@ -1079,6 +1097,7 @@ export default function RegistrationsListPage() {
         <DialogContent className="sm:max-w-[450px] border-none shadow-2xl rounded-3xl overflow-hidden p-0">
           <DialogHeader className="p-6 bg-primary text-white">
             <DialogTitle>Asignar Grupo</DialogTitle>
+            <DialogDescription className="sr-only">Asigna un grupo específico al confirmando seleccionado.</DialogDescription>
           </DialogHeader>
           <div className="p-8 space-y-4">
             <p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p>
@@ -1100,7 +1119,18 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><AlertDialogContent className="rounded-3xl border-none shadow-2xl"><AlertDialogHeader><AlertDialogTitle className="text-xl font-headline font-bold">¿Eliminar registro permanentemente?</AlertDialogTitle><AlertDialogDescription className="text-slate-500">Esta acción borrará definitivamente la ficha de {selectedReg?.fullName}. No se puede deshacer.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="flex gap-3"><AlertDialogCancel className="flex-1 h-12 rounded-xl font-bold">Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteRegistration} className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold border-none">Eliminar Definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-headline font-bold">¿Eliminar registro permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-500">Esta acción borrará definitivamente la ficha de {selectedReg?.fullName}. No se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex gap-3">
+            <AlertDialogCancel className="flex-1 h-12 rounded-xl font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteRegistration} className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold border-none">Eliminar Definitivamente</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
