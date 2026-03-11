@@ -134,7 +134,7 @@ function EditRegistrationForm({
 
   const isAdmin = profile?.role === "Administrador"
 
-  const compressImage = (source: string, maxWidth = 400, maxHeight = 500): Promise<string> => {
+  const compressImage = (source: string, maxWidth = 800, maxHeight = 1000): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.crossOrigin = "anonymous";
@@ -154,7 +154,8 @@ function EditRegistrationForm({
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.4));
+        // Calidad 0.7 para mejor definición sin pesar demasiado
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
       img.onerror = (e) => reject(e);
       img.src = source;
@@ -655,7 +656,9 @@ export default function RegistrationsListPage() {
     if (node && currentStream) {
       if (node.srcObject !== currentStream) {
         node.srcObject = currentStream;
-        node.play().catch(err => console.error("Video play error:", err));
+        node.play().catch(err => {
+          if (err.name !== 'AbortError') console.error("Video play error:", err);
+        });
       }
     }
     videoRef.current = node;

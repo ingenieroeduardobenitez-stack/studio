@@ -73,13 +73,14 @@ export default function ProfilePage() {
     }
   }, [profile, isInitialized])
 
+  // Compresión mejorada para calidad de perfil
   const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const img = new Image();
+      const img = new (window as any).Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 500; // Resolución optimizada para perfil
+        const MAX_SIZE = 800; // Resolución optimizada para perfil
         let width = img.width;
         let height = img.height;
 
@@ -98,7 +99,7 @@ export default function ProfilePage() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Compresión agresiva para evitar crashes en móviles
+        resolve(canvas.toDataURL('image/jpeg', 0.8)); // Calidad 0.8 para máxima nitidez
       };
       img.onerror = () => reject(new Error("Error al cargar la imagen"));
       img.src = source;

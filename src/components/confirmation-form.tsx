@@ -147,13 +147,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     })
   }, [])
 
-  // OPTIMIZACIÓN EXTREMA: Imagen más ligera para evitar "Rate exceeded" y lentitud
+  // Calidad de imagen mejorada para evitar fotos borrosas
   const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 400; // Reducido significativamente para agilizar la carga
+        const MAX_SIZE = 800; // Aumentado para mayor nitidez
         let width = img.width;
         let height = img.height;
 
@@ -172,8 +172,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        // Calidad 0.4 es ideal para vistas de tabla rápidas sin saturar la red
-        resolve(canvas.toDataURL('image/jpeg', 0.4)); 
+        // Calidad 0.7 para mejor definición
+        resolve(canvas.toDataURL('image/jpeg', 0.7)); 
       };
       img.onerror = (e: any) => reject(e);
       img.src = source;
@@ -798,7 +798,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   )} />
                 </div>
                 <FormField control={form.control} name="fullName" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="font-bold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormMessage>
                 )} />
                 <div className="grid gap-6 md:grid-cols-4">
                   <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel className="font-bold">Fecha Nacimiento</FormLabel><FormControl><Input type="date" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
