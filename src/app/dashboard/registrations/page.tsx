@@ -151,7 +151,7 @@ function EditRegistrationForm({
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
       img.onerror = (e) => reject(e);
       img.src = source;
@@ -936,7 +936,7 @@ export default function RegistrationsListPage() {
                 <AccordionItem key={group.id} value={group.id} className="border-none">
                   <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     <AccordionTrigger className="px-6 h-16 hover:no-underline hover:bg-slate-50">
-                      <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><div className="flex items-center gap-2"><p className="font-bold text-slate-900">{group.name}</p><Badge variant="secondary" className="text-[9px] h-4 uppercase tracking-tighter">{formatCatechesisYear(group.catechesisYear)}</Badge></div><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{group.attendanceDay}s • {groupStudents.length} confirmandos</p></div></div>
+                      <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><div className="flex items-center gap-2"><p className="font-bold text-slate-900">{group.name}</p><Badge variant="secondary" className="text-[9px] h-4 uppercase tracking-tighter">{formatYear(group.catechesisYear)}</Badge></div><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{group.attendanceDay}s • {groupStudents.length} confirmandos</p></div></div>
                     </AccordionTrigger>
                     <AccordionContent className="p-0 border-t border-slate-50">
                       <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={openAssignDialog} onWithdraw={openWithdrawDialog} onDelete={openDeleteDialog} onViewDetails={openDetailsDialog} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
