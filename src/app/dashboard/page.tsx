@@ -4,7 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { doc, collection, query, limit, orderBy } from "firebase/firestore"
+import { doc, collection, query, limit } from "firebase/firestore"
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -29,10 +29,10 @@ export default function DashboardPage() {
 
   const { data: profile } = useDoc(userProfileRef)
 
-  // Consulta ultra-ligera limitada a 50 para estadísticas básicas (Plan Blaze)
+  // Consulta ultra-ligera limitada para estadísticas (Plan Blaze)
   const statsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), limit(50))
+    return query(collection(db, "confirmations"), limit(100))
   }, [db, user])
 
   const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery)

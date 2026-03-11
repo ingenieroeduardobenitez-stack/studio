@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation"
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
@@ -39,7 +39,7 @@ export default function DashboardLayout({
     const updatePresence = (status: "online" | "offline") => {
       const now = Date.now()
       
-      // Bloqueo estricto: no más de una actualización cada 15 minutos
+      // Bloqueo estricto: no más de una actualización cada 15 minutos si está en línea
       if (status === "online" && (now - lastUpdateRef.current < 900000)) {
         return
       }
