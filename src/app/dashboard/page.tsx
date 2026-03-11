@@ -33,7 +33,7 @@ export default function DashboardPage() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
 
-  // Consulta optimizada para las estadísticas (Totales por nivel)
+  // Consulta optimizada para las estadísticas: pedimos solo lo necesario para el conteo real-time ligero
   const statsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
     return collection(db, "confirmations")
@@ -41,10 +41,10 @@ export default function DashboardPage() {
 
   const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery)
 
-  // Consulta para la actividad reciente (Últimos 10 ingresos)
+  // Consulta para la actividad reciente: limitamos a solo 5 para reducir solicitudes Blaze
   const recentQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(10))
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(5))
   }, [db, user])
 
   const { data: recentRegs, isLoading: recentLoading } = useCollection(recentQuery)
@@ -103,7 +103,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.total}</div>
-            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Sincronización en tiempo real</p>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Sincronización ligera</p>
           </CardContent>
         </Card>
 
@@ -146,7 +146,7 @@ export default function DashboardPage() {
           <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
             <div>
               <CardTitle className="font-headline text-lg uppercase tracking-tight">Actividad Reciente</CardTitle>
-              <CardDescription>Últimos 10 ingresos registrados hoy.</CardDescription>
+              <CardDescription>Últimos ingresos del día.</CardDescription>
             </div>
             <Button asChild variant="ghost" className="text-primary font-bold gap-2">
               <Link href="/dashboard/registrations">
@@ -159,7 +159,7 @@ export default function DashboardPage() {
               {recentLoading ? (
                 <div className="flex flex-col items-center justify-center p-12 gap-3">
                   <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Actualizando lista...</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sincronizando...</p>
                 </div>
               ) : recentRegs && recentRegs.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-12 italic">No hay inscripciones recientes.</p>

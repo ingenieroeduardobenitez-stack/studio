@@ -30,7 +30,7 @@ export default function DashboardLayout({
   }, [user, isUserLoading, router])
 
   // Sistema de Presencia (Heartbeat) ULTRA-CONSERVADOR
-  // Solo actualiza una vez cada 5 minutos (300,000 ms) para evitar Rate Exceeded
+  // Solo actualiza una vez cada 10 minutos (600,000 ms) para reducir costos y solicitudes
   useEffect(() => {
     if (!db || !user?.uid) return
 
@@ -39,8 +39,8 @@ export default function DashboardLayout({
     const updatePresence = (status: "online" | "offline") => {
       const now = Date.now()
       
-      // Bloqueo estricto: no más de una actualización cada 5 minutos para presencia online
-      if (status === "online" && (now - lastUpdateRef.current < 300000)) {
+      // Bloqueo estricto: no más de una actualización cada 10 minutos
+      if (status === "online" && (now - lastUpdateRef.current < 600000)) {
         return
       }
 
@@ -56,12 +56,12 @@ export default function DashboardLayout({
     // Primera señal de vida al entrar
     updatePresence("online")
 
-    // Heartbeat cada 5 minutos
+    // Heartbeat cada 10 minutos
     presenceInterval.current = setInterval(() => {
       if (document.visibilityState === 'visible') {
         updatePresence("online")
       }
-    }, 300000)
+    }, 600000)
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {

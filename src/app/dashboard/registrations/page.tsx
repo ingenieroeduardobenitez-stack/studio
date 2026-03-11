@@ -131,7 +131,7 @@ function EditRegistrationForm({
 
   const isAdmin = profile?.role === "Administrador"
 
-  const compressImage = (source: string, maxWidth = 800, maxHeight = 1000): Promise<string> => {
+  const compressImage = (source: string, maxWidth = 1024, maxHeight = 1200): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.crossOrigin = "anonymous";
@@ -151,7 +151,7 @@ function EditRegistrationForm({
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
       img.onerror = (e) => reject(e);
       img.src = source;
@@ -554,7 +554,7 @@ export default function RegistrationsListPage() {
   
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200))
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
   }, [db, user])
 
   const groupsQuery = useMemoFirebase(() => {
@@ -1004,7 +1004,10 @@ export default function RegistrationsListPage() {
 
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle></DialogHeader>
+          <DialogHeader className="p-6 bg-primary text-white">
+            <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle>
+            <DialogDescription className="sr-only">Interfaz de captura de imagen mediante cámara.</DialogDescription>
+          </DialogHeader>
           <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" />{hasCameraPermission === false && <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white bg-slate-900/90 gap-4"><X className="h-12 w-12 text-red-500" /><p className="font-bold">Acceso denegado</p></div>}</div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">{devices.length > 1 && <div className="flex items-center gap-2 w-full"><FlipHorizontal className="h-4 w-4 text-slate-400" /><Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}><SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger><SelectContent>{devices.map((device) => (<SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Cámara ${device.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent></Select></div>}<div className="flex gap-3 w-full"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={takePhoto}>Capturar</Button></div></DialogFooter>
         </DialogContent>
@@ -1017,7 +1020,7 @@ export default function RegistrationsListPage() {
               <UserMinus className="h-6 w-6 text-red-400" />
               <DialogTitle>Baja de Confirmando</DialogTitle>
             </div>
-            <DialogDescription className="sr-only">Procesa la baja de un alumno del sistema.</DialogDescription>
+            <DialogDescription className="text-slate-400">Procesa la baja de un alumno del sistema regular.</DialogDescription>
           </DialogHeader>
           <div className="p-6 space-y-6">
             <div className="p-4 bg-orange-50 rounded-2xl text-xs text-orange-800 font-medium">Esta acción cerrará el ciclo del confirmando. No aparecerá en listas regulares.</div>
@@ -1097,7 +1100,7 @@ export default function RegistrationsListPage() {
         <DialogContent className="sm:max-w-[450px] border-none shadow-2xl rounded-3xl overflow-hidden p-0">
           <DialogHeader className="p-6 bg-primary text-white">
             <DialogTitle>Asignar Grupo</DialogTitle>
-            <DialogDescription className="sr-only">Asigna un grupo específico al confirmando seleccionado.</DialogDescription>
+            <DialogDescription className="text-white/80">Selecciona un grupo para el confirmando.</DialogDescription>
           </DialogHeader>
           <div className="p-8 space-y-4">
             <p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p>
