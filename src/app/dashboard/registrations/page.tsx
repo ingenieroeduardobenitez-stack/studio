@@ -91,7 +91,6 @@ import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
-import { QRCodeCanvas } from "qrcode.react"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 
@@ -952,17 +951,18 @@ export default function RegistrationsListPage() {
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
-            <div className="flex items-center gap-4 md:gap-6">
+            <DialogTitle className="flex items-center gap-4 md:gap-6">
               <div className="relative cursor-pointer hover:scale-105 transition-transform" onClick={() => { if(selectedReg?.photoUrl) { setViewProofUrl(selectedReg.photoUrl); setIsProofViewOpen(true); } }}>
                 <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white/20 shadow-xl"><AvatarImage src={selectedReg?.photoUrl} className="object-cover" /><AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback></Avatar>
                 <div className="absolute -bottom-2 -right-2">{getStatusBadge(selectedReg?.status)}</div>
               </div>
               <div className="space-y-1">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60 leading-none">Ficha Institucional</p>
-                <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight truncate">{selectedReg?.fullName}</DialogTitle>
+                <span className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight block truncate">{selectedReg?.fullName}</span>
                 <div className="flex flex-wrap items-center gap-2 md:gap-4 pt-1"><Badge variant="outline" className="text-white border-white/30 font-bold gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" /> C.I. {selectedReg?.ciNumber}</Badge><Badge variant="secondary" className="bg-white text-primary font-black uppercase tracking-tighter text-[10px]">{formatCatechesisYear(selectedReg?.catechesisYear)}</Badge></div>
               </div>
-            </div>
+            </DialogTitle>
+            <DialogDescription className="sr-only">Detalles completos del confirmando, familia y sacramentos.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto bg-slate-50"><div className="p-6 md:p-8 space-y-8 pb-20">
             <section className="space-y-4"><div className="flex items-center gap-3 border-b pb-2"><UserCircle className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Información Personal</h3></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6"><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Nacimiento</Label><p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-slate-400" /> {selectedReg?.birthDate}</p></div><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Edad</Label><p className="text-sm font-bold text-slate-700">{selectedReg?.age} Años</p></div><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Contacto</Label><p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-green-500" /> {selectedReg?.phone}</p></div></div></section>
@@ -1006,7 +1006,7 @@ export default function RegistrationsListPage() {
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
             <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle>
-            <DialogDescription className="sr-only">Interfaz de captura de imagen mediante cámara.</DialogDescription>
+            <DialogDescription className="text-white/80">Asegura una buena iluminación para una foto nítida.</DialogDescription>
           </DialogHeader>
           <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" />{hasCameraPermission === false && <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white bg-slate-900/90 gap-4"><X className="h-12 w-12 text-red-500" /><p className="font-bold">Acceso denegado</p></div>}</div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">{devices.length > 1 && <div className="flex items-center gap-2 w-full"><FlipHorizontal className="h-4 w-4 text-slate-400" /><Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}><SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger><SelectContent>{devices.map((device) => (<SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Cámara ${device.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent></Select></div>}<div className="flex gap-3 w-full"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={takePhoto}>Capturar</Button></div></DialogFooter>
@@ -1016,10 +1016,10 @@ export default function RegistrationsListPage() {
       <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white">
-            <div className="flex items-center gap-3">
+            <DialogTitle className="flex items-center gap-3">
               <UserMinus className="h-6 w-6 text-red-400" />
-              <DialogTitle>Baja de Confirmando</DialogTitle>
-            </div>
+              <span>Baja de Confirmando</span>
+            </DialogTitle>
             <DialogDescription className="text-slate-400">Procesa la baja de un alumno del sistema regular.</DialogDescription>
           </DialogHeader>
           <div className="p-6 space-y-6">

@@ -29,8 +29,8 @@ export default function DashboardLayout({
     }
   }, [user, isUserLoading, router])
 
-  // Sistema de Presencia (Heartbeat) ULTRA-CONSERVADOR
-  // Solo actualiza una vez cada 10 minutos (600,000 ms) para reducir costos y solicitudes
+  // Sistema de Presencia (Heartbeat) ULTRA-CONSERVADOR para el Plan Blaze
+  // Solo actualiza una vez cada 15 minutos (900,000 ms) para reducir costos drasticamente
   useEffect(() => {
     if (!db || !user?.uid) return
 
@@ -39,8 +39,8 @@ export default function DashboardLayout({
     const updatePresence = (status: "online" | "offline") => {
       const now = Date.now()
       
-      // Bloqueo estricto: no más de una actualización cada 10 minutos
-      if (status === "online" && (now - lastUpdateRef.current < 600000)) {
+      // Bloqueo estricto: no más de una actualización cada 15 minutos
+      if (status === "online" && (now - lastUpdateRef.current < 900000)) {
         return
       }
 
@@ -56,12 +56,12 @@ export default function DashboardLayout({
     // Primera señal de vida al entrar
     updatePresence("online")
 
-    // Heartbeat cada 10 minutos
+    // Heartbeat cada 15 minutos
     presenceInterval.current = setInterval(() => {
       if (document.visibilityState === 'visible') {
         updatePresence("online")
       }
-    }, 600000)
+    }, 900000)
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {

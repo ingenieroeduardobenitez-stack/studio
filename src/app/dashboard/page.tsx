@@ -4,12 +4,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { doc, collection } from "firebase/firestore"
+import { doc, collection, query, limit } from "firebase/firestore"
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { QRCodeCanvas } from "qrcode.react"
+import Image from "next/image"
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
@@ -28,10 +29,10 @@ export default function DashboardPage() {
 
   const { data: profile } = useDoc(userProfileRef)
 
-  // Consulta optimizada para las estadísticas: pedimos solo lo necesario para el conteo real-time ligero
+  // Consulta optimizada para las estadísticas: limitada para no generar miles de lecturas Blaze
   const statsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return collection(db, "confirmations")
+    return query(collection(db, "confirmations"), limit(500))
   }, [db, user])
 
   const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery)
@@ -81,7 +82,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* TARJETAS DE ESTADÍSTICAS (VERSIÓN LIGERA) */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <Card className="border-none shadow-sm bg-white border-l-4 border-l-primary overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0">
@@ -146,7 +146,7 @@ export default function DashboardPage() {
                     <div className="bg-primary/10 p-2 rounded-xl">
                       <Church className="h-6 w-6 text-primary" />
                     </div>
-                    <h2 className="font-headline font-bold text-xs uppercase tracking-tight text-slate-800 leading-tight px-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</h2>
+                    <span className="font-headline font-bold text-xs uppercase tracking-tight text-slate-800 leading-tight px-4 block">Santuario Nacional Nuestra Señora del Perpetuo Socorro</span>
                   </div>
                   <h3 className="text-4xl font-headline font-black text-slate-900 leading-none tracking-tighter uppercase">INSCRIBITE AQUÍ</h3>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Ciclo de Catequesis 2026</p>
