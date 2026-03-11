@@ -461,7 +461,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Foto del Confirmando</p>
               </div>
               
-              {/* Resto del formulario... (se asume cargado según archivos previos) */}
               <div className="space-y-6">
                 <div className="flex items-center gap-3 mb-2"><UserPlus className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3></div>
                 <FormField control={form.control} name="ciNumber" render={({ field }) => (
@@ -471,7 +470,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <FormItem><FormLabel className="font-bold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase" /></FormControl></FormItem>
                 )} />
                 <div className="grid gap-6 md:grid-cols-2">
-                  <FormField control={form.control} name="catechesisYear" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione el año" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1er Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2do Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></FormItem>)} />
+                  <FormField control={form.control} name="catechesisYear" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione el año" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></FormItem>)} />
                   <FormField control={form.control} name="attendanceDay" render={({ field }) => (<FormItem><FormLabel className="font-bold">Horario *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione su preferencia" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></SelectContent></Select></FormItem>)} />
                 </div>
               </div>

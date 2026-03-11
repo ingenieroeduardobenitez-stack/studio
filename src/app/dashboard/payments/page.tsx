@@ -110,7 +110,8 @@ export default function PaymentsManagementPage() {
 
   const confirmandsQuery = useMemoFirebase(() => {
     if (!db) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200))
+    // LÍMITE DE SEGURIDAD PARA REDUCIR LECTURAS
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
   }, [db])
 
   const { data: allConfirmands, loading: loadingRegs } = useCollection(confirmandsQuery)
@@ -283,9 +284,9 @@ export default function PaymentsManagementPage() {
                 <TableHeader className="bg-slate-50/50">
                   <TableRow>
                     <TableHead className="font-bold pl-8">Confirmando</TableHead>
-                    <TableHead className="font-bold text-center">Nivel</TableHead>
-                    <TableHead className="font-bold text-center">Estado</TableHead>
-                    <TableHead className="font-bold text-center">Saldo</TableHead>
+                    <TableHead className="text-center">Nivel</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead className="text-center">Saldo</TableHead>
                     <TableHead className="text-right pr-8 font-bold">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -318,7 +319,10 @@ export default function PaymentsManagementPage() {
 
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Confirmar Cobro</DialogTitle></DialogHeader>
+          <DialogHeader className="p-6 bg-primary text-white">
+            <DialogTitle>Confirmar Cobro</DialogTitle>
+            <DialogDescription className="text-white/70">Ingresa el monto recibido para {selectedReg?.fullName}.</DialogDescription>
+          </DialogHeader>
           <div className="p-6 space-y-6">
             <div className="space-y-3"><Label className="font-bold">Monto a Recibir</Label><Input type="number" className="h-14 text-2xl font-black rounded-2xl" value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} /></div>
             <div className="space-y-3"><Label className="font-bold">Comprobante</Label><div className="border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center bg-slate-50 cursor-pointer" onClick={() => startCamera()}>{paymentProofUrl ? <img src={paymentProofUrl} className="h-full w-full object-cover rounded-xl" /> : <ImageIcon className="h-8 w-8 text-slate-300" />}</div></div>
@@ -329,7 +333,10 @@ export default function PaymentsManagementPage() {
 
       <Dialog open={showCamera} onOpenChange={(open) => !open && setShowCamera(false)}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Capturar Foto</DialogTitle></DialogHeader>
+          <DialogHeader className="p-6 bg-primary text-white">
+            <DialogTitle>Capturar Foto del Comprobante</DialogTitle>
+            <DialogDescription className="text-white/70">Asegúrate de que los datos del pago sean legibles.</DialogDescription>
+          </DialogHeader>
           <div className="relative bg-black aspect-[3/4]"><video ref={onVideoRef} autoPlay playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" /></div>
           <DialogFooter className="p-6 bg-slate-50 border-t"><Button className="w-full h-12 rounded-xl font-bold bg-primary" onClick={takePhoto}>Capturar</Button></DialogFooter>
         </DialogContent>

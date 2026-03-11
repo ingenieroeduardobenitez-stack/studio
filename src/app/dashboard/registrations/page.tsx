@@ -20,7 +20,6 @@ import {
   Eye,
   CheckCircle2,
   AlertCircle,
-  UserMinus,
   X,
   ImageIcon,
   Edit,
@@ -415,7 +414,7 @@ function EditRegistrationForm({
                 <Input 
                   type="number" 
                   value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
+                  onChange={(e) => setEditAmountPaid(Number(editAmountPaid))}
                   readOnly={!isAdmin}
                   className={cn(
                     "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
@@ -550,6 +549,7 @@ export default function RegistrationsListPage() {
   
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
+    // LÍMITE DE SEGURIDAD PARA PLAN BLAZE: Reducimos lecturas iniciales
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
   }, [db, user])
 
@@ -954,13 +954,12 @@ export default function RegistrationsListPage() {
                 <div className="absolute -bottom-2 -right-2">{getStatusBadge(selectedReg?.status)}</div>
               </div>
               <div className="space-y-1">
-                <DialogTitle className="sr-only">Detalles del Confirmando</DialogTitle>
+                <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight block truncate">Ficha de {selectedReg?.fullName}</DialogTitle>
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60 leading-none">Ficha Institucional</p>
-                <span className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight block truncate">{selectedReg?.fullName}</span>
                 <div className="flex flex-wrap items-center gap-2 md:gap-4 pt-1"><Badge variant="outline" className="text-white border-white/30 font-bold gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" /> C.I. {selectedReg?.ciNumber}</Badge><Badge variant="secondary" className="bg-white text-primary font-black uppercase tracking-tighter text-[10px]">{formatCatechesisYear(selectedReg?.catechesisYear)}</Badge></div>
               </div>
             </div>
-            <DialogDescription className="sr-only">Detalles completos del confirmando, familia y sacramentos.</DialogDescription>
+            <DialogDescription className="text-white/70 text-xs">Consulta de sacramentos, datos familiares y estado administrativo.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto bg-slate-50"><div className="p-6 md:p-8 space-y-8 pb-20">
             <section className="space-y-4"><div className="flex items-center gap-3 border-b pb-2"><UserCircle className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Información Personal</h3></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6"><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Nacimiento</Label><p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-slate-400" /> {selectedReg?.birthDate}</p></div><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Edad</Label><p className="text-sm font-bold text-slate-700">{selectedReg?.age} Años</p></div><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Contacto</Label><p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-green-500" /> {selectedReg?.phone}</p></div></div></section>
