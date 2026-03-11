@@ -885,7 +885,7 @@ export default function RegistrationsListPage() {
         </Card>
         <Card className="border-none shadow-sm bg-slate-100/50 border-l-4 border-l-slate-500 col-span-2 md:col-span-1">
           <CardContent className="p-4 flex items-center justify-between">
-            <div className="space-y-0.5"><p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Total General</p><p className="text-2xl font-black text-slate-900">{isActuallyLoading ? "..." : stats.total}</p></div>
+            <div className="space-y-0.5"><p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Total General</p><p className="text-2xl font-black text-blue-900">{isActuallyLoading ? "..." : stats.total}</p></div>
             <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600"><span className="font-black text-sm">Σ</span></div>
           </CardContent>
         </Card>
@@ -1222,4 +1222,10 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
       })}
     </TableBody></Table>
   )
+}
+
+function formatYear(year: string) {
+  switch (year) {
+    case "PRIMER_AÑO": return "1° Año"; case "SEGUNDO_AÑO": return "2° Año"; case "ADULTOS": return "Adultos"; default: return year;
+  }
 }
