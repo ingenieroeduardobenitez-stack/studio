@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, Share2, Printer, MessageCircle, Download, FileText, ArrowRight } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { doc, collection, query, orderBy, limit } from "firebase/firestore"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -18,7 +18,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const [isQrOpen, setIsQrOpen] = useState(false)
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
   const { toast } = useToast()
@@ -34,14 +33,32 @@ export default function DashboardPage() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileRef)
 
-  // OPTIMIZACIÓN: Solo traemos las últimas 10 inscripciones para el Dashboard
-  // Esto reduce masivamente el consumo de datos al entrar al sistema
-  const registrationsQuery = useMemoFirebase(() => {
+  // Consulta optimizada para las estadísticas (Totales por nivel)
+  const statsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null
+    return collection(db, "confirmations")
+  }, [db, user])
+
+  const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery)
+
+  // Consulta para la actividad reciente (Últimos 10 ingresos)
+  const recentQuery = useMemoFirebase(() => {
     if (!db || !user) return null
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(10))
   }, [db, user])
 
-  const { data: registrations, loading: regsLoading } = useCollection(registrationsQuery)
+  const { data: recentRegs, isLoading: recentLoading } = useCollection(recentQuery)
+
+  const stats = useMemo(() => {
+    if (!allRegs) return { total: 0, firstYear: 0, secondYear: 0, adults: 0 }
+    const active = allRegs.filter(r => !r.isArchived)
+    return {
+      total: active.length,
+      firstYear: active.filter(r => r.catechesisYear === "PRIMER_AÑO").length,
+      secondYear: active.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length,
+      adults: active.filter(r => r.catechesisYear === "ADULTOS").length
+    }
+  }, [allRegs])
 
   const registrationUrl = typeof window !== 'undefined' ? `${window.location.origin}/inscripcion` : ""
 
@@ -77,6 +94,53 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* TARJETAS DE ESTADÍSTICAS (VERSIÓN LIGERA) */}
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <Card className="border-none shadow-sm bg-white border-l-4 border-l-primary overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0">
+            <CardTitle className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Inscritos Totales</CardTitle>
+            <Users className="h-3.5 w-3.5 text-primary opacity-50" />
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.total}</div>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Sincronización en tiempo real</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white border-l-4 border-l-accent overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0">
+            <CardTitle className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">1er Año</CardTitle>
+            <Church className="h-3.5 w-3.5 text-accent opacity-50" />
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.firstYear}</div>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Total nivel inicial</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white border-l-4 border-l-blue-500 overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0">
+            <CardTitle className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">2do Año</CardTitle>
+            <Calendar className="h-3.5 w-3.5 text-blue-500 opacity-50" />
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.secondYear}</div>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Total nivel final</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white border-l-4 border-l-orange-500 overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0">
+            <CardTitle className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Adultos</CardTitle>
+            <User className="h-3.5 w-3.5 text-orange-500 opacity-50" />
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.adults}</div>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Inscripción especial</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-6">
         <Card className="border-border/50 shadow-sm bg-white overflow-hidden">
           <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
@@ -92,15 +156,15 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {regsLoading ? (
+              {recentLoading ? (
                 <div className="flex flex-col items-center justify-center p-12 gap-3">
                   <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Actualizando lista...</p>
                 </div>
-              ) : registrations && registrations.length === 0 ? (
+              ) : recentRegs && recentRegs.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-12 italic">No hay inscripciones recientes.</p>
-              ) : registrations && (
-                registrations.map((reg) => (
+              ) : recentRegs && (
+                recentRegs.map((reg) => (
                   <div key={reg.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
                     <Avatar className="h-10 w-10 rounded-xl border shadow-sm">
                       <AvatarImage src={reg.photoUrl} className="object-cover" />
