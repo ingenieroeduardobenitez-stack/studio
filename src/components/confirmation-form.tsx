@@ -23,7 +23,11 @@ import {
   Users,
   Banknote,
   ArrowRightLeft,
-  Clock
+  Clock,
+  ChevronRight,
+  Printer,
+  Download,
+  Share2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -308,8 +312,32 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setLoading(true);
     try {
       const regId = `conf_${Date.now()}`;
+      
+      // Limpieza de campos undefined para evitar errores de Firestore
       const regData = {
-        ...values,
+        fullName: values.fullName || "",
+        ciNumber: values.ciNumber || "",
+        phone: values.phone || "",
+        birthDate: values.birthDate || "",
+        age: values.age || 0,
+        sexo: values.sexo || "",
+        photoUrl: values.photoUrl || null,
+        paymentMethod: values.paymentMethod,
+        paymentProofUrl: values.paymentProofUrl || null,
+        motherName: values.motherName || null,
+        motherPhone: values.motherPhone || null,
+        fatherName: values.fatherName || null,
+        fatherPhone: values.fatherPhone || null,
+        tutorName: values.tutorName || null,
+        tutorPhone: values.tutorPhone || null,
+        catechesisYear: values.catechesisYear,
+        attendanceDay: values.attendanceDay,
+        hasBaptism: !!values.hasBaptism,
+        hasFirstCommunion: !!values.hasFirstCommunion,
+        baptismParish: values.baptismParish || null,
+        baptismBook: values.baptismBook || null,
+        baptismFolio: values.baptismFolio || null,
+        baptismCertificatePhotoUrl: values.baptismCertificatePhotoUrl || null,
         userId: user?.uid || (isPublic ? "public_registration" : "manual"),
         status: "POR_VALIDAR",
         paymentStatus: "PENDIENTE",
@@ -317,13 +345,66 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         registrationCost: totalCost,
         createdAt: serverTimestamp()
       }
+
       await setDoc(doc(db, "confirmations", regId), regData);
       setSubmittedData({ ...regData, id: regId });
       setIsSubmittedSuccessfully(true);
       toast({ title: "Inscripción enviada exitosamente" });
     } catch (e) {
-      toast({ variant: "destructive", title: "Error al inscribir" });
+      console.error("Error al registrar:", e);
+      toast({ variant: "destructive", title: "Error al inscribir", description: "Ocurrió un problema al guardar los datos." });
     } finally { setLoading(false); }
+  }
+
+  if (isSubmittedSuccessfully) {
+    return (
+      <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden max-w-2xl mx-auto animate-in zoom-in-95 duration-500">
+        <div className="bg-primary p-12 text-center text-white space-y-6">
+          <div className="h-24 w-24 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-white/30 animate-bounce">
+            <CheckCircle2 className="h-12 w-12 text-white" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-4xl font-headline font-black tracking-tight">¡REGISTRO EXITOSO!</h2>
+            <p className="text-white/80 font-medium text-lg">Tu ficha ha sido enviada correctamente al Santuario.</p>
+          </div>
+        </div>
+        <CardContent className="p-10 space-y-8">
+          <div className="p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center space-y-4">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">N° de Comprobante Provisional</p>
+            <p className="text-2xl font-black text-primary font-mono">{submittedData?.id.split('_')[1]}</p>
+            <div className="h-px w-20 bg-slate-200 mx-auto"></div>
+            <p className="text-sm font-bold text-slate-600 uppercase">{submittedData?.fullName}</p>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Próximos Pasos</h3>
+            <div className="grid gap-3">
+              <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                <div className="h-10 w-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-200"><CheckCircle2 className="h-5 w-5" /></div>
+                <p className="text-xs font-bold text-blue-800 leading-tight">Secretaría validará tus documentos en las próximas 48hs.</p>
+              </div>
+              <div className="flex items-center gap-4 p-4 bg-green-50 rounded-2xl border border-green-100">
+                <div className="h-10 w-10 rounded-xl bg-green-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-green-200"><Clock className="h-5 w-5" /></div>
+                <p className="text-xs font-bold text-green-800 leading-tight">Recibirás un aviso para retirar tu carnet oficial.</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="bg-slate-50 p-8 flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3 w-full">
+            <Button variant="outline" className="h-14 rounded-2xl font-black gap-2 border-slate-200 text-slate-600" onClick={() => window.print()}>
+              <Printer className="h-5 w-5" /> IMPRIMIR
+            </Button>
+            <Button className="h-14 rounded-2xl font-black gap-2 bg-slate-900 text-white" asChild>
+              <Link href={isPublic ? "/" : "/dashboard"}>
+                FINALIZAR <ChevronRight className="h-5 w-5" />
+              </Link>
+            </Button>
+          </div>
+          <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest pt-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
+        </CardFooter>
+      </Card>
+    )
   }
 
   return (
@@ -344,8 +425,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-16 w-16" /></AvatarFallback>
                 </Avatar>
                 <div className="absolute -bottom-2 -right-2 flex gap-2">
-                  <button type="button" onClick={() => startCamera("STUDENT_PHOTO")} className="h-9 w-9 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg"><Camera className="h-4 w-4" /></button>
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="h-9 w-9 bg-accent text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg"><ImageIcon className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => startCamera("STUDENT_PHOTO")} className="h-9 w-9 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg active:scale-95 transition-transform"><Camera className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="h-9 w-9 bg-accent text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg active:scale-95 transition-transform"><ImageIcon className="h-4 w-4" /></button>
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "photoUrl")} />
               </div>
@@ -361,7 +442,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <FormLabel className="font-bold">N° de C.I. *</FormLabel>
                     <div className="flex gap-2">
                       <FormControl><Input placeholder="Sin puntos" {...field} className="h-12 rounded-xl" /></FormControl>
-                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl font-bold bg-primary active:scale-95 transition-transform">
+                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl font-bold bg-primary active:scale-95 transition-transform shadow-lg shadow-primary/20">
                         {isSearchingCi ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
@@ -369,7 +450,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="fullName" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Nombre Completo *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase" /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="font-bold">Nombre Completo *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase font-bold" /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="phone" render={({ field }) => (
                   <FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="09XX XXX XXX" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
@@ -390,20 +471,20 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="flex items-center gap-3 border-b pb-2"><Users className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Información de Padres / Tutores</h3></div>
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-black text-primary uppercase">Datos de la Madre</p>
+                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Datos de la Madre</p>
                   <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre de la Madre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
-                  <FormField control={form.control} name="motherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="motherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular de la Madre" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
                 </div>
                 <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-black text-primary uppercase">Datos del Padre</p>
+                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Datos del Padre</p>
                   <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre del Padre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
-                  <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular del Padre" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
                 </div>
                 <div className="md:col-span-2 space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-black text-primary uppercase">Tutor / Responsable Alternativo (Opcional)</p>
+                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Tutor / Responsable Alternativo (Opcional)</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="tutorName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre del Tutor" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
-                    <FormField control={form.control} name="tutorPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="tutorPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular del Tutor" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
                   </div>
                 </div>
               </div>
@@ -497,7 +578,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 {paymentMethod === "TRANSFERENCIA" && (
                   <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300">
                     <Label className="font-bold text-slate-700">Comprobante de Transferencia *</Label>
-                    <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors" onClick={() => startCamera("PAYMENT_PROOF")}>
+                    <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => startCamera("PAYMENT_PROOF")}>
                       {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><ArrowRightLeft className="h-8 w-8 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-[10px] font-bold text-slate-400 uppercase text-center px-4">Capturar Foto o Subir Comprobante</span></>}
                     </div>
                     <p className="text-[9px] text-slate-400 text-center italic">Para validar tu inscripción, adjunta el ticket de transferencia.</p>
@@ -507,7 +588,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 
                 <div className="space-y-3">
                   <Label className="font-bold text-slate-700">Certificado de Bautismo (Opcional)</Label>
-                  <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors" onClick={() => startCamera("BAPTISM_CERT")}>
+                  <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => startCamera("BAPTISM_CERT")}>
                     {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-8 w-8 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-[10px] font-bold text-slate-400 uppercase">Cargar Certificado</span></>}
                   </div>
                   <input type="file" ref={baptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
@@ -536,7 +617,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
             <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle>
-            <DialogDescription className="text-white/80">Asegura una buena iluminación.</DialogDescription>
+            <DialogDescription className="text-white/80">Asegura una buena iluminación para una foto nítida.</DialogDescription>
           </DialogHeader>
           <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
             <video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
@@ -544,23 +625,24 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             {hasCameraPermission === false && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4">
                 <X className="h-12 w-12 text-red-500" />
-                <p className="font-bold">Acceso denegado</p>
+                <p className="font-bold">Acceso a cámara denegado</p>
+                <p className="text-xs text-slate-400">Por favor, habilita los permisos en tu navegador.</p>
               </div>
             )}
           </div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
             {devices.length > 1 && (
               <div className="space-y-2">
-                <Label className="text-xs text-slate-500 uppercase font-bold">Cambiar Cámara</Label>
+                <Label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Seleccionar Cámara</Label>
                 <Select value={selectedDeviceId} onValueChange={(v) => { setSelectedDeviceId(v); startCamera(captureTarget, v); }}>
-                  <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>{devices.map(d => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent>
+                  <SelectTrigger className="h-10 rounded-xl bg-white border-slate-200"><SelectValue placeholder="Elegir dispositivo" /></SelectTrigger>
+                  <SelectContent>{devices.map(d => (<SelectItem key={d.deviceId} value={d.deviceId} className="text-xs font-bold">{d.label || `Cámara ${d.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
             )}
             <div className="flex gap-3 w-full">
-              <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>CANCELAR</Button>
-              <Button type="button" className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={takePhoto}>TOMAR FOTO</Button>
+              <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold uppercase tracking-widest text-[10px]" onClick={stopCamera}>CANCELAR</Button>
+              <Button type="button" className="flex-1 h-12 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20" onClick={takePhoto}>TOMAR FOTO</Button>
             </div>
           </DialogFooter>
         </DialogContent>
