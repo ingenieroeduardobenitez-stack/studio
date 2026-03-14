@@ -307,8 +307,8 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
         <div className="text-center space-y-4 relative">
           <div className="h-px w-full bg-slate-300"></div>
           <div className="space-y-1">
-            <p className="text-xs font-black uppercase text-slate-900 leading-none">COORDINACIÓN DE CATEQUESIS</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">VALIDACIÓN INSTITUCIONAL</p>
+            <p className="text-xs font-black uppercase text-slate-900 leading-none">CARLONGO BENITEZ</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">COORDINADOR GENERAL</p>
           </div>
           <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-80">
             <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
