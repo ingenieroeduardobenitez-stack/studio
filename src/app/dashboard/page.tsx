@@ -196,12 +196,12 @@ export default function DashboardPage() {
           
           <div className="flex-1 overflow-y-auto p-8 bg-slate-100 no-print flex justify-center">
             <div className="bg-white shadow-2xl origin-top scale-[0.85] mb-[-10%]">
-              <ExecutiveReportContent stats={stats} />
+              <ExecutiveReportContent stats={stats} profile={profile} />
             </div>
           </div>
 
           <div className="hidden print:block">
-            <ExecutiveReportContent stats={stats} />
+            <ExecutiveReportContent stats={stats} profile={profile} />
           </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3 no-print shrink-0">
@@ -216,18 +216,21 @@ export default function DashboardPage() {
   )
 }
 
-function ExecutiveReportContent({ stats }: { stats: any }) {
+function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }) {
   const currentDate = new Date().toLocaleDateString('es-PY', {
     day: '2-digit',
     month: 'long',
     year: 'numeric'
   });
 
+  const reporterName = profile ? `${profile.firstName} ${profile.lastName}`.toUpperCase() : "SECRETARÍA ADMINISTRATIVA";
+  const reporterRole = profile?.role ? profile.role.toUpperCase() : "PERSONAL AUTORIZADO";
+
   return (
-    <div id="executive-report" className="bg-white p-16 text-slate-900 w-[800px] h-auto min-h-[1050px] mx-auto border-[1px] border-slate-200">
+    <div id="executive-report" className="bg-white p-16 text-slate-900 w-[800px] h-auto min-h-[1050px] mx-auto border-[1px] border-slate-200 relative">
       <div className="flex items-center justify-between border-b-2 border-primary pb-8 mb-10">
         <div className="relative h-24 w-24">
-          <Image src="/logo.png" fill alt="Logo" className="object-contain" />
+          <Image src="/logo.png" fill alt="Logo" className="object-contain p-2" />
         </div>
         <div className="text-right">
           <h2 className="text-xl font-black text-primary leading-tight">SANTUARIO NACIONAL</h2>
@@ -291,15 +294,21 @@ function ExecutiveReportContent({ stats }: { stats: any }) {
         <div className="text-center space-y-4">
           <div className="h-px w-full bg-slate-300"></div>
           <div className="space-y-1">
-            <p className="text-xs font-black uppercase text-slate-900 leading-none">LILIANA MUÑOZ</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Secretaría Administrativa</p>
+            <p className="text-xs font-black uppercase text-slate-900 leading-none">{reporterName}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{reporterRole}</p>
           </div>
         </div>
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 relative">
           <div className="h-px w-full bg-slate-300"></div>
           <div className="space-y-1">
-            <p className="text-xs font-black uppercase text-slate-900 leading-none">Pbro. Oscar González</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cura Párroco / Rector</p>
+            <p className="text-xs font-black uppercase text-slate-900 leading-none">COORDINACIÓN DE CATEQUESIS</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">VALIDACIÓN INSTITUCIONAL</p>
+          </div>
+          <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-80">
+            <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
+              <QRCodeCanvas value={`NSPS-REPORT-VAL-${Date.now()}`} size={70} level="M" />
+            </div>
+            <p className="text-[7px] font-black text-primary uppercase mt-1">Sello Digital</p>
           </div>
         </div>
       </div>
