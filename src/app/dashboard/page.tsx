@@ -63,6 +63,8 @@ export default function DashboardPage() {
     )
   }
 
+  const isAdmin = profile?.role === "Administrador"
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -73,9 +75,11 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Bienvenido al Sistema de la Confirmación Juvenil NSPS</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold gap-2 h-11" onClick={() => setIsReportOpen(true)}>
-            <FileText className="h-4 w-4" /> Generar Informe
-          </Button>
+          {isAdmin && (
+            <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold gap-2 h-11" onClick={() => setIsReportOpen(true)}>
+              <FileText className="h-4 w-4" /> Generar Informe
+            </Button>
+          )}
           <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
             <QrCode className="h-4 w-4" /> QR Inscripción
           </Button>
