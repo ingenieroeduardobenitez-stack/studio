@@ -1,4 +1,3 @@
-
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -193,13 +192,13 @@ export default function DashboardPage() {
       </Dialog>
 
       <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
-        <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
           <DialogHeader className="p-4 bg-slate-50 border-b no-print shrink-0">
             <DialogTitle className="text-xs font-black uppercase text-slate-400 tracking-widest text-center">Vista Previa de Informe Ejecutivo</DialogTitle>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto p-8 bg-slate-100 no-print flex justify-center">
-            <div className="bg-white shadow-2xl origin-top scale-[0.85] mb-[-10%]">
+            <div className="bg-white shadow-2xl origin-top scale-[0.75] mb-[-15%]">
               <ExecutiveReportContent stats={stats} profile={profile} />
             </div>
           </div>
@@ -231,8 +230,8 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
   const reporterRole = profile?.role ? profile.role.toUpperCase() : "PERSONAL AUTORIZADO";
 
   return (
-    <div id="executive-report" className="bg-white p-16 text-slate-900 w-[800px] h-auto min-h-[1050px] mx-auto border-[1px] border-slate-200 relative">
-      <div className="flex items-center justify-between border-b-2 border-primary pb-8 mb-10">
+    <div id="executive-report" className="bg-white p-12 text-slate-900 w-[800px] h-auto min-h-[1050px] mx-auto border-[1px] border-slate-200 relative">
+      <div className="flex items-center justify-between border-b-2 border-primary pb-8 mb-8">
         <div className="relative h-24 w-24">
           <Image src="/logo.png" fill alt="Logo" className="object-contain p-2" />
         </div>
@@ -243,15 +242,15 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
         </div>
       </div>
 
-      <div className="text-center mb-16 space-y-2">
+      <div className="text-center mb-12 space-y-2">
         <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase">Informe Ejecutivo de Inscripciones</h1>
         <p className="text-lg font-bold text-primary italic">Confirmación Juvenil - Ciclo Lectivo 2026</p>
         <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] pt-4">Estado de Situación al {currentDate}</p>
       </div>
 
-      <div className="space-y-12">
+      <div className="space-y-10">
         <div className="space-y-4">
-          <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">1. Resumen de Postulantes por Categoría</h3>
+          <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">1. Resumen de Postulantes por Categoría</h3>
           <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -282,8 +281,8 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
           </div>
         </div>
 
-        <div className="space-y-4 pt-8">
-          <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">2. Observaciones Administrativas</h3>
+        <div className="space-y-4 pt-4">
+          <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">2. Observaciones Administrativas</h3>
           <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
             <p className="text-xs leading-relaxed text-slate-600 font-medium italic">
               El presente informe refleja la situación actual de los postulantes inscritos para el ciclo 2026. 
@@ -293,36 +292,54 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
         </div>
       </div>
 
-      <div className="mt-32 grid grid-cols-2 gap-20">
+      <div className="mt-24 grid grid-cols-3 gap-8">
+        {/* FIRMA 1: EMISOR */}
         <div className="text-center space-y-4 relative">
           <div className="h-px w-full bg-slate-300"></div>
           <div className="space-y-1">
-            <p className="text-xs font-black uppercase text-slate-900 leading-none">{reporterName}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{reporterRole}</p>
+            <p className="text-[10px] font-black uppercase text-slate-900 leading-none">{reporterName}</p>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Generado por</p>
           </div>
           <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-80">
             <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
-              <QRCodeCanvas value={`NSPS-AUTH-GEN-${profile?.id || 'SYSTEM'}-${Date.now()}`} size={70} level="M" />
+              <QRCodeCanvas value={`NSPS-AUTH-GEN-${profile?.id || 'SYSTEM'}-${Date.now()}`} size={60} level="M" />
             </div>
-            <p className="text-[7px] font-black text-blue-700 uppercase mt-1">Sello de Autoría</p>
+            <p className="text-[6px] font-black text-blue-700 uppercase mt-1">Sello Autoría</p>
           </div>
         </div>
+
+        {/* FIRMA 2: FLAVIA TUCUNA */}
         <div className="text-center space-y-4 relative">
           <div className="h-px w-full bg-slate-300"></div>
           <div className="space-y-1">
-            <p className="text-xs font-black uppercase text-slate-900 leading-none">CARLONGO BENITEZ</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">COORDINADOR GENERAL</p>
+            <p className="text-[10px] font-black uppercase text-slate-900 leading-none">FLAVIA TUCUNA</p>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">COORDINADORA</p>
           </div>
           <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-80">
             <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
-              <QRCodeCanvas value={`NSPS-REPORT-VAL-${Date.now()}`} size={70} level="M" />
+              <QRCodeCanvas value={`NSPS-COORD-FLAVIA-${Date.now()}`} size={60} level="M" />
             </div>
-            <p className="text-[7px] font-black text-primary uppercase mt-1">Sello Digital</p>
+            <p className="text-[6px] font-black text-primary uppercase mt-1">Sello Digital</p>
+          </div>
+        </div>
+
+        {/* FIRMA 3: CARLONGO BENITEZ */}
+        <div className="text-center space-y-4 relative">
+          <div className="h-px w-full bg-slate-300"></div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase text-slate-900 leading-none">CARLONGO BENITEZ</p>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">COORDINADOR GRAL.</p>
+          </div>
+          <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-80">
+            <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
+              <QRCodeCanvas value={`NSPS-COORD-CARLONGO-${Date.now()}`} size={60} level="M" />
+            </div>
+            <p className="text-[6px] font-black text-primary uppercase mt-1">Sello Digital</p>
           </div>
         </div>
       </div>
 
-      <div className="absolute bottom-10 left-16 right-16 flex items-center justify-between border-t pt-4">
+      <div className="absolute bottom-10 left-12 right-12 flex items-center justify-between border-t pt-4">
         <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.3em]">Documento Oficial del Santuario Nacional NSPS</p>
         <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.3em]">Página 1 de 1</p>
       </div>
