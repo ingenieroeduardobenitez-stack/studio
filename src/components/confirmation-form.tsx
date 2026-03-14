@@ -20,7 +20,10 @@ import {
   FileText,
   Search,
   Book,
-  Users
+  Users,
+  Banknote,
+  ArrowRightLeft,
+  Clock
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -48,6 +51,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -57,6 +61,9 @@ const formSchema = z.object({
   age: z.coerce.number().optional(),
   sexo: z.string().min(1, "Seleccione sexo"),
   photoUrl: z.string().optional(),
+  paymentMethod: z.enum(["EFECTIVO", "TRANSFERENCIA", "SIN_PAGO"], {
+    required_error: "Debe seleccionar un método de pago",
+  }),
   paymentProofUrl: z.string().optional(),
   motherName: z.string().optional(),
   motherPhone: z.string().optional(),
@@ -131,6 +138,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       age: 0,
       sexo: "",
       photoUrl: "",
+      paymentMethod: "EFECTIVO",
       paymentProofUrl: "",
       motherName: "",
       motherPhone: "",
@@ -151,6 +159,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const birthDate = watch("birthDate")
   const hasBaptism = watch("hasBaptism")
   const catechesisYear = watch("catechesisYear")
+  const paymentMethod = watch("paymentMethod")
 
   const totalCost = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
 
@@ -172,7 +181,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 800;
+        const MAX_SIZE = 1024;
         let width = img.width;
         let height = img.height;
         if (width > height) {
@@ -190,7 +199,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+        resolve(canvas.toDataURL('image/jpeg', 0.8)); 
       };
       img.onerror = (e: any) => reject(e);
       img.src = source;
@@ -210,7 +219,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     try {
       if (currentStream) currentStream.getTracks().forEach(track => track.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } }
       })
       setCurrentStream(stream)
       setHasCameraPermission(true)
@@ -236,7 +245,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d')?.drawImage(video, 0, 0)
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
       const optimized = await compressImage(dataUrl);
       if (captureTarget === "STUDENT_PHOTO") { setPhotoPreview(optimized); setValue("photoUrl", optimized); }
       else if (captureTarget === "PAYMENT_PROOF") { setProofPreview(optimized); setValue("paymentProofUrl", optimized); }
@@ -458,19 +467,65 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </div>
 
-            {/* SECCIÓN 5: DOCUMENTOS ADJUNTOS */}
+            {/* SECCIÓN 5: MÉTODO DE PAGO Y DOCUMENTOS */}
             <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b pb-2"><FileText className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Documentación y Pagos</h3></div>
+              <div className="flex items-center gap-3 border-b pb-2"><Wallet className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Método de Inscripción</h3></div>
+              
+              <FormField control={form.control} name="paymentMethod" render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel className="font-bold">¿Cómo realizará el pago de la inscripción? *</FormLabel>
+                  <FormControl>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div 
+                        onClick={() => field.onChange("EFECTIVO")}
+                        className={cn(
+                          "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
+                          field.value === "EFECTIVO" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
+                        )}
+                      >
+                        <Banknote className={cn("h-6 w-6", field.value === "EFECTIVO" ? "text-primary" : "text-slate-400")} />
+                        <span className={cn("text-xs font-bold uppercase", field.value === "EFECTIVO" ? "text-primary" : "text-slate-500")}>Efectivo</span>
+                      </div>
+                      <div 
+                        onClick={() => field.onChange("TRANSFERENCIA")}
+                        className={cn(
+                          "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
+                          field.value === "TRANSFERENCIA" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
+                        )}
+                      >
+                        <ArrowRightLeft className={cn("h-6 w-6", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-400")} />
+                        <span className={cn("text-xs font-bold uppercase", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-500")}>Transferencia</span>
+                      </div>
+                      <div 
+                        onClick={() => field.onChange("SIN_PAGO")}
+                        className={cn(
+                          "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
+                          field.value === "SIN_PAGO" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
+                        )}
+                      >
+                        <Clock className={cn("h-6 w-6", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-400")} />
+                        <span className={cn("text-xs font-bold uppercase", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-500")}>Inscribir sin pagar</span>
+                      </div>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-3">
-                  <Label className="font-bold text-slate-700">Comprobante de Pago (Seña o Total)</Label>
-                  <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors" onClick={() => startCamera("PAYMENT_PROOF")}>
-                    {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><CreditCard className="h-8 w-8 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-[10px] font-bold text-slate-400 uppercase">Cargar Foto de Comprobante</span></>}
+                {paymentMethod === "TRANSFERENCIA" && (
+                  <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300">
+                    <Label className="font-bold text-slate-700">Comprobante de Transferencia *</Label>
+                    <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors" onClick={() => startCamera("PAYMENT_PROOF")}>
+                      {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><ArrowRightLeft className="h-8 w-8 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-[10px] font-bold text-slate-400 uppercase text-center px-4">Capturar Foto o Subir Comprobante</span></>}
+                    </div>
+                    <p className="text-[9px] text-slate-400 text-center italic">Para validar tu inscripción, adjunta el ticket de transferencia.</p>
+                    <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
                   </div>
-                  <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
-                </div>
+                )}
+                
                 <div className="space-y-3">
-                  <Label className="font-bold text-slate-700">Certificado de Bautismo</Label>
+                  <Label className="font-bold text-slate-700">Certificado de Bautismo (Opcional)</Label>
                   <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors" onClick={() => startCamera("BAPTISM_CERT")}>
                     {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-8 w-8 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-[10px] font-bold text-slate-400 uppercase">Cargar Certificado</span></>}
                   </div>
