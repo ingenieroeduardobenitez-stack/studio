@@ -291,11 +291,17 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
       </div>
 
       <div className="mt-32 grid grid-cols-2 gap-20">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 relative">
           <div className="h-px w-full bg-slate-300"></div>
           <div className="space-y-1">
             <p className="text-xs font-black uppercase text-slate-900 leading-none">{reporterName}</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{reporterRole}</p>
+          </div>
+          <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-80">
+            <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
+              <QRCodeCanvas value={`NSPS-AUTH-GEN-${profile?.id || 'SYSTEM'}-${Date.now()}`} size={70} level="M" />
+            </div>
+            <p className="text-[7px] font-black text-blue-700 uppercase mt-1">Sello de Autoría</p>
           </div>
         </div>
         <div className="text-center space-y-4 relative">
