@@ -525,17 +525,25 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><BookOpen className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Vida Sacramental</h3></div>
-              <div className="grid gap-8 md:grid-cols-2">
+              <div className="grid gap-8 md:grid-cols-1">
                 <div className="space-y-4">
                   <FormField control={form.control} name="hasBaptism" render={({ field }) => (
                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50/50 shadow-sm"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md" /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-black text-xs uppercase cursor-pointer">¿Tiene el Bautismo?</FormLabel><p className="text-[10px] text-slate-400">Marcar si ya fue bautizado.</p></div></FormItem>
                   )} />
                   {hasBaptism && (
-                    <div className="animate-in slide-in-from-top-2 duration-300 space-y-4 pt-2">
-                      <FormField control={form.control} name="baptismParish" render={({ field }) => (<FormItem><FormControl><Input placeholder="Parroquia de Bautismo" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="baptismBook" render={({ field }) => (<FormItem><FormControl><Input placeholder="Libro N°" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
-                        <FormField control={form.control} name="baptismFolio" render={({ field }) => (<FormItem><FormControl><Input placeholder="Folio N°" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                    <div className="animate-in slide-in-from-top-2 duration-300 space-y-6 pt-2 p-6 border-2 border-primary/10 border-dashed rounded-3xl bg-slate-50/30">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField control={form.control} name="baptismParish" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-500">Parroquia</FormLabel><FormControl><Input placeholder="Parroquia de Bautismo" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
+                        <FormField control={form.control} name="baptismBook" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-500">Libro N°</FormLabel><FormControl><Input placeholder="Libro N°" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
+                        <FormField control={form.control} name="baptismFolio" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-500">Folio N°</FormLabel><FormControl><Input placeholder="Folio N°" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <Label className="font-bold text-slate-700">Certificado de Bautismo (Foto o PDF)</Label>
+                        <div className="border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center bg-white cursor-pointer overflow-hidden group hover:bg-slate-50 transition-colors shadow-sm" onClick={() => startCamera("BAPTISM_CERT")}>
+                          {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-10 w-10 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-xs font-bold text-slate-400 uppercase">Cargar Foto del Certificado</span></>}
+                        </div>
+                        <input type="file" ref={baptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
                       </div>
                     </div>
                   )}
@@ -638,9 +646,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         {costs?.alias && (
                           <div className="sm:col-span-2 p-4 bg-white rounded-2xl border-2 border-primary/20 flex items-center justify-between shadow-sm">
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-primary/20">u</div>
+                              <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-primary/20">f</div>
                               <div>
-                                <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-1">Alias / ueno</p>
+                                <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-1">Alias / BANCO FAMILIAR</p>
                                 <p className="text-xl font-black text-primary leading-none tracking-tight">{costs.alias}</p>
                               </div>
                             </div>
@@ -673,14 +681,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     </div>
                   </div>
                 )}
-                
-                <div className="space-y-3">
-                  <Label className="font-bold text-slate-700">Certificado de Bautismo (Opcional)</Label>
-                  <div className="border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => startCamera("BAPTISM_CERT")}>
-                    {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-10 w-10 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-xs font-bold text-slate-400 uppercase">Cargar Foto del Certificado</span></>}
-                  </div>
-                  <input type="file" ref={baptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
-                </div>
               </div>
             </div>
 
