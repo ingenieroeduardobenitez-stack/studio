@@ -870,7 +870,7 @@ export default function RegistrationsListPage() {
         </Accordion>
       )}
 
-      {/* DIÁLOGOS (Details, Edit, Assign, Delete, etc. - Reactivados según el archivo anterior) */}
+      {/* DIÁLOGOS DETALLE, EDICIÓN, ETC */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden rounded-3xl h-[95vh] max-h-[95vh] flex flex-col border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -1141,7 +1141,9 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
         <TableRow>
           <TableHead className="w-[60px] pl-6"></TableHead>
           <TableHead className="font-bold text-xs">Confirmando</TableHead>
+          <TableHead className="font-bold text-xs">Celular</TableHead>
           <TableHead className="text-center font-bold text-xs">Año</TableHead>
+          <TableHead className="text-center font-bold text-xs">Día</TableHead>
           <TableHead className="text-center font-bold text-xs">Estado</TableHead>
           <TableHead className="text-right pr-8 font-bold text-xs">Acciones</TableHead>
         </TableRow>
@@ -1151,7 +1153,9 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
           <TableRow key={reg.id} className="h-14 hover:bg-slate-50/50 transition-colors">
             <TableCell className="pl-6"><Avatar className="h-8 w-8 border cursor-pointer active:scale-95 transition-transform" onClick={() => reg.photoUrl && onViewImage(reg.photoUrl)}><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar></TableCell>
             <TableCell><div className="flex flex-col"><span className="font-bold text-xs uppercase text-slate-900">{reg.fullName}</span><span className="text-[10px] text-slate-400">C.I. {reg.ciNumber}</span></div></TableCell>
+            <TableCell><span className="text-[10px] font-bold text-slate-600">{reg.phone || '---'}</span></TableCell>
             <TableCell className="text-center"><span className="text-[10px] font-bold text-slate-400">{formatYear(reg.catechesisYear)}</span></TableCell>
+            <TableCell className="text-center"><span className="text-[10px] font-bold text-slate-500 uppercase">{reg.attendanceDay}</span></TableCell>
             <TableCell className="text-center">{getBadge(reg.status)}</TableCell>
             <TableCell className="text-right pr-8">
               <div className="flex justify-end gap-2">
