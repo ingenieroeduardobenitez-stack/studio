@@ -295,8 +295,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           if (s.startsWith('M')) setValue("sexo", "M"); else if (s.startsWith('F')) setValue("sexo", "F");
         }
         toast({ title: "Datos precargados" });
+      } else {
+        toast({ variant: "destructive", title: "No encontrado", description: "La cédula no figura en la base de datos." });
       }
-    } catch (e) {} finally { setIsSearchingCi(false); }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la búsqueda." });
+    } finally { setIsSearchingCi(false); }
   }
 
   const handleRegistration = async (values: FormValues) => {
@@ -320,31 +324,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     } catch (e) {
       toast({ variant: "destructive", title: "Error al inscribir" });
     } finally { setLoading(false); }
-  }
-
-  if (!mounted) return null;
-
-  if (isSubmittedSuccessfully) {
-    return (
-      <Card className="border-none shadow-2xl bg-white rounded-3xl p-10 text-center space-y-6 max-w-2xl mx-auto">
-        <div className="h-20 w-20 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
-          <CheckCircle2 className="h-10 w-10" />
-        </div>
-        <h2 className="text-3xl font-headline font-bold text-slate-900">¡INSCRIPCIÓN RECIBIDA!</h2>
-        <p className="text-slate-500 font-medium">Se ha generado la ficha de pre-inscripción para <strong>{submittedData?.fullName}</strong>.</p>
-        <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-200 text-sm space-y-2">
-          <p className="font-bold text-primary uppercase">Próximos Pasos:</p>
-          <ul className="text-slate-600 space-y-1 text-left inline-block">
-            <li>• Presentarse en Secretaría del Santuario para validar el pago.</li>
-            <li>• Entregar copia de Cédula de Identidad.</li>
-            <li>• Entregar copia de Certificado de Bautismo (si no fue adjuntado).</li>
-          </ul>
-        </div>
-        <Button asChild className="w-full h-14 rounded-xl font-bold bg-primary shadow-lg">
-          <Link href={isPublic ? "/" : "/dashboard"}>FINALIZAR</Link>
-        </Button>
-      </Card>
-    )
   }
 
   return (
@@ -382,7 +361,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <FormLabel className="font-bold">N° de C.I. *</FormLabel>
                     <div className="flex gap-2">
                       <FormControl><Input placeholder="Sin puntos" {...field} className="h-12 rounded-xl" /></FormControl>
-                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl font-bold bg-primary">{isSearchingCi ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}</Button>
+                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl font-bold bg-primary active:scale-95 transition-transform">
+                        {isSearchingCi ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}
+                      </Button>
                     </div>
                     <FormMessage />
                   </FormItem>
