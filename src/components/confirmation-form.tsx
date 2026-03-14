@@ -31,7 +31,8 @@ import {
   Search,
   Banknote,
   ArrowRightLeft,
-  Book
+  Book,
+  Users
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -263,6 +264,30 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       else if (captureTarget === "PAYMENT_PROOF") { setProofPreview(optimized); setValue("paymentProofUrl", optimized); }
       else if (captureTarget === "BAPTISM_CERT") { setBaptismPreview(optimized); setValue("baptismCertificatePhotoUrl", optimized); }
       stopCamera()
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: keyof FormValues) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const objectUrl = URL.createObjectURL(file)
+      try {
+        const optimized = await compressImage(objectUrl)
+        if (fieldName === "photoUrl") {
+          setPhotoPreview(optimized)
+          setValue("photoUrl", optimized)
+        } else if (fieldName === "paymentProofUrl") {
+          setProofPreview(optimized)
+          setValue("paymentProofUrl", optimized)
+        } else if (fieldName === "baptismCertificatePhotoUrl") {
+          setBaptismPreview(optimized)
+          setValue("baptismCertificatePhotoUrl", optimized)
+        }
+      } catch (err) {
+        console.error("Error al procesar imagen:", err)
+      } finally {
+        URL.revokeObjectURL(objectUrl)
+      }
     }
   }
 
@@ -521,6 +546,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </Form>
   )
 }
