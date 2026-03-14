@@ -59,6 +59,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
+import { Separator } from "@/components/ui/separator"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -173,14 +175,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const establishedLimit = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
 
-  // Sincronizar monto predeterminado cuando cambia el nivel
   useEffect(() => {
     if (catechesisYear) {
       setValue("registrationCost", establishedLimit)
     }
   }, [catechesisYear, establishedLimit, setValue])
 
-  // Validación de que no pase del monto establecido
   useEffect(() => {
     if (registrationCost > establishedLimit) {
       setValue("registrationCost", establishedLimit)
@@ -385,7 +385,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       })
 
       await setDoc(doc(db, "confirmations", regId), regData);
-      setSubmittedData({ ...regData, id: regId });
+      setSubmittedData({ ...regData, id: regId, timestamp: new Date() });
       setIsSubmittedSuccessfully(true);
       toast({ title: "Inscripción enviada exitosamente" });
     } catch (e) {
@@ -402,53 +402,134 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   }
 
   if (isSubmittedSuccessfully) {
-    return (
-      <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden max-w-2xl mx-auto animate-in zoom-in-95 duration-500">
-        <div className="bg-primary p-12 text-center text-white space-y-6">
-          <div className="h-24 w-24 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-white/30 animate-bounce">
-            <CheckCircle2 className="h-12 w-12 text-white" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-4xl font-headline font-black tracking-tight">¡REGISTRO EXITOSO!</h2>
-            <p className="text-white/80 font-medium text-lg">Tu ficha ha sido enviada correctamente al Santuario.</p>
-          </div>
-        </div>
-        <CardContent className="p-10 space-y-8">
-          <div className="p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center space-y-4">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">N° de Comprobante Provisional</p>
-            <p className="text-2xl font-black text-primary font-mono">{submittedData?.id.split('_')[1]}</p>
-            <div className="h-px w-20 bg-slate-200 mx-auto"></div>
-            <p className="text-sm font-bold text-slate-600 uppercase">{submittedData?.fullName}</p>
-          </div>
+    const hasPaid = submittedData?.paymentMethod !== "SIN_PAGO";
 
-          <div className="space-y-4">
-            <h3 className="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Próximos Pasos</h3>
-            <div className="grid gap-3">
-              <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                <div className="h-10 w-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-200"><CheckCircle2 className="h-5 w-5" /></div>
-                <p className="text-xs font-bold text-blue-800 leading-tight">Secretaría validará tus documentos en las próximas 48hs.</p>
-              </div>
-              <div className="flex items-center gap-4 p-4 bg-green-50 rounded-2xl border border-green-100">
-                <div className="h-10 w-10 rounded-xl bg-green-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-green-200"><Clock className="h-5 w-5" /></div>
-                <p className="text-xs font-bold text-green-800 leading-tight">Recibirás un aviso para retirar tu carnet oficial.</p>
-              </div>
+    return (
+      <>
+        <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden max-w-2xl mx-auto animate-in zoom-in-95 duration-500 no-print">
+          <div className="bg-primary p-12 text-center text-white space-y-6">
+            <div className="h-24 w-24 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-white/30 animate-bounce">
+              <CheckCircle2 className="h-12 w-12 text-white" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-4xl font-headline font-black tracking-tight">¡REGISTRO EXITOSO!</h2>
+              <p className="text-white/80 font-medium text-lg">Tu ficha ha sido enviada correctamente al Santuario.</p>
             </div>
           </div>
-        </CardContent>
-        <CardFooter className="bg-slate-50 p-8 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3 w-full">
-            <Button variant="outline" className="h-14 rounded-2xl font-black gap-2 border-slate-200 text-slate-600" onClick={() => window.print()}>
-              <Printer className="h-5 w-5" /> IMPRIMIR
-            </Button>
-            <Button className="h-14 rounded-2xl font-black gap-2 bg-slate-900 text-white" asChild>
-              <Link href={isPublic ? "/" : "/dashboard"}>
-                FINALIZAR <ChevronRight className="h-5 w-5" />
-              </Link>
-            </Button>
+          <CardContent className="p-10 space-y-8">
+            <div className="p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center space-y-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">N° de Comprobante Provisional</p>
+              <p className="text-2xl font-black text-primary font-mono">{submittedData?.id.split('_')[1]}</p>
+              <div className="h-px w-20 bg-slate-200 mx-auto"></div>
+              <p className="text-sm font-bold text-slate-600 uppercase">{submittedData?.fullName}</p>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Próximos Pasos</h3>
+              <div className="grid gap-3">
+                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                  <div className="h-10 w-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-200"><CheckCircle2 className="h-5 w-5" /></div>
+                  <p className="text-xs font-bold text-blue-800 leading-tight">Secretaría validará tus documentos en las próximas 48hs.</p>
+                </div>
+                <div className="flex items-center gap-4 p-4 bg-green-50 rounded-2xl border border-green-100">
+                  <div className="h-10 w-10 rounded-xl bg-green-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-green-200"><Clock className="h-5 w-5" /></div>
+                  <p className="text-xs font-bold text-green-800 leading-tight">Recibirás un aviso para retirar tu carnet oficial.</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="bg-slate-50 p-8 flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3 w-full">
+              {hasPaid ? (
+                <Button variant="outline" className="h-14 rounded-2xl font-black gap-2 border-slate-200 text-slate-600" onClick={() => window.print()}>
+                  <Printer className="h-5 w-5" /> IMPRIMIR RECIBO
+                </Button>
+              ) : (
+                <div className="hidden"></div>
+              )}
+              <Button className={cn("h-14 rounded-2xl font-black gap-2 bg-slate-900 text-white", !hasPaid && "col-span-2")} asChild>
+                <Link href={isPublic ? "/" : "/dashboard"}>
+                  FINALIZAR <ChevronRight className="h-5 w-5" />
+                </Link>
+              </Button>
+            </div>
+            <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest pt-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
+          </CardFooter>
+        </Card>
+
+        {/* RECIBO OFICIAL PARA IMPRESIÓN (SOLO SI PAGÓ) */}
+        {hasPaid && (
+          <div id="receipt-area" className="hidden print:block bg-white p-10 space-y-8 min-h-screen">
+            <div className="flex items-center justify-between border-b-2 border-primary pb-6">
+              <div className="flex items-center gap-4">
+                <div className="bg-primary/10 p-2 rounded-xl">
+                  <Church className="h-10 w-10 text-primary" />
+                </div>
+                <div>
+                  <h1 className="font-headline font-black text-primary text-xl uppercase leading-none">Santuario Nacional</h1>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nuestra Señora del Perpetuo Socorro</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-black text-primary uppercase tracking-widest">Recibo de Inscripción</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Provisional N° {submittedData?.id.split('_')[1]}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8 pt-4">
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha de Emisión</p>
+                <p className="text-sm font-bold text-slate-900">{submittedData?.timestamp?.toLocaleDateString('es-PY')}</p>
+              </div>
+              <div className="space-y-1 text-right">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</p>
+                <Badge className="bg-orange-100 text-orange-700 border-none">PENDIENTE DE VALIDACIÓN</Badge>
+              </div>
+            </div>
+
+            <Separator className="bg-slate-100" />
+
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recibimos de:</p>
+                <p className="text-xl font-black text-slate-900 uppercase">{submittedData?.fullName}</p>
+                <p className="text-xs font-bold text-slate-500">C.I. N° {submittedData?.ciNumber}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-3xl border border-dashed">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Concepto</p>
+                  <p className="text-sm font-bold text-slate-700 uppercase">Inscripción Catequesis {submittedData?.catechesisYear.replace('_', ' ')}</p>
+                </div>
+                <div className="space-y-1 text-right">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Importe Declarado</p>
+                  <p className="text-2xl font-black text-primary">{submittedData?.registrationCost.toLocaleString('es-PY')} Gs.</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Método de Pago</p>
+                <p className="text-sm font-bold text-slate-700">{submittedData?.paymentMethod}</p>
+              </div>
+            </div>
+
+            <div className="pt-20 grid grid-cols-2 gap-20">
+              <div className="border-t border-slate-300 pt-4 text-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Firma Postulante / Tutor</p>
+              </div>
+              <div className="border-t border-slate-300 pt-4 text-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sello del Santuario</p>
+              </div>
+            </div>
+
+            <div className="pt-10 text-center">
+              <p className="text-[9px] text-slate-400 italic">
+                * Este comprobante es provisorio y sujeto a la validación de los documentos y el depósito bancario por parte de la secretaría del Santuario.
+              </p>
+            </div>
           </div>
-          <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest pt-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
-        </CardFooter>
-      </Card>
+        )}
+      </>
     )
   }
 
