@@ -396,6 +396,31 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     } finally { setLoading(false); }
   }
 
+  const onInvalid = (errors: any) => {
+    const fieldLabels: Record<string, string> = {
+      fullName: "Nombre Completo",
+      ciNumber: "N° de C.I.",
+      phone: "Celular",
+      birthDate: "Fecha de Nacimiento",
+      sexo: "Sexo",
+      paymentMethod: "Método de Pago",
+      catechesisYear: "Nivel (Año)",
+      attendanceDay: "Horario de Preferencia",
+      registrationCost: "Monto de Inscripción"
+    };
+
+    const errorFields = Object.keys(errors)
+      .map(key => fieldLabels[key] || key);
+
+    if (errorFields.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Formulario Incompleto",
+        description: `Por favor, completa los siguientes campos obligatorios: ${errorFields.join(", ")}.`,
+      });
+    }
+  }
+
   const copyToClipboard = (text: string) => {
     if (typeof window === 'undefined' || !navigator.clipboard) return;
     navigator.clipboard.writeText(text).then(() => {
@@ -488,7 +513,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   return (
     <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden max-w-4xl mx-auto">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleRegistration)}>
+        <form onSubmit={form.handleSubmit(handleRegistration, onInvalid)}>
           <CardHeader className="bg-primary text-white p-8">
             <CardTitle className="text-2xl font-headline font-bold">Ficha de Inscripción 2026</CardTitle>
             <CardDescription className="text-white/80">Catequesis de Confirmación - Santuario Nacional NSPS</CardDescription>
@@ -890,7 +915,7 @@ function ReceiptOfficialContent({ submittedData, dateDay, monthName }: { submitt
           <div className="mt-3 text-center">
             <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
             <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
-            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">ADMINISTRADOR</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest hide-print">ADMINISTRADOR</p>
           </div>
         </div>
       </div>
