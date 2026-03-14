@@ -283,7 +283,6 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
           <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
             <p className="text-xs leading-relaxed text-slate-600 font-medium italic">
               El presente informe refleja la situación actual de los postulantes inscritos para el ciclo 2026. 
-              Todas las fichas se encuentran en proceso de validación por la secretaría parroquial. 
               Los datos han sido extraídos automáticamente del Sistema de Gestión de Confirmación Juvenil NSPS.
             </p>
           </div>
