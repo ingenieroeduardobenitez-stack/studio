@@ -96,6 +96,9 @@ import { FirestorePermissionError } from "@/firebase/errors"
 type ViewMode = "LIST" | "GROUPS"
 type CaptureTarget = "PHOTO" | "BAPTISM" | "PAY_PROOF"
 
+/**
+ * Formulario de Edición que sincroniza con todos los campos del ConfirmationForm original
+ */
 function EditRegistrationForm({ 
   selectedReg, 
   profile, 
@@ -213,6 +216,7 @@ function EditRegistrationForm({
       updatedAt: serverTimestamp()
     }
 
+    // Lógica de reseteo si se marca como sin pago
     if (editPaymentMethod === "NONE") {
       updateData.amountPaid = 0;
       updateData.paymentStatus = "PENDIENTE";
@@ -414,7 +418,7 @@ function EditRegistrationForm({
                 <Input 
                   type="number" 
                   value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(editAmountPaid))}
+                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
                   readOnly={!isAdmin}
                   className={cn(
                     "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
@@ -702,6 +706,7 @@ export default function RegistrationsListPage() {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+        // Disparar evento para que el componente EditRegistrationForm sepa que se capturó algo
         window.dispatchEvent(new CustomEvent('camera-capture-success', { 
           detail: { target: captureTarget, dataUrl } 
         }));
