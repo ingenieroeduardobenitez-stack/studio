@@ -414,7 +414,7 @@ function EditRegistrationForm({
                 <Input 
                   type="number" 
                   value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
+                  onChange={(e) => setEditAmountPaid(Number(editAmountPaid))}
                   readOnly={!isAdmin}
                   className={cn(
                     "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
@@ -943,7 +943,7 @@ export default function RegistrationsListPage() {
                       <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><div className="flex items-center gap-2"><p className="font-bold text-slate-900">{group.name}</p><Badge variant="secondary" className="text-[9px] h-4 uppercase tracking-tighter">{formatYear(group.catechesisYear)}</Badge></div><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{group.attendanceDay}s • {groupStudents.length} confirmandos</p></div></div>
                     </AccordionTrigger>
                     <AccordionContent className="p-0 border-t border-slate-50">
-                      <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={openAssignGroup} onWithdraw={openWithdrawDialog} onDelete={openDeleteDialog} onViewDetails={openDetailsDialog} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
+                      <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={openAssignDialog} onWithdraw={openWithdrawDialog} onDelete={openDeleteDialog} onViewDetails={openDetailsDialog} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
                     </AccordionContent>
                   </div>
                 </AccordionItem>
