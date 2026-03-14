@@ -12,25 +12,13 @@ import {
   Camera,
   CheckCircle2,
   Wallet,
-  Copy,
-  Image as ImageIcon,
-  Clock,
+  ImageIcon,
   BookOpen,
   UserPlus,
-  FlipHorizontal,
   X,
-  Info,
   CreditCard,
-  MessageCircle,
   FileText,
-  Share2,
-  AlertTriangle,
-  Download,
-  QrCode,
-  ShieldCheck,
   Search,
-  Banknote,
-  ArrowRightLeft,
   Book,
   Users
 } from "lucide-react"
@@ -38,7 +26,6 @@ import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -53,23 +40,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase"
-import { doc, setDoc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, runTransaction } from "firebase/firestore"
+import { doc, setDoc, getDoc, serverTimestamp, collection } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { errorEmitter } from "@/firebase/error-emitter"
-import { FirestorePermissionError } from "@/firebase/errors"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
-import { Label } from "@/components/ui/label"
-import { QRCodeCanvas } from "qrcode.react"
-import Image from "next/image"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -335,6 +312,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     } finally { setLoading(false); }
   }
 
+  if (!mounted) return null;
+
   if (isSubmittedSuccessfully) {
     return (
       <Card className="border-none shadow-2xl bg-white rounded-3xl p-10 text-center space-y-6 max-w-2xl mx-auto">
@@ -345,7 +324,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         <p className="text-slate-500 font-medium">Se ha generado la ficha de pre-inscripción para <strong>{submittedData?.fullName}</strong>.</p>
         <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-200 text-sm space-y-2">
           <p className="font-bold text-primary uppercase">Próximos Pasos:</p>
-          <ul className="text-slate-600 space-y-1">
+          <ul className="text-slate-600 space-y-1 text-left inline-block">
             <li>• Presentarse en Secretaría del Santuario para validar el pago.</li>
             <li>• Entregar copia de Cédula de Identidad.</li>
             <li>• Entregar copia de Certificado de Bautismo (si no fue adjuntado).</li>
@@ -534,18 +513,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
             {devices.length > 1 && (
-              <Select value={selectedDeviceId} onValueChange={(v) => { setSelectedDeviceId(v); startCamera(captureTarget, v); }}>
-                <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
-                <SelectContent>{devices.map(d => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label className="text-xs text-slate-500 uppercase font-bold">Cambiar Cámara</Label>
+                <Select value={selectedDeviceId} onValueChange={(v) => { setSelectedDeviceId(v); startCamera(captureTarget, v); }}>
+                  <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>{devices.map(d => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent>
+                </Select>
+              </div>
             )}
             <div className="flex gap-3 w-full">
-              <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>CANCELAR</Button>
-              <Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={takePhoto}>TOMAR FOTO</Button>
+              <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>CANCELAR</Button>
+              <Button type="button" className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={takePhoto}>TOMAR FOTO</Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Form>
+    </Card>
   )
 }
