@@ -414,7 +414,7 @@ function EditRegistrationForm({
                 <Input 
                   type="number" 
                   value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(editAmountPaid))}
+                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
                   readOnly={!isAdmin}
                   className={cn(
                     "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
@@ -943,7 +943,7 @@ export default function RegistrationsListPage() {
                       <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><div className="flex items-center gap-2"><p className="font-bold text-slate-900">{group.name}</p><Badge variant="secondary" className="text-[9px] h-4 uppercase tracking-tighter">{formatYear(group.catechesisYear)}</Badge></div><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{group.attendanceDay}s • {groupStudents.length} confirmandos</p></div></div>
                     </AccordionTrigger>
                     <AccordionContent className="p-0 border-t border-slate-50">
-                      <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={openAssignDialog} onWithdraw={openWithdrawDialog} onDelete={openDeleteDialog} onViewDetails={openDetailsDialog} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
+                      <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={openAssignGroup} onWithdraw={openWithdrawDialog} onDelete={openDeleteDialog} onViewDetails={openDetailsDialog} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
                     </AccordionContent>
                   </div>
                 </AccordionItem>
@@ -956,18 +956,19 @@ export default function RegistrationsListPage() {
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <DialogTitle className="sr-only">Detalles del Confirmando</DialogTitle>
+            <DialogDescription className="sr-only">Consulta detallada de la ficha institucional.</DialogDescription>
             <div className="flex items-center gap-4 md:gap-6">
               <div className="relative cursor-pointer hover:scale-105 transition-transform" onClick={() => { if(selectedReg?.photoUrl) { setViewProofUrl(selectedReg.photoUrl); setIsProofViewOpen(true); } }}>
                 <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-white/20 shadow-xl"><AvatarImage src={selectedReg?.photoUrl} className="object-cover" /><AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback></Avatar>
                 <div className="absolute -bottom-2 -right-2">{getStatusBadge(selectedReg?.status)}</div>
               </div>
               <div className="space-y-1">
-                <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight block truncate">Ficha de {selectedReg?.fullName}</DialogTitle>
+                <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight leading-tight block truncate">Ficha de {selectedReg?.fullName}</h3>
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60 leading-none">Ficha Institucional</p>
                 <div className="flex flex-wrap items-center gap-2 md:gap-4 pt-1"><Badge variant="outline" className="text-white border-white/30 font-bold gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" /> C.I. {selectedReg?.ciNumber}</Badge><Badge variant="secondary" className="bg-white text-primary font-black uppercase tracking-tighter text-[10px]">{formatCatechesisYear(selectedReg?.catechesisYear)}</Badge></div>
               </div>
             </div>
-            <DialogDescription className="text-white/70 text-xs">Consulta de sacramentos, datos familiares y estado administrativo.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto bg-slate-50"><div className="p-6 md:p-8 space-y-8 pb-20">
             <section className="space-y-4"><div className="flex items-center gap-3 border-b pb-2"><UserCircle className="h-5 w-5 text-primary" /><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Información Personal</h3></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6"><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Nacimiento</Label><p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-slate-400" /> {selectedReg?.birthDate}</p></div><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Edad</Label><p className="text-sm font-bold text-slate-700">{selectedReg?.age} Años</p></div><div className="space-y-1"><Label className="text-[9px] font-bold text-slate-400 uppercase">Contacto</Label><p className="text-sm font-bold text-slate-700 flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-green-500" /> {selectedReg?.phone}</p></div></div></section>

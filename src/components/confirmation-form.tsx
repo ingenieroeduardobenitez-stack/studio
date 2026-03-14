@@ -147,13 +147,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     })
   }, [])
 
-  // CALIDAD DE CÁMARA PROFESIONAL: Aumentamos tamaño y calidad de compresión
   const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 1024; // Aumentado para máxima nitidez Blaze
+        const MAX_SIZE = 1024;
         let width = img.width;
         let height = img.height;
 
@@ -172,7 +171,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        // Calidad 0.85 para alta definición sin peso excesivo
         resolve(canvas.toDataURL('image/jpeg', 0.85)); 
       };
       img.onerror = (e: any) => reject(e);
@@ -245,13 +243,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       setValue("age", calculatedAge >= 0 ? calculatedAge : 0)
     }
   }, [birthDate, setValue])
-
-  const formatNumberWithDots = (val: number | string) => {
-    if (val === null || val === undefined || val === '') return '';
-    const num = typeof val === 'string' ? val.replace(/\D/g, '') : val.toString();
-    if (!num) return '';
-    return Number(num).toLocaleString('es-PY');
-  };
 
   const startCamera = async (target: CaptureTarget, deviceId?: string) => {
     setCaptureTarget(target)
@@ -419,7 +410,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <p className="text-sm text-slate-500">Recibo generado exitosamente para {submittedData.fullName}</p>
           </div>
           <div className="p-4 bg-slate-50 rounded-2xl flex justify-center" id="receipt-area">
-             {/* Área de recibo simplificada para ahorro Blaze */}
              <div className="bg-white p-10 border-2 border-slate-900 w-full max-w-[600px] text-center space-y-4">
                 <Church className="h-12 w-12 mx-auto text-primary" />
                 <h3 className="text-xl font-bold">Santuario Nacional NSPS</h3>
@@ -442,7 +432,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         <Form {...form}>
           <form onSubmit={form.handleSubmit((v) => handleRegistration(v, false))}>
             <CardHeader className="bg-primary text-white p-8">
-              <DialogTitle className="text-2xl font-headline font-bold">Registro de Confirmación 2026</DialogTitle>
+              <CardTitle className="text-2xl font-headline font-bold">Registro de Confirmación 2026</CardTitle>
               <CardDescription className="text-white/80 font-medium">Santuario Nacional Nuestra Señora del Perpetuo Socorro</CardDescription>
             </CardHeader>
             <CardContent className="p-8 space-y-12">
