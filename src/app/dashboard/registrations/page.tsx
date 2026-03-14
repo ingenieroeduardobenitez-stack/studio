@@ -651,11 +651,11 @@ export default function RegistrationsListPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "INSCRITO": return <Badge className="bg-green-500 hover:bg-green-600 text-white border-none">Inscrito</Badge>
-      case "POR_VALIDAR": return <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">Por Validar</Badge>
-      case "PENDIENTE_PAGO": return <Badge variant="outline" className="text-blue-500 border-blue-200">Pendiente Pago</Badge>
-      case "BAJA": return <Badge variant="destructive" className="bg-slate-900">Baja</Badge>
-      default: return <Badge variant="outline">{status}</Badge>
+      case "INSCRITO": return <Badge className="bg-green-500 hover:bg-green-600 text-white border-none rounded-full px-4">Inscrito</Badge>
+      case "POR_VALIDAR": return <Badge variant="secondary" className="bg-red-50 text-red-600 border-red-100 hover:bg-red-50 rounded-full px-4">Por Validar</Badge>
+      case "PENDIENTE_PAGO": return <Badge variant="outline" className="text-blue-500 border-blue-200 rounded-full px-4">Pendiente Pago</Badge>
+      case "BAJA": return <Badge variant="destructive" className="bg-slate-900 rounded-full px-4">Baja</Badge>
+      default: return <Badge variant="outline" className="rounded-full px-4">{status}</Badge>
     }
   }
 
@@ -670,7 +670,12 @@ export default function RegistrationsListPage() {
     try {
       const date = ts.toDate ? ts.toDate() : new Date(ts);
       if (isNaN(date.getTime())) return "---";
-      return date.toLocaleDateString('es-PY') + " " + date.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+      return (
+        <div className="flex flex-col text-[10px]">
+          <span className="font-bold text-slate-700">{date.toLocaleDateString('es-PY')} - {date.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}</span>
+          <span className="text-slate-400">{date.getHours() >= 12 ? 'p. m.' : 'a. m.'}</span>
+        </div>
+      );
     } catch (e) { return "---"; }
   };
 
@@ -835,7 +840,7 @@ export default function RegistrationsListPage() {
         <div className="flex flex-col items-center justify-center py-24 gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="text-xs font-bold text-slate-400 uppercase">Sincronizando...</p></div>
       ) : viewMode === "LIST" ? (
         <Card className="border-none shadow-xl bg-white overflow-hidden">
-          <StudentTable students={filteredRegistrations} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
+          <StudentTable students={filteredRegistrations} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
         </Card>
       ) : (
         <Accordion type="multiple" defaultValue={["none", ...(groups?.map(g => g.id) || [])]} className="space-y-4">
@@ -846,7 +851,7 @@ export default function RegistrationsListPage() {
                   <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500"><AlertCircle className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">Pendientes de Grupo o Validación ({registrationsByGroup["none"].length})</p></div></div>
                 </AccordionTrigger>
                 <AccordionContent className="p-0 border-t border-slate-50">
-                  <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
+                  <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
                 </AccordionContent>
               </div>
             </AccordionItem>
@@ -861,7 +866,7 @@ export default function RegistrationsListPage() {
                     <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">{group.name} - {formatCatechesisYear(group.catechesisYear)} ({groupStudents.length})</p></div></div>
                   </AccordionTrigger>
                   <AccordionContent className="p-0 border-t border-slate-50">
-                    <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
+                    <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
                   </AccordionContent>
                 </div>
               </AccordionItem>
@@ -884,7 +889,7 @@ export default function RegistrationsListPage() {
                   <div className="relative">
                     <Avatar className="h-32 w-32 border-4 border-slate-50 shadow-xl">
                       <AvatarImage src={selectedReg.photoUrl} className="object-cover" />
-                      <AvatarFallback><User className="h-16 w-16 text-slate-200" /></AvatarFallback>
+                      <AvatarFallback className="bg-slate-100 text-slate-300"><User className="h-16 w-16 text-slate-200" /></AvatarFallback>
                     </Avatar>
                     <Badge className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-primary px-4 py-1 h-auto text-[10px] uppercase font-black">
                       {formatCatechesisYear(selectedReg.catechesisYear)}
@@ -933,7 +938,7 @@ export default function RegistrationsListPage() {
                         </div>
                         {selectedReg.tutorName && (
                           <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100 space-y-1">
-                            <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Tutor / Responsable</p>
+                            <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Tutor / Responsable Alternativo</p>
                             <p className="text-xs font-bold text-slate-700 uppercase">{selectedReg.tutorName}</p>
                             <p className="text-[10px] text-slate-400">{selectedReg.tutorPhone || ""}</p>
                           </div>
@@ -1040,7 +1045,7 @@ export default function RegistrationsListPage() {
                       <Clock className="h-6 w-6 text-slate-300" />
                       <div className="space-y-1">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Registrado el</p>
-                        <p className="text-xs font-bold text-slate-600">{formatTimestamp(selectedReg.createdAt)}</p>
+                        <div className="text-xs font-bold text-slate-600">{formatTimestamp(selectedReg.createdAt)}</div>
                         <p className="text-[8px] text-slate-400 italic">Por: {selectedReg.userId === "public_registration" ? "Postulante (Web)" : "Secretaría"}</p>
                       </div>
                     </div>
@@ -1134,40 +1139,106 @@ export default function RegistrationsListPage() {
   )
 }
 
-function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage, onSort, sortConfig }: any) {
+function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage, onSort, sortConfig, formatTimestamp }: any) {
   return (
     <Table>
       <TableHeader className="bg-slate-50/30">
         <TableRow>
           <TableHead className="w-[60px] pl-6"></TableHead>
-          <TableHead className="font-bold text-xs">Confirmando</TableHead>
-          <TableHead className="font-bold text-xs">Celular</TableHead>
-          <TableHead className="text-center font-bold text-xs">Año</TableHead>
-          <TableHead className="text-center font-bold text-xs">Día</TableHead>
-          <TableHead className="text-center font-bold text-xs">Estado</TableHead>
-          <TableHead className="text-right pr-8 font-bold text-xs">Acciones</TableHead>
+          <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500">Confirmando</TableHead>
+          <TableHead className="text-center font-bold text-[10px] uppercase tracking-widest text-slate-500">Sexo</TableHead>
+          <TableHead className="text-center font-bold text-[10px] uppercase tracking-widest text-slate-500">Origen</TableHead>
+          <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500">C.I. N°</TableHead>
+          <TableHead className="text-center font-bold text-[10px] uppercase tracking-widest text-slate-500">Año</TableHead>
+          <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500 cursor-pointer hover:text-primary transition-colors" onClick={() => onSort('createdAt')}>
+            <div className="flex items-center gap-1">FECHA INSC. <ArrowUpDown className="h-3 w-3" /></div>
+          </TableHead>
+          <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500">Forma de Pago</TableHead>
+          <TableHead className="text-center font-bold text-[10px] uppercase tracking-widest text-slate-500">Estado</TableHead>
+          <TableHead className="text-right pr-8 font-bold text-[10px] uppercase tracking-widest text-slate-500">Acciones</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {students.map((reg: any) => (
-          <TableRow key={reg.id} className="h-14 hover:bg-slate-50/50 transition-colors">
-            <TableCell className="pl-6"><Avatar className="h-8 w-8 border cursor-pointer active:scale-95 transition-transform" onClick={() => reg.photoUrl && onViewImage(reg.photoUrl)}><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar></TableCell>
-            <TableCell><div className="flex flex-col"><span className="font-bold text-xs uppercase text-slate-900">{reg.fullName}</span><span className="text-[10px] text-slate-400">C.I. {reg.ciNumber}</span></div></TableCell>
-            <TableCell><span className="text-[10px] font-bold text-slate-600">{reg.phone || '---'}</span></TableCell>
-            <TableCell className="text-center"><span className="text-[10px] font-bold text-slate-400">{formatYear(reg.catechesisYear)}</span></TableCell>
-            <TableCell className="text-center"><span className="text-[10px] font-bold text-slate-500 uppercase">{reg.attendanceDay}</span></TableCell>
-            <TableCell className="text-center">{getBadge(reg.status)}</TableCell>
+          <TableRow key={reg.id} className="h-16 hover:bg-slate-50/50 transition-colors">
+            <TableCell className="pl-6">
+              <Avatar className="h-9 w-9 border cursor-pointer active:scale-95 transition-transform" onClick={() => reg.photoUrl && onViewImage(reg.photoUrl)}>
+                <AvatarImage src={reg.photoUrl} className="object-cover" />
+                <AvatarFallback className="bg-slate-100 text-slate-300"><User className="h-4 w-4" /></AvatarFallback>
+              </Avatar>
+            </TableCell>
+            <TableCell>
+              <div className="flex flex-col">
+                <span className="font-bold text-xs uppercase text-slate-900 leading-tight">{reg.fullName}</span>
+                <span className="text-[10px] text-slate-400 font-medium">{reg.phone || '---'}</span>
+              </div>
+            </TableCell>
+            <TableCell className="text-center">
+              <div className={cn(
+                "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black mx-auto",
+                reg.sexo === "M" ? "bg-blue-50 text-blue-600" : "bg-pink-50 text-pink-600"
+              )}>
+                {reg.sexo || '-'}
+              </div>
+            </TableCell>
+            <TableCell className="text-center">
+              {reg.userId === "public_registration" ? (
+                <Badge variant="outline" className="bg-green-50 text-green-600 border-green-100 text-[8px] uppercase font-black gap-1">
+                  <Globe className="h-2.5 w-2.5" /> Público
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 text-[8px] uppercase font-black gap-1">
+                  <User className="h-2.5 w-2.5" /> Manual
+                </Badge>
+              )}
+            </TableCell>
+            <TableCell>
+              <span className="text-[11px] font-bold text-slate-700">{reg.ciNumber}</span>
+            </TableCell>
+            <TableCell className="text-center">
+              <span className="text-[10px] font-bold text-primary">{formatYear(reg.catechesisYear)}</span>
+            </TableCell>
+            <TableCell>
+              {formatTimestamp(reg.createdAt)}
+            </TableCell>
+            <TableCell>
+              {reg.lastPaymentMethod ? (
+                <div className="flex items-center gap-2 text-slate-500">
+                  <Banknote className="h-3.5 w-3.5" />
+                  <span className="text-[9px] font-black uppercase">{reg.lastPaymentMethod}</span>
+                </div>
+              ) : (
+                <span className="text-slate-300">—</span>
+              )}
+            </TableCell>
+            <TableCell className="text-center">
+              {getBadge(reg.status)}
+            </TableCell>
             <TableCell className="text-right pr-8">
               <div className="flex justify-end gap-2">
-                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-xl bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onClick={() => onViewDetails(reg)} title="Ver Ficha"><Eye className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-xl bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onClick={() => onViewDetails(reg)} title="Ver Ficha">
+                  <Eye className="h-4 w-4" />
+                </Button>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-slate-100">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="rounded-xl border-none shadow-xl p-2 w-48">
                     <DropdownMenuLabel className="text-[10px] uppercase font-black text-slate-400 px-2 py-1">Opciones</DropdownMenuLabel>
-                    <DropdownMenuItem className="rounded-lg h-10 gap-3" onClick={() => onAssignGroup(reg)}><Users className="h-4 w-4 text-slate-400" /> Asignar Grupo</DropdownMenuItem>
-                    <DropdownMenuItem className="rounded-lg h-10 gap-3" onClick={() => onViewDetails(reg)}><Edit className="h-4 w-4 text-slate-400" /> Editar Datos</DropdownMenuItem>
+                    <DropdownMenuItem className="rounded-lg h-10 gap-3" onClick={() => onAssignGroup(reg)}>
+                      <Users className="h-4 w-4 text-slate-400" /> Asignar Grupo
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="rounded-lg h-10 gap-3" onClick={() => onViewDetails(reg)}>
+                      <Edit className="h-4 w-4 text-slate-400" /> Editar Datos
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-slate-100" />
-                    {isAdmin && <DropdownMenuItem className="rounded-lg h-10 gap-3 text-destructive focus:bg-red-50 focus:text-destructive" onClick={() => onDelete(reg)}><Trash2 className="h-4 w-4" /> Eliminar Ficha</DropdownMenuItem>}
+                    {isAdmin && (
+                      <DropdownMenuItem className="rounded-lg h-10 gap-3 text-destructive focus:bg-red-50 focus:text-destructive" onClick={() => onDelete(reg)}>
+                        <Trash2 className="h-4 w-4" /> Eliminar Ficha
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
