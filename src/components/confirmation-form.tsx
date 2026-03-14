@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   Search,
   Banknote,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Book
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -72,10 +73,10 @@ import Image from "next/image"
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
   ciNumber: z.string().min(5, "N° C.I. requerido"),
-  phone: z.string().min(10, "N° de celular requerido (formato XXXX-XXX-XXX)"),
+  phone: z.string().min(6, "N° de celular requerido"),
   birthDate: z.string().min(1, "Fecha de nacimiento requerida"),
   age: z.coerce.number().optional(),
-  sexo: z.string().optional(),
+  sexo: z.string().min(1, "Seleccione sexo"),
   photoUrl: z.string().optional(),
   paymentProofUrl: z.string().optional(),
   motherName: z.string().optional(),
@@ -104,9 +105,7 @@ type CaptureTarget = "STUDENT_PHOTO" | "PAYMENT_PROOF" | "BAPTISM_CERT"
 export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [loadingWithPayment, setLoadingWithPayment] = useState(false)
   const [isSearchingCi, setIsSearchingCi] = useState(false)
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [proofPreview, setProofPreview] = useState<string | null>(null)
@@ -114,7 +113,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   
   const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false)
   const [submittedData, setSubmittedData] = useState<any>(null)
-  const [currentDateInfo, setCurrentDateInfo] = useState({ day: 1, month: "", year: 2026 })
 
   const [showCamera, setShowCamera] = useState(false)
   const [captureTarget, setCaptureTarget] = useState<CaptureTarget>("STUDENT_PHOTO")
@@ -122,9 +120,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
-  
-  const [customPaymentAmount, setCustomPaymentAmount] = useState<number>(0)
-  const [paymentType, setPaymentType] = useState<"EFECTIVO" | "TRANSFERENCIA">("EFECTIVO")
   
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -139,56 +134,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   useEffect(() => {
     setMounted(true)
-    const today = new Date()
-    setCurrentDateInfo({
-      day: today.getDate(),
-      month: today.toLocaleString('es-PY', { month: 'long' }),
-      year: today.getFullYear()
-    })
   }, [])
-
-  const compressImage = (source: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new (window as any).Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 1024;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.85)); 
-      };
-      img.onerror = (e: any) => reject(e);
-      img.src = source;
-    });
-  };
-
-  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
-    if (node && currentStream) {
-      if (node.srcObject !== currentStream) {
-        node.srcObject = currentStream;
-        node.play().catch(err => {
-          if (err.name !== 'AbortError') console.error("Video play error:", err);
-        });
-      }
-    }
-    videoRef.current = node;
-  }, [currentStream]);
 
   const treasuryRef = useMemoFirebase(() => {
     if (!db) return null
@@ -213,8 +159,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       fatherPhone: "",
       tutorName: "",
       tutorPhone: "",
-      catechesisYear: undefined,
-      attendanceDay: undefined,
       hasBaptism: false,
       hasFirstCommunion: false,
       baptismParish: "",
@@ -244,50 +188,65 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }, [birthDate, setValue])
 
+  const compressImage = (source: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new (window as any).Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+      };
+      img.onerror = (e: any) => reject(e);
+      img.src = source;
+    });
+  };
+
+  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node && currentStream) {
+      node.srcObject = currentStream;
+      node.play().catch(console.error);
+    }
+    videoRef.current = node;
+  }, [currentStream]);
+
   const startCamera = async (target: CaptureTarget, deviceId?: string) => {
     setCaptureTarget(target)
     try {
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
-
-      const facingModeValue = target === "STUDENT_PHOTO" ? "user" : "environment";
-
-      const constraints = {
-        video: {
-          deviceId: deviceId ? { exact: deviceId } : undefined,
-          facingMode: deviceId ? undefined : facingModeValue,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        }
-      }
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 } }
+      })
       setCurrentStream(stream)
       setHasCameraPermission(true)
-      
       const availableDevices = await navigator.mediaDevices.enumerateDevices()
-      const videoDevices = availableDevices.filter(d => d.kind === 'videoinput')
-      setDevices(videoDevices)
-      if (!selectedDeviceId && videoDevices.length > 0) {
-        setSelectedDeviceId(deviceId || videoDevices[0].deviceId)
-      }
+      setDevices(availableDevices.filter(d => d.kind === 'videoinput'))
       setShowCamera(true)
     } catch (error) {
-      console.error('Error accessing camera:', error)
       setHasCameraPermission(false)
-      toast({
-        variant: 'destructive',
-        title: 'Acceso denegado',
-        description: 'Por favor, permite el acceso a la cámara.',
-      })
+      toast({ variant: 'destructive', title: 'Acceso denegado' })
     }
   }
 
   const stopCamera = () => {
-    if (currentStream) {
-      currentStream.getTracks().forEach(track => track.stop())
-      setCurrentStream(null)
-    }
+    if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+    setCurrentStream(null)
     setShowCamera(false)
   }
 
@@ -297,199 +256,271 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const canvas = canvasRef.current
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-        const optimized = await compressImage(dataUrl);
-        if (captureTarget === "STUDENT_PHOTO") {
-          setPhotoPreview(optimized);
-          setValue("photoUrl", optimized);
-        } else if (captureTarget === "PAYMENT_PROOF") {
-          setProofPreview(optimized);
-          setValue("paymentProofUrl", optimized);
-        } else if (captureTarget === "BAPTISM_CERT") {
-          setBaptismPreview(optimized);
-          setValue("baptismCertificatePhotoUrl", optimized);
-        }
-        stopCamera()
-      }
+      canvas.getContext('2d')?.drawImage(video, 0, 0)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+      const optimized = await compressImage(dataUrl);
+      if (captureTarget === "STUDENT_PHOTO") { setPhotoPreview(optimized); setValue("photoUrl", optimized); }
+      else if (captureTarget === "PAYMENT_PROOF") { setProofPreview(optimized); setValue("paymentProofUrl", optimized); }
+      else if (captureTarget === "BAPTISM_CERT") { setBaptismPreview(optimized); setValue("baptismCertificatePhotoUrl", optimized); }
+      stopCamera()
     }
   }
 
   const handleLookupCi = async (ciValue: string) => {
     if (!db || !ciValue || ciValue.length < 5) return;
     setIsSearchingCi(true);
-    const cleanCiForDoc = ciValue.replace(/[^0-9]/g, '');
+    const cleanCi = ciValue.replace(/[^0-9]/g, '');
     try {
-      const cedulaRef = doc(db, "cedulas", cleanCiForDoc);
-      const docSnap = await getDoc(cedulaRef);
+      const docSnap = await getDoc(doc(db, "cedulas", cleanCi));
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.NOMBRE && data.APELLIDO) setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.trim().toUpperCase());
+        if (data.NOMBRE && data.APELLIDO) setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.toUpperCase());
         if (data.NOM_MADRE) setValue("motherName", data.NOM_MADRE.toUpperCase());
         if (data.NOM_PADRE) setValue("fatherName", data.NOM_PADRE.toUpperCase());
         if (data.FECHA_NACI) setValue("birthDate", data.FECHA_NACI);
         if (data.SEXO) {
-          const rawSexo = String(data.SEXO).trim().toUpperCase();
-          if (rawSexo.startsWith('M')) setValue("sexo", "M");
-          else if (rawSexo.startsWith('F')) setValue("sexo", "F");
+          const s = String(data.SEXO).trim().toUpperCase();
+          if (s.startsWith('M')) setValue("sexo", "M"); else if (s.startsWith('F')) setValue("sexo", "F");
         }
         toast({ title: "Datos precargados" });
       }
-    } catch (error) {} finally {
-      setIsSearchingCi(false);
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, fieldName: "photoUrl" | "paymentProofUrl" | "baptismCertificatePhotoUrl") => {
-    const file = e.target.files?.[0]
-    if (!file) return;
-    const objectUrl = URL.createObjectURL(file);
-    const setPreview = (val: string) => {
-      if (fieldName === "photoUrl") setPhotoPreview(val);
-      else if (fieldName === "paymentProofUrl") setProofPreview(val);
-      else setBaptismPreview(val);
-      setValue(fieldName, val);
-    };
-    compressImage(objectUrl).then(setPreview).catch(() => {
-      const reader = new FileReader();
-      reader.onload = () => setPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    });
+    } catch (e) {} finally { setIsSearchingCi(false); }
   }
 
-  const handleRegistration = async (values: FormValues, immediatePayment = false, amount = 0) => {
-    if (!db || !treasuryRef) return;
-    if (immediatePayment) setLoadingWithPayment(true); else setLoading(true);
+  const handleRegistration = async (values: FormValues) => {
+    if (!db) return;
+    setLoading(true);
     try {
-      const regId = `conf_${Date.now()}`
-      const regRef = doc(db, "confirmations", regId)
-      await runTransaction(db, async (transaction) => {
-        const treasurySnap = await transaction.get(treasuryRef);
-        if (!treasurySnap.exists()) throw "Settings not found";
-        let assignedReceiptNumber = "";
-        if (immediatePayment) {
-          const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
-          assignedReceiptNumber = `001-001-${String(currentNext).padStart(7, '0')}`;
-          transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
-        }
-        const registrationData = {
-          userId: user?.uid || (isPublic ? "public_registration" : "manual"),
-          ...values,
-          status: immediatePayment ? "INSCRITO" : "POR_VALIDAR",
-          registrationCost: totalCost,
-          amountPaid: immediatePayment ? amount : 0,
-          paymentStatus: immediatePayment ? (amount >= totalCost ? "PAGADO" : "PARCIAL") : "PENDIENTE",
-          receiptNumber: assignedReceiptNumber,
-          createdAt: serverTimestamp()
-        }
-        transaction.set(regRef, registrationData);
-        if (immediatePayment) setSubmittedData({ ...registrationData, id: regId, createdAt: new Date().toISOString() });
-      });
-      if (immediatePayment) setIsSubmittedSuccessfully(true); else toast({ title: "Inscripción enviada" });
-    } catch (error) {} finally {
-      setLoading(false); setLoadingWithPayment(false);
-    }
+      const regId = `conf_${Date.now()}`;
+      const regData = {
+        ...values,
+        userId: user?.uid || (isPublic ? "public_registration" : "manual"),
+        status: "POR_VALIDAR",
+        paymentStatus: "PENDIENTE",
+        amountPaid: 0,
+        registrationCost: totalCost,
+        createdAt: serverTimestamp()
+      }
+      await setDoc(doc(db, "confirmations", regId), regData);
+      setSubmittedData({ ...regData, id: regId });
+      setIsSubmittedSuccessfully(true);
+      toast({ title: "Inscripción enviada exitosamente" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al inscribir" });
+    } finally { setLoading(false); }
   }
 
-  const renderFilePreview = (preview: string | null) => {
-    if (!preview) return null;
-    if (preview.startsWith("data:application/pdf")) {
-      return <div className="flex flex-col items-center justify-center h-full w-full bg-slate-100"><FileText className="h-10 w-10 text-red-500" /><span className="text-[10px] font-bold">PDF</span></div>;
-    }
-    return <img src={preview} alt="Vista Previa" className="w-full h-full object-cover" />;
-  };
-
-  if (isSubmittedSuccessfully && submittedData) {
+  if (isSubmittedSuccessfully) {
     return (
-      <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 max-w-3xl mx-auto">
-        <Card className="border-none shadow-2xl bg-white rounded-3xl p-8 space-y-6">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-headline font-bold text-slate-900 uppercase">Inscripción Completada</h2>
-            <p className="text-sm text-slate-500">Recibo generado exitosamente para {submittedData.fullName}</p>
-          </div>
-          <div className="p-4 bg-slate-50 rounded-2xl flex justify-center" id="receipt-area">
-             <div className="bg-white p-10 border-2 border-slate-900 w-full max-w-[600px] text-center space-y-4">
-                <Church className="h-12 w-12 mx-auto text-primary" />
-                <h3 className="text-xl font-bold">Santuario Nacional NSPS</h3>
-                <div className="border-y py-4">
-                  <p className="text-sm">Recibimos de: <strong>{submittedData.fullName}</strong></p>
-                  <p className="text-sm">Monto: <strong>{submittedData.amountPaid.toLocaleString('es-PY')} Gs.</strong></p>
-                  <p className="text-xs text-slate-400 mt-2">Recibo N° {submittedData.receiptNumber}</p>
-                </div>
-             </div>
-          </div>
-          <Button asChild className="w-full h-14 rounded-2xl font-bold bg-primary text-white"><Link href={isPublic ? "/" : "/dashboard"}>Volver al Inicio</Link></Button>
-        </Card>
-      </div>
+      <Card className="border-none shadow-2xl bg-white rounded-3xl p-10 text-center space-y-6 max-w-2xl mx-auto">
+        <div className="h-20 w-20 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
+          <CheckCircle2 className="h-10 w-10" />
+        </div>
+        <h2 className="text-3xl font-headline font-bold text-slate-900">¡INSCRIPCIÓN RECIBIDA!</h2>
+        <p className="text-slate-500 font-medium">Se ha generado la ficha de pre-inscripción para <strong>{submittedData?.fullName}</strong>.</p>
+        <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-200 text-sm space-y-2">
+          <p className="font-bold text-primary uppercase">Próximos Pasos:</p>
+          <ul className="text-slate-600 space-y-1">
+            <li>• Presentarse en Secretaría del Santuario para validar el pago.</li>
+            <li>• Entregar copia de Cédula de Identidad.</li>
+            <li>• Entregar copia de Certificado de Bautismo (si no fue adjuntado).</li>
+          </ul>
+        </div>
+        <Button asChild className="w-full h-14 rounded-xl font-bold bg-primary shadow-lg">
+          <Link href={isPublic ? "/" : "/dashboard"}>FINALIZAR</Link>
+        </Button>
+      </Card>
     )
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto pb-12">
-      <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit((v) => handleRegistration(v, false))}>
-            <CardHeader className="bg-primary text-white p-8">
-              <CardTitle className="text-2xl font-headline font-bold">Registro de Confirmación 2026</CardTitle>
-              <CardDescription className="text-white/80 font-medium">Santuario Nacional Nuestra Señora del Perpetuo Socorro</CardDescription>
-            </CardHeader>
-            <CardContent className="p-8 space-y-12">
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative group">
-                  <Avatar className="h-40 w-40 border-4 border-slate-100 shadow-xl overflow-hidden bg-slate-50">
-                    <AvatarImage src={photoPreview || undefined} className="object-cover w-full h-full" />
-                    <AvatarFallback className="bg-slate-100 text-slate-300">{photoPreview ? renderFilePreview(photoPreview) : <User className="h-20 w-20" />}</AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -bottom-2 -right-2 flex gap-2">
-                    <button type="button" onClick={() => startCamera("STUDENT_PHOTO")} className="h-10 w-10 bg-primary rounded-full flex items-center justify-center text-white border-4 border-white shadow-lg"><Camera className="h-5 w-5" /></button>
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="h-10 w-10 bg-accent rounded-full flex items-center justify-center text-white border-4 border-white shadow-lg"><ImageIcon className="h-5 w-5" /></button>
-                  </div>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "photoUrl")} />
+    <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden max-w-4xl mx-auto">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleRegistration)}>
+          <CardHeader className="bg-primary text-white p-8">
+            <CardTitle className="text-2xl font-headline font-bold">Ficha de Inscripción 2026</CardTitle>
+            <CardDescription className="text-white/80">Catequesis de Confirmación - Santuario Nacional NSPS</CardDescription>
+          </CardHeader>
+          <CardContent className="p-8 space-y-12">
+            
+            {/* FOTO DE PERFIL */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative group">
+                <Avatar className="h-32 w-32 border-4 border-slate-50 shadow-xl">
+                  <AvatarImage src={photoPreview || undefined} className="object-cover" />
+                  <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-16 w-16" /></AvatarFallback>
+                </Avatar>
+                <div className="absolute -bottom-2 -right-2 flex gap-2">
+                  <button type="button" onClick={() => startCamera("STUDENT_PHOTO")} className="h-9 w-9 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg"><Camera className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="h-9 w-9 bg-accent text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg"><ImageIcon className="h-4 w-4" /></button>
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Foto del Confirmando</p>
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "photoUrl")} />
               </div>
-              
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-2"><UserPlus className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg text-slate-800">Datos del Confirmando</h3></div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Foto del Postulante</p>
+            </div>
+
+            {/* SECCIÓN 1: DATOS PERSONALES */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border-b pb-2"><UserPlus className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Datos del Confirmando</h3></div>
+              <div className="grid gap-6 md:grid-cols-2">
                 <FormField control={form.control} name="ciNumber" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">N° de C.I.</FormLabel><div className="flex gap-2 items-center"><FormControl><Input placeholder="Ej. 1234567" {...field} maxLength={9} className="h-12 rounded-xl" /></FormControl><Button type="button" onClick={() => handleLookupCi(field.value)} className="h-12 px-6 rounded-xl font-bold bg-primary" disabled={isSearchingCi}>{isSearchingCi ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "BUSCAR"}</Button></div></FormItem>
+                  <FormItem>
+                    <FormLabel className="font-bold">N° de C.I. *</FormLabel>
+                    <div className="flex gap-2">
+                      <FormControl><Input placeholder="Sin puntos" {...field} className="h-12 rounded-xl" /></FormControl>
+                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl font-bold bg-primary">{isSearchingCi ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}</Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="fullName" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase" /></FormControl></FormItem>
+                  <FormItem><FormLabel className="font-bold">Nombre Completo *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase" /></FormControl><FormMessage /></FormItem>
                 )} />
-                <div className="grid gap-6 md:grid-cols-2">
-                  <FormField control={form.control} name="catechesisYear" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione el año" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></FormItem>)} />
-                  <FormField control={form.control} name="attendanceDay" render={({ field }) => (<FormItem><FormLabel className="font-bold">Horario *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione su preferencia" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></SelectContent></Select></FormItem>)} />
+                <FormField control={form.control} name="phone" render={({ field }) => (
+                  <FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="09XX XXX XXX" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="birthDate" render={({ field }) => (
+                    <FormItem><FormLabel className="font-bold">Nacimiento *</FormLabel><FormControl><Input type="date" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="sexo" render={({ field }) => (
+                    <FormItem><FormLabel className="font-bold">Sexo *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="-" /></SelectTrigger></FormControl><SelectContent><SelectItem value="M">Masculino</SelectItem><SelectItem value="F">Femenino</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  )} />
                 </div>
               </div>
-            </CardContent>
-            <CardFooter className="bg-slate-50 p-10 border-t flex flex-col items-center justify-end gap-8">
-              <Button type="submit" disabled={loading || loadingWithPayment} className="h-16 bg-primary text-white rounded-2xl px-12 font-bold shadow-2xl">{loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Completar Inscripción"}</Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </Card>
+            </div>
 
+            {/* SECCIÓN 2: FAMILIA */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border-b pb-2"><Users className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Información de Padres / Tutores</h3></div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-black text-primary uppercase">Datos de la Madre</p>
+                  <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre de la Madre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="motherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                </div>
+                <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-black text-primary uppercase">Datos del Padre</p>
+                  <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre del Padre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                </div>
+                <div className="md:col-span-2 space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-black text-primary uppercase">Tutor / Responsable Alternativo (Opcional)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="tutorName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre del Tutor" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="tutorPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN 3: CATEQUESIS */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border-b pb-2"><Church className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Inscripción Académica</h3></div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <FormField control={form.control} name="catechesisYear" render={({ field }) => (
+                  <FormItem><FormLabel className="font-bold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione el año" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1° Año (Inicial)</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año (Confirmación)</SelectItem><SelectItem value="ADULTOS">Adultos (Intensivo)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="attendanceDay" render={({ field }) => (
+                  <FormItem><FormLabel className="font-bold">Horario de Preferencia *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione su horario" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                )} />
+              </div>
+            </div>
+
+            {/* SECCIÓN 4: SACRAMENTOS */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border-b pb-2"><BookOpen className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Vida Sacramental</h3></div>
+              <div className="grid gap-8 md:grid-cols-2">
+                <div className="space-y-4">
+                  <FormField control={form.control} name="hasBaptism" render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50/50 shadow-sm"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md" /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-black text-xs uppercase cursor-pointer">¿Tiene el Bautismo?</FormLabel><p className="text-[10px] text-slate-400">Marcar si ya fue bautizado.</p></div></FormItem>
+                  )} />
+                  {hasBaptism && (
+                    <div className="animate-in slide-in-from-top-2 duration-300 space-y-4 pt-2">
+                      <FormField control={form.control} name="baptismParish" render={({ field }) => (<FormItem><FormControl><Input placeholder="Parroquia de Bautismo" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="baptismBook" render={({ field }) => (<FormItem><FormControl><Input placeholder="Libro N°" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                        <FormField control={form.control} name="baptismFolio" render={({ field }) => (<FormItem><FormControl><Input placeholder="Folio N°" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-4">
+                  <FormField control={form.control} name="hasFirstCommunion" render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50/50 shadow-sm"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md" /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-black text-xs uppercase cursor-pointer">¿Hizo la Primera Comunión?</FormLabel><p className="text-[10px] text-slate-400">Marcar si ya recibió el sacramento.</p></div></FormItem>
+                  )} />
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN 5: DOCUMENTOS ADJUNTOS */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border-b pb-2"><FileText className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Documentación y Pagos</h3></div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-3">
+                  <Label className="font-bold text-slate-700">Comprobante de Pago (Seña o Total)</Label>
+                  <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors" onClick={() => startCamera("PAYMENT_PROOF")}>
+                    {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><CreditCard className="h-8 w-8 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-[10px] font-bold text-slate-400 uppercase">Cargar Foto de Comprobante</span></>}
+                  </div>
+                  <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
+                </div>
+                <div className="space-y-3">
+                  <Label className="font-bold text-slate-700">Certificado de Bautismo</Label>
+                  <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors" onClick={() => startCamera("BAPTISM_CERT")}>
+                    {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-8 w-8 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-[10px] font-bold text-slate-400 uppercase">Cargar Certificado</span></>}
+                  </div>
+                  <input type="file" ref={baptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
+                </div>
+              </div>
+            </div>
+
+          </CardContent>
+          <CardFooter className="bg-slate-50 p-10 border-t flex flex-col items-center gap-6">
+            <div className="flex items-center gap-2 bg-white px-6 py-2 rounded-full border shadow-sm">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inscripción Total:</span>
+              <span className="text-lg font-black text-primary">{totalCost.toLocaleString('es-PY')} Gs.</span>
+            </div>
+            <Button type="submit" disabled={loading} className="w-full h-16 bg-primary text-white rounded-2xl text-xl font-bold shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">
+              {loading ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : <><UserPlus className="mr-2 h-6 w-6" /> ENVIAR INSCRIPCIÓN</>}
+            </Button>
+            <p className="text-[10px] text-slate-400 text-center font-medium italic">
+              Al enviar este formulario, declaro que todos los datos proporcionados son verídicos y acepto los términos de la catequesis del Santuario Nacional.
+            </p>
+          </CardFooter>
+        </form>
+      </Form>
+
+      {/* DIÁLOGO DE CÁMARA */}
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
-            <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto Profesional</DialogTitle>
-            <DialogDescription className="text-white/80">Asegura una buena iluminación para una foto nítida.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle>
+            <DialogDescription className="text-white/80">Asegura una buena iluminación.</DialogDescription>
           </DialogHeader>
           <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
             <video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
             <canvas ref={canvasRef} className="hidden" />
+            {hasCameraPermission === false && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4">
+                <X className="h-12 w-12 text-red-500" />
+                <p className="font-bold">Acceso denegado</p>
+              </div>
+            )}
           </div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
+            {devices.length > 1 && (
+              <Select value={selectedDeviceId} onValueChange={(v) => { setSelectedDeviceId(v); startCamera(captureTarget, v); }}>
+                <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                <SelectContent>{devices.map(d => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent>
+              </Select>
+            )}
             <div className="flex gap-3 w-full">
-              <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button>
-              <Button className="flex-1 h-12 rounded-xl bg-primary font-bold gap-2 text-white" onClick={takePhoto}><Camera className="h-5 w-5" /> Tomar Foto</Button>
+              <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>CANCELAR</Button>
+              <Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={takePhoto}>TOMAR FOTO</Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   )
 }
