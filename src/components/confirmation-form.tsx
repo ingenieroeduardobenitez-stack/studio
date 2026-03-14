@@ -423,20 +423,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="h-px w-20 bg-slate-200 mx-auto"></div>
               <p className="text-sm font-bold text-slate-600 uppercase">{submittedData?.fullName}</p>
             </div>
-
-            <div className="space-y-4">
-              <h3 className="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Próximos Pasos</h3>
-              <div className="grid gap-3">
-                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                  <div className="h-10 w-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-200"><CheckCircle2 className="h-5 w-5" /></div>
-                  <p className="text-xs font-bold text-blue-800 leading-tight">Secretaría validará tus documentos en las próximas 48hs.</p>
-                </div>
-                <div className="flex items-center gap-4 p-4 bg-green-50 rounded-2xl border border-green-100">
-                  <div className="h-10 w-10 rounded-xl bg-green-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-green-200"><Clock className="h-5 w-5" /></div>
-                  <p className="text-xs font-bold text-green-800 leading-tight">Recibirás un aviso para retirar tu carnet oficial.</p>
-                </div>
-              </div>
-            </div>
           </CardContent>
           <CardFooter className="bg-slate-50 p-8 flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-3 w-full">
