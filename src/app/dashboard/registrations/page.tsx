@@ -569,6 +569,15 @@ export default function RegistrationsListPage() {
     })
   }, [registrations, searchTerm, filterSex, filterOrigin, filterYear, filterStatus, filterPaymentMethod, filterSchedule])
 
+  const dynamicStats = useMemo(() => {
+    if (!filteredRegistrations) return { males: 0, females: 0, total: 0 }
+    return {
+      males: filteredRegistrations.filter(r => r.sexo === "M").length,
+      females: filteredRegistrations.filter(r => r.sexo === "F").length,
+      total: filteredRegistrations.length
+    }
+  }, [filteredRegistrations])
+
   const registrationsByGroup = useMemo(() => {
     if (!registrations || !groups) return {}
     const grouped: Record<string, any[]> = {}
@@ -733,6 +742,36 @@ export default function RegistrationsListPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="border-none shadow-sm bg-white overflow-hidden border-l-4 border-l-blue-500">
+          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Masculinos</CardTitle>
+            <User className="h-3.5 w-3.5 text-blue-500 opacity-50" />
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-black text-slate-900">{isActuallyLoading ? "..." : dynamicStats.males}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white overflow-hidden border-l-4 border-l-pink-500">
+          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Femeninos</CardTitle>
+            <User className="h-3.5 w-3.5 text-pink-500 opacity-50" />
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-black text-slate-900">{isActuallyLoading ? "..." : dynamicStats.females}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-slate-900 text-white overflow-hidden border-l-4 border-l-primary">
+          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-black text-slate-400/60 uppercase tracking-widest">Total Filtrado</CardTitle>
+            <Users className="h-3.5 w-3.5 text-primary opacity-50" />
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-black">{isActuallyLoading ? "..." : dynamicStats.total}</div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card className="border-none shadow-xl bg-white overflow-hidden">
         <CardHeader className="bg-slate-50/50 border-b p-6">
           <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
@@ -875,7 +914,6 @@ export default function RegistrationsListPage() {
         </Accordion>
       )}
 
-      {/* DIÁLOGOS DETALLE, EDICIÓN, ETC */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden rounded-3xl h-[95vh] max-h-[95vh] flex flex-col border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
