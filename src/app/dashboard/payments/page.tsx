@@ -221,8 +221,12 @@ export default function PaymentsManagementPage() {
 
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
-      node.srcObject = currentStream;
-      node.play().catch(console.error);
+      if (node.srcObject !== currentStream) {
+        node.srcObject = currentStream;
+        node.play().catch(err => {
+          if (err.name !== 'AbortError') console.error("Video play error:", err);
+        });
+      }
     }
     videoRef.current = node;
   }, [currentStream]);

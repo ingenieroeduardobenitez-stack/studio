@@ -212,8 +212,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
-      node.srcObject = currentStream;
-      node.play().catch(console.error);
+      if (node.srcObject !== currentStream) {
+        node.srcObject = currentStream;
+        node.play().catch(err => {
+          if (err.name !== 'AbortError') console.error("Video play error:", err);
+        });
+      }
     }
     videoRef.current = node;
   }, [currentStream]);
@@ -313,7 +317,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     try {
       const regId = `conf_${Date.now()}`;
       
-      const regData = {
+      const cleanData = (obj: any) => {
+        const newObj: any = {};
+        Object.keys(obj).forEach(key => {
+          if (obj[key] !== undefined) newObj[key] = obj[key];
+        });
+        return newObj;
+      };
+
+      const regData = cleanData({
         fullName: values.fullName || "",
         ciNumber: values.ciNumber || "",
         phone: values.phone || "",
@@ -344,7 +356,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         amountPaid: 0,
         registrationCost: totalCost,
         createdAt: serverTimestamp()
-      }
+      })
 
       await setDoc(doc(db, "confirmations", regId), regData);
       setSubmittedData({ ...regData, id: regId });

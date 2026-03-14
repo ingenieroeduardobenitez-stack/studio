@@ -418,7 +418,7 @@ function EditRegistrationForm({
                 <Input 
                   type="number" 
                   value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
+                  onChange={(e) => setEditAmountPaid(Number(editAmountPaid))}
                   readOnly={!isAdmin}
                   className={cn(
                     "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
@@ -769,7 +769,7 @@ export default function RegistrationsListPage() {
       await runTransaction(db, async (transaction) => {
         const treasurySnap = await transaction.get(treasuryRef);
         if (!treasurySnap.exists()) throw "Settings not found";
-        const currentNext = treasurySnap.data()?.nextReceiptNumber || 1;
+        const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
         transaction.update(regRef, {
           status: "INSCRITO",
@@ -1019,7 +1019,16 @@ export default function RegistrationsListPage() {
             <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle>
             <DialogDescription className="text-white/80">Asegura una buena iluminación para una foto nítida.</DialogDescription>
           </DialogHeader>
-          <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" />{hasCameraPermission === false && <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white bg-slate-900/90 gap-4"><X className="h-12 w-12 text-red-500" /><p className="font-bold">Acceso denegado</p></div>}</div>
+          <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
+            <video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
+            {hasCameraPermission === false && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white bg-slate-900/90 gap-4">
+                <X className="h-12 w-12 text-red-500" />
+                <p className="font-bold">Acceso denegado</p>
+              </div>
+            )}
+          </div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">{devices.length > 1 && <div className="flex items-center gap-2 w-full"><FlipHorizontal className="h-4 w-4 text-slate-400" /><Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}><SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger><SelectContent>{devices.map((device) => (<SelectItem key={device.deviceId} value={device.deviceId}>{device.label || `Cámara ${device.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent></Select></div>}<div className="flex gap-3 w-full"><Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button><Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold" onClick={takePhoto}>Capturar</Button></div></DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1114,7 +1123,7 @@ export default function RegistrationsListPage() {
             <DialogDescription className="text-white/80">Selecciona un grupo para el confirmando.</DialogDescription>
           </DialogHeader>
           <div className="p-8 space-y-4">
-            <p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} para {selectedReg?.fullName}:</p>
+            <p className="text-xs text-slate-500 font-medium italic">Selecciona el grupo de {formatCatechesisYear(selectedReg?.catechesisYear)} for {selectedReg?.fullName}:</p>
             <Select value={newGroupId} onValueChange={setNewGroupId}>
               <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200">
                 <SelectValue placeholder="Elige un grupo disponible" />
