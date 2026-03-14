@@ -532,8 +532,6 @@ export default function RegistrationsListPage() {
   const isAdmin = profile?.role === "Administrador"
   const isTesorero = profile?.role === "Tesorero"
 
-  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
-  
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
@@ -628,9 +626,11 @@ export default function RegistrationsListPage() {
   }
 
   const stopCamera = () => {
-    if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-    setCurrentStream(null)
-    setShowCamera(false)
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+      setCurrentStream(null)
+      setShowCamera(false)
+    }
   }
 
   const takePhoto = async () => {
@@ -702,6 +702,16 @@ export default function RegistrationsListPage() {
     finally { setIsSubmitting(false) }
   }
 
+  const resetFilters = () => {
+    setSearchTerm("")
+    setFilterSex("all")
+    setFilterOrigin("all")
+    setFilterYear("all")
+    setFilterStatus("all")
+    setFilterPaymentMethod("all")
+    setFilterSchedule("all")
+  }
+
   if (!mounted) return null
   const isActuallyLoading = loadingRegs || !registrations;
 
@@ -718,25 +728,122 @@ export default function RegistrationsListPage() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por nombre o C.I..." className="pl-9 bg-slate-50 border-none h-12 rounded-2xl" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+      <Card className="border-none shadow-xl bg-white overflow-hidden">
+        <CardHeader className="bg-slate-50/50 border-b p-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar por nombre o C.I..." 
+                className="pl-9 bg-white border-slate-200 h-11 rounded-xl" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+              />
+            </div>
+            <Button variant="ghost" className="h-11 rounded-xl gap-2 font-bold text-slate-500" onClick={resetFilters}>
+              <FilterX className="h-4 w-4" /> Limpiar Filtros
+            </Button>
           </div>
-          <Button variant="ghost" className="h-12 rounded-2xl gap-2 font-bold" onClick={() => { setSearchTerm(""); setFilterSex("all"); setFilterYear("all"); setFilterStatus("all"); }}><FilterX className="h-4 w-4" /> Limpiar</Button>
-        </div>
-      </div>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Sexo</Label>
+              <Select value={filterSex} onValueChange={setFilterSex}>
+                <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="M">Masculino</SelectItem>
+                  <SelectItem value="F">Femenino</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Nivel</Label>
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
+                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
+                  <SelectItem value="ADULTOS">Adultos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Estado</Label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="INSCRITO">Inscritos</SelectItem>
+                  <SelectItem value="POR_VALIDAR">Por Validar</SelectItem>
+                  <SelectItem value="PENDIENTE_PAGO">Pendientes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Origen</Label>
+              <Select value={filterOrigin} onValueChange={setFilterOrigin}>
+                <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="PUBLIC">Postulante (Web)</SelectItem>
+                  <SelectItem value="ADMIN">Secretaría</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Pago</Label>
+              <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
+                <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Día</Label>
+              <Select value={filterSchedule} onValueChange={setFilterSchedule}>
+                <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="SABADO">Sábados</SelectItem>
+                  <SelectItem value="DOMINGO">Domingos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {isActuallyLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="text-xs font-bold text-slate-400 uppercase">Sincronizando...</p></div>
+      ) : viewMode === "LIST" ? (
+        <Card className="border-none shadow-xl bg-white overflow-hidden">
+          <StudentTable students={filteredRegistrations} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
+        </Card>
       ) : (
         <Accordion type="multiple" defaultValue={["none", ...(groups?.map(g => g.id) || [])]} className="space-y-4">
           {registrationsByGroup["none"]?.length > 0 && (
             <AccordionItem value="none" className="border-none">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <AccordionTrigger className="px-6 h-16 hover:no-underline hover:bg-slate-50">
-                  <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500"><AlertCircle className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">Pendientes de Grupo o Validación</p></div></div>
+                  <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500"><AlertCircle className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">Pendientes de Grupo o Validación ({registrationsByGroup["none"].length})</p></div></div>
                 </AccordionTrigger>
                 <AccordionContent className="p-0 border-t border-slate-50">
                   <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
@@ -751,7 +858,7 @@ export default function RegistrationsListPage() {
               <AccordionItem key={group.id} value={group.id} className="border-none">
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                   <AccordionTrigger className="px-6 h-16 hover:no-underline hover:bg-slate-50">
-                    <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">{group.name} - {formatCatechesisYear(group.catechesisYear)}</p></div></div>
+                    <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">{group.name} - {formatCatechesisYear(group.catechesisYear)} ({groupStudents.length})</p></div></div>
                   </AccordionTrigger>
                   <AccordionContent className="p-0 border-t border-slate-50">
                     <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} />
@@ -763,7 +870,7 @@ export default function RegistrationsListPage() {
         </Accordion>
       )}
 
-      {/* DIÁLOGOS */}
+      {/* DIÁLOGOS (Details, Edit, Assign, Delete, etc. - Reactivados según el archivo anterior) */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden rounded-3xl h-[95vh] max-h-[95vh] flex flex-col border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
@@ -773,7 +880,6 @@ export default function RegistrationsListPage() {
           <div className="flex-1 overflow-y-auto bg-slate-50">
             {selectedReg && (
               <div className="p-8 space-y-10">
-                {/* CABECERA PERFIL */}
                 <div className="flex flex-col md:flex-row items-center gap-8 bg-white p-8 rounded-[2.5rem] shadow-sm border">
                   <div className="relative">
                     <Avatar className="h-32 w-32 border-4 border-slate-50 shadow-xl">
@@ -805,7 +911,6 @@ export default function RegistrationsListPage() {
                 </div>
 
                 <div className="grid gap-8 md:grid-cols-2">
-                  {/* SECCIÓN PERSONAL Y FAMILIAR */}
                   <div className="space-y-8">
                     <Card className="border-none shadow-sm rounded-[2rem] overflow-hidden">
                       <CardHeader className="bg-slate-50/50 border-b p-6">
@@ -875,7 +980,6 @@ export default function RegistrationsListPage() {
                     </Card>
                   </div>
 
-                  {/* SECCIÓN ADMINISTRATIVA Y PAGO */}
                   <div className="space-y-8">
                     <Card className="border-none shadow-sm rounded-[2rem] overflow-hidden border-t-4 border-t-primary">
                       <CardHeader className="bg-slate-50/50 border-b p-6">
