@@ -150,7 +150,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       age: 0,
       sexo: "",
       photoUrl: "",
-      paymentMethod: "EFECTIVO",
+      paymentMethod: isPublic ? "TRANSFERENCIA" : "EFECTIVO",
       registrationCost: 35000,
       paymentProofUrl: "",
       motherName: "",
@@ -489,7 +489,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden max-w-4xl mx-auto">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleRegistration)}>
-          {/* ... (rest of the form remains same) ... */}
           <CardHeader className="bg-primary text-white p-8">
             <CardTitle className="text-2xl font-headline font-bold">Ficha de Inscripción 2026</CardTitle>
             <CardDescription className="text-white/80">Catequesis de Confirmación - Santuario Nacional NSPS</CardDescription>
@@ -500,7 +499,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="relative group">
                 <Avatar className="h-32 w-32 border-4 border-slate-50 shadow-xl">
                   <AvatarImage src={photoPreview || undefined} className="object-cover" />
-                  <AvatarFallback className="bg-slate-50 text-slate-300"><User className="h-16 w-16" /></AvatarFallback>
+                  <AvatarFallback className="bg-slate-100 text-slate-300"><User className="h-16 w-16" /></AvatarFallback>
                 </Avatar>
                 <div className="absolute -bottom-2 -right-2 flex gap-2">
                   <button type="button" onClick={() => startCamera("STUDENT_PHOTO")} className="h-9 w-9 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg active:scale-95 transition-transform"><Camera className="h-4 w-4" /></button>
@@ -619,36 +618,43 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <FormLabel className="font-bold">¿Cómo realizará el pago de la inscripción? *</FormLabel>
                   <FormControl>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div 
-                        onClick={() => field.onChange("EFECTIVO")}
-                        className={cn(
-                          "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
-                          field.value === "EFECTIVO" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
-                        )}
-                      >
-                        <Banknote className={cn("h-6 w-6", field.value === "EFECTIVO" ? "text-primary" : "text-slate-400")} />
-                        <span className={cn("text-xs font-bold uppercase", field.value === "EFECTIVO" ? "text-primary" : "text-slate-500")}>Efectivo</span>
-                      </div>
+                      {!isPublic && (
+                        <div 
+                          onClick={() => field.onChange("EFECTIVO")}
+                          className={cn(
+                            "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
+                            field.value === "EFECTIVO" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
+                          )}
+                        >
+                          <Banknote className={cn("h-6 w-6", field.value === "EFECTIVO" ? "text-primary" : "text-slate-400")} />
+                          <span className={cn("text-xs font-bold uppercase", field.value === "EFECTIVO" ? "text-primary" : "text-slate-500")}>Efectivo</span>
+                        </div>
+                      )}
+                      
                       <div 
                         onClick={() => field.onChange("TRANSFERENCIA")}
                         className={cn(
                           "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
-                          field.value === "TRANSFERENCIA" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
+                          field.value === "TRANSFERENCIA" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50",
+                          isPublic && "sm:col-span-3"
                         )}
                       >
                         <ArrowRightLeft className={cn("h-6 w-6", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-400")} />
-                        <span className={cn("text-xs font-bold uppercase", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-500")}>Transferencia</span>
+                        <span className={cn("text-xs font-bold uppercase", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-500")}>Transferencia Bancaria</span>
                       </div>
-                      <div 
-                        onClick={() => field.onChange("SIN_PAGO")}
-                        className={cn(
-                          "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
-                          field.value === "SIN_PAGO" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
-                        )}
-                      >
-                        <Clock className={cn("h-6 w-6", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-400")} />
-                        <span className={cn("text-xs font-bold uppercase", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-500")}>Inscribir sin pagar</span>
-                      </div>
+
+                      {!isPublic && (
+                        <div 
+                          onClick={() => field.onChange("SIN_PAGO")}
+                          className={cn(
+                            "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
+                            field.value === "SIN_PAGO" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
+                          )}
+                        >
+                          <Clock className={cn("h-6 w-6", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-400")} />
+                          <span className={cn("text-xs font-bold uppercase", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-500")}>Inscribir sin pagar</span>
+                        </div>
+                      )}
                     </div>
                   </FormControl>
                   <FormMessage />
