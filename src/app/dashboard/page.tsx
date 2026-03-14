@@ -2,7 +2,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode } from "lucide-react"
+import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, FileText, Printer, ChevronRight } from "lucide-react"
 import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { doc, collection, query, limit } from "firebase/firestore"
 import { useState, useEffect, useMemo } from "react"
@@ -11,10 +11,12 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
+import { Separator } from "@/components/ui/separator"
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const [isQrOpen, setIsQrOpen] = useState(false)
+  const [isReportOpen, setIsReportOpen] = useState(false)
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
 
@@ -32,7 +34,7 @@ export default function DashboardPage() {
   // Consulta ultra-ligera limitada para estadísticas (Plan Blaze)
   const statsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), limit(100))
+    return query(collection(db, "confirmations"), limit(500))
   }, [db, user])
 
   const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery)
@@ -71,6 +73,9 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Bienvenido al Sistema de la Confirmación Juvenil NSPS</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold gap-2 h-11" onClick={() => setIsReportOpen(true)}>
+            <FileText className="h-4 w-4" /> Generar Informe
+          </Button>
           <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
             <QrCode className="h-4 w-4" /> QR Inscripción
           </Button>
@@ -182,6 +187,127 @@ export default function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+        <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
+          <DialogHeader className="p-4 bg-slate-50 border-b no-print shrink-0">
+            <DialogTitle className="text-xs font-black uppercase text-slate-400 tracking-widest text-center">Vista Previa de Informe Ejecutivo</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto p-8 bg-slate-100 no-print flex justify-center">
+            <div className="bg-white shadow-2xl origin-top scale-[0.85] mb-[-10%]">
+              <ExecutiveReportContent stats={stats} />
+            </div>
+          </div>
+
+          <div className="hidden print:block">
+            <ExecutiveReportContent stats={stats} />
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3 no-print shrink-0">
+            <Button variant="outline" className="flex-1 rounded-xl font-bold h-12" onClick={() => setIsReportOpen(false)}>Cerrar</Button>
+            <Button className="flex-1 bg-primary text-white rounded-xl font-bold gap-2 shadow-lg h-12" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Imprimir Informe
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function ExecutiveReportContent({ stats }: { stats: any }) {
+  const currentDate = new Date().toLocaleDateString('es-PY', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  });
+
+  return (
+    <div id="executive-report" className="bg-white p-16 text-slate-900 w-[800px] h-auto min-h-[1050px] mx-auto border-[1px] border-slate-200">
+      <div className="flex items-center justify-between border-b-2 border-primary pb-8 mb-10">
+        <div className="relative h-24 w-24">
+          <Image src="/logo.png" fill alt="Logo" className="object-contain" />
+        </div>
+        <div className="text-right">
+          <h2 className="text-xl font-black text-primary leading-tight">SANTUARIO NACIONAL</h2>
+          <p className="text-sm font-bold text-slate-600 uppercase tracking-widest">Nuestra Señora del Perpetuo Socorro</p>
+          <div className="h-1 w-20 bg-accent ml-auto mt-2"></div>
+        </div>
+      </div>
+
+      <div className="text-center mb-16 space-y-2">
+        <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase">Informe Ejecutivo de Inscripciones</h1>
+        <p className="text-lg font-bold text-primary italic">Confirmación Juvenil - Ciclo Lectivo 2026</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] pt-4">Estado de Situación al {currentDate}</p>
+      </div>
+
+      <div className="space-y-12">
+        <div className="space-y-4">
+          <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">1. Resumen de Postulantes por Categoría</h3>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th className="p-5 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b">Categoría / Nivel</th>
+                  <th className="p-5 text-[10px] font-black uppercase text-slate-500 tracking-widest text-right border-b">Cantidad Inscritos</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm font-medium text-slate-700">
+                <tr className="border-b last:border-0 hover:bg-slate-50/50">
+                  <td className="p-5">CATEQUESIS DE PRIMER AÑO (INICIAL)</td>
+                  <td className="p-5 text-right font-black text-lg">{stats.firstYear}</td>
+                </tr>
+                <tr className="border-b last:border-0 hover:bg-slate-50/50">
+                  <td className="p-5">CATEQUESIS DE SEGUNDO AÑO (CONFIRMACIÓN)</td>
+                  <td className="p-5 text-right font-black text-lg">{stats.secondYear}</td>
+                </tr>
+                <tr className="border-b last:border-0 hover:bg-slate-50/50">
+                  <td className="p-5">CURSO INTENSIVO PARA ADULTOS</td>
+                  <td className="p-5 text-right font-black text-lg">{stats.adults}</td>
+                </tr>
+                <tr className="bg-primary/5">
+                  <td className="p-6 text-base font-black text-primary uppercase">Total de Inscripciones Registradas</td>
+                  <td className="p-6 text-right text-3xl font-black text-primary">{stats.total}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-8">
+          <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">2. Observaciones Administrativas</h3>
+          <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+            <p className="text-xs leading-relaxed text-slate-600 font-medium italic">
+              El presente informe refleja la situación actual de los postulantes inscritos para el ciclo 2026. 
+              Todas las fichas se encuentran en proceso de validación por la secretaría parroquial. 
+              Los datos han sido extraídos automáticamente del Sistema de Gestión de Confirmación Juvenil NSPS.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-32 grid grid-cols-2 gap-20">
+        <div className="text-center space-y-4">
+          <div className="h-px w-full bg-slate-300"></div>
+          <div className="space-y-1">
+            <p className="text-xs font-black uppercase text-slate-900 leading-none">LILIANA MUÑOZ</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Secretaría Administrativa</p>
+          </div>
+        </div>
+        <div className="text-center space-y-4">
+          <div className="h-px w-full bg-slate-300"></div>
+          <div className="space-y-1">
+            <p className="text-xs font-black uppercase text-slate-900 leading-none">Pbro. Oscar González</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cura Párroco / Rector</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute bottom-10 left-16 right-16 flex items-center justify-between border-t pt-4">
+        <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.3em]">Documento Oficial del Santuario Nacional NSPS</p>
+        <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.3em]">Página 1 de 1</p>
+      </div>
     </div>
   )
 }

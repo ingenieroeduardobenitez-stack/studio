@@ -76,7 +76,9 @@
   #certificate-print,
   #certificate-print *,
   #qr-print-area,
-  #qr-print-area * {
+  #qr-print-area *,
+  #executive-report,
+  #executive-report * {
     visibility: visible !important;
   }
 
@@ -84,7 +86,8 @@
   #receipt-content-official,
   #receipt-content-catechist,
   #certificate-print,
-  #qr-print-area {
+  #qr-print-area,
+  #executive-report {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
