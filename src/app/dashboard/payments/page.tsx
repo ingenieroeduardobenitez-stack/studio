@@ -44,6 +44,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { QRCodeCanvas } from "qrcode.react"
+import Image from "next/image"
 
 export default function PaymentsManagementPage() {
   const [mounted, setMounted] = useState(false)
@@ -246,6 +248,16 @@ export default function PaymentsManagementPage() {
     }
   }
 
+  const formatReceiptDate = (ts: any) => {
+    if (!ts) return "---";
+    const date = ts.toDate ? ts.toDate() : new Date(ts);
+    const day = date.getDate();
+    const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} de ${month} de ${year}`;
+  };
+
   if (!mounted) return null
 
   return (
@@ -343,49 +355,83 @@ export default function PaymentsManagementPage() {
       </Dialog>
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl">
+        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Recibo de Pago</DialogTitle>
-            <DialogDescription>Comprobante oficial del Santuario.</DialogDescription>
+            <DialogTitle>Recibo Oficial</DialogTitle>
+            <DialogDescription>Formato oficial del Santuario Nacional.</DialogDescription>
           </DialogHeader>
           
-          <div id="receipt-content-official" className="p-10 bg-white space-y-8">
-            <div className="flex items-center justify-between border-b-2 border-primary pb-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-primary/10 p-2 rounded-xl text-primary"><Church className="h-8 w-8" /></div>
-                <div className="leading-none"><p className="font-headline font-black text-primary text-sm uppercase">Santuario Nacional</p><p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Nuestra Señora del Perpetuo Socorro</p></div>
+          <div id="receipt-content-official" className="p-10 bg-white text-black font-serif border-[4px] border-black m-4">
+            <div className="flex gap-4 mb-8">
+              <div className="flex-1 border-[2px] border-black p-4 flex items-center justify-between">
+                <div className="relative h-16 w-16">
+                  <Image src="/logo.png" fill alt="Logo" className="object-contain" />
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
+                  <p className="text-[9px] font-bold leading-tight">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Recibo de Inscripción</p>
-                <p className="text-xs font-black text-slate-900 font-mono">{selectedReg?.receiptNumber}</p>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Fecha</p><p className="text-xs font-bold text-slate-900">{selectedReg?.lastPaymentDate?.toDate ? selectedReg.lastPaymentDate.toDate().toLocaleDateString('es-PY') : new Date().toLocaleDateString('es-PY')}</p></div>
-                <div className="space-y-1 text-right"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Estado</p><Badge className="bg-green-100 text-green-700 text-[10px] border-none">VALIDADO</Badge></div>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Recibimos de:</p>
-                <p className="text-lg font-black text-slate-900 uppercase leading-none">{selectedReg?.fullName}</p>
-                <p className="text-[10px] font-bold text-slate-500">C.I. N° {selectedReg?.ciNumber}</p>
-              </div>
-
-              <div className="bg-slate-50 p-6 rounded-3xl border border-dashed space-y-4">
-                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Concepto</span><span className="text-xs font-bold text-slate-700">Inscripción {selectedReg?.catechesisYear?.replace('_', ' ')}</span></div>
-                <div className="flex justify-between items-center border-t pt-4"><span className="text-[10px] font-black text-slate-400 uppercase">Importe Abonado</span><span className="text-xl font-black text-primary">{selectedReg?.amountPaid?.toLocaleString('es-PY')} Gs.</span></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Método de Pago</p><p className="text-xs font-bold text-slate-700">{selectedReg?.lastPaymentMethod || "EFECTIVO"}</p></div>
-                <div className="space-y-1 text-right"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Validado Por</p><p className="text-xs font-bold text-slate-700 uppercase">{selectedReg?.validatedBy || "Secretaría"}</p></div>
+              <div className="w-[220px] flex flex-col gap-2">
+                <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center">
+                  <p className="text-[10px] font-black uppercase">GS.</p>
+                  <p className="text-2xl font-black">{(selectedReg?.amountPaid || 0).toLocaleString('es-PY')}</p>
+                </div>
+                <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
+                  <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
+                  <p className="text-xs font-black font-mono leading-none mt-1">{selectedReg?.receiptNumber}</p>
+                </div>
               </div>
             </div>
 
-            <div className="pt-10 text-center border-t border-slate-100">
-              <p className="text-[8px] text-slate-400 italic">Este comprobante es un registro oficial interno del Santuario Nacional Nuestra Señora del Perpetuo Socorro. Gracias por su contribución.</p>
+            <div className="text-center mb-10">
+              <h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2>
+            </div>
+
+            <div className="space-y-8 text-[15px]">
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold whitespace-nowrap">Recibí(mos) de:</span>
+                <span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{selectedReg?.fullName}</span>
+              </div>
+
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold whitespace-nowrap">la cantidad de:</span>
+                <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{(selectedReg?.amountPaid || 0).toLocaleString('es-PY')} Guaraníes</span>
+              </div>
+
+              <div className="space-y-3">
+                <span className="font-bold">en concepto de:</span>
+                <div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">
+                  INSCRIPCIÓN CATEQUESIS DE CONFIRMACIÓN - {selectedReg?.catechesisYear?.replace('_', ' ')}
+                </div>
+              </div>
+
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold whitespace-nowrap">Observación:</span>
+                <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">
+                  Saldo Pendiente: {((selectedReg?.registrationCost || 35000) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-16 space-y-12">
+              <div>
+                <p className="italic border-b border-black inline-block pr-16 text-sm">
+                  Asunción, {formatReceiptDate(selectedReg?.lastPaymentDate || selectedReg?.createdAt)}
+                </p>
+                <p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p>
+              </div>
+
+              <div className="flex flex-col items-center">
+                <div className="p-1 border border-slate-100 rounded-lg shadow-sm">
+                  <QRCodeCanvas value={`NSPS-RECIBO-${selectedReg?.receiptNumber}`} size={90} level="M" />
+                </div>
+                <div className="mt-3 text-center">
+                  <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
+                  <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">ADMINISTRADOR</p>
+                </div>
+              </div>
             </div>
           </div>
 

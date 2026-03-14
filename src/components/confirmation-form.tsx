@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -61,6 +60,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { Separator } from "@/components/ui/separator"
+import { QRCodeCanvas } from "qrcode.react"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -403,6 +403,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   if (isSubmittedSuccessfully) {
     const hasPaid = submittedData?.paymentMethod !== "SIN_PAGO";
+    const dateDay = submittedData?.timestamp?.getDate();
+    const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const monthName = months[submittedData?.timestamp?.getMonth() || 0];
 
     return (
       <>
@@ -443,75 +446,77 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </CardFooter>
         </Card>
 
-        {/* RECIBO OFICIAL PARA IMPRESIÓN (SOLO SI PAGÓ) */}
+        {/* RECIBO OFICIAL ACTUALIZADO SEGÚN FORMATO PROPORCIONADO */}
         {hasPaid && (
-          <div id="receipt-area" className="hidden print:block bg-white p-10 space-y-8 min-h-screen">
-            <div className="flex items-center justify-between border-b-2 border-primary pb-6">
-              <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-2 rounded-xl">
-                  <Church className="h-10 w-10 text-primary" />
+          <div id="receipt-area" className="hidden print:block bg-white p-10 text-black font-serif border-[4px] border-black min-h-screen">
+            <div className="flex gap-4 mb-8">
+              <div className="flex-1 border-[2px] border-black p-4 flex items-center justify-between">
+                <div className="relative h-16 w-16">
+                  <Image src="/logo.png" fill alt="Logo" className="object-contain" />
                 </div>
-                <div>
-                  <h1 className="font-headline font-black text-primary text-xl uppercase leading-none">Santuario Nacional</h1>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nuestra Señora del Perpetuo Socorro</p>
+                <div className="text-right">
+                  <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
+                  <p className="text-[9px] font-bold leading-tight">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs font-black text-primary uppercase tracking-widest">Recibo de Inscripción</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Provisional N° {submittedData?.id.split('_')[1]}</p>
+              <div className="w-[220px] flex flex-col gap-2">
+                <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center">
+                  <p className="text-[10px] font-black uppercase">GS.</p>
+                  <p className="text-2xl font-black">{submittedData?.registrationCost?.toLocaleString('es-PY')}</p>
+                </div>
+                <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
+                  <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
+                  <p className="text-xs font-black font-mono leading-none mt-1">PROVISORIO-{submittedData?.id.split('_')[1]}</p>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 pt-4">
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha de Emisión</p>
-                <p className="text-sm font-bold text-slate-900">{submittedData?.timestamp?.toLocaleDateString('es-PY')}</p>
-              </div>
-              <div className="space-y-1 text-right">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</p>
-                <Badge className="bg-orange-100 text-orange-700 border-none">PENDIENTE DE VALIDACIÓN</Badge>
-              </div>
+            <div className="text-center mb-10">
+              <h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2>
             </div>
 
-            <Separator className="bg-slate-100" />
-
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recibimos de:</p>
-                <p className="text-xl font-black text-slate-900 uppercase">{submittedData?.fullName}</p>
-                <p className="text-xs font-bold text-slate-500">C.I. N° {submittedData?.ciNumber}</p>
+            <div className="space-y-8 text-[15px]">
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold whitespace-nowrap">Recibí(mos) de:</span>
+                <span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{submittedData?.fullName}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-3xl border border-dashed">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Concepto</p>
-                  <p className="text-sm font-bold text-slate-700 uppercase">Inscripción Catequesis {submittedData?.catechesisYear.replace('_', ' ')}</p>
-                </div>
-                <div className="space-y-1 text-right">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Importe Declarado</p>
-                  <p className="text-2xl font-black text-primary">{submittedData?.registrationCost.toLocaleString('es-PY')} Gs.</p>
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold whitespace-nowrap">la cantidad de:</span>
+                <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{submittedData?.registrationCost?.toLocaleString('es-PY')} Guaraníes</span>
+              </div>
+
+              <div className="space-y-3">
+                <span className="font-bold">en concepto de:</span>
+                <div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">
+                  INSCRIPCIÓN CATEQUESIS DE CONFIRMACIÓN - {submittedData?.catechesisYear?.replace('_', ' ')}
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Método de Pago</p>
-                <p className="text-sm font-bold text-slate-700">{submittedData?.paymentMethod}</p>
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold whitespace-nowrap">Observación:</span>
+                <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">Saldo Pendiente: 0 Gs. (Sujeto a validación)</span>
               </div>
             </div>
 
-            <div className="pt-20 grid grid-cols-2 gap-20">
-              <div className="border-t border-slate-300 pt-4 text-center">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Firma Postulante / Tutor</p>
+            <div className="mt-16 space-y-12">
+              <div>
+                <p className="italic border-b border-black inline-block pr-16 text-sm">
+                  Asunción, {dateDay} de {monthName} de 2026
+                </p>
+                <p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p>
               </div>
-              <div className="border-t border-slate-300 pt-4 text-center">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sello del Santuario</p>
-              </div>
-            </div>
 
-            <div className="pt-10 text-center">
-              <p className="text-[9px] text-slate-400 italic">
-                * Este comprobante es provisorio y sujeto a la validación de los documentos y el depósito bancario por parte de la secretaría del Santuario.
-              </p>
+              <div className="flex flex-col items-center">
+                <div className="p-1 border border-slate-100 rounded-lg shadow-sm">
+                  <QRCodeCanvas value={`NSPS-RECIBO-PROV-${submittedData?.id}`} size={90} level="M" />
+                </div>
+                <div className="mt-3 text-center">
+                  <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
+                  <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">ADMINISTRADOR</p>
+                </div>
+              </div>
             </div>
           </div>
         )}
