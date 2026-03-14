@@ -14,12 +14,16 @@ import {
   UsersRound,
   Zap,
   Info,
-  ArrowRight
+  ArrowRight,
+  CalendarDays
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, writeBatch, serverTimestamp, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 
 type AssignmentPreview = {
   groupId: string;
@@ -32,6 +36,7 @@ export default function SortingAdminPage() {
   const [mounted, setMounted] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [preview, setPreview] = useState<AssignmentPreview[] | null>(null)
+  const [selectedDay, setSelectedDay] = useState<"SABADO" | "DOMINGO">("SABADO")
   
   const { toast } = useToast()
   const db = useFirestore()
@@ -50,35 +55,48 @@ export default function SortingAdminPage() {
   const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery)
   const { data: allGroups, loading: loadingGroups } = useCollection(groupsQuery)
 
+  // FILTRO: Solo alumnos de primer año, sin grupo, QUE COINCIDAN CON EL DÍA SELECCIONADO
   const unassignedStudents = useMemo(() => {
     if (!allRegistrations) return []
     return allRegistrations.filter(r => 
       !r.isArchived && 
       r.catechesisYear === "PRIMER_AÑO" && 
-      (!r.groupId || r.groupId === "none")
+      (!r.groupId || r.groupId === "none") &&
+      r.attendanceDay === selectedDay
     )
-  }, [allRegistrations])
+  }, [allRegistrations, selectedDay])
 
-  const firstYearGroups = useMemo(() => {
+  // FILTRO: Solo grupos de primer año DEL DÍA SELECCIONADO
+  const targetGroups = useMemo(() => {
     if (!allGroups) return []
-    return allGroups.filter(g => g.catechesisYear === "PRIMER_AÑO")
-  }, [allGroups])
+    return allGroups.filter(g => 
+      g.catechesisYear === "PRIMER_AÑO" && 
+      g.attendanceDay === selectedDay
+    )
+  }, [allGroups, selectedDay])
 
   const generateSortingPreview = () => {
-    if (unassignedStudents.length === 0 || firstYearGroups.length === 0) return
+    if (unassignedStudents.length === 0 || targetGroups.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No se puede sortear",
+        description: `No hay alumnos o grupos disponibles para el día ${selectedDay.toLowerCase()}.`
+      })
+      return
+    }
 
     const men = [...unassignedStudents.filter(s => s.sexo === "M")].sort(() => Math.random() - 0.5)
     const women = [...unassignedStudents.filter(s => s.sexo === "F")].sort(() => Math.random() - 0.5)
     const unknown = [...unassignedStudents.filter(s => !s.sexo)].sort(() => Math.random() - 0.5)
 
-    const assignmentPreview: AssignmentPreview[] = firstYearGroups.map(g => ({
+    const assignmentPreview: AssignmentPreview[] = targetGroups.map(g => ({
       groupId: g.id,
       groupName: g.name,
       addedMen: [],
       addedWomen: []
     }))
 
-    // Distribución equitativa: hombres
+    // Distribución equitativa: hombres y desconocidos
     let groupIndex = 0
     men.concat(unknown).forEach(student => {
       assignmentPreview[groupIndex].addedMen.push(student.id)
@@ -122,7 +140,7 @@ export default function SortingAdminPage() {
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
         action: "Sorteo Equitativo",
         module: "inscripcion",
-        details: `Se distribuyeron ${totalAssigned} alumnos de 1er Año en ${preview.length} grupos de forma equitativa.`,
+        details: `Se distribuyeron ${totalAssigned} alumnos de 1er Año (${selectedDay}) en ${preview.length} grupos.`,
         timestamp: serverTimestamp()
       })
 
@@ -145,7 +163,7 @@ export default function SortingAdminPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Sorteo de Grupos</h1>
-          <p className="text-muted-foreground">Distribución equitativa de alumnos de 1er Año por sexo.</p>
+          <p className="text-muted-foreground">Distribución equitativa por día de asistencia y sexo.</p>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 px-4 py-1.5 h-auto rounded-xl">
@@ -157,12 +175,26 @@ export default function SortingAdminPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="md:col-span-1 border-none shadow-xl bg-white overflow-hidden border-t-4 border-t-primary">
           <CardHeader>
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-400">Estado de Inscripción</CardTitle>
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-400">Configuración</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Día a Procesar</Label>
+              <Select value={selectedDay} onValueChange={(val: any) => { setSelectedDay(val); setPreview(null); }}>
+                <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-200">
+                  <CalendarDays className="h-4 w-4 mr-2 text-primary" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SABADO">Sábados</SelectItem>
+                  <SelectItem value="DOMINGO">Domingos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="p-6 bg-slate-50 rounded-[2rem] border border-dashed text-center space-y-2">
               <p className="text-4xl font-black text-primary">{unassignedStudents.length}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Alumnos sin grupo</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Alumnos sin grupo ({selectedDay.toLowerCase()}s)</p>
             </div>
             
             <div className="space-y-3">
@@ -174,17 +206,17 @@ export default function SortingAdminPage() {
                 <span className="font-bold text-slate-500 uppercase tracking-tighter">Hombres</span>
                 <span className="font-black text-blue-600">{unassignedStudents.filter(s => s.sexo === "M" || !s.sexo).length}</span>
               </div>
-              <Separator />
+              <Separator className="bg-slate-100" />
               <div className="flex items-center justify-between text-xs px-2">
                 <span className="font-bold text-slate-500 uppercase tracking-tighter">Grupos Disponibles</span>
-                <span className="font-black text-primary">{firstYearGroups.length}</span>
+                <span className="font-black text-primary">{targetGroups.length}</span>
               </div>
             </div>
 
             <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
               <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
               <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                El sorteo repartirá a los confirmandos en partes iguales entre los grupos de 1er Año, cuidando que la proporción de hombres y mujeres sea balanceada.
+                El sorteo repartirá a los confirmandos que eligieron asistir los <strong>{selectedDay.toLowerCase()}s</strong> entre los grupos disponibles de ese mismo día.
               </p>
             </div>
           </CardContent>
@@ -192,7 +224,7 @@ export default function SortingAdminPage() {
             <Button 
               className="w-full h-14 rounded-2xl font-black shadow-lg gap-2 active:scale-95 transition-transform" 
               onClick={generateSortingPreview}
-              disabled={unassignedStudents.length === 0 || firstYearGroups.length === 0 || loading || isProcessing}
+              disabled={unassignedStudents.length === 0 || targetGroups.length === 0 || loading || isProcessing}
             >
               {loading ? <Loader2 className="animate-spin" /> : <><Dices className="h-5 w-5" /> Iniciar Sorteo</>}
             </Button>
@@ -207,7 +239,7 @@ export default function SortingAdminPage() {
               </div>
               <h3 className="text-lg font-bold text-slate-400">Esperando ejecución de sorteo</h3>
               <p className="text-xs text-slate-400 mt-2 max-w-xs">
-                Presiona el botón "Iniciar Sorteo" para ver una previsualización de la distribución equitativa.
+                Selecciona el día y presiona "Iniciar Sorteo" para ver la distribución equitativa.
               </p>
             </div>
           ) : (
@@ -219,13 +251,13 @@ export default function SortingAdminPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900">Vista Previa Generada</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">Revisa los grupos antes de confirmar</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">Distribución para {selectedDay.toLowerCase()}s</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" className="rounded-xl h-11 font-bold" onClick={() => setPreview(null)}>Cancelar</Button>
                   <Button className="rounded-xl h-11 bg-green-600 hover:bg-green-700 font-bold px-8 shadow-lg gap-2" onClick={applyAssignment} disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="animate-spin h-4 w-4" /> : <><Zap className="h-4 w-4" /> Confirmar y Guardar</>}
+                    {isProcessing ? <Loader2 className="animate-spin h-4 w-4" /> : <><Zap className="h-4 w-4" /> Aplicar Cambios</>}
                   </Button>
                 </div>
               </div>
@@ -264,8 +296,4 @@ export default function SortingAdminPage() {
       </div>
     </div>
   )
-}
-
-function Separator() {
-  return <div className="h-px w-full bg-slate-100" />
 }
