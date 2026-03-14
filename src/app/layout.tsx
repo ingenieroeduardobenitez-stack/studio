@@ -1,8 +1,8 @@
-
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { UpdateNotification } from '@/components/update-notification';
 import Script from 'next/script';
 
 export const viewport: Viewport = {
@@ -44,6 +44,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
+          <UpdateNotification />
           {children}
           <Toaster />
         </FirebaseClientProvider>
