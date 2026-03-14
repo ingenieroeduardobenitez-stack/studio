@@ -313,7 +313,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     try {
       const regId = `conf_${Date.now()}`;
       
-      // Limpieza de campos undefined para evitar errores de Firestore
       const regData = {
         fullName: values.fullName || "",
         ciNumber: values.ciNumber || "",
@@ -323,6 +322,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         sexo: values.sexo || "",
         photoUrl: values.photoUrl || null,
         paymentMethod: values.paymentMethod,
+        lastPaymentMethod: values.paymentMethod === "SIN_PAGO" ? null : values.paymentMethod,
         paymentProofUrl: values.paymentProofUrl || null,
         motherName: values.motherName || null,
         motherPhone: values.motherPhone || null,
@@ -417,7 +417,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </CardHeader>
           <CardContent className="p-8 space-y-12">
             
-            {/* FOTO DE PERFIL */}
             <div className="flex flex-col items-center gap-4">
               <div className="relative group">
                 <Avatar className="h-32 w-32 border-4 border-slate-50 shadow-xl">
@@ -433,7 +432,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Foto del Postulante</p>
             </div>
 
-            {/* SECCIÓN 1: DATOS PERSONALES */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><UserPlus className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Datos del Confirmando</h3></div>
               <div className="grid gap-6 md:grid-cols-2">
@@ -466,7 +464,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </div>
 
-            {/* SECCIÓN 2: FAMILIA */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><Users className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Información de Padres / Tutores</h3></div>
               <div className="grid gap-6 md:grid-cols-2">
@@ -490,7 +487,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </div>
 
-            {/* SECCIÓN 3: CATEQUESIS */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><Church className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Inscripción Académica</h3></div>
               <div className="grid gap-6 md:grid-cols-2">
@@ -503,7 +499,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </div>
 
-            {/* SECCIÓN 4: SACRAMENTOS */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><BookOpen className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Vida Sacramental</h3></div>
               <div className="grid gap-8 md:grid-cols-2">
@@ -529,7 +524,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </div>
 
-            {/* SECCIÓN 5: MÉTODO DE PAGO Y DOCUMENTOS */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><Wallet className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Método de Inscripción</h3></div>
               
@@ -612,7 +606,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         </form>
       </Form>
 
-      {/* DIÁLOGO DE CÁMARA */}
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
