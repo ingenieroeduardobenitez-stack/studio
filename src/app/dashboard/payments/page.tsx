@@ -66,6 +66,7 @@ export default function PaymentsManagementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
+  const [viewProofUrl, setViewProofUrl] = useState<string | null>(null)
   const [isProofViewOpen, setIsProofViewOpen] = useState(false)
   const [zoomScale, setZoomScale] = useState(1)
   const [localDate, setLocalDate] = useState({ day: "", month: "", year: "" })
@@ -177,7 +178,7 @@ export default function PaymentsManagementPage() {
       await runTransaction(db, async (transaction) => {
         const treasurySnap = await transaction.get(treasurySettingsRef);
         const regSnap = await transaction.get(regRef);
-        if (!regSnap.exists()) throw "Registro no encontrado";
+        if (!regSnap.exists()) throw new Error("Registro no encontrado");
         const regData = regSnap.data();
         const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
@@ -187,7 +188,7 @@ export default function PaymentsManagementPage() {
           const regCost = regData.registrationCost || (regData.catechesisYear === "ADULTOS" ? 50000 : 35000);
           transaction.update(regRef, { 
             amountPaid: newPaid, 
-            paymentStatus: newPaid >= regCost ? "PAGADO" : "PARCIAL", 
+            paymentStatus: newPaid >= regCost ? "PAGADO" : (newPaid > 0 ? "PARCIAL" : "PENDIENTE"), 
             status: "INSCRITO",
             lastPaymentDate: serverTimestamp(),
             validatedBy: catechistName,
