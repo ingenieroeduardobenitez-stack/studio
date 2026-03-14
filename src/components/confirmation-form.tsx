@@ -71,6 +71,7 @@ const formSchema = z.object({
   paymentMethod: z.enum(["EFECTIVO", "TRANSFERENCIA", "SIN_PAGO"], {
     required_error: "Debe seleccionar un método de pago",
   }),
+  registrationCost: z.coerce.number().min(0, "Monto inválido"),
   paymentProofUrl: z.string().optional(),
   motherName: z.string().optional(),
   motherPhone: z.string().optional(),
@@ -146,6 +147,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       sexo: "",
       photoUrl: "",
       paymentMethod: "EFECTIVO",
+      registrationCost: 35000,
       paymentProofUrl: "",
       motherName: "",
       motherPhone: "",
@@ -167,8 +169,27 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const hasBaptism = watch("hasBaptism")
   const catechesisYear = watch("catechesisYear")
   const paymentMethod = watch("paymentMethod")
+  const registrationCost = watch("registrationCost")
 
-  const totalCost = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
+  const establishedLimit = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
+
+  // Sincronizar monto predeterminado cuando cambia el nivel
+  useEffect(() => {
+    if (catechesisYear) {
+      setValue("registrationCost", establishedLimit)
+    }
+  }, [catechesisYear, establishedLimit, setValue])
+
+  // Validación de que no pase del monto establecido
+  useEffect(() => {
+    if (registrationCost > establishedLimit) {
+      setValue("registrationCost", establishedLimit)
+      toast({
+        title: "Límite superado",
+        description: `El monto máximo para esta categoría es de ${establishedLimit.toLocaleString('es-PY')} Gs.`,
+      })
+    }
+  }, [registrationCost, establishedLimit, setValue, toast])
 
   useEffect(() => {
     if (birthDate) {
@@ -359,7 +380,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         status: "POR_VALIDAR",
         paymentStatus: "PENDIENTE",
         amountPaid: 0,
-        registrationCost: totalCost,
+        registrationCost: values.registrationCost,
         createdAt: serverTimestamp()
       })
 
@@ -686,10 +707,33 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
           </CardContent>
           <CardFooter className="bg-slate-50 p-10 border-t flex flex-col items-center gap-6">
-            <div className="flex items-center gap-2 bg-white px-6 py-2 rounded-full border shadow-sm">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inscripción Total:</span>
-              <span className="text-lg font-black text-primary">{totalCost.toLocaleString('es-PY')} Gs.</span>
+            <div className="w-full max-w-xs space-y-2">
+              <div className="flex items-center justify-between bg-white px-6 py-3 rounded-2xl border shadow-sm">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inscripción Total:</span>
+                <FormField
+                  control={form.control}
+                  name="registrationCost"
+                  render={({ field }) => (
+                    <FormItem className="space-y-0">
+                      <FormControl>
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            type="number" 
+                            {...field}
+                            className="w-24 h-8 p-0 border-none bg-transparent text-right text-lg font-black text-primary focus-visible:ring-0"
+                          />
+                          <span className="text-lg font-black text-primary">Gs.</span>
+                        </div>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <p className="text-[9px] text-slate-400 text-center font-bold uppercase tracking-tighter">
+                * Máximo permitido para esta categoría: {establishedLimit.toLocaleString('es-PY')} Gs.
+              </p>
             </div>
+            
             <Button type="submit" disabled={loading} className="w-full h-16 bg-primary text-white rounded-2xl text-xl font-bold shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">
               {loading ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : <><UserPlus className="mr-2 h-6 w-6" /> ENVIAR INSCRIPCIÓN</>}
             </Button>
@@ -720,7 +764,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
             {devices.length > 1 && (
               <div className="space-y-2">
-                <Label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Seleccionar Cámara</Label>
+                <Label className="text-[10px] font-slate-500 uppercase font-black tracking-widest">Seleccionar Cámara</Label>
                 <Select value={selectedDeviceId} onValueChange={(v) => { setSelectedDeviceId(v); startCamera(captureTarget, v); }}>
                   <SelectTrigger className="h-10 rounded-xl bg-white border-slate-200"><SelectValue placeholder="Elegir dispositivo" /></SelectTrigger>
                   <SelectContent>{devices.map(d => (<SelectItem key={d.deviceId} value={d.deviceId} className="text-xs font-bold">{d.label || `Cámara ${d.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent>
