@@ -46,7 +46,15 @@ import {
   Banknote,
   ArrowRightLeft,
   FileText,
-  Church
+  Church,
+  ChevronRight,
+  Printer,
+  CalendarDays,
+  Contact,
+  CreditCard,
+  History,
+  Check,
+  Download
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy, limit } from "firebase/firestore"
@@ -96,9 +104,6 @@ import { FirestorePermissionError } from "@/firebase/errors"
 type ViewMode = "LIST" | "GROUPS"
 type CaptureTarget = "PHOTO" | "BAPTISM" | "PAY_PROOF"
 
-/**
- * Formulario de Edición que sincroniza con todos los campos del ConfirmationForm original
- */
 function EditRegistrationForm({ 
   selectedReg, 
   profile, 
@@ -241,9 +246,8 @@ function EditRegistrationForm({
         }).catch(() => {});
 
         toast({ title: "Registro Actualizado" })
-        // Evitamos pasar el serverTimestamp() al estado local para prevenir errores de hidratación
         const { updatedAt, ...localData } = updateData;
-        onSaveSuccess({ ...localData, updatedAt: new Date().toISOString() })
+        onSaveSuccess({ ...localData, id: selectedReg.id, updatedAt: new Date().toISOString() })
       })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -610,7 +614,7 @@ export default function RegistrationsListPage() {
     try {
       if (currentStream) currentStream.getTracks().forEach(track => track.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 } }
       })
       setCurrentStream(stream)
       setHasCameraPermission(true)
@@ -645,36 +649,6 @@ export default function RegistrationsListPage() {
     }
   }
 
-  const handleValidatePayment = async () => {
-    if (!db || !selectedReg || !treasuryRef) return
-    setIsSubmitting(true)
-    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
-    const regRef = doc(db, "confirmations", selectedReg.id);
-    try {
-      await runTransaction(db, async (transaction) => {
-        const treasurySnap = await transaction.get(treasuryRef);
-        if (!treasurySnap.exists()) throw "Settings not found";
-        const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
-        const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
-        transaction.update(regRef, {
-          status: "INSCRITO",
-          amountPaid: selectedReg.registrationCost || 35000,
-          paymentStatus: "PAGADO",
-          validatedAt: serverTimestamp(),
-          validatedBy: catechistName,
-          receiptNumber: formattedReceipt
-        });
-        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
-      });
-      toast({ title: "Pago Validado" })
-      setIsDetailsDialogOpen(false)
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error" })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "INSCRITO": return <Badge className="bg-green-500 hover:bg-green-600 text-white border-none">Inscrito</Badge>
@@ -689,6 +663,43 @@ export default function RegistrationsListPage() {
     switch (year) {
       case "PRIMER_AÑO": return "1° Año"; case "SEGUNDO_AÑO": return "2° Año"; case "ADULTOS": return "Adultos"; default: return year;
     }
+  }
+
+  const formatTimestamp = (ts: any) => {
+    if (!ts) return "---";
+    try {
+      const date = ts.toDate ? ts.toDate() : new Date(ts);
+      if (isNaN(date.getTime())) return "---";
+      return date.toLocaleDateString('es-PY') + " " + date.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return "---"; }
+  };
+
+  const handleAssignGroup = async () => {
+    if (!db || !selectedReg || !newGroupId) return
+    setIsSubmitting(true)
+    try {
+      const ref = doc(db, "confirmations", selectedReg.id)
+      const group = groups?.find(g => g.id === newGroupId)
+      await updateDoc(ref, { 
+        groupId: newGroupId, 
+        attendanceDay: group?.attendanceDay || selectedReg.attendanceDay,
+        updatedAt: serverTimestamp() 
+      })
+      toast({ title: "Grupo Asignado" })
+      setIsAssignDialogOpen(false)
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    finally { setIsSubmitting(false) }
+  }
+
+  const handleDeleteRegistration = async () => {
+    if (!db || !selectedReg) return
+    setIsSubmitting(true)
+    try {
+      await deleteDoc(doc(db, "confirmations", selectedReg.id))
+      toast({ title: "Registro Eliminado" })
+      setIsDeleteDialogOpen(false)
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    finally { setIsSubmitting(false) }
   }
 
   if (!mounted) return null
@@ -752,7 +763,197 @@ export default function RegistrationsListPage() {
         </Accordion>
       )}
 
-      {/* DIÁLOGOS DE EDICIÓN, DETALLES, CÁMARA, ETC (Mantenidos igual pero con estabilidad) */}
+      {/* DIÁLOGOS */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden rounded-3xl h-[95vh] max-h-[95vh] flex flex-col border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <DialogTitle className="text-xl font-headline">Ficha de {selectedReg?.fullName}</DialogTitle>
+            <DialogDescription className="text-white/70">Consulta detallada de la ficha institucional.</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto bg-slate-50">
+            {selectedReg && (
+              <div className="p-8 space-y-10">
+                {/* CABECERA PERFIL */}
+                <div className="flex flex-col md:flex-row items-center gap-8 bg-white p-8 rounded-[2.5rem] shadow-sm border">
+                  <div className="relative">
+                    <Avatar className="h-32 w-32 border-4 border-slate-50 shadow-xl">
+                      <AvatarImage src={selectedReg.photoUrl} className="object-cover" />
+                      <AvatarFallback><User className="h-16 w-16 text-slate-200" /></AvatarFallback>
+                    </Avatar>
+                    <Badge className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-primary px-4 py-1 h-auto text-[10px] uppercase font-black">
+                      {formatCatechesisYear(selectedReg.catechesisYear)}
+                    </Badge>
+                  </div>
+                  <div className="flex-1 text-center md:text-left space-y-2">
+                    <h2 className="text-3xl font-black text-slate-900 leading-tight uppercase tracking-tight">{selectedReg.fullName}</h2>
+                    <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                      <Badge variant="outline" className="gap-2 h-8 px-4 border-slate-200 bg-slate-50">
+                        <UserCircle className="h-3.5 w-3.5 text-slate-400" /> C.I. {selectedReg.ciNumber}
+                      </Badge>
+                      <Badge variant="outline" className="gap-2 h-8 px-4 border-slate-200 bg-slate-50">
+                        <Phone className="h-3.5 w-3.5 text-slate-400" /> {selectedReg.phone}
+                      </Badge>
+                      <Badge variant="outline" className="gap-2 h-8 px-4 border-slate-200 bg-slate-50 uppercase">
+                        {selectedReg.sexo === "M" ? "Masculino" : "Femenino"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex flex-col items-center gap-2">
+                    {getStatusBadge(selectedReg.status)}
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estado Actual</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-8 md:grid-cols-2">
+                  {/* SECCIÓN PERSONAL Y FAMILIAR */}
+                  <div className="space-y-8">
+                    <Card className="border-none shadow-sm rounded-[2rem] overflow-hidden">
+                      <CardHeader className="bg-slate-50/50 border-b p-6">
+                        <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                          <Users className="h-4 w-4" /> Entorno Familiar
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
+                            <p className="text-[9px] font-black text-primary uppercase tracking-widest">Madre</p>
+                            <p className="text-xs font-bold text-slate-700 uppercase">{selectedReg.motherName || "No registrado"}</p>
+                            <p className="text-[10px] text-slate-400">{selectedReg.motherPhone || ""}</p>
+                          </div>
+                          <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
+                            <p className="text-[9px] font-black text-primary uppercase tracking-widest">Padre</p>
+                            <p className="text-xs font-bold text-slate-700 uppercase">{selectedReg.fatherName || "No registrado"}</p>
+                            <p className="text-[10px] text-slate-400">{selectedReg.fatherPhone || ""}</p>
+                          </div>
+                        </div>
+                        {selectedReg.tutorName && (
+                          <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100 space-y-1">
+                            <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Tutor / Responsable</p>
+                            <p className="text-xs font-bold text-slate-700 uppercase">{selectedReg.tutorName}</p>
+                            <p className="text-[10px] text-slate-400">{selectedReg.tutorPhone || ""}</p>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-xs text-slate-500 px-2">
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span>Nacimiento: <strong>{selectedReg.birthDate}</strong> ({selectedReg.age} años)</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-sm rounded-[2rem] overflow-hidden">
+                      <CardHeader className="bg-slate-50/50 border-b p-6">
+                        <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                          <BookOpen className="h-4 w-4" /> Vida Sacramental
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-600 uppercase">Bautismo</span>
+                            {selectedReg.hasBaptism ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
+                          </div>
+                          {selectedReg.hasBaptism && (
+                            <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 space-y-3">
+                              <div className="grid grid-cols-3 gap-2 text-center">
+                                <div><p className="text-[8px] font-black text-slate-400 uppercase">Libro</p><p className="text-xs font-bold">{selectedReg.baptismBook || "-"}</p></div>
+                                <div><p className="text-[8px] font-black text-slate-400 uppercase">Folio</p><p className="text-xs font-bold">{selectedReg.baptismFolio || "-"}</p></div>
+                                <div><p className="text-[8px] font-black text-slate-400 uppercase">Parroquia</p><p className="text-[10px] font-bold uppercase truncate">{selectedReg.baptismParish || "-"}</p></div>
+                              </div>
+                              {selectedReg.baptismCertificatePhotoUrl && (
+                                <Button variant="outline" className="w-full h-10 rounded-xl font-bold gap-2 text-xs" onClick={() => { setViewProofUrl(selectedReg.baptismCertificatePhotoUrl); setIsProofViewOpen(true); }}>
+                                  <Eye className="h-3.5 w-3.5" /> Ver Certificado
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-600 uppercase">Primera Comunión</span>
+                            {selectedReg.hasFirstCommunion ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* SECCIÓN ADMINISTRATIVA Y PAGO */}
+                  <div className="space-y-8">
+                    <Card className="border-none shadow-sm rounded-[2rem] overflow-hidden border-t-4 border-t-primary">
+                      <CardHeader className="bg-slate-50/50 border-b p-6">
+                        <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                          <ShieldCheck className="h-4 w-4" /> Administrativo
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                        <div className="grid gap-4">
+                          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                            <div className="space-y-1">
+                              <p className="text-[9px] font-black text-primary uppercase tracking-widest">Grupo Asignado</p>
+                              <p className="text-sm font-bold text-slate-700">{groups?.find(g => g.id === selectedReg.groupId)?.name || "Sin grupo"}</p>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-white shadow-sm" onClick={() => setIsAssignDialogOpen(true)}>
+                              <RefreshCcw className="h-4 w-4 text-slate-400" />
+                            </Button>
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                            <div className="space-y-1">
+                              <p className="text-[9px] font-black text-primary uppercase tracking-widest">Día y Horario</p>
+                              <p className="text-sm font-bold text-slate-700 uppercase">{selectedReg.attendanceDay}S</p>
+                            </div>
+                            <CalendarDays className="h-5 w-5 text-slate-300" />
+                          </div>
+                        </div>
+                        <Separator />
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <p className="text-[9px] font-black text-green-600 uppercase tracking-widest">Recaudación</p>
+                              <p className="text-2xl font-black text-slate-900">{(selectedReg.amountPaid || 0).toLocaleString('es-PY')} Gs.</p>
+                            </div>
+                            <Badge className={cn("px-4 py-1 h-auto text-[10px] font-black uppercase", selectedReg.paymentStatus === "PAGADO" ? "bg-green-500" : "bg-orange-500")}>
+                              {selectedReg.paymentStatus || "PENDIENTE"}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="p-3 bg-slate-50 rounded-xl text-center">
+                              <p className="text-[8px] font-black text-slate-400 uppercase">Método</p>
+                              <p className="text-xs font-bold uppercase">{selectedReg.lastPaymentMethod || "Sin registro"}</p>
+                            </div>
+                            <div className="p-3 bg-slate-50 rounded-xl text-center">
+                              <p className="text-[8px] font-black text-slate-400 uppercase">Recibo N°</p>
+                              <p className="text-xs font-bold font-mono">{selectedReg.receiptNumber || "-"}</p>
+                            </div>
+                          </div>
+                          {selectedReg.paymentProofUrl && (
+                            <Button className="w-full h-12 rounded-xl bg-slate-900 text-white font-bold gap-3 shadow-lg" onClick={() => { setViewProofUrl(selectedReg.paymentProofUrl); setIsProofViewOpen(true); }}>
+                              <ImageIcon className="h-4 w-4" /> Ver Comprobante de Pago
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="p-6 bg-slate-100 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-center">
+                      <Clock className="h-6 w-6 text-slate-300" />
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Registrado el</p>
+                        <p className="text-xs font-bold text-slate-600">{formatTimestamp(selectedReg.createdAt)}</p>
+                        <p className="text-[8px] text-slate-400 italic">Por: {selectedReg.userId === "public_registration" ? "Postulante (Web)" : "Secretaría"}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="p-6 bg-white border-t flex flex-row gap-3 shrink-0">
+            <Button variant="outline" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-xs border-slate-200" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
+            <Button className="flex-1 h-14 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-xs gap-3 shadow-xl active:scale-95 transition-transform" onClick={() => { setIsDetailsDialogOpen(false); setIsEditDialogOpen(true); }}>
+              <Edit className="h-4 w-4" /> Editar Ficha
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-900 text-white">
@@ -774,16 +975,55 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden rounded-3xl h-[95vh] max-h-[95vh] flex flex-col">
-          <DialogHeader className="p-6 bg-primary text-white">
-            <DialogTitle>Ficha de {selectedReg?.fullName}</DialogTitle>
-            <DialogDescription>Consulta detallada de la ficha institucional.</DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50">
-            {/* Contenido de detalles... */}
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] rounded-3xl">
+          <DialogHeader><DialogTitle>Asignar Grupo</DialogTitle><DialogDescription>Mueve a {selectedReg?.fullName} a un grupo específico.</DialogDescription></DialogHeader>
+          <div className="py-6 space-y-4">
+            <Label className="font-bold">Seleccionar Grupo</Label>
+            <Select value={newGroupId} onValueChange={setNewGroupId}>
+              <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elija un grupo..." /></SelectTrigger>
+              <SelectContent>
+                {groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map(g => (
+                  <SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <DialogFooter className="p-6 bg-white border-t flex gap-3"><Button variant="outline" className="flex-1" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button><Button className="flex-1 bg-slate-900 font-bold" onClick={() => setIsEditDialogOpen(true)}>Editar</Button></DialogFooter>
+          <DialogFooter className="gap-2"><Button variant="outline" className="flex-1 rounded-xl" onClick={() => setIsAssignDialogOpen(false)}>Cancelar</Button><Button className="flex-1 rounded-xl bg-primary" onClick={handleAssignGroup} disabled={isSubmitting || !newGroupId}>Asignar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader><AlertDialogTitle>¿Eliminar este registro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer. Se borrará permanentemente la ficha de {selectedReg?.fullName}.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel><AlertDialogAction className="bg-destructive text-white rounded-xl" onClick={handleDeleteRegistration} disabled={isSubmitting}>Eliminar</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isProofViewOpen} onOpenChange={(open) => { setIsProofViewOpen(open); if(!open) setZoomScale(1); }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 bg-transparent border-none shadow-none flex items-center justify-center overflow-visible">
+          <DialogHeader className="sr-only"><DialogTitle>Vista de Documento</DialogTitle></DialogHeader>
+          <div className="relative flex flex-col items-center w-full">
+            <Button variant="secondary" size="icon" className="absolute -top-14 right-0 rounded-full text-white bg-white/20 hover:bg-white/40 border border-white/10 z-50" onClick={() => setIsProofViewOpen(false)}><X className="h-6 w-6" /></Button>
+            <div className="absolute -bottom-16 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl p-2 px-4 rounded-2xl border border-white/10 shadow-2xl z-50">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.max(0.25, prev - 0.25))}><ZoomOut className="h-4 w-4" /></Button>
+              <span className="text-[10px] font-black text-white uppercase w-14 text-center">{Math.round(zoomScale * 100)}%</span>
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.min(4, prev + 0.25))}><ZoomIn className="h-4 w-4" /></Button>
+              <Separator orientation="vertical" className="h-4 bg-white/20 mx-1" />
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(1)}><Maximize2 className="h-4 w-4" /></Button>
+            </div>
+            <div className="w-full bg-slate-950/20 backdrop-blur-sm rounded-3xl p-2 border border-white/10 shadow-2xl overflow-hidden">
+              <ScrollArea className="max-h-[75vh] w-full rounded-2xl">
+                <div className="flex items-center justify-center p-4 md:p-10 min-h-[400px]">
+                  {viewProofUrl?.startsWith("data:application/pdf") ? (
+                    <iframe src={viewProofUrl} className="w-full h-[70vh] rounded-xl" />
+                  ) : (
+                    <img src={viewProofUrl || ""} className="rounded-xl shadow-2xl transition-all duration-300 select-none h-auto" style={{ width: zoomScale === 1 ? 'auto' : `${zoomScale * 100}%`, maxWidth: zoomScale === 1 ? '100%' : 'none', maxHeight: zoomScale === 1 ? '75vh' : 'none', objectFit: 'contain' }} alt="Documento" />
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -791,15 +1031,6 @@ export default function RegistrationsListPage() {
 }
 
 function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage, onSort, sortConfig }: any) {
-  const formatTimestamp = (ts: any) => {
-    if (!ts) return "---";
-    try {
-      const date = ts.toDate ? ts.toDate() : new Date(ts);
-      if (isNaN(date.getTime())) return "---";
-      return date.toLocaleDateString('es-PY') + " " + date.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
-    } catch (e) { return "---"; }
-  };
-
   return (
     <Table>
       <TableHeader className="bg-slate-50/30">
@@ -813,17 +1044,23 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
       </TableHeader>
       <TableBody>
         {students.map((reg: any) => (
-          <TableRow key={reg.id} className="h-14">
-            <TableCell className="pl-6"><Avatar className="h-8 w-8 border" onClick={() => reg.photoUrl && onViewImage(reg.photoUrl)}><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar></TableCell>
-            <TableCell><div className="flex flex-col"><span className="font-bold text-xs uppercase">{reg.fullName}</span><span className="text-[10px] text-slate-400">C.I. {reg.ciNumber}</span></div></TableCell>
+          <TableRow key={reg.id} className="h-14 hover:bg-slate-50/50 transition-colors">
+            <TableCell className="pl-6"><Avatar className="h-8 w-8 border cursor-pointer active:scale-95 transition-transform" onClick={() => reg.photoUrl && onViewImage(reg.photoUrl)}><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User className="h-4 w-4" /></AvatarFallback></Avatar></TableCell>
+            <TableCell><div className="flex flex-col"><span className="font-bold text-xs uppercase text-slate-900">{reg.fullName}</span><span className="text-[10px] text-slate-400">C.I. {reg.ciNumber}</span></div></TableCell>
             <TableCell className="text-center"><span className="text-[10px] font-bold text-slate-400">{formatYear(reg.catechesisYear)}</span></TableCell>
             <TableCell className="text-center">{getBadge(reg.status)}</TableCell>
             <TableCell className="text-right pr-8">
               <div className="flex justify-end gap-2">
-                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-xl bg-primary/5 text-primary" onClick={() => onViewDetails(reg)}><Eye className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-xl bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onClick={() => onViewDetails(reg)} title="Ver Ficha"><Eye className="h-4 w-4" /></Button>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="rounded-xl"><DropdownMenuItem onClick={() => onAssignGroup(reg)}>Asignar Grupo</DropdownMenuItem><DropdownMenuSeparator />{isAdmin && <DropdownMenuItem className="text-destructive" onClick={() => onDelete(reg)}>Eliminar</DropdownMenuItem>}</DropdownMenuContent>
+                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="rounded-xl border-none shadow-xl p-2 w-48">
+                    <DropdownMenuLabel className="text-[10px] uppercase font-black text-slate-400 px-2 py-1">Opciones</DropdownMenuLabel>
+                    <DropdownMenuItem className="rounded-lg h-10 gap-3" onClick={() => onAssignGroup(reg)}><Users className="h-4 w-4 text-slate-400" /> Asignar Grupo</DropdownMenuItem>
+                    <DropdownMenuItem className="rounded-lg h-10 gap-3" onClick={() => onViewDetails(reg)}><Edit className="h-4 w-4 text-slate-400" /> Editar Datos</DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-slate-100" />
+                    {isAdmin && <DropdownMenuItem className="rounded-lg h-10 gap-3 text-destructive focus:bg-red-50 focus:text-destructive" onClick={() => onDelete(reg)}><Trash2 className="h-4 w-4" /> Eliminar Ficha</DropdownMenuItem>}
+                  </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </TableCell>
@@ -832,10 +1069,4 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
       </TableBody>
     </Table>
   )
-}
-
-function formatYear(year: string) {
-  switch (year) {
-    case "PRIMER_AÑO": return "1° Año"; case "SEGUNDO_AÑO": return "2° Año"; case "ADULTOS": return "Adultos"; default: return year;
-  }
 }
