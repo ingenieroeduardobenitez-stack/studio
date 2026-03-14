@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -29,7 +30,8 @@ import {
   Share2,
   Copy,
   Info,
-  Building2
+  Building2,
+  MessageCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -401,6 +403,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     });
   }
 
+  const shareViaWhatsApp = () => {
+    if (!submittedData) return;
+    const msg = `*INSCRIPCIÓN EXITOSA - SANTUARIO NSPS*\n\n` +
+                `*Provisorio:* ${submittedData.id.split('_')[1]}\n` +
+                `*Confirmando:* ${submittedData.fullName}\n` +
+                `*Monto:* ${submittedData.registrationCost.toLocaleString('es-PY')} Gs.\n` +
+                `*Año:* ${submittedData.catechesisYear.replace('_', ' ')}\n\n` +
+                `Por favor, conserva este mensaje como comprobante de tu trámite.`;
+    
+    const encoded = encodeURIComponent(msg);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+  }
+
   if (isSubmittedSuccessfully) {
     const hasPaid = submittedData?.paymentMethod !== "SIN_PAGO";
     const dateDay = submittedData?.timestamp?.getDate();
@@ -426,17 +441,31 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="h-px w-20 bg-slate-200 mx-auto"></div>
               <p className="text-sm font-bold text-slate-600 uppercase">{submittedData?.fullName}</p>
             </div>
+
+            {hasPaid && (
+              <div className="flex flex-col items-center gap-4 bg-slate-50 p-6 rounded-3xl no-print">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vista Previa de Recibo</p>
+                <div className="w-full overflow-hidden border rounded-2xl bg-white shadow-sm h-[300px] flex justify-center">
+                  <div className="origin-top scale-[0.5] sm:scale-[0.6]">
+                    <ReceiptOfficialContent submittedData={submittedData} dateDay={dateDay} monthName={monthName} />
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="bg-slate-50 p-8 flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3 w-full">
-              {hasPaid ? (
-                <Button variant="outline" className="h-14 rounded-2xl font-black gap-2 border-slate-200 text-slate-600" onClick={() => window.print()}>
-                  <Printer className="h-5 w-5" /> IMPRIMIR RECIBO
-                </Button>
-              ) : (
-                <div className="hidden"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+              {hasPaid && (
+                <>
+                  <Button variant="outline" className="h-14 rounded-2xl font-black gap-2 border-slate-200 text-slate-600" onClick={() => window.print()}>
+                    <Printer className="h-5 w-5" /> IMPRIMIR
+                  </Button>
+                  <Button variant="secondary" className="h-14 rounded-2xl font-black gap-2 bg-green-50 text-green-700 border-green-200" onClick={shareViaWhatsApp}>
+                    <MessageCircle className="h-5 w-5" /> WHATSAPP
+                  </Button>
+                </>
               )}
-              <Button className={cn("h-14 rounded-2xl font-black gap-2 bg-slate-900 text-white", !hasPaid && "col-span-2")} asChild>
+              <Button className={cn("h-14 rounded-2xl font-black gap-2 bg-slate-900 text-white", !hasPaid ? "col-span-3" : "col-span-1")} asChild>
                 <Link href={isPublic ? "/" : "/dashboard"}>
                   FINALIZAR <ChevronRight className="h-5 w-5" />
                 </Link>
@@ -446,78 +475,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </CardFooter>
         </Card>
 
-        {/* RECIBO OFICIAL ACTUALIZADO SEGÚN FORMATO PROPORCIONADO */}
+        {/* PRINTABLE VERSION (UNSCALED) */}
         {hasPaid && (
-          <div id="receipt-area" className="hidden print:block bg-white p-10 text-black font-serif border-[4px] border-black min-h-screen">
-            <div className="flex gap-4 mb-8">
-              <div className="flex-1 border-[2px] border-black p-4 flex items-center justify-between">
-                <div className="relative h-16 w-16">
-                  <Image src="/logo.png" fill alt="Logo" className="object-contain" />
-                </div>
-                <div className="text-right">
-                  <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
-                  <p className="text-[9px] font-bold leading-tight">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
-                </div>
-              </div>
-              <div className="w-[220px] flex flex-col gap-2">
-                <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center">
-                  <p className="text-[10px] font-black uppercase">GS.</p>
-                  <p className="text-2xl font-black">{submittedData?.registrationCost?.toLocaleString('es-PY')}</p>
-                </div>
-                <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
-                  <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
-                  <p className="text-xs font-black font-mono leading-none mt-1">PROVISORIO-{submittedData?.id.split('_')[1]}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center mb-10">
-              <h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2>
-            </div>
-
-            <div className="space-y-8 text-[15px]">
-              <div className="flex items-baseline gap-2">
-                <span className="font-bold whitespace-nowrap">Recibí(mos) de:</span>
-                <span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{submittedData?.fullName}</span>
-              </div>
-
-              <div className="flex items-baseline gap-2">
-                <span className="font-bold whitespace-nowrap">la cantidad de:</span>
-                <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{submittedData?.registrationCost?.toLocaleString('es-PY')} Guaraníes</span>
-              </div>
-
-              <div className="space-y-3">
-                <span className="font-bold">en concepto de:</span>
-                <div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">
-                  INSCRIPCIÓN CATEQUESIS DE CONFIRMACIÓN - {submittedData?.catechesisYear?.replace('_', ' ')}
-                </div>
-              </div>
-
-              <div className="flex items-baseline gap-2">
-                <span className="font-bold whitespace-nowrap">Observación:</span>
-                <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">Saldo Pendiente: 0 Gs. (Sujeto a validación)</span>
-              </div>
-            </div>
-
-            <div className="mt-16 space-y-12">
-              <div>
-                <p className="italic border-b border-black inline-block pr-16 text-sm">
-                  Asunción, {dateDay} de {monthName} de 2026
-                </p>
-                <p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p>
-              </div>
-
-              <div className="flex flex-col items-center">
-                <div className="p-1 border border-slate-100 rounded-lg shadow-sm">
-                  <QRCodeCanvas value={`NSPS-RECIBO-PROV-${submittedData?.id}`} size={90} level="M" />
-                </div>
-                <div className="mt-3 text-center">
-                  <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
-                  <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">ADMINISTRADOR</p>
-                </div>
-              </div>
-            </div>
+          <div className="hidden print:block">
+            <ReceiptOfficialContent submittedData={submittedData} dateDay={dateDay} monthName={monthName} />
           </div>
         )}
       </>
@@ -528,6 +489,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden max-w-4xl mx-auto">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleRegistration)}>
+          {/* ... (rest of the form remains same) ... */}
           <CardHeader className="bg-primary text-white p-8">
             <CardTitle className="text-2xl font-headline font-bold">Ficha de Inscripción 2026</CardTitle>
             <CardDescription className="text-white/80">Catequesis de Confirmación - Santuario Nacional NSPS</CardDescription>
@@ -851,5 +813,81 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         </DialogContent>
       </Dialog>
     </Card>
+  )
+}
+
+function ReceiptOfficialContent({ submittedData, dateDay, monthName }: { submittedData: any, dateDay: any, monthName: any }) {
+  return (
+    <div id="receipt-area" className="bg-white p-10 text-black font-serif border-[4px] border-black w-[800px] h-auto min-h-[1000px] mx-auto">
+      <div className="flex gap-4 mb-8">
+        <div className="flex-1 border-[2px] border-black p-4 flex items-center justify-between">
+          <div className="relative h-16 w-16">
+            <Image src="/logo.png" fill alt="Logo" className="object-contain" />
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
+            <p className="text-[9px] font-bold leading-tight uppercase">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
+          </div>
+        </div>
+        <div className="w-[220px] flex flex-col gap-2">
+          <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center">
+            <p className="text-[10px] font-black uppercase">GS.</p>
+            <p className="text-2xl font-black">{submittedData?.registrationCost?.toLocaleString('es-PY')}</p>
+          </div>
+          <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
+            <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
+            <p className="text-xs font-black font-mono leading-none mt-1">PROVISORIO-{submittedData?.id.split('_')[1]}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-center mb-10">
+        <h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2>
+      </div>
+
+      <div className="space-y-8 text-[15px]">
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold whitespace-nowrap">Recibí(mos) de:</span>
+          <span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{submittedData?.fullName}</span>
+        </div>
+
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold whitespace-nowrap">la cantidad de:</span>
+          <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{submittedData?.registrationCost?.toLocaleString('es-PY')} Guaraníes</span>
+        </div>
+
+        <div className="space-y-3">
+          <span className="font-bold">en concepto de:</span>
+          <div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">
+            INSCRIPCIÓN CATEQUESIS DE CONFIRMACIÓN - {submittedData?.catechesisYear?.replace('_', ' ')}
+          </div>
+        </div>
+
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold whitespace-nowrap">Observación:</span>
+          <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">Saldo Pendiente: 0 Gs. (Sujeto a validación)</span>
+        </div>
+      </div>
+
+      <div className="mt-16 space-y-12">
+        <div>
+          <p className="italic border-b border-black inline-block pr-16 text-sm">
+            Asunción, {dateDay} de {monthName} de 2026
+          </p>
+          <p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <div className="p-1 border border-slate-100 rounded-lg shadow-sm">
+            <QRCodeCanvas value={`NSPS-RECIBO-PROV-${submittedData?.id}`} size={90} level="M" />
+          </div>
+          <div className="mt-3 text-center">
+            <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
+            <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">ADMINISTRADOR</p>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

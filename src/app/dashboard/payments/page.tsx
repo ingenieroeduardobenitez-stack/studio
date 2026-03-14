@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -258,6 +259,19 @@ export default function PaymentsManagementPage() {
     return `${day} de ${month} de ${year}`;
   };
 
+  const shareViaWhatsApp = () => {
+    if (!selectedReg) return;
+    const msg = `*RECIBO DE PAGO - SANTUARIO NSPS*\n\n` +
+                `*Nro:* ${selectedReg.receiptNumber}\n` +
+                `*Confirmando:* ${selectedReg.fullName}\n` +
+                `*Monto:* ${selectedReg.amountPaid.toLocaleString('es-PY')} Gs.\n` +
+                `*Concepto:* INSCRIPCIÓN CATEQUESIS ${selectedReg.catechesisYear.replace('_', ' ')}\n\n` +
+                `Este es un comprobante digital oficial.`;
+    
+    const encoded = encodeURIComponent(msg);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+  }
+
   if (!mounted) return null
 
   return (
@@ -355,89 +369,28 @@ export default function PaymentsManagementPage() {
       </Dialog>
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-none">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Recibo Oficial</DialogTitle>
-            <DialogDescription>Formato oficial del Santuario Nacional.</DialogDescription>
+        <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-4 bg-slate-50 border-b no-print shrink-0">
+            <DialogTitle className="text-xs font-black uppercase text-slate-400 tracking-widest">Vista Previa de Recibo</DialogTitle>
           </DialogHeader>
           
-          <div id="receipt-content-official" className="p-10 bg-white text-black font-serif border-[4px] border-black m-4">
-            <div className="flex gap-4 mb-8">
-              <div className="flex-1 border-[2px] border-black p-4 flex items-center justify-between">
-                <div className="relative h-16 w-16">
-                  <Image src="/logo.png" fill alt="Logo" className="object-contain" />
-                </div>
-                <div className="text-right">
-                  <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
-                  <p className="text-[9px] font-bold leading-tight">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
-                </div>
-              </div>
-              <div className="w-[220px] flex flex-col gap-2">
-                <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center">
-                  <p className="text-[10px] font-black uppercase">GS.</p>
-                  <p className="text-2xl font-black">{(selectedReg?.amountPaid || 0).toLocaleString('es-PY')}</p>
-                </div>
-                <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
-                  <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
-                  <p className="text-xs font-black font-mono leading-none mt-1">{selectedReg?.receiptNumber}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center mb-10">
-              <h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2>
-            </div>
-
-            <div className="space-y-8 text-[15px]">
-              <div className="flex items-baseline gap-2">
-                <span className="font-bold whitespace-nowrap">Recibí(mos) de:</span>
-                <span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{selectedReg?.fullName}</span>
-              </div>
-
-              <div className="flex items-baseline gap-2">
-                <span className="font-bold whitespace-nowrap">la cantidad de:</span>
-                <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{(selectedReg?.amountPaid || 0).toLocaleString('es-PY')} Guaraníes</span>
-              </div>
-
-              <div className="space-y-3">
-                <span className="font-bold">en concepto de:</span>
-                <div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">
-                  INSCRIPCIÓN CATEQUESIS DE CONFIRMACIÓN - {selectedReg?.catechesisYear?.replace('_', ' ')}
-                </div>
-              </div>
-
-              <div className="flex items-baseline gap-2">
-                <span className="font-bold whitespace-nowrap">Observación:</span>
-                <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">
-                  Saldo Pendiente: {((selectedReg?.registrationCost || 35000) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-16 space-y-12">
-              <div>
-                <p className="italic border-b border-black inline-block pr-16 text-sm">
-                  Asunción, {formatReceiptDate(selectedReg?.lastPaymentDate || selectedReg?.createdAt)}
-                </p>
-                <p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p>
-              </div>
-
-              <div className="flex flex-col items-center">
-                <div className="p-1 border border-slate-100 rounded-lg shadow-sm">
-                  <QRCodeCanvas value={`NSPS-RECIBO-${selectedReg?.receiptNumber}`} size={90} level="M" />
-                </div>
-                <div className="mt-3 text-center">
-                  <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
-                  <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">ADMINISTRADOR</p>
-                </div>
-              </div>
+          <div className="flex-1 overflow-y-auto p-4 bg-slate-100 no-print flex justify-center">
+            <div className="bg-white shadow-xl origin-top scale-[0.75] sm:scale-[0.85] mb-[-15%]">
+              <ReceiptContent reg={selectedReg} formatDate={formatReceiptDate} />
             </div>
           </div>
 
-          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 no-print">
-            <Button variant="outline" className="flex-1 rounded-xl font-bold" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 bg-primary text-white rounded-xl font-bold gap-2 shadow-lg" onClick={() => window.print()}>
+          {/* REAL PRINT CONTENT (unscaled) */}
+          <div className="hidden print:block">
+            <ReceiptContent reg={selectedReg} formatDate={formatReceiptDate} />
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3 no-print shrink-0">
+            <Button variant="outline" className="flex-1 rounded-xl font-bold h-12" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
+            <Button variant="secondary" className="flex-1 rounded-xl font-bold h-12 bg-green-50 text-green-700 border-green-200 gap-2" onClick={shareViaWhatsApp}>
+              <MessageCircle className="h-4 w-4" /> WhatsApp
+            </Button>
+            <Button className="flex-1 bg-primary text-white rounded-xl font-bold gap-2 shadow-lg h-12" onClick={() => window.print()}>
               <Printer className="h-4 w-4" /> Imprimir
             </Button>
           </DialogFooter>
@@ -482,6 +435,84 @@ export default function PaymentsManagementPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function ReceiptContent({ reg, formatDate }: { reg: any, formatDate: any }) {
+  return (
+    <div className="p-10 bg-white text-black font-serif border-[4px] border-black w-[800px] h-auto">
+      <div className="flex gap-4 mb-8">
+        <div className="flex-1 border-[2px] border-black p-4 flex items-center justify-between">
+          <div className="relative h-16 w-16">
+            <Image src="/logo.png" fill alt="Logo" className="object-contain" />
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
+            <p className="text-[9px] font-bold leading-tight uppercase">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
+          </div>
+        </div>
+        <div className="w-[220px] flex flex-col gap-2">
+          <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center">
+            <p className="text-[10px] font-black uppercase">GS.</p>
+            <p className="text-2xl font-black">{(reg?.amountPaid || 0).toLocaleString('es-PY')}</p>
+          </div>
+          <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
+            <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
+            <p className="text-xs font-black font-mono leading-none mt-1">{reg?.receiptNumber || '---'}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-center mb-10">
+        <h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2>
+      </div>
+
+      <div className="space-y-8 text-[15px]">
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold whitespace-nowrap">Recibí(mos) de:</span>
+          <span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{reg?.fullName}</span>
+        </div>
+
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold whitespace-nowrap">la cantidad de:</span>
+          <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{(reg?.amountPaid || 0).toLocaleString('es-PY')} Guaraníes</span>
+        </div>
+
+        <div className="space-y-3">
+          <span className="font-bold">en concepto de:</span>
+          <div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">
+            INSCRIPCIÓN CATEQUESIS DE CONFIRMACIÓN - {reg?.catechesisYear?.replace('_', ' ')}
+          </div>
+        </div>
+
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold whitespace-nowrap">Observación:</span>
+          <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">
+            Saldo Pendiente: {((reg?.registrationCost || 35000) - (reg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-16 space-y-12">
+        <div>
+          <p className="italic border-b border-black inline-block pr-16 text-sm">
+            Asunción, {formatDate(reg?.lastPaymentDate || reg?.createdAt)}
+          </p>
+          <p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <div className="p-1 border border-slate-100 rounded-lg shadow-sm">
+            <QRCodeCanvas value={`NSPS-RECIBO-${reg?.receiptNumber}`} size={90} level="M" />
+          </div>
+          <div className="mt-3 text-center">
+            <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
+            <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">ADMINISTRADOR</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
