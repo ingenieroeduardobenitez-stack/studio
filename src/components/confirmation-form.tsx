@@ -27,7 +27,10 @@ import {
   ChevronRight,
   Printer,
   Download,
-  Share2
+  Share2,
+  Copy,
+  Info,
+  Building2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -241,9 +244,11 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   }
 
   const stopCamera = () => {
-    if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-    setCurrentStream(null)
-    setShowCamera(false)
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+      setCurrentStream(null)
+      setShowCamera(false)
+    }
   }
 
   const takePhoto = async () => {
@@ -368,6 +373,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     } finally { setLoading(false); }
   }
 
+  const copyToClipboard = (text: string) => {
+    if (typeof window === 'undefined' || !navigator.clipboard) return;
+    navigator.clipboard.writeText(text).then(() => {
+      toast({ title: "Copiado", description: "El dato se ha copiado al portapapeles." });
+    });
+  }
+
   if (isSubmittedSuccessfully) {
     return (
       <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden max-w-2xl mx-auto animate-in zoom-in-95 duration-500">
@@ -463,7 +475,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <FormItem><FormLabel className="font-bold">Nombre Completo *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase font-bold" /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="phone" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="09XX XXX XXX" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="09XX XXX XXX" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormMessage>
                 )} />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="birthDate" render={({ field }) => (
@@ -580,22 +592,92 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </FormItem>
               )} />
 
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-6">
                 {paymentMethod === "TRANSFERENCIA" && (
-                  <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="font-bold text-slate-700">Comprobante de Transferencia *</Label>
-                    <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => startCamera("PAYMENT_PROOF")}>
-                      {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><ArrowRightLeft className="h-8 w-8 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-[10px] font-bold text-slate-400 uppercase text-center px-4">Capturar Foto o Subir Comprobante</span></>}
+                  <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                    <div className="p-6 bg-slate-50 rounded-[2.5rem] border-2 border-primary/10 border-dashed space-y-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                        <h4 className="font-headline font-bold text-slate-800">Datos para Transferencia</h4>
+                      </div>
+                      
+                      <div className="grid gap-6 sm:grid-cols-2">
+                        {costs?.paymentMethod === "ACCOUNT" ? (
+                          <>
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Banco</p>
+                              <p className="text-sm font-bold text-slate-700">{costs?.bankName || "---"}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">N° de Cuenta</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-slate-700 font-mono">{costs?.accountNumber || "---"}</p>
+                                {costs?.accountNumber && <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(costs.accountNumber)}><Copy className="h-3 w-3" /></Button>}
+                              </div>
+                            </div>
+                          </>
+                        ) : null}
+                        
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Titular de la Cuenta</p>
+                          <p className="text-sm font-bold text-slate-700 uppercase">{costs?.accountOwner || "Santuario Nacional NSPS"}</p>
+                        </div>
+                        
+                        {costs?.paymentMethod === "ACCOUNT" && costs?.ownerCi ? (
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">C.I. / RUC del Titular</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-slate-700">{costs.ownerCi}</p>
+                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(costs.ownerCi)}><Copy className="h-3 w-3" /></Button>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {costs?.alias && (
+                          <div className="sm:col-span-2 p-4 bg-white rounded-2xl border-2 border-primary/20 flex items-center justify-between shadow-sm">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-primary/20">u</div>
+                              <div>
+                                <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-1">Alias / ueno</p>
+                                <p className="text-xl font-black text-primary leading-none tracking-tight">{costs.alias}</p>
+                              </div>
+                            </div>
+                            <Button 
+                              type="button" 
+                              variant="secondary" 
+                              size="sm" 
+                              className="rounded-xl h-10 px-4 font-bold gap-2 bg-primary/10 text-primary hover:bg-primary/20 border-none" 
+                              onClick={() => copyToClipboard(costs.alias)}
+                            >
+                              <Copy className="h-4 w-4" /> COPIAR
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                        <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-amber-800 leading-tight font-medium italic">
+                          Por favor, completa la transferencia y luego captura o sube el comprobante generado por tu app bancaria.
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-[9px] text-slate-400 text-center italic">Para validar tu inscripción, adjunta el ticket de transferencia.</p>
-                    <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
+
+                    <div className="space-y-3">
+                      <Label className="font-bold text-slate-700">Comprobante de Pago *</Label>
+                      <div className="border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => startCamera("PAYMENT_PROOF")}>
+                        {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><ArrowRightLeft className="h-10 w-10 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-xs font-bold text-slate-400 uppercase text-center px-8">Capturar Foto o Subir Comprobante</span></>}
+                      </div>
+                      <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
+                    </div>
                   </div>
                 )}
                 
                 <div className="space-y-3">
                   <Label className="font-bold text-slate-700">Certificado de Bautismo (Opcional)</Label>
-                  <div className="border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => startCamera("BAPTISM_CERT")}>
-                    {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-8 w-8 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-[10px] font-bold text-slate-400 uppercase">Cargar Certificado</span></>}
+                  <div className="border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => startCamera("BAPTISM_CERT")}>
+                    {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-10 w-10 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-xs font-bold text-slate-400 uppercase">Cargar Foto del Certificado</span></>}
                   </div>
                   <input type="file" ref={baptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
                 </div>
@@ -612,7 +694,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               {loading ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : <><UserPlus className="mr-2 h-6 w-6" /> ENVIAR INSCRIPCIÓN</>}
             </Button>
             <p className="text-[10px] text-slate-400 text-center font-medium italic">
-              Al enviar este formulario, declaro que todos los datos proporcionados son verídicos y acepto los términos de la catequesis del Santuario Nacional.
+              Al enviar este formulario, declaro que todos los datos proporcionados son verídicos y acepto los términos de la catequesis del Santuario Nacional Nuestra Señora del Perpetuo Socorro.
             </p>
           </CardFooter>
         </form>
