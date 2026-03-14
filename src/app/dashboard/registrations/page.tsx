@@ -549,7 +549,6 @@ export default function RegistrationsListPage() {
   
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    // LÍMITE DE SEGURIDAD PARA PLAN BLAZE: Reducimos lecturas iniciales
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
   }, [db, user])
 
@@ -787,14 +786,23 @@ export default function RegistrationsListPage() {
   }
 
   const handleAssignGroup = () => {
-    if (!db || !selectedReg || !newGroupId) return
+    if (!db || !selectedReg) return
     setIsSubmitting(true)
     const group = groups?.find(g => g.id === newGroupId)
-    if (!group) return
     const regRef = doc(db, "confirmations", selectedReg.id);
-    updateDoc(regRef, { groupId: newGroupId, attendanceDay: group.attendanceDay, updatedAt: serverTimestamp() })
+    
+    const updateData: any = { 
+      groupId: newGroupId || "none", 
+      updatedAt: serverTimestamp() 
+    }
+
+    if (group) {
+      updateData.attendanceDay = group.attendanceDay
+    }
+
+    updateDoc(regRef, updateData)
       .then(() => {
-        toast({ title: "Grupo asignado" })
+        toast({ title: newGroupId === "none" ? "Se quitó el grupo" : "Grupo asignado" })
         setIsAssignDialogOpen(false)
       })
       .finally(() => setIsSubmitting(false))
@@ -1106,6 +1114,8 @@ export default function RegistrationsListPage() {
                 <SelectValue placeholder="Elige un grupo disponible" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none" className="text-red-600 font-bold">--- DEJAR SIN GRUPO ---</SelectItem>
+                <Separator className="my-1" />
                 {groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (
                   <SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>
                 ))}
