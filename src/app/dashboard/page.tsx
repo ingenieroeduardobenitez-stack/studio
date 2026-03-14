@@ -68,7 +68,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">
             ¡Hola, {profile?.firstName || "Catequista"}!
           </h1>
-          <p className="text-muted-foreground">Bienvenido al Sistema de Gestión - Santuario Nacional NSPS</p>
+          <p className="text-muted-foreground">Bienvenido al Sistema de la Confirmación Juvenil NSPS</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
