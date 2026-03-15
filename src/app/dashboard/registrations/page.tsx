@@ -14,7 +14,6 @@ import {
   User, 
   LayoutList, 
   Users,
-  UserCircle,
   UserPlus,
   Trash2,
   Eye,
@@ -70,12 +69,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
-} from "@/components/ui/accordion"
-import { 
   Dialog, 
   DialogContent, 
   DialogDescription, 
@@ -99,7 +92,6 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { QRCodeCanvas } from "qrcode.react"
@@ -108,6 +100,7 @@ import Image from "next/image"
 type ViewMode = "LIST" | "GROUPS"
 type CaptureTarget = "PHOTO" | "BAPTISM" | "PAY_PROOF"
 
+// Componente de Formulario de Edición
 function EditRegistrationForm({ 
   selectedReg, 
   profile, 
@@ -141,23 +134,21 @@ function EditRegistrationForm({
 
   const isAdmin = profile?.role === "Administrador"
 
-  const compressImage = (source: string, maxWidth = 1024, maxHeight = 1200): Promise<string> => {
+  const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new (window as any).Image();
-      img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement('canvas');
+        const MAX_SIZE = 1024;
         let width = img.width;
         let height = img.height;
-        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
-        canvas.width = width;
-        canvas.height = height;
+        if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } }
+        else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+        canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
-      img.onerror = (e) => reject(e);
       img.src = source;
     });
   };
@@ -171,15 +162,6 @@ function EditRegistrationForm({
         else if (target === "baptism") setEditBaptismPreview(val);
         else setEditPaymentProofPreview(val);
       };
-
-      if (file.type === 'application/pdf') {
-        const reader = new FileReader();
-        reader.onload = () => setPreview(reader.result as string);
-        reader.readAsDataURL(file);
-        URL.revokeObjectURL(objectUrl);
-        return;
-      }
-
       try {
         const optimized = await compressImage(objectUrl);
         setPreview(optimized);
@@ -202,7 +184,6 @@ function EditRegistrationForm({
     const formData = new FormData(e.currentTarget)
     const getVal = (name: string) => (formData.get(name) as string || "").trim();
 
-    // CALCULO DE COSTO ESTABLECIDO PARA COMPARAR
     const regCost = selectedReg.registrationCost || (editCatechesisYear === "ADULTOS" ? 50000 : 35000);
 
     const updateData: any = {
@@ -226,24 +207,14 @@ function EditRegistrationForm({
       updateData.amountPaid = 0;
       updateData.paymentStatus = "PENDIENTE";
       updateData.status = "POR_VALIDAR";
-      updateData.receiptNumber = ""; 
     } else {
-      // LÓGICA DE ACTUALIZACIÓN DE ESTADO SEGÚN MONTO PARA EFECTIVO
       updateData.paymentStatus = updateData.amountPaid >= regCost ? "PAGADO" : (updateData.amountPaid > 0 ? "PARCIAL" : "PENDIENTE");
-      
-      if (editPaymentMethod === "EFECTIVO" && updateData.amountPaid > 0) {
-        updateData.status = "INSCRITO";
-      } else if (editPaymentMethod === "TRANSFERENCIA" && selectedReg.status === "POR_VALIDAR") {
-        // Mantener por validar si es transferencia y no ha sido validado formalmente por el botón
-        updateData.status = "POR_VALIDAR";
-      } else {
-        updateData.status = "INSCRITO";
-      }
+      updateData.status = editPaymentMethod === "EFECTIVO" ? "INSCRITO" : selectedReg.status;
     }
 
-    if (editPhotoPreview && editPhotoPreview !== selectedReg.photoUrl) updateData.photoUrl = editPhotoPreview;
-    if (editBaptismPreview && editBaptismPreview !== selectedReg.baptismCertificatePhotoUrl) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
-    if (editPaymentProofPreview && editPaymentProofPreview !== selectedReg.paymentProofUrl) updateData.paymentProofUrl = editPaymentProofPreview;
+    if (editPhotoPreview) updateData.photoUrl = editPhotoPreview;
+    if (editBaptismPreview) updateData.baptismCertificatePhotoUrl = editBaptismPreview;
+    if (editPaymentProofPreview) updateData.paymentProofUrl = editPaymentProofPreview;
 
     const regRef = doc(db, "confirmations", selectedReg.id);
 
@@ -254,244 +225,427 @@ function EditRegistrationForm({
           userName: catechistName,
           action: "Editar Ficha",
           module: "inscripcion",
-          details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}. Monto: ${updateData.amountPaid}`,
+          details: `Se actualizaron los datos de la ficha de: ${updateData.fullName}`,
           timestamp: serverTimestamp()
         }).catch(() => {});
-
         toast({ title: "Registro Actualizado" })
-        const { updatedAt, ...localData } = updateData;
-        onSaveSuccess({ ...localData, id: selectedReg.id, updatedAt: new Date().toISOString() })
+        onSaveSuccess({ ...updateData, id: selectedReg.id })
       })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: regRef.path,
-          operation: 'update',
-          requestResourceData: updateData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: regRef.path, operation: 'update', requestResourceData: updateData }));
       })
-      .finally(() => {
-        setIsSubmitting(false)
-      })
+      .finally(() => setIsSubmitting(false))
   }
-
-  const renderFilePreview = (preview: string | null) => {
-    if (!preview) return null;
-    if (preview.startsWith("data:application/pdf")) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full w-full bg-slate-100 gap-2">
-          <FileText className="h-8 w-8 text-red-500" />
-          <span className="text-[8px] font-bold uppercase text-slate-500">Documento PDF</span>
-        </div>
-      );
-    }
-    return <img src={preview} alt="Vista Previa" className="w-full h-full object-cover" />;
-  };
-
-  useEffect(() => {
-    const handleCameraCapture = (e: any) => {
-      const { target, dataUrl } = e.detail;
-      if (target === "PHOTO") setEditPhotoPreview(dataUrl);
-      else if (target === "BAPTISM") setEditBaptismPreview(dataUrl);
-      else if (target === "PAY_PROOF") setEditPaymentProofPreview(dataUrl);
-    };
-    window.addEventListener('camera-capture-success', handleCameraCapture);
-    return () => window.removeEventListener('camera-capture-success', handleCameraCapture);
-  }, []);
 
   return (
     <form onSubmit={handleEditRegistration} className="flex-1 overflow-hidden flex flex-col">
-      <div className="flex-1 overflow-y-auto p-6 bg-white space-y-10 pb-20">
+      <div className="flex-1 overflow-y-auto p-6 bg-white space-y-8 pb-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-4">
-            <Label className="text-[10px] font-black text-primary uppercase tracking-widest text-center block">Foto de Perfil</Label>
-            <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
-              <Avatar className="h-24 w-24 border-4 border-white shadow-md">
-                <AvatarImage src={editPhotoPreview || undefined} className="object-cover" />
-                <AvatarFallback className="bg-slate-100 text-slate-300">
-                  {editPhotoPreview ? renderFilePreview(editPhotoPreview) : <User className="h-10 w-10" />}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => startCameraAction("PHOTO")}>
-                  <Camera className="h-3.5 w-3.5" /> Cámara
-                </Button>
-                <Button type="button" size="sm" variant="secondary" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => editPhotoInputRef.current?.click()}>
-                  <ImageIcon className="h-3.5 w-3.5" /> Archivo
-                </Button>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase text-slate-400">Foto Perfil</Label>
+            <div className="relative h-32 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden">
+              {editPhotoPreview ? <img src={editPhotoPreview} className="h-full w-full object-cover" /> : <User className="h-10 w-10 text-slate-200" />}
+              <div className="absolute bottom-2 right-2 flex gap-1">
+                <Button type="button" size="icon" variant="secondary" className="h-7 w-7 rounded-full" onClick={() => editPhotoInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5" /></Button>
                 <input type="file" ref={editPhotoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "photo")} />
               </div>
             </div>
           </div>
-          <div className="space-y-4">
-            <Label className="text-[10px] font-black text-primary uppercase tracking-widest text-center block">Certificado Bautismo</Label>
-            <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
-              <div className="h-24 w-full rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
-                {editBaptismPreview ? renderFilePreview(editBaptismPreview) : <ImageIcon className="h-8 w-8 text-slate-200" />}
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => startCameraAction("BAPTISM")}>
-                  <Camera className="h-3.5 w-3.5" /> Cámara
-                </Button>
-                <Button type="button" size="sm" variant="outline" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => editBaptismInputRef.current?.click()}>
-                  <ImageIcon className="h-3.5 w-3.5" /> Archivo
-                </Button>
-                <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileEdit(e, "baptism")} />
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase text-slate-400">Cert. Bautismo</Label>
+            <div className="relative h-32 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden">
+              {editBaptismPreview ? <img src={editBaptismPreview} className="h-full w-full object-cover" /> : <Book className="h-10 w-10 text-slate-200" />}
+              <div className="absolute bottom-2 right-2 flex gap-1">
+                <Button type="button" size="icon" variant="secondary" className="h-7 w-7 rounded-full" onClick={() => editBaptismInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5" /></Button>
+                <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "baptism")} />
               </div>
             </div>
           </div>
-          <div className="space-y-4">
-            <Label className="text-[10px] font-black text-primary uppercase tracking-widest text-center block">Comprobante Pago</Label>
-            <div className="flex flex-col items-center gap-4 p-4 border rounded-2xl bg-slate-50 border-dashed">
-              <div className="h-24 w-full rounded-xl bg-white border overflow-hidden flex items-center justify-center relative">
-                {editPaymentProofPreview ? renderFilePreview(editPaymentProofPreview) : <Wallet className="h-8 w-8 text-slate-200" />}
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => startCameraAction("PAY_PROOF")}>
-                  <Camera className="h-3.5 w-3.5" /> Cámara
-                </Button>
-                <Button type="button" size="sm" variant="outline" className="rounded-xl h-8 gap-2 font-bold px-2 text-[10px]" onClick={() => editPaymentProofInputRef.current?.click()}>
-                  <ImageIcon className="h-3.5 w-3.5" /> Archivo
-                </Button>
-                <input type="file" ref={editPaymentProofInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileEdit(e, "paymentProof")} />
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase text-slate-400">Comp. Pago</Label>
+            <div className="relative h-32 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden">
+              {editPaymentProofPreview ? <img src={editPaymentProofPreview} className="h-full w-full object-cover" /> : <Wallet className="h-10 w-10 text-slate-200" />}
+              <div className="absolute bottom-2 right-2 flex gap-1">
+                <Button type="button" size="icon" variant="secondary" className="h-7 w-7 rounded-full" onClick={() => editPaymentProofInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5" /></Button>
+                <input type="file" ref={editPaymentProofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "paymentProof")} />
               </div>
             </div>
           </div>
         </div>
 
-        <Separator />
-
-        <div className="space-y-4">
-          <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Personal</h4>
-          <div className="grid gap-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Nombre Completo</Label>
-                <Input name="fullName" defaultValue={selectedReg?.fullName} required className="h-11 rounded-xl uppercase font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label>Sexo</Label>
-                <Select value={editGender} onValueChange={setEditGender}>
-                  <SelectTrigger className="h-11 rounded-xl">
-                    <SelectValue placeholder="-" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="M">Masculino</SelectItem>
-                    <SelectItem value="F">Femenino</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>C.I. N°</Label><Input name="ciNumber" defaultValue={selectedReg?.ciNumber} required className="h-11 rounded-xl" /></div>
-              <div className="space-y-2"><Label>Celular</Label><Input name="phone" defaultValue={selectedReg?.phone} required className="h-11 rounded-xl" /></div>
-            </div>
-            <div className="space-y-2"><Label>Fecha de Nacimiento</Label><Input type="date" name="birthDate" defaultValue={selectedReg?.birthDate} required className="h-11 rounded-xl" /></div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-4">
-          <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Información Administrativa</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-amber-50/30 p-6 rounded-2xl border border-amber-100 border-dashed">
+        <div className="grid gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2"><Label>Nombre Completo</Label><Input name="fullName" defaultValue={selectedReg?.fullName} className="uppercase font-bold" /></div>
             <div className="space-y-2">
-              <Label className="font-bold text-slate-700 flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-amber-600" /> Forma de Pago
-              </Label>
-              <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
-                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
-                  <SelectValue placeholder="Seleccione método" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">Sin registro</SelectItem>
-                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                </SelectContent>
+              <Label>Sexo</Label>
+              <Select value={editGender} onValueChange={setEditGender}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="M">Masculino</SelectItem><SelectItem value="F">Femenino</SelectItem></SelectContent>
               </Select>
             </div>
-
-            {editPaymentMethod !== "NONE" && (
-              <div className="space-y-2 animate-in fade-in zoom-in-95 duration-300">
-                <Label className="font-bold text-slate-700 flex items-center gap-2">
-                  <Banknote className="h-4 w-4 text-green-600" /> Monto Registrado (Gs)
-                </Label>
-                <Input 
-                  type="number" 
-                  value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
-                  readOnly={!isAdmin}
-                  className={cn(
-                    "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
-                    !isAdmin && "bg-slate-100 text-slate-400 cursor-not-allowed"
-                  )}
-                />
-              </div>
-            )}
           </div>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-4">
-          <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Nivel y Horario</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-dashed">
-            <div className="space-y-2">
-              <Label className="font-bold text-slate-700">Año de Catequesis</Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2"><Label>C.I. N°</Label><Input name="ciNumber" defaultValue={selectedReg?.ciNumber} /></div>
+            <div className="space-y-2"><Label>Celular</Label><Input name="phone" defaultValue={selectedReg?.phone} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2"><Label>Año Catequesis</Label>
               <Select value={editCatechesisYear} onValueChange={setEditCatechesisYear}>
-                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
-                  <SelectValue placeholder="Seleccione el nivel" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
-                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
-                  <SelectItem value="ADULTOS">Adultos</SelectItem>
-                </SelectContent>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="font-bold text-slate-700">Día de Asistencia</Label>
+            <div className="space-y-2"><Label>Día Asistencia</Label>
               <Select value={editAttendanceDay} onValueChange={setEditAttendanceDay}>
-                <SelectTrigger className="h-11 rounded-xl bg-white border-slate-200">
-                  <SelectValue placeholder="Seleccione el día" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SABADO">Sábados</SelectItem>
-                  <SelectItem value="DOMINGO">Domingos</SelectItem>
-                </SelectContent>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent>
               </Select>
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-4">
-          <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Familia y Tutores</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
-              <Label className="text-xs font-bold text-primary">MADRE</Label>
-              <Input name="motherName" defaultValue={selectedReg?.motherName} placeholder="Nombre" className="h-10 uppercase bg-white" />
-              <Input name="motherPhone" defaultValue={selectedReg?.motherPhone} placeholder="Celular" className="h-10 bg-white" />
-            </div>
-            <div className="space-y-3 p-4 bg-slate-50 rounded-2xl">
-              <Label className="text-xs font-bold text-primary">PADRE</Label>
-              <Input name="fatherName" defaultValue={selectedReg?.fatherName} placeholder="Nombre" className="h-10 uppercase bg-white" />
-              <Input name="fatherPhone" defaultValue={selectedReg?.fatherPhone} placeholder="Celular" className="h-10 bg-white" />
             </div>
           </div>
         </div>
       </div>
       <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 shrink-0">
-        <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={onClose}>Cancelar</Button>
-        <Button type="submit" className="flex-1 h-12 rounded-xl bg-slate-900 text-white font-bold gap-2 shadow-lg" disabled={isSubmitting}>
-          {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />} Guardar
-        </Button>
+        <Button type="button" variant="outline" className="flex-1 h-12" onClick={onClose}>Cancelar</Button>
+        <Button type="submit" className="flex-1 h-12 bg-slate-900 text-white font-bold" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />} Guardar</Button>
       </DialogFooter>
     </form>
   )
 }
 
 export default function RegistrationsListPage() {
-  // ... resto del componente permanece igual
+  const [mounted, setMounted] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [viewMode, setViewMode] = useState<ViewMode>("LIST")
+  const [selectedReg, setSelectedReg] = useState<any>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isValidationOpen, setIsValidationOpen] = useState(false)
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [valAmount, setValAmount] = useState(0)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [zoomScale, setZoomScale] = useState(1)
+
+  const db = useFirestore()
+  const { user } = useUser()
+  const { toast } = useToast()
+
+  useEffect(() => { setMounted(true) }, [])
+
+  const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const { data: profile } = useDoc(userProfileRef)
+
+  const registrationsQuery = useMemoFirebase(() => db ? query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200)) : null, [db])
+  const { data: registrations, loading: loadingRegs } = useCollection(registrationsQuery)
+
+  const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
+  const { data: allUsers } = useCollection(usersQuery)
+
+  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const { data: treasurySettings } = useDoc(treasuryRef)
+
+  const filteredRegistrations = useMemo(() => {
+    if (!registrations) return []
+    return registrations.filter(r => 
+      !r.isArchived && (
+        r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        r.ciNumber?.includes(searchTerm)
+      )
+    )
+  }, [registrations, searchTerm])
+
+  const handleOpenValidation = (reg: any) => {
+    setSelectedReg(reg)
+    const pending = (reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? 50000 : 35000)) - (reg.amountPaid || 0)
+    setValAmount(pending > 0 ? pending : 0)
+    setIsValidationOpen(true)
+  }
+
+  const handleConfirmValidation = async () => {
+    if (!db || !selectedReg || !treasuryRef || isProcessing) return
+    setIsProcessing(true)
+    const regRef = doc(db, "confirmations", selectedReg.id)
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Validador"
+    try {
+      await runTransaction(db, async (transaction) => {
+        const treasurySnap = await transaction.get(treasuryRef);
+        const nextReceipt = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
+        const formattedReceipt = `001-001-${String(nextReceipt).padStart(7, '0')}`;
+        
+        const newPaid = (selectedReg.amountPaid || 0) + valAmount;
+        const regCost = selectedReg.registrationCost || (selectedReg.catechesisYear === "ADULTOS" ? 50000 : 35000);
+        
+        const updatePayload = { 
+          amountPaid: newPaid, 
+          paymentStatus: newPaid >= regCost ? "PAGADO" : "PARCIAL", 
+          status: "INSCRITO",
+          validatedBy: catechistName,
+          receiptNumber: formattedReceipt,
+          lastPaymentDate: serverTimestamp(),
+          lastPaymentMethod: "TRANSFERENCIA"
+        };
+
+        transaction.update(regRef, updatePayload);
+        transaction.update(treasuryRef, { nextReceiptNumber: nextReceipt + 1 });
+        
+        transaction.set(doc(collection(db, "audit_logs")), {
+          userId: user?.uid || "unknown",
+          userName: catechistName,
+          action: "Validación de Transferencia",
+          module: "pagos",
+          details: `Validado cobro de ${valAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          timestamp: serverTimestamp()
+        });
+
+        setSelectedReg({ ...selectedReg, ...updatePayload });
+      });
+      toast({ title: "Validación Exitosa" })
+      setIsValidationOpen(false)
+      setIsReceiptOpen(true)
+    } catch (e) { toast({ variant: "destructive", title: "Error al validar" }) }
+    finally { setIsProcessing(false) }
+  }
+
+  const handleDelete = async () => {
+    if (!db || !selectedReg) return
+    try {
+      await deleteDoc(doc(db, "confirmations", selectedReg.id))
+      toast({ title: "Registro eliminado" })
+      setIsDeleteDialogOpen(false)
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+  }
+
+  const handleDownloadProof = () => {
+    if (!selectedReg?.paymentProofUrl) return;
+    const link = document.createElement("a");
+    link.href = selectedReg.paymentProofUrl;
+    link.download = `comprobante-${selectedReg.ciNumber || selectedReg.id}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  if (!mounted) return null
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-headline font-bold text-primary">Confirmandos Inscritos</h1>
+          <p className="text-muted-foreground">Listado general de postulantes del ciclo 2026.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="rounded-xl h-11 font-bold gap-2" onClick={() => {
+            const csv = filteredRegistrations.map(r => `${r.fullName},${r.ciNumber},${r.catechesisYear}`).join("\n");
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'confirmandos.csv'; a.click();
+          }}><Download className="h-4 w-4" /> Exportar</Button>
+          <Button asChild className="bg-primary hover:bg-primary/90 rounded-xl h-11 font-bold px-6 shadow-lg shadow-primary/20"><a href="/dashboard/registration"><UserPlus className="h-4 w-4 mr-2" /> Nueva Ficha</a></Button>
+        </div>
+      </div>
+
+      <Card className="border-none shadow-xl overflow-hidden bg-white">
+        <CardHeader className="bg-slate-50/50 border-b">
+          <div className="relative w-full md:w-96"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /><Input placeholder="Buscar por Nombre o C.I..." className="pl-10 h-12 rounded-xl" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loadingRegs ? (
+            <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : (
+            <Table>
+              <TableHeader className="bg-slate-50/30">
+                <TableRow>
+                  <TableHead className="pl-8 font-bold">Confirmando</TableHead>
+                  <TableHead className="font-bold">Origen</TableHead>
+                  <TableHead className="font-bold">Año / Nivel</TableHead>
+                  <TableHead className="font-bold">Forma Pago</TableHead>
+                  <TableHead className="font-bold">Estado</TableHead>
+                  <TableHead className="font-bold">Fecha Insc.</TableHead>
+                  <TableHead className="text-right pr-8 font-bold">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRegistrations.map((reg) => {
+                  const creator = allUsers?.find(u => u.id === reg.userId);
+                  const isManual = reg.userId !== "public_registration";
+                  const hasProof = !!reg.paymentProofUrl;
+                  const isEfectivo = reg.lastPaymentMethod === "EFECTIVO" || reg.paymentMethod === "EFECTIVO";
+                  
+                  return (
+                    <TableRow key={reg.id} className="h-20 hover:bg-slate-50/50 transition-colors">
+                      <TableCell className="pl-8">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User /></AvatarFallback></Avatar>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-sm text-slate-900 uppercase truncate max-w-[200px]">{reg.fullName}</span>
+                            <span className="text-[10px] font-black text-primary leading-tight">{reg.ciNumber}</span>
+                            <span className="text-[10px] text-slate-400 font-medium">{reg.phone}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <Badge variant="secondary" className={cn("text-[9px] uppercase font-black w-fit", isManual ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700")}>{isManual ? "MANUAL" : "PÚBLICO"}</Badge>
+                          {isManual && creator && <span className="text-[9px] text-slate-400 font-bold uppercase mt-1 ml-1">{creator.firstName}</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="outline" className="text-[9px] uppercase">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Wallet className="h-3 w-3 text-slate-400" />
+                          <span className="text-[10px] font-bold uppercase text-slate-600">{hasProof ? "TRANSFERENCIA" : (isEfectivo ? "EFECTIVO" : "NINGUNA")}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("text-[9px] font-bold", reg.status === "POR_VALIDAR" ? "bg-orange-50 text-orange-600 border-orange-200" : "bg-green-50 text-green-600 border-green-200")}>{reg.status || "PENDIENTE"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col text-[10px]">
+                          <span className="font-bold text-slate-700">{reg.createdAt?.toDate ? reg.createdAt.toDate().toLocaleDateString('es-PY') : 'Reciente'}</span>
+                          <span className="text-slate-400">{reg.createdAt?.toDate ? reg.createdAt.toDate().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right pr-8">
+                        <div className="flex items-center justify-end gap-2">
+                          {reg.status === "POR_VALIDAR" && hasProof && (
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] font-black bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200" onClick={() => handleOpenValidation(reg)}>VALIDAR</Button>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[180px] p-2 rounded-xl">
+                              <DropdownMenuItem onClick={() => { setSelectedReg(reg); setIsEditDialogOpen(true); }} className="h-10 rounded-lg gap-2"><Edit className="h-4 w-4" /> Editar Ficha</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} className="h-10 rounded-lg gap-2 text-destructive"><Trash2 className="h-4 w-4" /> Eliminar</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* DIALOGO DE VALIDACIÓN */}
+      <Dialog open={isValidationOpen} onOpenChange={setIsValidationOpen}>
+        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Laboratorio de Validación</DialogTitle>
+                <DialogDescription className="text-slate-400">Procesando pago de {selectedReg?.fullName}</DialogDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="icon" className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white border-none" onClick={handleDownloadProof} title="Descargar Comprobante"><Download className="h-4 w-4" /></Button>
+                <Button variant="secondary" size="icon" className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white border-none" onClick={() => setZoomScale(prev => prev === 1 ? 2 : 1)} title="Zoom"><Maximize2 className="h-4 w-4" /></Button>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 relative overflow-auto">
+              {selectedReg?.paymentProofUrl ? (
+                <img src={selectedReg.paymentProofUrl} className="max-w-full h-auto rounded-xl shadow-lg transition-transform duration-300 origin-center" style={{ transform: `scale(${zoomScale})` }} />
+              ) : <div className="text-slate-400 italic">Sin comprobante</div>}
+            </div>
+            <div className="w-full md:w-[350px] bg-white border-l p-8 space-y-8 overflow-y-auto">
+              <div className="space-y-4">
+                <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Información del Postulante</Label>
+                <div className="p-4 bg-slate-50 rounded-2xl space-y-2">
+                  <p className="text-sm font-black text-slate-900">{selectedReg?.fullName}</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase">C.I. {selectedReg?.ciNumber}</p>
+                  <p className="text-[10px] text-slate-400">{selectedReg?.catechesisYear?.replace('_', ' ')}</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <Label className="font-bold">Monto a Confirmar (Gs)</Label>
+                <Input type="number" className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-primary/20" value={valAmount} onChange={(e) => setValAmount(Number(e.target.value))} />
+                <p className="text-[10px] text-slate-400 italic">Verifica que el monto coincida exactamente con la imagen adjunta.</p>
+              </div>
+              <div className="pt-4">
+                <Button className="w-full h-14 rounded-2xl bg-green-600 hover:bg-green-700 font-bold text-lg gap-2" onClick={handleConfirmValidation} disabled={isProcessing}>
+                  {isProcessing ? <Loader2 className="animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> VALIDAR Y GENERAR RECIBO</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* RECIBO POST-VALIDACIÓN */}
+      <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
+        <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden bg-white rounded-3xl h-[90vh] flex flex-col">
+          <div className="flex-1 overflow-y-auto p-4 bg-slate-100 flex justify-center">
+            <div className="bg-white shadow-xl origin-top scale-[0.75] sm:scale-[0.85]">
+              <ReceiptContent reg={selectedReg} />
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t grid grid-cols-2 gap-3">
+            <Button variant="outline" className="h-12 rounded-xl font-bold" onClick={() => setIsReceiptOpen(false)}>CERRAR</Button>
+            <Button className="h-12 rounded-xl bg-primary text-white font-bold gap-2" onClick={() => window.print()}><Printer className="h-4 w-4" /> IMPRIMIR</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[95vh] p-0 overflow-hidden flex flex-col rounded-3xl border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Editar Ficha de Confirmando</DialogTitle></DialogHeader>
+          <EditRegistrationForm selectedReg={selectedReg} profile={profile} onClose={() => setIsEditDialogOpen(false)} onSaveSuccess={() => setIsEditDialogOpen(false)} startCameraAction={() => {}} />
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-3xl"><AlertDialogHeader><AlertDialogTitle>¿Eliminar este registro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer. Se borrarán todos los datos del confirmando.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction className="bg-destructive text-white" onClick={handleDelete}>Confirmar Eliminación</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
+function ReceiptContent({ reg }: { reg: any }) {
+  if (!reg) return null;
+  const date = reg.lastPaymentDate?.toDate ? reg.lastPaymentDate.toDate() : new Date();
+  const dateStr = date.toLocaleDateString('es-PY', { day: '2-digit', month: 'long', year: 'numeric' });
+  
+  return (
+    <div className="p-10 bg-white text-black font-serif border-[4px] border-black w-[800px] h-auto">
+      <div className="flex gap-4 mb-8">
+        <div className="flex-1 border-[2px] border-black p-4 flex items-center justify-between">
+          <div className="relative h-16 w-16"><Image src="/logo.png" fill alt="Logo" className="object-contain" /></div>
+          <div className="text-right">
+            <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
+            <p className="text-[9px] font-bold leading-tight uppercase">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
+          </div>
+        </div>
+        <div className="w-[220px] flex flex-col gap-2">
+          <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center">
+            <p className="text-[10px] font-black uppercase">GS.</p>
+            <p className="text-2xl font-black">{(reg.amountPaid || 0).toLocaleString('es-PY')}</p>
+          </div>
+          <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
+            <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
+            <p className="text-xs font-black font-mono leading-none mt-1">{reg.receiptNumber || '---'}</p>
+          </div>
+        </div>
+      </div>
+      <div className="text-center mb-10"><h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2></div>
+      <div className="space-y-8 text-[15px]">
+        <div className="flex items-baseline gap-2"><span className="font-bold whitespace-nowrap">Recibí(mos) de:</span><span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{reg.fullName}</span></div>
+        <div className="flex items-baseline gap-2"><span className="font-bold whitespace-nowrap">la cantidad de:</span><span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{(reg.amountPaid || 0).toLocaleString('es-PY')} Guaraníes</span></div>
+        <div className="space-y-3"><span className="font-bold">en concepto de:</span><div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">INSCRIPCIÓN CATEQUESIS - {reg.catechesisYear?.replace('_', ' ')}</div></div>
+      </div>
+      <div className="mt-16 space-y-12">
+        <div><p className="italic border-b border-black inline-block pr-16 text-sm">Asunción, {dateStr}</p><p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p></div>
+        <div className="flex flex-col items-center">
+          <div className="p-1 border border-slate-100 rounded-lg shadow-sm"><QRCodeCanvas value={`NSPS-RECIBO-${reg.receiptNumber}`} size={90} level="M" /></div>
+          <div className="mt-3 text-center">
+            <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
+            <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">ADMINISTRADOR</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
