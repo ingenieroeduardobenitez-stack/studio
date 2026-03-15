@@ -1460,9 +1460,14 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
                   <Globe className="h-2.5 w-2.5" /> Público
                 </Badge>
               ) : (
-                <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 text-[8px] uppercase font-black gap-1">
-                  <User className="h-2.5 w-2.5" /> {users?.find((u: any) => u.id === reg.userId)?.firstName || "Manual"}
-                </Badge>
+                <div className="flex flex-col items-center gap-0.5">
+                  <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 text-[8px] uppercase font-black gap-1 h-5">
+                    <User className="h-2.5 w-2.5" /> Manual
+                  </Badge>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">
+                    {users?.find((u: any) => u.id === reg.userId)?.firstName || "---"}
+                  </span>
+                </div>
               )}
             </TableCell>
             <TableCell className="text-center">
