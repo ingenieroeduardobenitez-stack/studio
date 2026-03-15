@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -61,7 +60,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
-import { Separator } from "@/components/ui/separator"
 import { QRCodeCanvas } from "qrcode.react"
 
 const formSchema = z.object({
@@ -353,7 +351,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         return newObj;
       };
 
-      // LÓGICA DE PAGO DIRECTA Y SEGURA
       const isEfectivo = values.paymentMethod === "EFECTIVO";
       const regCost = Number(values.registrationCost);
       
@@ -431,13 +428,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     }
   }
 
-  const copyToClipboard = (text: string) => {
-    if (typeof window === 'undefined' || !navigator.clipboard) return;
-    navigator.clipboard.writeText(text).then(() => {
-      toast({ title: "Copiado", description: "El dato se ha copiado al portapapeles." });
-    });
-  }
-
   const shareViaWhatsApp = () => {
     if (!submittedData) return;
     const msg = `*INSCRIPCIÓN EXITOSA - SANTUARIO NSPS*\n\n` +
@@ -506,11 +496,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </Link>
               </Button>
             </div>
-            <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest pt-4">Santuario Nacional Nuestra Señora del Perpetuo Socorro</p>
           </CardFooter>
         </Card>
-
-        {/* PRINTABLE VERSION (UNSCALED) */}
         {hasPaid && (
           <div className="hidden print:block">
             <ReceiptOfficialContent submittedData={submittedData} dateDay={dateDay} monthName={monthName} />
@@ -529,7 +516,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <CardDescription className="text-white/80">Catequesis de Confirmación - Santuario Nacional NSPS</CardDescription>
           </CardHeader>
           <CardContent className="p-8 space-y-12">
-            
             <div className="flex flex-col items-center gap-4">
               <div className="relative group">
                 <Avatar className="h-32 w-32 border-4 border-slate-50 shadow-xl">
@@ -553,9 +539,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <FormLabel className="font-bold">N° de C.I. *</FormLabel>
                     <div className="flex gap-2">
                       <FormControl><Input placeholder="Sin puntos" {...field} className="h-12 rounded-xl" /></FormControl>
-                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl font-bold bg-primary active:scale-95 transition-transform shadow-lg shadow-primary/20">
-                        {isSearchingCi ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}
-                      </Button>
+                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl font-bold bg-primary shadow-lg shadow-primary/20"><Search className="h-4 w-4" /></Button>
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -578,24 +562,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             </div>
 
             <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b pb-2"><Users className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Información de Padres / Tutores</h3></div>
+              <div className="flex items-center gap-3 border-b pb-2"><Users className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Padres / Tutores</h3></div>
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Datos de la Madre</p>
-                  <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre de la Madre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
-                  <FormField control={form.control} name="motherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular de la Madre" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Madre</p>
+                  <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="motherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
                 </div>
                 <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Datos del Padre</p>
-                  <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre del Padre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
-                  <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular del Padre" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
-                </div>
-                <div className="md:col-span-2 space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Tutor / Responsable Alternativo (Opcional)</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="tutorName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre del Tutor" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
-                    <FormField control={form.control} name="tutorPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular del Tutor" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
-                  </div>
+                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Padre</p>
+                  <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
                 </div>
               </div>
             </div>
@@ -607,264 +584,93 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <FormItem><FormLabel className="font-bold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione el año" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1° Año (Inicial)</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año (Confirmación)</SelectItem><SelectItem value="ADULTOS">Adultos (Intensivo)</SelectItem></Select><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="attendanceDay" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Horario de Preferencia *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione su horario" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></Select><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="font-bold">Horario *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione horario" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></Select><FormMessage /></FormItem>
                 )} />
               </div>
             </div>
 
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><BookOpen className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Vida Sacramental</h3></div>
-              <div className="grid gap-8 md:grid-cols-1">
-                <div className="space-y-4">
-                  <FormField control={form.control} name="hasBaptism" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50/50 shadow-sm"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md" /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-black text-xs uppercase cursor-pointer">¿Tiene el Bautismo?</FormLabel><p className="text-[10px] text-slate-400">Marcar si ya fue bautizado.</p></div></FormItem>
-                  )} />
-                  {hasBaptism && (
-                    <div className="animate-in slide-in-from-top-2 duration-300 space-y-6 pt-2 p-6 border-2 border-primary/10 border-dashed rounded-3xl bg-slate-50/30">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormField control={form.control} name="baptismParish" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-500">Parroquia</FormLabel><FormControl><Input placeholder="Parroquia de Bautismo" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
-                        <FormField control={form.control} name="baptismBook" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-500">Libro N°</FormLabel><FormControl><Input placeholder="Libro N°" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
-                        <FormField control={form.control} name="baptismFolio" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-500">Folio N°</FormLabel><FormControl><Input placeholder="Folio N°" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
-                      </div>
-                      
-                      <div className="space-y-3">
-                        <Label className="font-bold text-slate-700">Certificado de Bautismo (Foto o PDF)</Label>
-                        <div className="border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center bg-white cursor-pointer overflow-hidden group hover:bg-slate-50 transition-colors shadow-sm" onClick={() => startCamera("BAPTISM_CERT")}>
-                          {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-10 w-10 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-xs font-bold text-slate-400 uppercase">Cargar Foto del Certificado</span></>}
-                        </div>
-                        <input type="file" ref={baptismInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
-                      </div>
-                    </div>
-                  )}
+              <FormField control={form.control} name="hasBaptism" render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md" /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-black text-xs uppercase cursor-pointer">¿Tiene el Bautismo?</FormLabel></div></FormItem>
+              )} />
+              {hasBaptism && (
+                <div className="animate-in slide-in-from-top-2 duration-300 space-y-6 p-6 border-2 border-primary/10 border-dashed rounded-3xl bg-slate-50/30">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField control={form.control} name="baptismParish" render={({ field }) => (<FormItem><FormControl><Input placeholder="Parroquia" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="baptismBook" render={({ field }) => (<FormItem><FormControl><Input placeholder="Libro" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="baptismFolio" render={({ field }) => (<FormItem><FormControl><Input placeholder="Folio" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
+                  </div>
+                  <div className="border-2 border-dashed rounded-3xl h-40 flex flex-col items-center justify-center bg-white cursor-pointer overflow-hidden" onClick={() => startCamera("BAPTISM_CERT")}>
+                    {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-10 w-10 text-slate-300 mb-2" /><span className="text-xs font-bold text-slate-400 uppercase">Foto Certificado</span></>}
+                  </div>
+                  <input type="file" ref={baptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
                 </div>
-                <div className="space-y-4">
-                  <FormField control={form.control} name="hasFirstCommunion" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50/50 shadow-sm"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md" /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-black text-xs uppercase cursor-pointer">¿Hizo la Primera Comunión?</FormLabel><p className="text-[10px] text-slate-400">Marcar si ya recibió el sacramento.</p></div></FormItem>
-                  )} />
-                </div>
-              </div>
+              )}
+              <FormField control={form.control} name="hasFirstCommunion" render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md" /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-black text-xs uppercase cursor-pointer">¿Hizo la Primera Comunión?</FormLabel></div></FormItem>
+              )} />
             </div>
 
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><Wallet className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Método de Inscripción</h3></div>
-              
               <FormField control={form.control} name="paymentMethod" render={({ field }) => (
                 <FormItem className="space-y-3">
-                  <FormLabel className="font-bold">¿Cómo realizará el pago de la inscripción? *</FormLabel>
-                  <FormControl>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {!isPublic && (
-                        <div 
-                          onClick={() => field.onChange("EFECTIVO")}
-                          className={cn(
-                            "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
-                            field.value === "EFECTIVO" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
-                          )}
-                        >
-                          <Banknote className={cn("h-6 w-6", field.value === "EFECTIVO" ? "text-primary" : "text-slate-400")} />
-                          <span className={cn("text-xs font-bold uppercase", field.value === "EFECTIVO" ? "text-primary" : "text-slate-500")}>Efectivo</span>
-                        </div>
-                      )}
-                      
-                      <div 
-                        onClick={() => field.onChange("TRANSFERENCIA")}
-                        className={cn(
-                          "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
-                          field.value === "TRANSFERENCIA" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50",
-                          isPublic && "sm:col-span-3"
-                        )}
-                      >
-                        <ArrowRightLeft className={cn("h-6 w-6", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-400")} />
-                        <span className={cn("text-xs font-bold uppercase", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-500")}>Transferencia Bancaria</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {!isPublic && (
+                      <div onClick={() => field.onChange("EFECTIVO")} className={cn("cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2", field.value === "EFECTIVO" ? "border-primary bg-primary/5" : "border-slate-100")}>
+                        <Banknote className={cn("h-6 w-6", field.value === "EFECTIVO" ? "text-primary" : "text-slate-400")} /><span className="text-xs font-bold uppercase">Efectivo</span>
                       </div>
-
-                      {!isPublic && (
-                        <div 
-                          onClick={() => field.onChange("SIN_PAGO")}
-                          className={cn(
-                            "cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
-                            field.value === "SIN_PAGO" ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:bg-slate-50"
-                          )}
-                        >
-                          <Clock className={cn("h-6 w-6", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-400")} />
-                          <span className={cn("text-xs font-bold uppercase", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-500")}>Inscribir sin pagar</span>
-                        </div>
-                      )}
+                    )}
+                    <div onClick={() => field.onChange("TRANSFERENCIA")} className={cn("cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2", field.value === "TRANSFERENCIA" ? "border-primary bg-primary/5" : "border-slate-100", isPublic && "sm:col-span-3")}>
+                      <ArrowRightLeft className={cn("h-6 w-6", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-400")} /><span className="text-xs font-bold uppercase">Transferencia</span>
                     </div>
-                  </FormControl>
-                  <FormMessage />
+                    {!isPublic && (
+                      <div onClick={() => field.onChange("SIN_PAGO")} className={cn("cursor-pointer p-4 rounded-2xl border-2 flex flex-col items-center gap-2", field.value === "SIN_PAGO" ? "border-primary bg-primary/5" : "border-slate-100")}>
+                        <Clock className={cn("h-6 w-6", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-400")} /><span className="text-xs font-bold uppercase">Sin pago</span>
+                      </div>
+                    )}
+                  </div>
                 </FormItem>
               )} />
-
-              <div className="grid gap-6">
-                {paymentMethod === "TRANSFERENCIA" && (
-                  <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-                    <div className="p-6 bg-slate-50 rounded-[2.5rem] border-2 border-primary/10 border-dashed space-y-6">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                          <Building2 className="h-5 w-5" />
-                        </div>
-                        <h4 className="font-headline font-bold text-slate-800">Datos para Transferencia</h4>
-                      </div>
-                      
-                      <div className="grid gap-6 sm:grid-cols-2">
-                        {costs?.paymentMethod === "ACCOUNT" ? (
-                          <>
-                            <div className="space-y-1">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Banco</p>
-                              <p className="text-sm font-bold text-slate-700">{costs?.bankName || "---"}</p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">N° de Cuenta</p>
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-bold text-slate-700 font-mono">{costs?.accountNumber || "---"}</p>
-                                {costs?.accountNumber && <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(costs.accountNumber)}><Copy className="h-3 w-3" /></Button>}
-                              </div>
-                            </div>
-                          </>
-                        ) : null}
-                        
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Titular de la Cuenta</p>
-                          <p className="text-sm font-bold text-slate-700 uppercase">{costs?.accountOwner || "Santuario Nacional NSPS"}</p>
-                        </div>
-                        
-                        {costs?.paymentMethod === "ACCOUNT" && costs?.ownerCi ? (
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">C.I. / RUC del Titular</p>
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-bold text-slate-700">{costs.ownerCi}</p>
-                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(costs.ownerCi)}><Copy className="h-3 w-3" /></Button>
-                            </div>
-                          </div>
-                        ) : null}
-
-                        {costs?.alias && (
-                          <div className="sm:col-span-2 p-4 bg-white rounded-2xl border-2 border-primary/20 flex items-center justify-between shadow-sm">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-primary/20">f</div>
-                              <div>
-                                <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-1">Alias / BANCO FAMILIAR</p>
-                                <p className="text-xl font-black text-primary leading-none tracking-tight">{costs.alias}</p>
-                              </div>
-                            </div>
-                            <Button 
-                              type="button" 
-                              variant="secondary" 
-                              size="sm" 
-                              className="rounded-xl h-10 px-4 font-bold gap-2 bg-primary/10 text-primary hover:bg-primary/20 border-none" 
-                              onClick={() => copyToClipboard(costs.alias)}
-                            >
-                              <Copy className="h-4 w-4" /> COPIAR
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                        <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                        <p className="text-[10px] text-amber-800 leading-tight font-medium italic">
-                          Por favor, completa la transferencia y luego captura o sube el comprobante generado por tu app bancaria.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label className="font-bold text-slate-700">Comprobante de Pago *</Label>
-                      <div className="relative border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => proofInputRef.current?.click()}>
-                        {proofPreview ? (
-                          <img src={proofPreview} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="flex flex-col items-center gap-2">
-                            <ArrowRightLeft className="h-10 w-10 text-slate-300 group-hover:scale-110 transition-transform" />
-                            <span className="text-xs font-bold text-slate-400 uppercase text-center px-8">Adjuntar Archivo o Capturar Foto</span>
-                          </div>
-                        )}
-                        <div className="absolute bottom-2 right-2 flex gap-2">
-                          <Button type="button" size="sm" className="rounded-full h-9 w-9 p-0 shadow-lg" onClick={(e) => { e.stopPropagation(); startCamera("PAYMENT_PROOF"); }}>
-                            <Camera className="h-4 w-4" />
-                          </Button>
-                          <Button type="button" variant="secondary" size="sm" className="rounded-full h-9 w-9 p-0 shadow-lg" onClick={(e) => { e.stopPropagation(); proofInputRef.current?.click(); }}>
-                            <ImageIcon className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
+              {paymentMethod === "TRANSFERENCIA" && (
+                <div className="space-y-6 p-6 border-2 border-primary/10 border-dashed rounded-3xl bg-slate-50/30">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1"><p className="text-[10px] font-black text-slate-400 uppercase">Titular</p><p className="text-sm font-bold text-slate-700">{costs?.accountOwner || "Santuario NSPS"}</p></div>
+                    {costs?.alias && (<div className="p-4 bg-white rounded-2xl border-2 border-primary/20 flex items-center justify-between"><p className="text-lg font-black text-primary">{costs.alias}</p><Button type="button" size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(costs.alias || "")}><Copy className="h-4 w-4" /></Button></div>)}
+                  </div>
+                  <div className="relative border-2 border-dashed rounded-3xl h-40 flex flex-col items-center justify-center bg-white cursor-pointer" onClick={() => proofInputRef.current?.click()}>
+                    {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><ImageIcon className="h-10 w-10 text-slate-300" /><span className="text-xs font-bold text-slate-400 uppercase">Cargar Comprobante</span></>}
+                    <div className="absolute bottom-2 right-2 flex gap-2">
+                      <Button type="button" size="sm" className="rounded-full h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); startCamera("PAYMENT_PROOF"); }}><Camera className="h-4 w-4" /></Button>
                     </div>
                   </div>
-                )}
-              </div>
+                  <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
+                </div>
+              )}
             </div>
-
           </CardContent>
-          <CardFooter className="bg-slate-50 p-10 border-t flex flex-col items-center gap-6">
-            <div className="w-full max-w-xs space-y-2">
-              <div className="flex items-center justify-between bg-white px-6 py-3 rounded-2xl border shadow-sm">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inscripción Total:</span>
-                <FormField
-                  control={form.control}
-                  name="registrationCost"
-                  render={({ field }) => (
-                    <FormItem className="space-y-0">
-                      <FormControl>
-                        <div className="flex items-center gap-2">
-                          <Input 
-                            type="number" 
-                            {...field}
-                            className="w-24 h-8 p-0 border-none bg-transparent text-right text-lg font-black text-primary focus-visible:ring-0"
-                          />
-                          <span className="text-lg font-black text-primary">Gs.</span>
-                        </div>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <p className="text-[9px] text-slate-400 text-center font-bold uppercase tracking-tighter">
-                * Máximo permitido para esta categoría: {establishedLimit.toLocaleString('es-PY')} Gs.
-              </p>
+          <CardFooter className="bg-slate-50 p-10 flex flex-col gap-6">
+            <div className="flex items-center justify-between bg-white px-6 py-3 rounded-2xl border w-full max-w-xs">
+              <span className="text-[10px] font-black text-slate-400 uppercase">Monto:</span>
+              <FormField control={form.control} name="registrationCost" render={({ field }) => (
+                <FormItem className="space-y-0"><FormControl><div className="flex items-center gap-1"><Input type="number" {...field} className="w-20 h-8 p-0 border-none text-right font-black text-primary focus-visible:ring-0" /><span className="font-black text-primary">Gs.</span></div></FormControl></FormItem>
+              )} />
             </div>
-            
-            <Button type="submit" disabled={loading} className="w-full h-16 bg-primary text-white rounded-2xl text-xl font-bold shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">
+            <Button type="submit" disabled={loading} className="w-full h-16 bg-primary text-white rounded-2xl text-xl font-bold shadow-2xl active:scale-95 transition-all">
               {loading ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : <><UserPlus className="mr-2 h-6 w-6" /> ENVIAR INSCRIPCIÓN</>}
             </Button>
-            <p className="text-[10px] text-slate-400 text-center font-medium italic">
-              Al enviar este formulario, declaro que todos los datos proporcionados son verídicos y acepto los términos de la catequesis del Santuario Nacional Nuestra Señora del Perpetuo Socorro.
-            </p>
           </CardFooter>
         </form>
       </Form>
 
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white">
-            <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto</DialogTitle>
-            <DialogDescription className="text-white/80">Asegura una buena iluminación para una foto nítida.</DialogDescription>
-          </DialogHeader>
-          <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
-            <video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-            <canvas ref={canvasRef} className="hidden" />
-            {hasCameraPermission === false && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4">
-                <X className="h-12 w-12 text-red-500" />
-                <p className="font-bold">Acceso a cámara denegado</p>
-                <p className="text-xs text-slate-400">Por favor, habilita los permisos en tu navegador.</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
-            {devices.length > 1 && (
-              <div className="space-y-2">
-                <Label className="text-[10px] font-slate-500 uppercase font-black tracking-widest">Seleccionar Cámara</Label>
-                <Select value={selectedDeviceId} onValueChange={(v) => { setSelectedDeviceId(v); startCamera(captureTarget, v); }}>
-                  <SelectTrigger className="h-10 rounded-xl bg-white border-slate-200"><SelectValue placeholder="Elegir dispositivo" /></SelectTrigger>
-                  <SelectContent>{devices.map(d => (<SelectItem key={d.deviceId} value={d.deviceId} className="text-xs font-bold">{d.label || `Cámara ${d.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="flex gap-3 w-full">
-              <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold uppercase tracking-widest text-[10px]" onClick={stopCamera}>CANCELAR</Button>
-              <Button type="button" className="flex-1 h-12 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20" onClick={takePhoto}>TOMAR FOTO</Button>
-            </div>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-3xl">
+          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Capturar Foto</DialogTitle></DialogHeader>
+          <div className="relative bg-black aspect-[3/4] flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" /></div>
+          <DialogFooter className="p-6 bg-slate-50 flex gap-3">
+            <Button type="button" variant="outline" className="flex-1 h-12" onClick={stopCamera}>CANCELAR</Button>
+            <Button type="button" className="flex-1 h-12" onClick={takePhoto}>TOMAR FOTO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -874,74 +680,28 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
 function ReceiptOfficialContent({ submittedData, dateDay, monthName }: { submittedData: any, dateDay: any, monthName: any }) {
   return (
-    <div id="receipt-area" className="bg-white p-10 text-black font-serif border-[4px] border-black w-[800px] h-auto min-h-[1000px] mx-auto">
+    <div id="receipt-content-official" className="bg-white p-10 text-black font-serif border-[4px] border-black w-[800px] h-auto min-h-[1000px] mx-auto">
       <div className="flex gap-4 mb-8">
         <div className="flex-1 border-[2px] border-black p-4 flex items-center justify-between">
-          <div className="relative h-16 w-16">
-            <Image src="/logo.png" fill alt="Logo" className="object-contain" />
-          </div>
-          <div className="text-right">
-            <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
-            <p className="text-[9px] font-bold leading-tight uppercase">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
-          </div>
+          <div className="relative h-16 w-16"><Image src="/logo.png" fill alt="Logo" className="object-contain" /></div>
+          <div className="text-right"><p className="text-[11px] font-black leading-none">SANTUARIO NACIONAL</p><p className="text-[9px] font-bold leading-tight uppercase">NSPS</p></div>
         </div>
         <div className="w-[220px] flex flex-col gap-2">
-          <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center">
-            <p className="text-[10px] font-black uppercase">GS.</p>
-            <p className="text-2xl font-black">{submittedData?.registrationCost?.toLocaleString('es-PY')}</p>
-          </div>
-          <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
-            <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
-            <p className="text-xs font-black font-mono font-black leading-none mt-1">PROVISORIO-{submittedData?.id.split('_')[1]}</p>
-          </div>
+          <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center"><p className="text-[10px] font-black uppercase">GS.</p><p className="text-2xl font-black">{submittedData?.registrationCost?.toLocaleString('es-PY')}</p></div>
+          <div className="border-[2px] border-black p-1 text-center flex-1"><p className="text-[8px] font-bold uppercase">RECIBO PROV.</p><p className="text-xs font-black font-mono">{submittedData?.id.split('_')[1]}</p></div>
         </div>
       </div>
-
-      <div className="text-center mb-10">
-        <h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2>
-      </div>
-
+      <div className="text-center mb-10"><h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2></div>
       <div className="space-y-8 text-[15px]">
-        <div className="flex items-baseline gap-2">
-          <span className="font-bold whitespace-nowrap">Recibí(mos) de:</span>
-          <span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{submittedData?.fullName}</span>
-        </div>
-
-        <div className="flex items-baseline gap-2">
-          <span className="font-bold whitespace-nowrap">la cantidad de:</span>
-          <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{submittedData?.registrationCost?.toLocaleString('es-PY')} Guaraníes</span>
-        </div>
-
-        <div className="space-y-3">
-          <span className="font-bold">en concepto de:</span>
-          <div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">
-            INSCRIPCIÓN CATEQUESIS DE CONFIRMACIÓN - {submittedData?.catechesisYear?.replace('_', ' ')}
-          </div>
-        </div>
-
-        <div className="flex items-baseline gap-2">
-          <span className="font-bold whitespace-nowrap">Observación:</span>
-          <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">Saldo Pendiente: 0 Gs. (Sujeto a validación)</span>
-        </div>
+        <div className="flex items-baseline gap-2"><span className="font-bold">Recibí de:</span><span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black">{submittedData?.fullName}</span></div>
+        <div className="flex items-baseline gap-2"><span className="font-bold">La cantidad de:</span><span className="flex-1 border-b border-dotted border-black px-2 italic">{submittedData?.registrationCost?.toLocaleString('es-PY')} Gs.</span></div>
+        <div className="space-y-3"><span className="font-bold">Concepto:</span><div className="border-[2px] border-black p-5 text-center font-black uppercase">INSCRIPCIÓN CATEQUESIS - {submittedData?.catechesisYear?.replace('_', ' ')}</div></div>
       </div>
-
       <div className="mt-16 space-y-12">
-        <div>
-          <p className="italic border-b border-black inline-block pr-16 text-sm">
-            Asunción, {dateDay} de {monthName} de 2026
-          </p>
-          <p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p>
-        </div>
-
+        <div><p className="italic border-b border-black inline-block pr-16 text-sm">Asunción, {dateDay} de {monthName} de 2026</p></div>
         <div className="flex flex-col items-center">
-          <div className="p-1 border border-slate-100 rounded-lg shadow-sm">
-            <QRCodeCanvas value={`NSPS-RECIBO-PROV-${submittedData?.id}`} size={90} level="M" />
-          </div>
-          <div className="mt-3 text-center">
-            <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
-            <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
-            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest hide-print">ADMINISTRADOR</p>
-          </div>
+          <div className="p-1 border border-slate-100 rounded-lg"><QRCodeCanvas value={`NSPS-PROV-${submittedData?.id}`} size={90} level="M" /></div>
+          <p className="text-[9px] font-black text-blue-700 uppercase mt-2">Firma Digitalizada: LILIANA MUÑOZ</p>
         </div>
       </div>
     </div>
