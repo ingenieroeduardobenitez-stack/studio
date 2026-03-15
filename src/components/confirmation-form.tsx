@@ -31,7 +31,8 @@ import {
   Copy,
   Info,
   Building2,
-  MessageCircle
+  MessageCircle,
+  UserCheck
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -267,7 +268,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       setShowCamera(true)
     } catch (error) {
       setHasCameraPermission(false)
-      toast({ variant: 'destructive', title: 'Acceso denegado' })
+      toast({ variant: 'destructive', title: 'Acceso a cámara denegado' })
     }
   }
 
@@ -453,19 +454,24 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     preview, 
     onCamera, 
     onFile, 
-    target 
+    target,
+    isCircle = false
   }: { 
     title: string, 
     preview: string | null, 
     onCamera: () => void, 
     onFile: () => void, 
-    target: CaptureTarget 
+    target: CaptureTarget,
+    isCircle?: boolean
   }) => (
     <div className="space-y-2">
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{title}</p>
-      <div className="relative group mx-auto">
+      <div className={cn("relative group mx-auto", isCircle ? "w-40 h-40" : "w-full")}>
         <div 
-          className="h-40 w-full rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 overflow-hidden flex flex-col items-center justify-center cursor-pointer shadow-inner transition-all hover:bg-slate-100"
+          className={cn(
+            "w-full h-full border-2 border-dashed border-slate-200 bg-slate-50 overflow-hidden flex flex-col items-center justify-center cursor-pointer shadow-inner transition-all hover:bg-slate-100",
+            isCircle ? "rounded-full" : "h-40 rounded-3xl"
+          )}
           onClick={onCamera}
         >
           {preview ? (
@@ -566,6 +572,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               onCamera={() => startCamera("STUDENT_PHOTO")} 
               onFile={() => fileInputRef.current?.click()} 
               target="STUDENT_PHOTO" 
+              isCircle={true}
             />
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "photoUrl")} />
 
@@ -601,16 +608,30 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><Users className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Padres / Tutores</h3></div>
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
                 <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Madre</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="h-2 w-2 rounded-full bg-pink-500"></div>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Madre</p>
+                  </div>
                   <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
                   <FormField control={form.control} name="motherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
                 </div>
                 <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Padre</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Padre</p>
+                  </div>
                   <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
                   <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
+                </div>
+                <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <UserCheck className="h-3 w-3 text-accent" />
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Tutor / Encargado</p>
+                  </div>
+                  <FormField control={form.control} name="tutorName" render={({ field }) => (<FormItem><FormControl><Input placeholder="Nombre Tutor" {...field} className="h-10 rounded-lg uppercase" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="tutorPhone" render={({ field }) => (<FormItem><FormControl><Input placeholder="Celular Tutor" {...field} className="h-10 rounded-lg" /></FormControl></FormItem>)} />
                 </div>
               </div>
             </div>
