@@ -54,10 +54,12 @@ import {
   CreditCard,
   History,
   Check,
-  Download
+  Download,
+  MessageCircle,
+  Receipt
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy, limit } from "firebase/firestore"
+import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy, limit, where } from "firebase/firestore"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -100,6 +102,8 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
+import { QRCodeCanvas } from "qrcode.react"
+import Image from "next/image"
 
 type ViewMode = "LIST" | "GROUPS"
 type CaptureTarget = "PHOTO" | "BAPTISM" | "PAY_PROOF"
@@ -406,7 +410,7 @@ function EditRegistrationForm({
                 <Input 
                   type="number" 
                   value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(editAmountPaid))}
+                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
                   readOnly={!isAdmin}
                   className={cn(
                     "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
@@ -497,10 +501,12 @@ export default function RegistrationsListPage() {
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false)
   const [isProofViewOpen, setIsProofViewOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isValidationDialogOpen, setIsValidationDialogOpen] = useState(false)
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [newGroupId, setNewGroupId] = useState<string>("")
-  const [withdrawalReason, setWithdrawalReason] = useState("")
+  const [validationAmount, setValidationAmount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [viewProofUrl, setViewProofUrl] = useState<string | null>(null)
   const [zoomScale, setZoomScale] = useState(1)
@@ -531,6 +537,9 @@ export default function RegistrationsListPage() {
   const { data: profile } = useDoc(userProfileRef)
   const isAdmin = profile?.role === "Administrador"
   const isTesorero = profile?.role === "Tesorero"
+
+  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
+  const { data: treasurySettings } = useDoc(treasuryRef)
 
   const regsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
@@ -716,6 +725,67 @@ export default function RegistrationsListPage() {
     finally { setIsSubmitting(false) }
   }
 
+  const handleOpenValidation = (reg: any) => {
+    setSelectedReg(reg)
+    const cost = reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? 50000 : 35000)
+    setValidationAmount(cost)
+    setIsValidationDialogOpen(true)
+  }
+
+  const handleProcessValidation = async () => {
+    if (!db || !selectedReg || !treasuryRef || isSubmitting) return
+    setIsSubmitting(true)
+    const regRef = doc(db, "confirmations", selectedReg.id)
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Administrador"
+    
+    try {
+      await runTransaction(db, async (transaction) => {
+        const treasurySnap = await transaction.get(treasuryRef);
+        const regSnap = await transaction.get(regRef);
+        if (!regSnap.exists()) throw new Error("Registro no encontrado");
+        
+        const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
+        const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
+        
+        const regData = regSnap.data();
+        const regCost = regData.registrationCost || (regData.catechesisYear === "ADULTOS" ? 50000 : 35000);
+        
+        const updatePayload = { 
+          amountPaid: Number(validationAmount), 
+          paymentStatus: Number(validationAmount) >= regCost ? "PAGADO" : (Number(validationAmount) > 0 ? "PARCIAL" : "PENDIENTE"), 
+          status: "INSCRITO",
+          lastPaymentDate: serverTimestamp(),
+          validatedBy: catechistName,
+          receiptNumber: formattedReceipt,
+          lastPaymentMethod: "TRANSFERENCIA" 
+        };
+
+        transaction.update(regRef, updatePayload);
+        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+        
+        const logRef = doc(collection(db, "audit_logs"));
+        transaction.set(logRef, {
+          userId: user?.uid || "unknown",
+          userName: catechistName,
+          action: "Validación de Pago (Transferencia)",
+          module: "pagos",
+          details: `Se validó el pago de ${Number(validationAmount).toLocaleString('es-PY')} Gs. para ${regData.fullName}. Recibo: ${formattedReceipt}`,
+          timestamp: serverTimestamp()
+        });
+
+        setSelectedReg({ ...regData, ...updatePayload, id: regSnap.id });
+      });
+      
+      toast({ title: "Validación Exitosa", description: "El registro ha sido confirmado y el recibo generado." })
+      setIsValidationDialogOpen(false)
+      setIsReceiptOpen(true)
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo procesar la validación." })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const resetFilters = () => {
     setSearchTerm("")
     setFilterSex("all")
@@ -724,6 +794,29 @@ export default function RegistrationsListPage() {
     setFilterStatus("all")
     setFilterPaymentMethod("all")
     setFilterSchedule("all")
+  }
+
+  const formatReceiptDate = (ts: any) => {
+    if (!ts) return "---";
+    const date = ts.toDate ? ts.toDate() : new Date(ts);
+    const day = date.getDate();
+    const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} de ${month} de ${year}`;
+  };
+
+  const shareViaWhatsApp = () => {
+    if (!selectedReg) return;
+    const msg = `*RECIBO DE PAGO - SANTUARIO NSPS*\n\n` +
+                `*Nro:* ${selectedReg.receiptNumber}\n` +
+                `*Confirmando:* ${selectedReg.fullName}\n` +
+                `*Monto:* ${selectedReg.amountPaid.toLocaleString('es-PY')} Gs.\n` +
+                `*Concepto:* INSCRIPCIÓN CATEQUESIS ${selectedReg.catechesisYear.replace('_', ' ')}\n\n` +
+                `Este es un comprobante digital oficial del Santuario Nacional Nuestra Señora del Perpetuo Socorro.`;
+    
+    const encoded = encodeURIComponent(msg);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
   }
 
   if (!mounted) return null
@@ -737,8 +830,8 @@ export default function RegistrationsListPage() {
           <p className="text-muted-foreground">Consulta y valida los registros del Santuario Nacional.</p>
         </div>
         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-          <Button variant={viewMode === "LIST" ? "default" : "ghost"} size="sm" className={cn("h-8 rounded-lg text-xs font-bold gap-2", viewMode === "LIST" ? "shadow-sm" : "text-slate-500")} onClick={() => setViewMode("LIST")}><LayoutList className="h-3.5 w-3.5" /> Lista Plana</Button>
-          <Button variant={viewMode === "GROUPS" ? "default" : "ghost"} size="sm" className={cn("h-8 rounded-lg text-xs font-bold gap-2", viewMode === "GROUPS" ? "shadow-sm" : "text-slate-500")} onClick={() => setViewMode("GROUPS")}><Users className="h-3.5 w-3.5" /> Por Grupos</Button>
+          <Button variant={viewMode === "LIST" ? "default" : "ghost"} size="sm" className={cn("h-8 rounded-lg text-xs font-bold gap-2", viewMode === "LIST" ? "shadow-sm" : "text-slate-50")} onClick={() => setViewMode("LIST")}><LayoutList className="h-3.5 w-3.5" /> Lista Plana</Button>
+          <Button variant={viewMode === "GROUPS" ? "default" : "ghost"} size="sm" className={cn("h-8 rounded-lg text-xs font-bold gap-2", viewMode === "GROUPS" ? "shadow-sm" : "text-slate-50")} onClick={() => setViewMode("GROUPS")}><Users className="h-3.5 w-3.5" /> Por Grupos</Button>
         </div>
       </div>
 
@@ -879,7 +972,7 @@ export default function RegistrationsListPage() {
         <div className="flex flex-col items-center justify-center py-24 gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="text-xs font-bold text-slate-400 uppercase">Sincronizando...</p></div>
       ) : viewMode === "LIST" ? (
         <Card className="border-none shadow-xl bg-white overflow-hidden">
-          <StudentTable students={filteredRegistrations} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
+          <StudentTable students={filteredRegistrations} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onValidate={handleOpenValidation} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
         </Card>
       ) : (
         <Accordion type="multiple" defaultValue={["none", ...(groups?.map((g: any) => g.id) || [])]} className="space-y-4">
@@ -890,7 +983,7 @@ export default function RegistrationsListPage() {
                   <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500"><AlertCircle className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">Pendientes de Grupo o Validación ({registrationsByGroup["none"].length})</p></div></div>
                 </AccordionTrigger>
                 <AccordionContent className="p-0 border-t border-slate-50">
-                  <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
+                  <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onValidate={handleOpenValidation} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
                 </AccordionContent>
               </div>
             </AccordionItem>
@@ -905,7 +998,7 @@ export default function RegistrationsListPage() {
                     <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">{group.name} - {formatCatechesisYear(group.catechesisYear)} ({groupStudents.length})</p></div></div>
                   </AccordionTrigger>
                   <AccordionContent className="p-0 border-t border-slate-50">
-                    <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
+                    <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onValidate={handleOpenValidation} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
                   </AccordionContent>
                 </div>
               </AccordionItem>
@@ -913,6 +1006,107 @@ export default function RegistrationsListPage() {
           })}
         </Accordion>
       )}
+
+      {/* DIÁLOGO DE VALIDACIÓN */}
+      <Dialog open={isValidationDialogOpen} onOpenChange={setIsValidationDialogOpen}>
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-6 bg-green-600 text-white shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5" /> Validar Comprobante de Inscripción
+            </DialogTitle>
+            <DialogDescription className="text-green-50">
+              Postulante: {selectedReg?.fullName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-2">
+            <div className="bg-slate-900 flex flex-col overflow-hidden">
+              <div className="p-2 bg-slate-800/50 flex justify-between items-center">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Previsualización del Comprobante</span>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => { setViewProofUrl(selectedReg?.paymentProofUrl); setIsProofViewOpen(true); }}>
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex-1 flex items-center justify-center p-4">
+                {selectedReg?.paymentProofUrl ? (
+                  <img src={selectedReg.paymentProofUrl} className="max-w-full max-h-full object-contain rounded shadow-2xl" alt="Comprobante" />
+                ) : (
+                  <div className="text-center text-slate-500 space-y-2">
+                    <ImageIcon className="h-12 w-12 mx-auto opacity-20" />
+                    <p className="text-xs italic">Sin comprobante adjunto</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="bg-white p-8 space-y-8 overflow-y-auto">
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información de Cobro</h4>
+                <div className="p-4 bg-slate-50 rounded-2xl space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-500 uppercase">Nivel</span>
+                    <Badge variant="outline" className="bg-white">{formatCatechesisYear(selectedReg?.catechesisYear)}</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-500 uppercase">Arancel Establecido</span>
+                    <span className="font-black text-slate-900">{(selectedReg?.registrationCost || 35000).toLocaleString('es-PY')} Gs.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <Label className="font-black text-slate-700 uppercase text-[10px] tracking-widest">Confirmar Monto Recibido (Gs)</Label>
+                <Input 
+                  type="number" 
+                  value={validationAmount} 
+                  onChange={(e) => setValidationAmount(Number(e.target.value))}
+                  className="h-16 text-3xl font-black text-primary rounded-2xl bg-slate-50 border-slate-200"
+                />
+                <p className="text-[10px] text-slate-400 italic">
+                  * Al validar, el sistema generará el recibo oficial y habilitará al postulante en su grupo correspondiente.
+                </p>
+              </div>
+
+              <div className="pt-4">
+                <Button 
+                  className="w-full h-16 rounded-2xl bg-green-600 hover:bg-green-700 text-white font-black text-lg gap-3 shadow-xl active:scale-95 transition-transform" 
+                  onClick={handleProcessValidation}
+                  disabled={isSubmitting || validationAmount <= 0}
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : <><Check className="h-6 w-6" /> VALIDAR Y EMITIR RECIBO</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO DE RECIBO OFICIAL (TRASH/VALIDADO) */}
+      <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
+        <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-4 bg-slate-50 border-b no-print shrink-0">
+            <DialogTitle className="text-xs font-black uppercase text-slate-400 tracking-widest text-center">Recibo Oficial Generado</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto p-4 bg-slate-100 no-print flex justify-center">
+            <div className="bg-white shadow-xl origin-top scale-[0.75] sm:scale-[0.85] mb-[-15%]">
+              <ReceiptContent reg={selectedReg} formatDate={formatReceiptDate} />
+            </div>
+          </div>
+
+          <div className="hidden print:block">
+            <ReceiptContent reg={selectedReg} formatDate={formatReceiptDate} />
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3 no-print shrink-0">
+            <Button variant="outline" className="flex-1 rounded-xl font-bold h-12" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
+            <Button variant="secondary" className="flex-1 rounded-xl font-bold h-12 bg-green-50 text-green-700 border-green-200 gap-2" onClick={shareViaWhatsApp}>
+              <MessageCircle className="h-4 w-4" /> WhatsApp
+            </Button>
+            <Button className="flex-1 bg-primary text-white rounded-xl font-bold gap-2 shadow-lg h-12" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Imprimir Recibo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden rounded-3xl h-[95vh] max-h-[95vh] flex flex-col border-none shadow-2xl">
@@ -1201,7 +1395,7 @@ export default function RegistrationsListPage() {
   )
 }
 
-function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage, onSort, sortConfig, formatTimestamp }: any) {
+function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage, onValidate, onSort, sortConfig, formatTimestamp }: any) {
   return (
     <Table>
       <TableHeader className="bg-slate-50/30">
@@ -1277,6 +1471,11 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
             </TableCell>
             <TableCell className="text-right pr-8">
               <div className="flex justify-end gap-2">
+                {reg.status === "POR_VALIDAR" && reg.paymentProofUrl && (
+                  <Button size="sm" className="h-9 px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-black text-[10px] gap-2 shadow-lg active:scale-95 transition-all" onClick={() => onValidate(reg)}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> VALIDAR
+                  </Button>
+                )}
                 <Button size="icon" variant="ghost" className="h-8 w-8 rounded-xl bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onClick={() => onViewDetails(reg)} title="Ver Ficha">
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -1308,5 +1507,83 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
         ))}
       </TableBody>
     </Table>
+  )
+}
+
+function ReceiptContent({ reg, formatDate }: { reg: any, formatDate: any }) {
+  return (
+    <div id="receipt-content-official" className="p-10 bg-white text-black font-serif border-[4px] border-black w-[800px] h-auto">
+      <div className="flex gap-4 mb-8">
+        <div className="flex-1 border-[2px] border-black p-4 flex items-center justify-between">
+          <div className="relative h-16 w-16">
+            <Image src="/logo.png" fill alt="Logo" className="object-contain" />
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
+            <p className="text-[9px] font-bold leading-tight uppercase">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
+          </div>
+        </div>
+        <div className="w-[220px] flex flex-col gap-2">
+          <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center">
+            <p className="text-[10px] font-black uppercase">GS.</p>
+            <p className="text-2xl font-black">{(reg?.amountPaid || 0).toLocaleString('es-PY')}</p>
+          </div>
+          <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
+            <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
+            <p className="text-xs font-black font-mono leading-none mt-1">{reg?.receiptNumber || '---'}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-center mb-10">
+        <h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2>
+      </div>
+
+      <div className="space-y-8 text-[15px]">
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold whitespace-nowrap">Recibí(mos) de:</span>
+          <span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{reg?.fullName}</span>
+        </div>
+
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold whitespace-nowrap">la cantidad de:</span>
+          <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{(reg?.amountPaid || 0).toLocaleString('es-PY')} Guaraníes</span>
+        </div>
+
+        <div className="space-y-3">
+          <span className="font-bold">en concepto de:</span>
+          <div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">
+            INSCRIPCIÓN CATEQUESIS DE CONFIRMACIÓN - {reg?.catechesisYear?.replace('_', ' ')}
+          </div>
+        </div>
+
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold whitespace-nowrap">Observación:</span>
+          <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">
+            Saldo Pendiente: {((reg?.registrationCost || 35000) - (reg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-16 space-y-12">
+        <div>
+          <p className="italic border-b border-black inline-block pr-16 text-sm">
+            Asunción, {formatDate(reg?.lastPaymentDate || reg?.createdAt)}
+          </p>
+          <p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <div className="p-1 border border-slate-100 rounded-lg shadow-sm">
+            <QRCodeCanvas value={`NSPS-RECIBO-${reg?.receiptNumber}`} size={90} level="M" />
+          </div>
+          <div className="mt-3 text-center">
+            <p className="text-[9px] font-black text-blue-700 uppercase tracking-[0.2em] leading-none mb-1">Firma Digitalizada</p>
+            <p className="text-base font-black uppercase leading-tight">LILIANA MUÑOZ</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">ADMINISTRADOR</p>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
