@@ -353,6 +353,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         return newObj;
       };
 
+      // NUEVA LÓGICA DE PAGO DIRECTO PARA EFECTIVO
+      let amountPaid = 0;
+      let status = "POR_VALIDAR";
+      let paymentStatus = "PENDIENTE";
+
+      if (values.paymentMethod === "EFECTIVO") {
+        amountPaid = Number(values.registrationCost);
+        status = "INSCRITO";
+        paymentStatus = amountPaid >= establishedLimit ? "PAGADO" : "PARCIAL";
+      }
+
       const regData = cleanData({
         fullName: values.fullName || "",
         ciNumber: values.ciNumber || "",
@@ -379,9 +390,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         baptismFolio: values.baptismFolio || null,
         baptismCertificatePhotoUrl: values.baptismCertificatePhotoUrl || null,
         userId: user?.uid || (isPublic ? "public_registration" : "manual"),
-        status: "POR_VALIDAR",
-        paymentStatus: "PENDIENTE",
-        amountPaid: 0,
+        status: status,
+        paymentStatus: paymentStatus,
+        amountPaid: amountPaid,
         registrationCost: values.registrationCost,
         createdAt: serverTimestamp()
       })
