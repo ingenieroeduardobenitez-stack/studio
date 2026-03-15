@@ -543,7 +543,7 @@ export default function RegistrationsListPage() {
   }, [db, user])
 
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
-  const { data: groups, loading: loadingGroups } = useCollection(groupsQuery)
+  const { data: groups } = useCollection(groupsQuery)
 
   const handleSort = (key: string) => {
     setSortConfig(prev => ({
@@ -882,7 +882,7 @@ export default function RegistrationsListPage() {
           <StudentTable students={filteredRegistrations} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
         </Card>
       ) : (
-        <Accordion type="multiple" defaultValue={["none", ...(groups?.map(g => g.id) || [])]} className="space-y-4">
+        <Accordion type="multiple" defaultValue={["none", ...(groups?.map((g: any) => g.id) || [])]} className="space-y-4">
           {registrationsByGroup["none"]?.length > 0 && (
             <AccordionItem value="none" className="border-none">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -1035,7 +1035,7 @@ export default function RegistrationsListPage() {
                           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
                             <div className="space-y-1">
                               <p className="text-[9px] font-black text-primary uppercase tracking-widest">Grupo Asignado</p>
-                              <p className="text-sm font-bold text-slate-700">{groups?.find(g => g.id === selectedReg.groupId)?.name || "Sin grupo"}</p>
+                              <p className="text-sm font-bold text-slate-700">{groups?.find((g: any) => g.id === selectedReg.groupId)?.name || "Sin grupo"}</p>
                             </div>
                             <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-white shadow-sm" onClick={() => setIsAssignDialogOpen(true)}>
                               <RefreshCcw className="h-4 w-4 text-slate-400" />
@@ -1063,7 +1063,7 @@ export default function RegistrationsListPage() {
                           <div className="grid grid-cols-2 gap-4">
                             <div className="p-3 bg-slate-50 rounded-xl text-center">
                               <p className="text-[8px] font-black text-slate-400 uppercase">Método</p>
-                              <p className="text-xs font-bold uppercase">{selectedReg.lastPaymentMethod || "Sin registro"}</p>
+                              <p className="text-xs font-bold uppercase">{selectedReg.paymentProofUrl ? "TRANSFERENCIA" : (selectedReg.lastPaymentMethod || "Sin registro")}</p>
                             </div>
                             <div className="p-3 bg-slate-50 rounded-xl text-center">
                               <p className="text-[8px] font-black text-slate-400 uppercase">Recibo N°</p>
@@ -1154,7 +1154,7 @@ export default function RegistrationsListPage() {
             <Select value={newGroupId} onValueChange={setNewGroupId}>
               <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elija un grupo..." /></SelectTrigger>
               <SelectContent>
-                {groups?.filter(g => g.catechesisYear === selectedReg?.catechesisYear).map(g => (
+                {groups?.filter((g: any) => g.catechesisYear === selectedReg?.catechesisYear).map((g: any) => (
                   <SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay}s)</SelectItem>
                 ))}
               </SelectContent>
@@ -1261,10 +1261,12 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
               {formatTimestamp(reg.createdAt)}
             </TableCell>
             <TableCell>
-              {reg.lastPaymentMethod ? (
+              {(reg.paymentProofUrl || reg.lastPaymentMethod) ? (
                 <div className="flex items-center gap-2 text-slate-500">
                   <Banknote className="h-3.5 w-3.5" />
-                  <span className="text-[9px] font-black uppercase">{reg.lastPaymentMethod}</span>
+                  <span className="text-[9px] font-black uppercase">
+                    {reg.paymentProofUrl ? "TRANSFERENCIA" : reg.lastPaymentMethod}
+                  </span>
                 </div>
               ) : (
                 <span className="text-slate-300">—</span>
