@@ -1,8 +1,8 @@
 
 "use client"
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useState, useMemo, useEffect, useRef } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -12,59 +12,26 @@ import {
   Loader2, 
   MoreHorizontal, 
   User, 
-  LayoutList, 
-  Users,
-  UserPlus,
-  Trash2,
-  Eye,
-  CheckCircle2,
-  AlertCircle,
-  X,
+  Trash2, 
+  CheckCircle2, 
   ImageIcon,
   Edit,
   Save,
-  Phone,
-  Calendar,
-  ShieldCheck,
-  BookOpen,
-  Book,
-  Camera,
-  FlipHorizontal,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Clock,
   Wallet,
-  Globe,
-  RefreshCcw,
-  FilterX,
-  Filter,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Banknote,
-  ArrowRightLeft,
-  FileText,
-  Church,
-  ChevronRight,
-  Printer,
-  CalendarDays,
-  Contact,
-  CreditCard,
-  History,
-  Check,
   Download,
+  FilterX,
+  Maximize2,
+  Printer,
+  ChevronRight,
   MessageCircle,
   Receipt
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, writeBatch, getDoc, query, orderBy, limit, where } from "firebase/firestore"
+import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -90,29 +57,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
-
-type ViewMode = "LIST" | "GROUPS"
-type CaptureTarget = "PHOTO" | "BAPTISM" | "PAY_PROOF"
 
 // Componente de Formulario de Edición
 function EditRegistrationForm({ 
   selectedReg, 
   profile, 
   onClose, 
-  onSaveSuccess,
-  startCameraAction 
+  onSaveSuccess
 }: { 
   selectedReg: any, 
   profile: any, 
   onClose: () => void, 
-  onSaveSuccess: (updatedData: any) => void,
-  startCameraAction: (target: CaptureTarget) => void
+  onSaveSuccess: () => void
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(selectedReg?.photoUrl || null)
@@ -131,8 +91,6 @@ function EditRegistrationForm({
   const { toast } = useToast()
   const db = useFirestore()
   const { user } = useUser()
-
-  const isAdmin = profile?.role === "Administrador"
 
   const compressImage = (source: string): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -191,10 +149,6 @@ function EditRegistrationForm({
       ciNumber: getVal("ciNumber"),
       phone: getVal("phone"),
       birthDate: getVal("birthDate"),
-      motherName: getVal("motherName").toUpperCase(),
-      motherPhone: getVal("motherPhone"),
-      fatherName: getVal("fatherName").toUpperCase(),
-      fatherPhone: getVal("fatherPhone"),
       catechesisYear: editCatechesisYear,
       attendanceDay: editAttendanceDay,
       sexo: editGender,
@@ -202,7 +156,6 @@ function EditRegistrationForm({
       updatedAt: serverTimestamp()
     }
 
-    // Lógica mejorada para cambios de estado en edición
     if (editPaymentMethod === "EFECTIVO") {
       const amt = Number(editAmountPaid);
       updateData.amountPaid = amt;
@@ -213,10 +166,8 @@ function EditRegistrationForm({
       updateData.paymentStatus = "PENDIENTE";
       updateData.status = "POR_VALIDAR";
     } else {
-      // Transferencia u otro mantiene el estado previo hasta validar
       updateData.amountPaid = Number(editAmountPaid);
       updateData.paymentStatus = updateData.amountPaid >= regCostLimit ? "PAGADO" : (updateData.amountPaid > 0 ? "PARCIAL" : "PENDIENTE");
-      updateData.status = selectedReg.status;
     }
 
     if (editPhotoPreview) updateData.photoUrl = editPhotoPreview;
@@ -236,7 +187,7 @@ function EditRegistrationForm({
           timestamp: serverTimestamp()
         }).catch(() => {});
         toast({ title: "Registro Actualizado" })
-        onSaveSuccess({ ...updateData, id: selectedReg.id })
+        onSaveSuccess()
       })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: regRef.path, operation: 'update', requestResourceData: updateData }));
@@ -261,7 +212,7 @@ function EditRegistrationForm({
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase text-slate-400">Cert. Bautismo</Label>
             <div className="relative h-32 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden">
-              {editBaptismPreview ? <img src={editBaptismPreview} className="h-full w-full object-cover" /> : <Book className="h-10 w-10 text-slate-200" />}
+              {editBaptismPreview ? <img src={editBaptismPreview} className="h-full w-full object-cover" /> : <ImageIcon className="h-10 w-10 text-slate-200" />}
               <div className="absolute bottom-2 right-2 flex gap-1">
                 <Button type="button" size="icon" variant="secondary" className="h-7 w-7 rounded-full" onClick={() => editBaptismInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5" /></Button>
                 <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "baptism")} />
@@ -337,7 +288,10 @@ function EditRegistrationForm({
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [viewMode, setViewMode] = useState<ViewMode>("LIST")
+  const [filterSex, setFilterSex] = useState("all")
+  const [filterYear, setFilterYear] = useState("all")
+  const [filterStatus, setFilterStatus] = useState("all")
+
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -363,17 +317,25 @@ export default function RegistrationsListPage() {
   const { data: allUsers } = useCollection(usersQuery)
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
-  const { data: treasurySettings } = useDoc(treasuryRef)
 
   const filteredRegistrations = useMemo(() => {
     if (!registrations) return []
-    return registrations.filter(r => 
-      !r.isArchived && (
-        r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        r.ciNumber?.includes(searchTerm)
-      )
-    )
-  }, [registrations, searchTerm])
+    return registrations.filter(r => {
+      if (r.isArchived) return false;
+      const matchesSearch = !searchTerm || r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || r.ciNumber?.includes(searchTerm);
+      const matchesSex = filterSex === "all" || r.sexo === filterSex;
+      const matchesYear = filterYear === "all" || r.catechesisYear === filterYear;
+      const matchesStatus = filterStatus === "all" || r.status === filterStatus;
+      return matchesSearch && matchesSex && matchesYear && matchesStatus;
+    })
+  }, [registrations, searchTerm, filterSex, filterYear, filterStatus])
+
+  const resetFilters = () => {
+    setSearchTerm("")
+    setFilterSex("all")
+    setFilterYear("all")
+    setFilterStatus("all")
+  }
 
   const handleOpenValidation = (reg: any) => {
     setSelectedReg(reg)
@@ -463,13 +425,46 @@ export default function RegistrationsListPage() {
             const a = document.createElement('a');
             a.href = url; a.download = 'confirmandos.csv'; a.click();
           }}><Download className="h-4 w-4" /> Exportar</Button>
-          <Button asChild className="bg-primary hover:bg-primary/90 rounded-xl h-11 font-bold px-6 shadow-lg shadow-primary/20"><a href="/dashboard/registration"><UserPlus className="h-4 w-4 mr-2" /> Nueva Ficha</a></Button>
+          <Button asChild className="bg-primary hover:bg-primary/90 rounded-xl h-11 font-bold px-6 shadow-lg shadow-primary/20"><a href="/dashboard/registration">Nueva Ficha</a></Button>
         </div>
       </div>
 
       <Card className="border-none shadow-xl overflow-hidden bg-white">
-        <CardHeader className="bg-slate-50/50 border-b">
-          <div className="relative w-full md:w-96"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /><Input placeholder="Buscar por Nombre o C.I..." className="pl-10 h-12 rounded-xl" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+        <CardHeader className="bg-slate-50/50 border-b p-6 space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input placeholder="Buscar por Nombre o C.I..." className="pl-10 h-11 rounded-xl bg-white border-slate-200 shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Select value={filterSex} onValueChange={setFilterSex}>
+                <SelectTrigger className="w-[130px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Sexo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Sexos</SelectItem>
+                  <SelectItem value="M">Masculino</SelectItem>
+                  <SelectItem value="F">Femenino</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger className="w-[150px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Nivel" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Niveles</SelectItem>
+                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
+                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
+                  <SelectItem value="ADULTOS">Adultos</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-[150px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Estado" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Estados</SelectItem>
+                  <SelectItem value="INSCRITO">Inscrito</SelectItem>
+                  <SelectItem value="POR_VALIDAR">Por Validar</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl hover:bg-slate-200" onClick={resetFilters} title="Limpiar Filtros"><FilterX className="h-4 w-4 text-slate-500" /></Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {loadingRegs ? (
@@ -626,7 +621,7 @@ export default function RegistrationsListPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[700px] max-h-[95vh] p-0 overflow-hidden flex flex-col rounded-3xl border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Editar Ficha de Confirmando</DialogTitle></DialogHeader>
-          <EditRegistrationForm selectedReg={selectedReg} profile={profile} onClose={() => setIsEditDialogOpen(false)} onSaveSuccess={() => setIsEditDialogOpen(false)} startCameraAction={() => {}} />
+          <EditRegistrationForm selectedReg={selectedReg} profile={profile} onClose={() => setIsEditDialogOpen(false)} onSaveSuccess={() => setIsEditDialogOpen(false)} />
         </DialogContent>
       </Dialog>
 
@@ -649,7 +644,7 @@ function ReceiptContent({ reg }: { reg: any }) {
           <div className="relative h-16 w-16"><Image src="/logo.png" fill alt="Logo" className="object-contain" /></div>
           <div className="text-right">
             <p className="text-[11px] font-black tracking-tight leading-none">SANTUARIO NACIONAL</p>
-            <p className="text-[9px] font-bold leading-tight uppercase">NUESTRA SEÑORA DEL PERPETUO SOCORRO</p>
+            <p className="text-[9px] font-bold leading-tight uppercase">NSPS</p>
           </div>
         </div>
         <div className="w-[220px] flex flex-col gap-2">
@@ -657,7 +652,7 @@ function ReceiptContent({ reg }: { reg: any }) {
             <p className="text-[10px] font-black uppercase">GS.</p>
             <p className="text-2xl font-black">{(reg.amountPaid || 0).toLocaleString('es-PY')}</p>
           </div>
-          <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
+          <div className="border-[2px] border-black p-1 text-center flex-1">
             <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
             <p className="text-xs font-black font-mono leading-none mt-1">{reg.receiptNumber || '---'}</p>
           </div>
@@ -665,9 +660,9 @@ function ReceiptContent({ reg }: { reg: any }) {
       </div>
       <div className="text-center mb-10"><h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2></div>
       <div className="space-y-8 text-[15px]">
-        <div className="flex items-baseline gap-2"><span className="font-bold whitespace-nowrap">Recibí(mos) de:</span><span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{reg.fullName}</span></div>
-        <div className="flex items-baseline gap-2"><span className="font-bold whitespace-nowrap">la cantidad de:</span><span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{(reg.amountPaid || 0).toLocaleString('es-PY')} Guaraníes</span></div>
-        <div className="space-y-3"><span className="font-bold">en concepto de:</span><div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">INSCRIPCIÓN CATEQUESIS - {reg.catechesisYear?.replace('_', ' ')}</div></div>
+        <div className="flex items-baseline gap-2"><span className="font-bold whitespace-nowrap">Recibí de:</span><span className="flex-1 border-b border-dotted border-black px-2 uppercase font-black tracking-wide">{reg.fullName}</span></div>
+        <div className="flex items-baseline gap-2"><span className="font-bold whitespace-nowrap">La cantidad de:</span><span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">{(reg.amountPaid || 0).toLocaleString('es-PY')} Guaraníes</span></div>
+        <div className="space-y-3"><span className="font-bold">En concepto de:</span><div className="border-[2px] border-black p-5 text-center font-black uppercase text-base tracking-wider">INSCRIPCIÓN CATEQUESIS - {reg.catechesisYear?.replace('_', ' ')}</div></div>
       </div>
       <div className="mt-16 space-y-12">
         <div><p className="italic border-b border-black inline-block pr-16 text-sm">Asunción, {dateStr}</p><p className="text-[9px] font-black mt-1 uppercase tracking-widest">(FIRMA Y ACLARACIÓN)</p></div>
