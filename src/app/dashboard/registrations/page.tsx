@@ -406,7 +406,7 @@ function EditRegistrationForm({
                 <Input 
                   type="number" 
                   value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
+                  onChange={(e) => setEditAmountPaid(Number(editAmountPaid))}
                   readOnly={!isAdmin}
                   className={cn(
                     "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
@@ -1115,10 +1115,34 @@ export default function RegistrationsListPage() {
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
             <DialogTitle>Capturar Foto</DialogTitle>
-            <DialogDescription>Asegura una buena iluminación.</DialogDescription>
+            <DialogDescription>Asegura una buena iluminación para una foto nítida.</DialogDescription>
           </DialogHeader>
-          <div className="relative bg-black aspect-[3/4]"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" /></div>
-          <DialogFooter className="p-6 bg-slate-50 border-t"><Button className="w-full h-12 rounded-xl font-bold bg-primary" onClick={takePhoto}>Capturar</Button></DialogFooter>
+          <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
+            <video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
+            {hasCameraPermission === false && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4">
+                <X className="h-12 w-12 text-red-500" />
+                <p className="font-bold">Acceso a cámara denegado</p>
+                <p className="text-xs text-slate-400">Por favor, habilita los permisos en tu navegador.</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
+            {devices.length > 1 && (
+              <div className="space-y-2">
+                <Label className="text-[10px] font-slate-500 uppercase font-black tracking-widest">Seleccionar Cámara</Label>
+                <Select value={selectedDeviceId} onValueChange={(v) => { setSelectedDeviceId(v); startCamera(captureTarget, v); }}>
+                  <SelectTrigger className="h-10 rounded-xl bg-white border-slate-200"><SelectValue placeholder="Elegir dispositivo" /></SelectTrigger>
+                  <SelectContent>{devices.map(d => (<SelectItem key={d.deviceId} value={d.deviceId} className="text-xs font-bold">{d.label || `Cámara ${d.deviceId.slice(0, 5)}`}</SelectItem>))}</SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex gap-3 w-full">
+              <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold uppercase tracking-widest text-[10px]" onClick={stopCamera}>CANCELAR</Button>
+              <Button type="button" className="flex-1 h-12 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20" onClick={takePhoto}>TOMAR FOTO</Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1183,10 +1207,9 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
       <TableHeader className="bg-slate-50/30">
         <TableRow>
           <TableHead className="w-[60px] pl-6"></TableHead>
-          <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500">Confirmando</TableHead>
+          <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500">Confirmando / C.I. / CEL</TableHead>
           <TableHead className="text-center font-bold text-[10px] uppercase tracking-widest text-slate-500">Sexo</TableHead>
           <TableHead className="text-center font-bold text-[10px] uppercase tracking-widest text-slate-500">Origen</TableHead>
-          <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500">C.I. N°</TableHead>
           <TableHead className="text-center font-bold text-[10px] uppercase tracking-widest text-slate-500">Año</TableHead>
           <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500 cursor-pointer hover:text-primary transition-colors" onClick={() => onSort('createdAt')}>
             <div className="flex items-center gap-1">FECHA INSC. <ArrowUpDown className="h-3 w-3" /></div>
@@ -1208,6 +1231,7 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
             <TableCell>
               <div className="flex flex-col">
                 <span className="font-bold text-xs uppercase text-slate-900 leading-tight">{reg.fullName}</span>
+                <span className="text-[10px] text-primary font-bold">C.I. {reg.ciNumber}</span>
                 <span className="text-[10px] text-slate-400 font-medium">{reg.phone || '---'}</span>
               </div>
             </TableCell>
@@ -1229,9 +1253,6 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
                   <User className="h-2.5 w-2.5" /> Manual
                 </Badge>
               )}
-            </TableCell>
-            <TableCell>
-              <span className="text-[11px] font-bold text-slate-700">{reg.ciNumber}</span>
             </TableCell>
             <TableCell className="text-center">
               <span className="text-[10px] font-bold text-primary">{formatYear(reg.catechesisYear)}</span>
