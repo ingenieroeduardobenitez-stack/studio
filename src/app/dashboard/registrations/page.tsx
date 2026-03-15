@@ -42,7 +42,8 @@ import {
   Camera,
   FlipHorizontal,
   UserX,
-  Shapes
+  Shapes,
+  Info
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
