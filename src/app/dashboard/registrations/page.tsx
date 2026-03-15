@@ -550,8 +550,14 @@ export default function RegistrationsListPage() {
     return collection(db, "groups")
   }, [db, user])
 
+  const usersQuery = useMemoFirebase(() => {
+    if (!db || !user) return null
+    return collection(db, "users")
+  }, [db, user])
+
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
   const { data: groups } = useCollection(groupsQuery)
+  const { data: users } = useCollection(usersQuery)
 
   const handleSort = (key: string) => {
     setSortConfig(prev => ({
@@ -979,7 +985,7 @@ export default function RegistrationsListPage() {
         <div className="flex flex-col items-center justify-center py-24 gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="text-xs font-bold text-slate-400 uppercase">Sincronizando...</p></div>
       ) : viewMode === "LIST" ? (
         <Card className="border-none shadow-xl bg-white overflow-hidden">
-          <StudentTable students={filteredRegistrations} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onValidate={handleOpenValidation} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
+          <StudentTable students={filteredRegistrations} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onValidate={handleOpenValidation} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} users={users} />
         </Card>
       ) : (
         <Accordion type="multiple" defaultValue={["none", ...(groups?.map((g: any) => g.id) || [])]} className="space-y-4">
@@ -990,7 +996,7 @@ export default function RegistrationsListPage() {
                   <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500"><AlertCircle className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">Pendientes de Grupo o Validación ({registrationsByGroup["none"].length})</p></div></div>
                 </AccordionTrigger>
                 <AccordionContent className="p-0 border-t border-slate-50">
-                  <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onValidate={handleOpenValidation} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
+                  <StudentTable students={registrationsByGroup["none"]} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onValidate={handleOpenValidation} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} users={users} />
                 </AccordionContent>
               </div>
             </AccordionItem>
@@ -1005,7 +1011,7 @@ export default function RegistrationsListPage() {
                     <div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary"><Users className="h-5 w-5" /></div><div className="text-left"><p className="font-bold text-slate-900">{group.name} - {formatCatechesisYear(group.catechesisYear)} ({groupStudents.length})</p></div></div>
                   </AccordionTrigger>
                   <AccordionContent className="p-0 border-t border-slate-50">
-                    <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onValidate={handleOpenValidation} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} />
+                    <StudentTable students={groupStudents} formatYear={formatCatechesisYear} getBadge={getStatusBadge} isAdmin={isAdmin} isTesorero={isTesorero} onAssignGroup={(reg: any) => { setSelectedReg(reg); setIsAssignDialogOpen(true); }} onWithdraw={(reg: any) => { setSelectedReg(reg); setIsWithdrawDialogOpen(true); }} onDelete={(reg: any) => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} onViewDetails={(reg: any) => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }} onViewImage={(url: string) => { setViewProofUrl(url); setIsProofViewOpen(true); }} onValidate={handleOpenValidation} onSort={handleSort} sortConfig={sortConfig} formatTimestamp={formatTimestamp} users={users} />
                   </AccordionContent>
                 </div>
               </AccordionItem>
@@ -1406,7 +1412,7 @@ export default function RegistrationsListPage() {
   )
 }
 
-function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage, onValidate, onSort, sortConfig, formatTimestamp }: any) {
+function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onAssignGroup, onWithdraw, onDelete, onViewDetails, onViewImage, onValidate, onSort, sortConfig, formatTimestamp, users }: any) {
   return (
     <Table>
       <TableHeader className="bg-slate-50/30">
@@ -1455,7 +1461,7 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
                 </Badge>
               ) : (
                 <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 text-[8px] uppercase font-black gap-1">
-                  <User className="h-2.5 w-2.5" /> Manual
+                  <User className="h-2.5 w-2.5" /> {users?.find((u: any) => u.id === reg.userId)?.firstName || "Manual"}
                 </Badge>
               )}
             </TableCell>
