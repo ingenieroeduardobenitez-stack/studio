@@ -680,9 +680,9 @@ export default function RegistrationsListPage() {
       const date = ts.toDate ? ts.toDate() : new Date(ts);
       if (isNaN(date.getTime())) return "---";
       return (
-        <div className="flex flex-col text-[10px]">
-          <span className="font-bold text-slate-700">{date.toLocaleDateString('es-PY')} - {date.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}</span>
-          <span className="text-slate-400">{date.getHours() >= 12 ? 'p. m.' : 'a. m.'}</span>
+        <div className="flex flex-col text-[10px] leading-tight">
+          <span className="font-bold text-slate-700">{date.toLocaleDateString('es-PY')}</span>
+          <span className="text-slate-500 font-medium">{date.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
       );
     } catch (e) { return "---"; }
