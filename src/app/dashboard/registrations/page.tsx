@@ -785,6 +785,14 @@ export default function RegistrationsListPage() {
     }
   }
 
+  const handleDownloadProof = () => {
+    if (!selectedReg?.paymentProofUrl) return
+    const link = document.createElement("a")
+    link.href = selectedReg.paymentProofUrl
+    link.download = `comprobante-${selectedReg.ciNumber || 'pago'}.jpg`
+    link.click()
+  }
+
   const resetFilters = () => {
     setSearchTerm("")
     setFilterSex("all")
@@ -1021,9 +1029,14 @@ export default function RegistrationsListPage() {
             <div className="bg-slate-900 flex flex-col overflow-hidden">
               <div className="p-2 bg-slate-800/50 flex justify-between items-center">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Previsualización del Comprobante</span>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => { setViewProofUrl(selectedReg?.paymentProofUrl); setIsProofViewOpen(true); }}>
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={handleDownloadProof} title="Descargar Comprobante">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => { setViewProofUrl(selectedReg?.paymentProofUrl); setIsProofViewOpen(true); }}>
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="flex-1 flex items-center justify-center p-4">
                 {selectedReg?.paymentProofUrl ? (
