@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -24,7 +24,17 @@ import {
   Printer,
   ChevronRight,
   MessageCircle,
-  Receipt
+  Receipt,
+  Eye,
+  Users,
+  Venus,
+  Mars,
+  FileText,
+  Church,
+  Calendar,
+  Phone,
+  BookOpen,
+  X
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
@@ -61,6 +71,8 @@ import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 
 // Componente de Formulario de Edición
 function EditRegistrationForm({ 
@@ -294,6 +306,7 @@ export default function RegistrationsListPage() {
 
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isValidationOpen, setIsValidationOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
@@ -313,10 +326,20 @@ export default function RegistrationsListPage() {
   const registrationsQuery = useMemoFirebase(() => db ? query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200)) : null, [db])
   const { data: registrations, loading: loadingRegs } = useCollection(registrationsQuery)
 
-  const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
-  const { data: allUsers } = useCollection(usersQuery)
+  const allUsersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
+  const { data: allUsers } = useCollection(allUsersQuery)
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
+
+  const stats = useMemo(() => {
+    if (!registrations) return { total: 0, males: 0, females: 0 }
+    const active = registrations.filter(r => !r.isArchived)
+    return {
+      total: active.length,
+      males: active.filter(r => r.sexo === "M").length,
+      females: active.filter(r => r.sexo === "F").length
+    }
+  }, [registrations])
 
   const filteredRegistrations = useMemo(() => {
     if (!registrations) return []
@@ -414,7 +437,7 @@ export default function RegistrationsListPage() {
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-headline font-bold text-primary">Confirmandos Inscritos</h1>
+          <h1 className="text-3xl font-headline font-bold text-primary">Lista de Confirmandos</h1>
           <p className="text-muted-foreground">Listado general de postulantes del ciclo 2026.</p>
         </div>
         <div className="flex gap-2">
@@ -427,6 +450,36 @@ export default function RegistrationsListPage() {
           }}><Download className="h-4 w-4" /> Exportar</Button>
           <Button asChild className="bg-primary hover:bg-primary/90 rounded-xl h-11 font-bold px-6 shadow-lg shadow-primary/20"><a href="/dashboard/registration">Nueva Ficha</a></Button>
         </div>
+      </div>
+
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+        <Card className="border-none shadow-sm bg-white border-l-4 border-l-primary overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0">
+            <CardTitle className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Inscritos</CardTitle>
+            <Users className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-black text-slate-900">{stats.total}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white border-l-4 border-l-blue-500 overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0">
+            <CardTitle className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Masculinos</CardTitle>
+            <Mars className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-black text-slate-900">{stats.males}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white border-l-4 border-l-pink-500 overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0">
+            <CardTitle className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Femeninos</CardTitle>
+            <Venus className="h-4 w-4 text-pink-500" />
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-black text-slate-900">{stats.females}</div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="border-none shadow-xl overflow-hidden bg-white">
@@ -537,6 +590,15 @@ export default function RegistrationsListPage() {
                       </TableCell>
                       <TableCell className="text-right pr-8">
                         <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-8 w-8 rounded-full hover:bg-slate-100 text-slate-400"
+                            onClick={() => { setSelectedReg(reg); setIsDetailsDialogOpen(true); }}
+                            title="Ver Ficha"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           {reg.status === "POR_VALIDAR" && hasProof && (
                             <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] font-black bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200" onClick={() => handleOpenValidation(reg)}>VALIDAR</Button>
                           )}
@@ -557,6 +619,154 @@ export default function RegistrationsListPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* DIALOGO DE DETALLE (VER FICHA) */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-12 w-12 border-2 border-white/20">
+                  <AvatarImage src={selectedReg?.photoUrl} className="object-cover" />
+                  <AvatarFallback className="bg-white/10 text-white"><User /></AvatarFallback>
+                </Avatar>
+                <div>
+                  <DialogTitle className="text-xl uppercase font-black tracking-tight">{selectedReg?.fullName}</DialogTitle>
+                  <DialogDescription className="text-white/70">Ficha de Inscripción 2026</DialogDescription>
+                </div>
+              </div>
+              <Badge className="bg-white/20 text-white border-none uppercase text-[10px]">{selectedReg?.catechesisYear?.replace('_', ' ')}</Badge>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="flex-1 bg-slate-50">
+            <div className="p-8 space-y-10">
+              {/* SECCIÓN 1: DATOS PERSONALES */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                  <User className="h-3 w-3" /> Información del Postulante
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-6 rounded-3xl border shadow-sm">
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Cédula N°</Label>
+                    <p className="text-sm font-bold text-slate-900">{selectedReg?.ciNumber}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Nacimiento</Label>
+                    <p className="text-sm font-bold text-slate-900">{selectedReg?.birthDate} ({selectedReg?.age} años)</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Celular</Label>
+                    <p className="text-sm font-bold text-slate-900">{selectedReg?.phone}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Sexo</Label>
+                    <p className="text-sm font-bold text-slate-900">{selectedReg?.sexo === 'M' ? 'Masculino' : 'Femenino'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Horario</Label>
+                    <p className="text-sm font-bold text-slate-900">{selectedReg?.attendanceDay === 'SABADO' ? 'Sábados' : 'Domingos'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCIÓN 2: PADRES / TUTORES */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Users className="h-3 w-3" /> Padres / Tutores
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-3xl border shadow-sm">
+                  <div className="space-y-3">
+                    <Label className="text-[9px] font-black text-slate-400 uppercase border-b pb-1 block">Madre</Label>
+                    <p className="text-sm font-bold text-slate-900">{selectedReg?.motherName || 'No registrado'}</p>
+                    {selectedReg?.motherPhone && <p className="text-xs text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg.motherPhone}</p>}
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="text-[9px] font-black text-slate-400 uppercase border-b pb-1 block">Padre</Label>
+                    <p className="text-sm font-bold text-slate-900">{selectedReg?.fatherName || 'No registrado'}</p>
+                    {selectedReg?.fatherPhone && <p className="text-xs text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg.fatherPhone}</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCIÓN 3: VIDA SACRAMENTAL */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                  <BookOpen className="h-3 w-3" /> Vida Sacramental
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 rounded-3xl border shadow-sm">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
+                      <span className="text-xs font-bold text-slate-600">¿Tiene Bautismo?</span>
+                      {selectedReg?.hasBaptism ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
+                    </div>
+                    {selectedReg?.hasBaptism && (
+                      <div className="space-y-3 pl-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          <div><Label className="text-[8px] font-bold text-slate-400 uppercase">Libro</Label><p className="text-xs font-bold">{selectedReg.baptismBook || '-'}</p></div>
+                          <div><Label className="text-[8px] font-bold text-slate-400 uppercase">Folio</Label><p className="text-xs font-bold">{selectedReg.baptismFolio || '-'}</p></div>
+                          <div><Label className="text-[8px] font-bold text-slate-400 uppercase">Parroquia</Label><p className="text-xs font-bold">{selectedReg.baptismParish || '-'}</p></div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
+                      <span className="text-xs font-bold text-slate-600">¿Hizo la Comunión?</span>
+                      {selectedReg?.hasFirstCommunion ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
+                    </div>
+                  </div>
+                  {selectedReg?.baptismCertificatePhotoUrl && (
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-black text-slate-400 uppercase">Foto Certificado</Label>
+                      <div className="relative aspect-video rounded-2xl overflow-hidden border shadow-inner bg-slate-100 flex items-center justify-center">
+                        <img src={selectedReg.baptismCertificatePhotoUrl} className="object-contain max-h-full" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SECCIÓN 4: CUENTA Y PAGOS */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Wallet className="h-3 w-3" /> Cuenta y Pagos
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 rounded-3xl border shadow-sm">
+                  <div className="space-y-4">
+                    <div className="p-4 bg-slate-900 text-white rounded-[2rem] space-y-1">
+                      <p className="text-[8px] font-black text-white/50 uppercase tracking-widest">Saldo Recaudado</p>
+                      <p className="text-2xl font-black">{selectedReg?.amountPaid?.toLocaleString('es-PY')} Gs.</p>
+                      <Badge className="bg-white/20 text-white border-none text-[9px] uppercase">{selectedReg?.paymentStatus}</Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-bold text-slate-400 uppercase">Forma de Pago Principal</Label>
+                      <p className="text-sm font-bold text-slate-900">{selectedReg?.lastPaymentMethod || selectedReg?.paymentMethod}</p>
+                    </div>
+                    {selectedReg?.receiptNumber && (
+                      <div className="space-y-1">
+                        <Label className="text-[9px] font-bold text-slate-400 uppercase">N° Recibo Oficial</Label>
+                        <p className="text-sm font-black text-primary font-mono">{selectedReg.receiptNumber}</p>
+                      </div>
+                    )}
+                  </div>
+                  {selectedReg?.paymentProofUrl && (
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-black text-slate-400 uppercase">Comprobante Adjunto</Label>
+                      <div className="relative aspect-video rounded-2xl overflow-hidden border shadow-inner bg-slate-100 flex items-center justify-center">
+                        <img src={selectedReg.paymentProofUrl} className="object-contain max-h-full" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
+            <Button className="flex-1 h-12 bg-primary text-white rounded-xl font-bold gap-2 shadow-lg" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Imprimir Ficha
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* DIALOGO DE VALIDACIÓN */}
       <Dialog open={isValidationOpen} onOpenChange={setIsValidationOpen}>
