@@ -34,7 +34,9 @@ import {
   Calendar,
   Phone,
   BookOpen,
-  X
+  X,
+  Globe,
+  Clock
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
@@ -303,6 +305,8 @@ export default function RegistrationsListPage() {
   const [filterSex, setFilterSex] = useState("all")
   const [filterYear, setFilterYear] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
+  const [filterOrigin, setFilterOrigin] = useState("all")
+  const [filterDay, setFilterDay] = useState("all")
 
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -345,19 +349,30 @@ export default function RegistrationsListPage() {
     if (!registrations) return []
     return registrations.filter(r => {
       if (r.isArchived) return false;
+      
       const matchesSearch = !searchTerm || r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || r.ciNumber?.includes(searchTerm);
       const matchesSex = filterSex === "all" || r.sexo === filterSex;
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear;
       const matchesStatus = filterStatus === "all" || r.status === filterStatus;
-      return matchesSearch && matchesSex && matchesYear && matchesStatus;
+      
+      const isPublicOrigin = r.userId === "public_registration";
+      const matchesOrigin = filterOrigin === "all" || 
+        (filterOrigin === "public" && isPublicOrigin) || 
+        (filterOrigin === "manual" && !isPublicOrigin);
+        
+      const matchesDay = filterDay === "all" || r.attendanceDay === filterDay;
+
+      return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay;
     })
-  }, [registrations, searchTerm, filterSex, filterYear, filterStatus])
+  }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay])
 
   const resetFilters = () => {
     setSearchTerm("")
     setFilterSex("all")
     setFilterYear("all")
     setFilterStatus("all")
+    setFilterOrigin("all")
+    setFilterDay("all")
   }
 
   const handleOpenValidation = (reg: any) => {
@@ -484,39 +499,58 @@ export default function RegistrationsListPage() {
 
       <Card className="border-none shadow-xl overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/50 border-b p-6 space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input placeholder="Buscar por Nombre o C.I..." className="pl-10 h-11 rounded-xl bg-white border-slate-200 shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Select value={filterSex} onValueChange={setFilterSex}>
-                <SelectTrigger className="w-[130px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Sexo" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos Sexos</SelectItem>
-                  <SelectItem value="M">Masculino</SelectItem>
-                  <SelectItem value="F">Femenino</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterYear} onValueChange={setFilterYear}>
-                <SelectTrigger className="w-[150px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Nivel" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos Niveles</SelectItem>
-                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
-                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
-                  <SelectItem value="ADULTOS">Adultos</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[150px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Estado" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos Estados</SelectItem>
-                  <SelectItem value="INSCRITO">Inscrito</SelectItem>
-                  <SelectItem value="POR_VALIDAR">Por Validar</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl hover:bg-slate-200" onClick={resetFilters} title="Limpiar Filtros"><FilterX className="h-4 w-4 text-slate-500" /></Button>
-            </div>
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input 
+              placeholder="Buscar por Nombre o C.I..." 
+              className="pl-10 h-12 rounded-xl bg-white border-slate-200 shadow-sm w-full" 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={filterSex} onValueChange={setFilterSex}>
+              <SelectTrigger className="w-[130px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Sexo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Sexos</SelectItem>
+                <SelectItem value="M">Masculino</SelectItem>
+                <SelectItem value="F">Femenino</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterYear} onValueChange={setFilterYear}>
+              <SelectTrigger className="w-[150px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Nivel" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Niveles</SelectItem>
+                <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
+                <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
+                <SelectItem value="ADULTOS">Adultos</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[150px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Estado" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Estados</SelectItem>
+                <SelectItem value="INSCRITO">Inscrito</SelectItem>
+                <SelectItem value="POR_VALIDAR">Por Validar</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterOrigin} onValueChange={setFilterOrigin}>
+              <SelectTrigger className="w-[130px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Origen" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Orígenes</SelectItem>
+                <SelectItem value="public">Público</SelectItem>
+                <SelectItem value="manual">Manual</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterDay} onValueChange={setFilterDay}>
+              <SelectTrigger className="w-[130px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Horario" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Horarios</SelectItem>
+                <SelectItem value="SABADO">Sábados</SelectItem>
+                <SelectItem value="DOMINGO">Domingos</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl hover:bg-slate-200" onClick={resetFilters} title="Limpiar Filtros"><FilterX className="h-4 w-4 text-slate-500" /></Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -560,7 +594,12 @@ export default function RegistrationsListPage() {
                           {isManual && creator && <span className="text-[9px] text-slate-400 font-bold uppercase mt-1 ml-1">{creator.firstName}</span>}
                         </div>
                       </TableCell>
-                      <TableCell><Badge variant="outline" className="text-[9px] uppercase">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <Badge variant="outline" className="text-[9px] uppercase">{reg.catechesisYear?.replace("_", " ")}</Badge>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase mt-1 ml-1">{reg.attendanceDay === "SABADO" ? "Sábados" : "Domingos"}</span>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col items-center gap-1">
                           <div className="flex items-center gap-2">
