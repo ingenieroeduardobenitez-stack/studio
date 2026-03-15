@@ -184,7 +184,7 @@ function EditRegistrationForm({
     const formData = new FormData(e.currentTarget)
     const getVal = (name: string) => (formData.get(name) as string || "").trim();
 
-    const regCost = selectedReg.registrationCost || (editCatechesisYear === "ADULTOS" ? 50000 : 35000);
+    const regCostLimit = editCatechesisYear === "ADULTOS" ? 50000 : 35000;
 
     const updateData: any = {
       fullName: getVal("fullName").toUpperCase(),
@@ -199,17 +199,24 @@ function EditRegistrationForm({
       attendanceDay: editAttendanceDay,
       sexo: editGender,
       lastPaymentMethod: editPaymentMethod === "NONE" ? null : editPaymentMethod,
-      amountPaid: editPaymentMethod === "NONE" ? 0 : Number(editAmountPaid),
       updatedAt: serverTimestamp()
     }
 
-    if (editPaymentMethod === "NONE") {
+    // Lógica mejorada para cambios de estado en edición
+    if (editPaymentMethod === "EFECTIVO") {
+      const amt = Number(editAmountPaid);
+      updateData.amountPaid = amt;
+      updateData.paymentStatus = amt >= regCostLimit ? "PAGADO" : (amt > 0 ? "PARCIAL" : "PENDIENTE");
+      updateData.status = "INSCRITO";
+    } else if (editPaymentMethod === "NONE") {
       updateData.amountPaid = 0;
       updateData.paymentStatus = "PENDIENTE";
       updateData.status = "POR_VALIDAR";
     } else {
-      updateData.paymentStatus = updateData.amountPaid >= regCost ? "PAGADO" : (updateData.amountPaid > 0 ? "PARCIAL" : "PENDIENTE");
-      updateData.status = editPaymentMethod === "EFECTIVO" ? "INSCRITO" : selectedReg.status;
+      // Transferencia u otro mantiene el estado previo hasta validar
+      updateData.amountPaid = Number(editAmountPaid);
+      updateData.paymentStatus = updateData.amountPaid >= regCostLimit ? "PAGADO" : (updateData.amountPaid > 0 ? "PARCIAL" : "PENDIENTE");
+      updateData.status = selectedReg.status;
     }
 
     if (editPhotoPreview) updateData.photoUrl = editPhotoPreview;
@@ -300,6 +307,21 @@ function EditRegistrationForm({
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent>
               </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2"><Label>Forma de Pago</Label>
+              <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                  <SelectItem value="NONE">Sin Pago / Pendiente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2"><Label>Monto Cobrado (Gs)</Label>
+              <Input type="number" value={editAmountPaid} onChange={(e) => setEditAmountPaid(Number(e.target.value))} className="font-black text-primary" />
             </div>
           </div>
         </div>
@@ -492,9 +514,21 @@ export default function RegistrationsListPage() {
                       </TableCell>
                       <TableCell><Badge variant="outline" className="text-[9px] uppercase">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Wallet className="h-3 w-3 text-slate-400" />
-                          <span className="text-[10px] font-bold uppercase text-slate-600">{hasProof ? "TRANSFERENCIA" : (isEfectivo ? "EFECTIVO" : "NINGUNA")}</span>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-2">
+                            <Wallet className="h-3 w-3 text-slate-400" />
+                            <span className={cn(
+                              "text-[10px] font-bold uppercase",
+                              hasProof ? "text-blue-600" : (isEfectivo ? "text-green-600" : "text-slate-600")
+                            )}>
+                              {hasProof ? "TRANSFERENCIA" : (isEfectivo ? "EFECTIVO" : "NINGUNA")}
+                            </span>
+                          </div>
+                          {(reg.amountPaid > 0 || isEfectivo) && (
+                            <span className="text-[9px] font-black text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded-md">
+                              {(reg.amountPaid || 0).toLocaleString('es-PY')} Gs.
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>

@@ -353,16 +353,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         return newObj;
       };
 
-      // NUEVA LÓGICA DE PAGO DIRECTO PARA EFECTIVO
-      let amountPaid = 0;
-      let status = "POR_VALIDAR";
-      let paymentStatus = "PENDIENTE";
-
-      if (values.paymentMethod === "EFECTIVO") {
-        amountPaid = Number(values.registrationCost);
-        status = "INSCRITO";
-        paymentStatus = amountPaid >= establishedLimit ? "PAGADO" : "PARCIAL";
-      }
+      // LÓGICA DE PAGO DIRECTA Y SEGURA
+      const isEfectivo = values.paymentMethod === "EFECTIVO";
+      const regCost = Number(values.registrationCost);
+      
+      const finalStatus = isEfectivo ? "INSCRITO" : "POR_VALIDAR";
+      const finalAmountPaid = isEfectivo ? regCost : 0;
+      const finalPaymentStatus = isEfectivo 
+        ? (regCost >= establishedLimit ? "PAGADO" : "PARCIAL") 
+        : "PENDIENTE";
 
       const regData = cleanData({
         fullName: values.fullName || "",
@@ -390,10 +389,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         baptismFolio: values.baptismFolio || null,
         baptismCertificatePhotoUrl: values.baptismCertificatePhotoUrl || null,
         userId: user?.uid || (isPublic ? "public_registration" : "manual"),
-        status: status,
-        paymentStatus: paymentStatus,
-        amountPaid: amountPaid,
-        registrationCost: values.registrationCost,
+        status: finalStatus,
+        paymentStatus: finalPaymentStatus,
+        amountPaid: finalAmountPaid,
+        registrationCost: regCost,
         createdAt: serverTimestamp()
       })
 
@@ -605,10 +604,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               <div className="flex items-center gap-3 border-b pb-2"><Church className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Inscripción Académica</h3></div>
               <div className="grid gap-6 md:grid-cols-2">
                 <FormField control={form.control} name="catechesisYear" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione el año" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1° Año (Inicial)</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año (Confirmación)</SelectItem><SelectItem value="ADULTOS">Adultos (Intensivo)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="font-bold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione el año" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1° Año (Inicial)</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año (Confirmación)</SelectItem><SelectItem value="ADULTOS">Adultos (Intensivo)</SelectItem></Select><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="attendanceDay" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Horario de Preferencia *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione su horario" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="font-bold">Horario de Preferencia *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione su horario" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></Select><FormMessage /></FormItem>
                 )} />
               </div>
             </div>
@@ -893,7 +892,7 @@ function ReceiptOfficialContent({ submittedData, dateDay, monthName }: { submitt
           </div>
           <div className="border-[2px] border-black p-1 text-center flex-1 flex flex-col justify-center">
             <p className="text-[8px] font-bold uppercase leading-none">RECIBO N°</p>
-            <p className="text-xs font-black font-mono leading-none mt-1">PROVISORIO-{submittedData?.id.split('_')[1]}</p>
+            <p className="text-xs font-black font-mono font-black leading-none mt-1">PROVISORIO-{submittedData?.id.split('_')[1]}</p>
           </div>
         </div>
       </div>
