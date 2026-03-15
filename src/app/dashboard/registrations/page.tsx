@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -38,7 +38,9 @@ import {
   Globe,
   Clock,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Camera,
+  FlipHorizontal
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
@@ -78,7 +80,9 @@ import Image from "next/image"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 
-// Componente de Formulario de Edición
+type CaptureTarget = "photo" | "baptism" | "paymentProof"
+
+// Componente de Formulario de Edición con Cámara y Carga de Archivos
 function EditRegistrationForm({ 
   selectedReg, 
   profile, 
@@ -94,15 +98,23 @@ function EditRegistrationForm({
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(selectedReg?.photoUrl || null)
   const [editBaptismPreview, setEditBaptismPreview] = useState<string | null>(selectedReg?.baptismCertificatePhotoUrl || null)
   const [editPaymentProofPreview, setEditPaymentProofPreview] = useState<string | null>(selectedReg?.paymentProofUrl || null)
+  
   const [editCatechesisYear, setEditCatechesisYear] = useState(selectedReg?.catechesisYear || "PRIMER_AÑO")
   const [editAttendanceDay, setEditAttendanceDay] = useState(selectedReg?.attendanceDay || "SABADO")
   const [editGender, setEditGender] = useState(selectedReg?.sexo || "M")
   const [editPaymentMethod, setEditPaymentMethod] = useState(selectedReg?.lastPaymentMethod || "NONE")
   const [editAmountPaid, setEditAmountPaid] = useState<number>(selectedReg?.amountPaid || 0)
   
-  const editPhotoInputRef = useRef<HTMLInputElement>(null)
-  const editBaptismInputRef = useRef<HTMLInputElement>(null)
-  const editPaymentProofInputRef = useRef<HTMLInputElement>(null)
+  // Estados para Cámara
+  const [showCamera, setShowCamera] = useState(false)
+  const [captureTarget, setCaptureTarget] = useState<CaptureTarget>("photo")
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
+  const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
+  
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const { toast } = useToast()
   const db = useFirestore()
@@ -127,27 +139,76 @@ function EditRegistrationForm({
     });
   };
 
-  const handleFileEdit = async (e: React.ChangeEvent<HTMLInputElement>, target: "photo" | "baptism" | "paymentProof") => {
+  const startCamera = async (target: CaptureTarget, deviceId?: string) => {
+    setCaptureTarget(target)
+    try {
+      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      })
+      setCurrentStream(stream)
+      const availableDevices = await navigator.mediaDevices.enumerateDevices()
+      setDevices(availableDevices.filter(d => d.kind === 'videoinput'))
+      setShowCamera(true)
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Acceso a cámara denegado' })
+    }
+  }
+
+  const stopCamera = () => {
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+      setCurrentStream(null)
+      setShowCamera(false)
+    }
+  }
+
+  const takePhoto = async () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d')?.drawImage(video, 0, 0)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+      const optimized = await compressImage(dataUrl);
+      
+      if (captureTarget === "photo") setEditPhotoPreview(optimized);
+      else if (captureTarget === "baptism") setEditBaptismPreview(optimized);
+      else if (captureTarget === "paymentProof") setEditPaymentProofPreview(optimized);
+      
+      stopCamera()
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: CaptureTarget) => {
     const file = e.target.files?.[0]
     if (file) {
-      const objectUrl = URL.createObjectURL(file);
-      const setPreview = (val: string) => {
-        if (target === "photo") setEditPhotoPreview(val);
-        else if (target === "baptism") setEditBaptismPreview(val);
-        else setEditPaymentProofPreview(val);
-      };
+      const objectUrl = URL.createObjectURL(file)
       try {
-        const optimized = await compressImage(objectUrl);
-        setPreview(optimized);
+        const optimized = await compressImage(objectUrl)
+        if (target === "photo") setEditPhotoPreview(optimized);
+        else if (target === "baptism") setEditBaptismPreview(optimized);
+        else if (target === "paymentProof") setEditPaymentProofPreview(optimized);
       } catch (err) {
-        const reader = new FileReader();
-        reader.onload = () => setPreview(reader.result as string);
-        reader.readAsDataURL(file);
+        console.error("Error al procesar imagen:", err)
       } finally {
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        URL.revokeObjectURL(objectUrl)
       }
     }
   }
+
+  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node && currentStream) {
+      if (node.srcObject !== currentStream) {
+        node.srcObject = currentStream;
+        node.play().catch(err => {
+          if (err.name !== 'AbortError') console.error("Video play error:", err);
+        });
+      }
+    }
+    videoRef.current = node;
+  }, [currentStream]);
 
   const handleEditRegistration = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -217,35 +278,37 @@ function EditRegistrationForm({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase text-slate-400">Foto Perfil</Label>
-            <div className="relative h-32 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden">
+            <div className="relative h-40 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden group">
               {editPhotoPreview ? <img src={editPhotoPreview} className="h-full w-full object-cover" /> : <User className="h-10 w-10 text-slate-200" />}
-              <div className="absolute bottom-2 right-2 flex gap-1">
-                <Button type="button" size="icon" variant="secondary" className="h-7 w-7 rounded-full" onClick={() => editPhotoInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5" /></Button>
-                <input type="file" ref={editPhotoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "photo")} />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => startCamera("photo")}><Camera className="h-4 w-4" /></Button>
+                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => { setCaptureTarget("photo"); fileInputRef.current?.click(); }}><ImageIcon className="h-4 w-4" /></Button>
               </div>
             </div>
           </div>
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase text-slate-400">Cert. Bautismo</Label>
-            <div className="relative h-32 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden">
-              {editBaptismPreview ? <img src={editBaptismPreview} className="h-full w-full object-cover" /> : <ImageIcon className="h-10 w-10 text-slate-200" />}
-              <div className="absolute bottom-2 right-2 flex gap-1">
-                <Button type="button" size="icon" variant="secondary" className="h-7 w-7 rounded-full" onClick={() => editBaptismInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5" /></Button>
-                <input type="file" ref={editBaptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "baptism")} />
+            <div className="relative h-40 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden group">
+              {editBaptismPreview ? <img src={editBaptismPreview} className="h-full w-full object-cover" /> : <BookOpen className="h-10 w-10 text-slate-200" />}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => startCamera("baptism")}><Camera className="h-4 w-4" /></Button>
+                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => { setCaptureTarget("baptism"); fileInputRef.current?.click(); }}><ImageIcon className="h-4 w-4" /></Button>
               </div>
             </div>
           </div>
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase text-slate-400">Comp. Pago</Label>
-            <div className="relative h-32 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden">
+            <div className="relative h-40 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden group">
               {editPaymentProofPreview ? <img src={editPaymentProofPreview} className="h-full w-full object-cover" /> : <Wallet className="h-10 w-10 text-slate-200" />}
-              <div className="absolute bottom-2 right-2 flex gap-1">
-                <Button type="button" size="icon" variant="secondary" className="h-7 w-7 rounded-full" onClick={() => editPaymentProofInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5" /></Button>
-                <input type="file" ref={editPaymentProofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileEdit(e, "paymentProof")} />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => startCamera("paymentProof")}><Camera className="h-4 w-4" /></Button>
+                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => { setCaptureTarget("paymentProof"); fileInputRef.current?.click(); }}><ImageIcon className="h-4 w-4" /></Button>
               </div>
             </div>
           </div>
         </div>
+
+        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, captureTarget)} />
 
         <div className="grid gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -253,7 +316,7 @@ function EditRegistrationForm({
             <div className="space-y-2">
               <Label>Sexo</Label>
               <Select value={editGender} onValueChange={setEditGender}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="M">Masculino</SelectItem><SelectItem value="F">Femenino</SelectItem></SelectContent>
               </Select>
             </div>
@@ -265,13 +328,13 @@ function EditRegistrationForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2"><Label>Año Catequesis</Label>
               <Select value={editCatechesisYear} onValueChange={setEditCatechesisYear}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent>
               </Select>
             </div>
             <div className="space-y-2"><Label>Día Asistencia</Label>
               <Select value={editAttendanceDay} onValueChange={setEditAttendanceDay}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent>
               </Select>
             </div>
@@ -279,7 +342,7 @@ function EditRegistrationForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2"><Label>Forma de Pago</Label>
               <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="EFECTIVO">Efectivo</SelectItem>
                   <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
@@ -293,9 +356,29 @@ function EditRegistrationForm({
           </div>
         </div>
       </div>
+
+      <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-3xl">
+          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Capturar Foto</DialogTitle></DialogHeader>
+          <div className="relative bg-black aspect-[3/4] flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" /></div>
+          <DialogFooter className="p-6 bg-slate-50 flex flex-col gap-4">
+            {devices.length > 1 && (
+              <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}>
+                <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                <SelectContent>{devices.map((d) => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0,5)}`}</SelectItem>))}</SelectContent>
+              </Select>
+            )}
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" className="flex-1 h-12" onClick={stopCamera}>CANCELAR</Button>
+              <Button type="button" className="flex-1 h-12 bg-primary text-white font-bold" onClick={takePhoto}>TOMAR FOTO</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 shrink-0">
         <Button type="button" variant="outline" className="flex-1 h-12" onClick={onClose}>Cancelar</Button>
-        <Button type="submit" className="flex-1 h-12 bg-slate-900 text-white font-bold" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />} Guardar</Button>
+        <Button type="submit" className="flex-1 h-12 bg-slate-900 text-white font-bold" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />} Guardar Cambios</Button>
       </DialogFooter>
     </form>
   )
@@ -320,7 +403,6 @@ export default function RegistrationsListPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [zoomScale, setZoomScale] = useState(1)
   
-  // Estados para vista previa de foto ampliada
   const [isPhotoViewOpen, setIsPhotoViewOpen] = useState(false)
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null)
   const [photoZoom, setPhotoZoom] = useState(1)
@@ -678,7 +760,7 @@ export default function RegistrationsListPage() {
         </CardContent>
       </Card>
 
-      {/* DIALOGO DE DETALLE (VER FICHA) - VISTA MEJORADA */}
+      {/* DIALOGO DE DETALLE (VER FICHA) */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
           <DialogHeader className="p-8 bg-primary text-white shrink-0 relative">
@@ -719,7 +801,6 @@ export default function RegistrationsListPage() {
           
           <ScrollArea className="flex-1 bg-slate-50/50">
             <div className="p-8 space-y-8 pb-12">
-              {/* FILA 1: INFORMACIÓN Y CONTACTO */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="border-none shadow-sm bg-white rounded-3xl p-6 space-y-4">
                   <h4 className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
@@ -772,7 +853,6 @@ export default function RegistrationsListPage() {
                 </Card>
               </div>
 
-              {/* SECCIÓN PADRES */}
               <Card className="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
                 <div className="p-6 bg-slate-50/50 border-b flex items-center gap-2">
                   <Users className="h-4 w-4 text-primary" />
@@ -806,7 +886,6 @@ export default function RegistrationsListPage() {
                 </div>
               </Card>
 
-              {/* SECCIÓN SACRAMENTAL Y DOCUMENTOS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
                   <div className="p-6 bg-slate-50/50 border-b flex items-center gap-2">
@@ -843,7 +922,7 @@ export default function RegistrationsListPage() {
                 <Card className="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
                   <div className="p-6 bg-slate-50/50 border-b flex items-center gap-2">
                     <ImageIcon className="h-4 w-4 text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Certificado / Comprobante</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Documentos Adjuntos</span>
                   </div>
                   <div className="p-6 grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -980,10 +1059,18 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
+      {/* DIALOGO DE EDICIÓN */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[95vh] p-0 overflow-hidden flex flex-col rounded-3xl border-none shadow-2xl">
-          <DialogHeader className="p-6 bg-primary text-white shrink-0"><DialogTitle>Editar Ficha de Confirmando</DialogTitle></DialogHeader>
-          <EditRegistrationForm selectedReg={selectedReg} profile={profile} onClose={() => setIsEditDialogOpen(false)} onSaveSuccess={() => setIsEditDialogOpen(false)} />
+        <DialogContent className="sm:max-w-[700px] max-h-[95vh] p-0 overflow-hidden flex flex-col rounded-[2.5rem] border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Editar Ficha del Confirmando</DialogTitle>
+          </DialogHeader>
+          <EditRegistrationForm 
+            selectedReg={selectedReg} 
+            profile={profile} 
+            onClose={() => setIsEditDialogOpen(false)} 
+            onSaveSuccess={() => { setIsEditDialogOpen(false); }} 
+          />
         </DialogContent>
       </Dialog>
 
