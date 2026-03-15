@@ -102,7 +102,7 @@ function EditRegistrationForm({
   const [editCatechesisYear, setEditCatechesisYear] = useState(selectedReg?.catechesisYear || "PRIMER_AÑO")
   const [editAttendanceDay, setEditAttendanceDay] = useState(selectedReg?.attendanceDay || "SABADO")
   const [editGender, setEditGender] = useState(selectedReg?.sexo || "M")
-  const [editPaymentMethod, setEditPaymentMethod] = useState(selectedReg?.lastPaymentMethod || "NONE")
+  const [editPaymentMethod, setEditPaymentMethod] = useState(selectedReg?.lastPaymentMethod || selectedReg?.paymentMethod || "SIN_PAGO")
   const [editAmountPaid, setEditAmountPaid] = useState<number>(selectedReg?.amountPaid || 0)
   
   // Estados para Cámara
@@ -235,7 +235,8 @@ function EditRegistrationForm({
       catechesisYear: editCatechesisYear,
       attendanceDay: editAttendanceDay,
       sexo: editGender,
-      lastPaymentMethod: editPaymentMethod === "NONE" ? null : editPaymentMethod,
+      paymentMethod: editPaymentMethod,
+      lastPaymentMethod: editPaymentMethod === "SIN_PAGO" ? null : editPaymentMethod,
       updatedAt: serverTimestamp()
     }
 
@@ -244,7 +245,7 @@ function EditRegistrationForm({
       updateData.amountPaid = amt;
       updateData.paymentStatus = amt >= regCostLimit ? "PAGADO" : (amt > 0 ? "PARCIAL" : "PENDIENTE");
       updateData.status = "INSCRITO";
-    } else if (editPaymentMethod === "NONE") {
+    } else if (editPaymentMethod === "SIN_PAGO") {
       updateData.amountPaid = 0;
       updateData.paymentStatus = "PENDIENTE";
       updateData.status = "POR_VALIDAR";
@@ -362,7 +363,7 @@ function EditRegistrationForm({
                   <SelectContent>
                     <SelectItem value="EFECTIVO">Efectivo</SelectItem>
                     <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                    <SelectItem value="NONE">Pendiente</SelectItem>
+                    <SelectItem value="SIN_PAGO">Pendiente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -422,6 +423,7 @@ export default function RegistrationsListPage() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterOrigin, setFilterOrigin] = useState("all")
   const [filterDay, setFilterDay] = useState("all")
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState("all")
 
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -485,9 +487,12 @@ export default function RegistrationsListPage() {
         
       const matchesDay = filterDay === "all" || r.attendanceDay === filterDay;
 
-      return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay;
+      const currentPM = r.lastPaymentMethod || r.paymentMethod || "SIN_PAGO";
+      const matchesPayment = filterPaymentMethod === "all" || currentPM === filterPaymentMethod;
+
+      return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay && matchesPayment;
     })
-  }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay])
+  }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterPaymentMethod])
 
   const resetFilters = () => {
     setSearchTerm("")
@@ -496,6 +501,7 @@ export default function RegistrationsListPage() {
     setFilterStatus("all")
     setFilterOrigin("all")
     setFilterDay("all")
+    setFilterPaymentMethod("all")
   }
 
   const handleOpenValidation = (reg: any) => {
@@ -699,6 +705,19 @@ export default function RegistrationsListPage() {
                   <SelectItem value="all">Todos Horarios</SelectItem>
                   <SelectItem value="SABADO">Sábados</SelectItem>
                   <SelectItem value="DOMINGO">Domingos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Forma de Pago</Label>
+              <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
+                <SelectTrigger className="w-[150px] h-11 rounded-xl bg-white shadow-sm"><SelectValue placeholder="Método Pago" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Métodos</SelectItem>
+                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                  <SelectItem value="SIN_PAGO">Pendiente</SelectItem>
                 </SelectContent>
               </Select>
             </div>
