@@ -7,15 +7,34 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Camera, Shield, Mail, User, MapPin, Loader2, Save, Key, Lock, FlipHorizontal, X, Cake, Image as ImageIcon } from "lucide-react"
+import { 
+  Camera, 
+  Shield, 
+  Mail, 
+  User, 
+  MapPin, 
+  Loader2, 
+  Save, 
+  Key, 
+  Lock, 
+  FlipHorizontal, 
+  X, 
+  Cake, 
+  Image as ImageIcon,
+  ZoomIn,
+  Move,
+  Check
+} from "lucide-react"
 import { useUser, useDoc, useFirestore, useAuth, useMemoFirebase } from "@/firebase"
 import { doc, updateDoc } from "firebase/firestore"
 import { updatePassword } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+import { cn } from "@/lib/utils"
 
 export default function ProfilePage() {
   const [mounted, setMounted] = useState(false)
@@ -27,18 +46,25 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
   const [showCamera, setShowCamera] = useState(false)
+  const [showAdjuster, setShowAdjuster] = useState(false)
+  const [pendingPhoto, setPendingPhoto] = useState<string | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
   
-  // Flag para evitar que las actualizaciones en tiempo real de Firestore
-  // sobrescriban los cambios locales mientras el usuario está editando.
+  // Estados para el ajuste de imagen
+  const [zoom, setZoom] = useState(1)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  
   const [isInitialized, setIsInitialized] = useState(false)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const adjusterImgRef = useRef<HTMLImageElement>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -60,7 +86,6 @@ export default function ProfilePage() {
 
   const [newPassword, setNewPassword] = useState("")
 
-  // Solo inicializamos el formulario con los datos de Firestore UNA VEZ por sesión.
   useEffect(() => {
     if (profile && !isInitialized) {
       setFormData({
@@ -72,39 +97,6 @@ export default function ProfilePage() {
       setIsInitialized(true)
     }
   }, [profile, isInitialized])
-
-  // Compresión mejorada para calidad de perfil
-  const compressImage = (source: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new (window as any).Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 800; // Resolución optimizada para perfil
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8)); // Calidad 0.8 para máxima nitidez
-      };
-      img.onerror = () => reject(new Error("Error al cargar la imagen"));
-      img.src = source;
-    });
-  };
 
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
@@ -123,25 +115,19 @@ export default function ProfilePage() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast({ variant: "destructive", title: "Formato no válido", description: "Por favor selecciona una imagen." });
+      toast({ variant: "destructive", title: "Formato no válido" });
       return;
     }
 
-    const objectUrl = URL.createObjectURL(file);
-    try {
-      const compressed = await compressImage(objectUrl);
-      // Usamos el estado anterior para asegurar persistencia
-      setFormData(prev => ({ ...prev, photoUrl: compressed }));
-      toast({ title: "Imagen lista", description: "La foto se ha optimizado correctamente." });
-    } catch (error) {
-      console.error("Error al procesar archivo:", error);
-      const reader = new FileReader();
-      reader.onload = () => setFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
-      reader.readAsDataURL(file);
-    } finally {
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-      if (e.target) e.target.value = "";
-    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPendingPhoto(reader.result as string);
+      setZoom(1);
+      setPosition({ x: 0, y: 0 });
+      setShowAdjuster(true);
+    };
+    reader.readAsDataURL(file);
+    if (e.target) e.target.value = "";
   }
 
   const startCamera = async (deviceId?: string) => {
@@ -170,13 +156,8 @@ export default function ProfilePage() {
       }
       setShowCamera(true)
     } catch (error) {
-      console.error('Error accessing camera:', error)
       setHasCameraPermission(false)
-      toast({
-        variant: 'destructive',
-        title: 'Acceso denegado',
-        description: 'Por favor, permite el acceso a la cámara en tu navegador.',
-      })
+      toast({ variant: 'destructive', title: 'Acceso a cámara denegado' })
     }
   }
 
@@ -192,34 +173,77 @@ export default function ProfilePage() {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current
       const canvas = canvasRef.current
-      
-      const targetRatio = 3 / 4;
-      let sourceWidth = video.videoWidth;
-      let sourceHeight = video.videoHeight;
-      let sourceX = 0;
-      let sourceY = 0;
-
-      if (sourceWidth / sourceHeight > targetRatio) {
-        const newWidth = sourceHeight * targetRatio;
-        sourceX = (sourceWidth - newWidth) / 2;
-        sourceWidth = newWidth;
-      } else {
-        const newHeight = sourceWidth / targetRatio;
-        sourceY = (sourceHeight - newHeight) / 2;
-        sourceHeight = newHeight;
-      }
-
-      canvas.width = 400;
-      canvas.height = 533;
-      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d')
       if (ctx) {
-        ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-        setFormData(prev => ({ ...prev, photoUrl: dataUrl }))
-        stopCamera()
+        ctx.drawImage(video, 0, 0);
+        setPendingPhoto(canvas.toDataURL('image/jpeg', 0.9));
+        setZoom(1);
+        setPosition({ x: 0, y: 0 });
+        setShowAdjuster(true);
+        stopCamera();
       }
     }
+  }
+
+  const handleAdjusterConfirm = () => {
+    if (!canvasRef.current || !adjusterImgRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Generar recorte final cuadrado (800x800)
+    canvas.width = 800;
+    canvas.height = 800;
+    
+    const img = adjusterImgRef.current;
+    const displaySize = 300; // tamaño del contenedor del visor
+    
+    // Calcular escala real
+    const realScale = (img.naturalWidth / img.width) * zoom;
+    
+    // Limpiar canvas
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, 800, 800);
+    
+    // Dibujar imagen con transformaciones
+    ctx.save();
+    ctx.translate(400, 400); // Mover al centro del canvas
+    ctx.scale(realScale, realScale);
+    // Aplicar posición relativa al centro del visor
+    ctx.translate(position.x * (img.naturalWidth / (img.width * realScale)), position.y * (img.naturalHeight / (img.height * realScale)));
+    
+    ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
+    ctx.restore();
+
+    const finalDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    setFormData(prev => ({ ...prev, photoUrl: finalDataUrl }));
+    setShowAdjuster(false);
+    setPendingPhoto(null);
+    toast({ title: "Imagen ajustada" });
+  }
+
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    setIsDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setDragStart({ x: clientX - position.x, y: clientY - position.y });
+  }
+
+  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDragging) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setPosition({
+      x: clientX - dragStart.x,
+      y: clientY - dragStart.y
+    });
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
   }
 
   const handleSaveProfile = async () => {
@@ -228,32 +252,22 @@ export default function ProfilePage() {
 
     updateDoc(userProfileRef, formData)
       .then(() => {
-        toast({
-          title: "Perfil actualizado",
-          description: "Tus datos personales se han guardado correctamente.",
-        })
+        toast({ title: "Perfil actualizado" })
       })
       .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: userProfileRef.path,
           operation: 'update',
           requestResourceData: formData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
       })
-      .finally(() => {
-        setIsSaving(false)
-      })
+      .finally(() => setIsSaving(false))
   }
 
   const handleUpdatePassword = async () => {
     if (!auth || !auth.currentUser || !newPassword) return
     if (newPassword.length < 6) {
-      toast({
-        variant: "destructive",
-        title: "Contraseña débil",
-        description: "La contraseña debe tener al menos 6 caracteres.",
-      })
+      toast({ variant: "destructive", title: "Contraseña débil" })
       return
     }
 
@@ -261,17 +275,9 @@ export default function ProfilePage() {
     try {
       await updatePassword(auth.currentUser, newPassword)
       setNewPassword("")
-      toast({
-        title: "Contraseña actualizada",
-        description: "Tu nueva contraseña ha sido guardada con éxito.",
-      })
+      toast({ title: "Contraseña actualizada" })
     } catch (error: any) {
-      console.error(error)
-      toast({
-        variant: "destructive",
-        title: "Error de seguridad",
-        description: "Para cambiar la contraseña, debes haber iniciado sesión recientemente. Intenta cerrar sesión y volver a entrar.",
-      })
+      toast({ variant: "destructive", title: "Error de seguridad", description: "Vuelve a iniciar sesión para cambiar la contraseña." })
     } finally {
       setIsUpdatingPassword(false)
     }
@@ -296,7 +302,7 @@ export default function ProfilePage() {
         <div className="lg:col-span-1 space-y-8">
           <Card className="border-none shadow-xl text-center overflow-hidden bg-white">
             <CardHeader className="relative pb-0 pt-10">
-              <div className="mx-auto h-32 w-32 rounded-full border-4 border-slate-50 p-1 relative">
+              <div className="mx-auto h-32 w-32 rounded-full border-4 border-slate-50 p-1 relative shadow-lg">
                 <Avatar className="h-full w-full">
                   <AvatarImage src={formData.photoUrl || undefined} className="object-cover" />
                   <AvatarFallback className="bg-slate-50 text-slate-300">
@@ -307,17 +313,15 @@ export default function ProfilePage() {
                 <div className="absolute -bottom-1 -right-1 flex gap-1">
                   <button 
                     type="button"
-                    className="h-9 w-9 rounded-full bg-primary text-white border-4 border-white flex items-center justify-center hover:bg-primary/90 transition-colors shadow-lg"
+                    className="h-9 w-9 rounded-full bg-primary text-white border-4 border-white flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg active:scale-95"
                     onClick={() => startCamera()}
-                    title="Tomar Foto"
                   >
                     <Camera className="h-4 w-4" />
                   </button>
                   <button 
                     type="button"
-                    className="h-9 w-9 rounded-full bg-accent text-white border-4 border-white flex items-center justify-center hover:bg-accent/90 transition-colors shadow-lg"
+                    className="h-9 w-9 rounded-full bg-accent text-white border-4 border-white flex items-center justify-center hover:bg-accent/90 transition-all shadow-lg active:scale-95"
                     onClick={() => fileInputRef.current?.click()}
-                    title="Subir Archivo"
                   >
                     <ImageIcon className="h-4 w-4" />
                   </button>
@@ -393,9 +397,6 @@ export default function ProfilePage() {
                     onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
                     className="h-12 rounded-xl bg-slate-50 border-slate-200"
                   />
-                  <p className="text-[10px] text-muted-foreground italic">
-                    * El sistema notificará a tus compañeros de equipo 3 días antes de tu cumpleaños.
-                  </p>
                 </div>
               </div>
             </CardContent>
@@ -449,13 +450,14 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* DIÁLOGO DE CÁMARA */}
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
             <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Foto de Perfil</DialogTitle>
           </DialogHeader>
           
-          <div className="relative bg-black aspect-[3/4] max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
+          <div className="relative bg-black aspect-square max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
             <video 
               ref={onVideoRef} 
               autoPlay 
@@ -469,7 +471,6 @@ export default function ProfilePage() {
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-slate-900/90 gap-4">
                 <X className="h-12 w-12 text-red-500" />
                 <p className="font-bold">Acceso a cámara requerido</p>
-                <p className="text-xs text-slate-400">Habilita los permisos en tu navegador para usar esta función.</p>
               </div>
             )}
           </div>
@@ -497,6 +498,71 @@ export default function ProfilePage() {
                 <Camera className="h-5 w-5" /> Capturar
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO DE AJUSTE Y RECORTE */}
+      <Dialog open={showAdjuster} onOpenChange={(open) => !open && setShowAdjuster(false)}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          <DialogHeader className="p-6 bg-slate-900 text-white">
+            <DialogTitle className="flex items-center gap-2"><Move className="h-5 w-5" /> Ajustar Fotografía</DialogTitle>
+            <DialogDescription className="text-slate-400">Desplaza y ajusta el zoom para centrar tu rostro.</DialogDescription>
+          </DialogHeader>
+          
+          <div className="p-8 bg-slate-50 flex flex-col items-center gap-8">
+            <div 
+              className="relative w-[300px] h-[300px] rounded-full border-4 border-white shadow-2xl bg-black overflow-hidden cursor-move touch-none"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleMouseDown}
+              onTouchMove={handleMouseMove}
+              onTouchEnd={handleMouseUp}
+            >
+              {pendingPhoto && (
+                <img 
+                  ref={adjusterImgRef}
+                  src={pendingPhoto} 
+                  alt="Ajuste"
+                  className="absolute pointer-events-none select-none max-w-none"
+                  style={{
+                    transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                    left: '50%',
+                    top: '50%',
+                    marginLeft: adjusterImgRef.current ? -adjusterImgRef.current.width / 2 : 0,
+                    marginTop: adjusterImgRef.current ? -adjusterImgRef.current.height / 2 : 0,
+                    transition: isDragging ? 'none' : 'transform 0.1s'
+                  }}
+                />
+              )}
+              {/* Overlay de guía circular */}
+              <div className="absolute inset-0 rounded-full border-[100px] border-slate-900/20 pointer-events-none" />
+            </div>
+
+            <div className="w-full space-y-4 px-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2">
+                  <ZoomIn className="h-3 w-3" /> Nivel de Zoom
+                </Label>
+                <span className="text-[10px] font-bold text-primary">{Math.round(zoom * 100)}%</span>
+              </div>
+              <Slider 
+                value={[zoom]} 
+                min={0.5} 
+                max={3} 
+                step={0.01} 
+                onValueChange={(val) => setZoom(val[0])} 
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 bg-white border-t flex gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setShowAdjuster(false)}>Cancelar</Button>
+            <Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold gap-2 shadow-lg" onClick={handleAdjusterConfirm}>
+              <Check className="h-5 w-5" /> Confirmar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
