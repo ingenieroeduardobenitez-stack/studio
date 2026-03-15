@@ -40,7 +40,9 @@ import {
   ZoomIn,
   ZoomOut,
   Camera,
-  FlipHorizontal
+  FlipHorizontal,
+  UserX,
+  Shapes
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
@@ -79,6 +81,7 @@ import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 
 type CaptureTarget = "photo" | "baptism" | "paymentProof"
 
@@ -429,11 +432,15 @@ export default function RegistrationsListPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false)
+  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false)
   const [isValidationOpen, setIsValidationOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  
   const [valAmount, setValAmount] = useState(0)
+  const [targetGroupId, setTargetGroupId] = useState("")
+  const [withdrawReason, setWithdrawReason] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
-  const [zoomScale, setZoomScale] = useState(1)
   
   const [isPhotoViewOpen, setIsPhotoViewOpen] = useState(false)
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null)
@@ -451,12 +458,15 @@ export default function RegistrationsListPage() {
   const registrationsQuery = useMemoFirebase(() => db ? query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200)) : null, [db])
   const { data: registrations, loading: loadingRegs } = useCollection(registrationsQuery)
 
-  const findUserById = (uid: string) => {
-    return allUsers?.find(u => u.id === uid)
-  }
+  const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
+  const { data: allGroups } = useCollection(groupsQuery)
 
   const allUsersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const { data: allUsers } = useCollection(allUsersQuery)
+
+  const findUserById = (uid: string) => {
+    return allUsers?.find(u => u.id === uid)
+  }
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
 
@@ -553,6 +563,57 @@ export default function RegistrationsListPage() {
       setIsValidationOpen(false)
       setIsReceiptOpen(true)
     } catch (e) { toast({ variant: "destructive", title: "Error al validar" }) }
+    finally { setIsProcessing(false) }
+  }
+
+  const handleAssignGroup = async () => {
+    if (!db || !selectedReg || !targetGroupId) return
+    setIsProcessing(true)
+    try {
+      const regRef = doc(db, "confirmations", selectedReg.id)
+      const groupName = allGroups?.find(g => g.id === targetGroupId)?.name || "Grupo"
+      
+      await updateDoc(regRef, { groupId: targetGroupId })
+      
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Asignación de Grupo",
+        module: "inscripcion",
+        details: `Se asignó a ${selectedReg.fullName} al grupo "${groupName}"`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Grupo Asignado" })
+      setIsGroupDialogOpen(false)
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    finally { setIsProcessing(false) }
+  }
+
+  const handleWithdraw = async () => {
+    if (!db || !selectedReg || !withdrawReason) return
+    setIsProcessing(true)
+    try {
+      const regRef = doc(db, "confirmations", selectedReg.id)
+      await updateDoc(regRef, { 
+        isArchived: true, 
+        status: "RETIRADO", 
+        withdrawalReason: withdrawReason,
+        withdrawalDate: new Date().toISOString()
+      })
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Baja de Alumno",
+        module: "inscripcion",
+        details: `Se dio de baja a ${selectedReg.fullName}. Motivo: ${withdrawReason}`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Alumno dado de baja" })
+      setIsWithdrawDialogOpen(false)
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setIsProcessing(false) }
   }
 
@@ -823,8 +884,10 @@ export default function RegistrationsListPage() {
                           )}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[180px] p-2 rounded-xl">
+                            <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-xl">
                               <DropdownMenuItem onClick={() => { setSelectedReg(reg); setIsEditDialogOpen(true); }} className="h-10 rounded-lg gap-2"><Edit className="h-4 w-4" /> Editar Ficha</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setSelectedReg(reg); setTargetGroupId(reg.groupId || ""); setIsGroupDialogOpen(true); }} className="h-10 rounded-lg gap-2"><Shapes className="h-4 w-4" /> Asignar Grupo</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setSelectedReg(reg); setWithdrawReason(""); setIsWithdrawDialogOpen(true); }} className="h-10 rounded-lg gap-2 text-orange-600"><UserX className="h-4 w-4" /> Dar de Baja</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} className="h-10 rounded-lg gap-2 text-destructive"><Trash2 className="h-4 w-4" /> Eliminar</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -943,7 +1006,7 @@ export default function RegistrationsListPage() {
                     <p className="text-sm font-bold text-slate-900">{selectedReg?.motherName || 'No registrado'}</p>
                     {selectedReg?.motherPhone && (
                       <Button variant="ghost" className="h-8 p-0 text-primary hover:bg-transparent gap-2" asChild>
-                        <a href={`https://wa.me/${selectedReg.motherPhone.replace(/[^0-9]/g, '')}`} target="_blank">
+                        <a href={`https://wa.me/${selectedReg.motherPhone.replace(/[^0-99]/g, '')}`} target="_blank">
                           <MessageCircle className="h-3.5 w-3.5" />
                           <span className="text-xs font-bold">{selectedReg.motherPhone}</span>
                         </a>
@@ -1120,6 +1183,76 @@ export default function RegistrationsListPage() {
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOGO DE ASIGNACIÓN DE GRUPO */}
+      <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] rounded-3xl p-0 overflow-hidden">
+          <DialogHeader className="p-6 bg-primary text-white">
+            <DialogTitle className="flex items-center gap-2"><Shapes className="h-5 w-5" /> Asignar Grupo</DialogTitle>
+            <DialogDescription className="text-white/70">Selecciona el grupo de catequesis para {selectedReg?.fullName}</DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-500 uppercase">Seleccionar Grupo Disponible</Label>
+              <Select value={targetGroupId} onValueChange={setTargetGroupId}>
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Elige un grupo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {!allGroups || allGroups.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400">No hay grupos creados.</div>
+                  ) : (
+                    allGroups
+                      .filter(g => g.catechesisYear === selectedReg?.catechesisYear)
+                      .map(group => (
+                        <SelectItem key={group.id} value={group.id}>
+                          {group.name} ({group.attendanceDay}s)
+                        </SelectItem>
+                      ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsGroupDialogOpen(false)}>Cancelar</Button>
+            <Button className="flex-1 h-12 rounded-xl font-bold bg-primary shadow-lg" onClick={handleAssignGroup} disabled={isProcessing || !targetGroupId}>
+              {isProcessing ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Asignación"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOGO DE DAR DE BAJA */}
+      <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
+        <DialogContent className="sm:max-w-[450px] rounded-3xl p-0 overflow-hidden">
+          <DialogHeader className="p-6 bg-orange-600 text-white">
+            <DialogTitle className="flex items-center gap-2"><UserX className="h-5 w-5" /> Baja de Alumno</DialogTitle>
+            <DialogDescription className="text-white/70">Registrar el retiro oficial de {selectedReg?.fullName}</DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-4">
+            <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 text-orange-800 text-xs font-medium flex items-start gap-3">
+              <Info className="h-4 w-4 shrink-0 mt-0.5" />
+              Esta acción archivará la ficha permanentemente. Solo podrá restaurarla un Administrador.
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-500 uppercase">Motivo del Retiro</Label>
+              <Textarea 
+                placeholder="Ej. Cambio de domicilio, falta de tiempo, etc." 
+                className="rounded-xl min-h-[100px] resize-none"
+                value={withdrawReason}
+                onChange={(e) => setWithdrawReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsWithdrawDialogOpen(false)}>Cancelar</Button>
+            <Button className="flex-1 h-12 rounded-xl font-bold bg-orange-600 hover:bg-orange-700 shadow-lg text-white" onClick={handleWithdraw} disabled={isProcessing || !withdrawReason}>
+              {isProcessing ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Baja"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
