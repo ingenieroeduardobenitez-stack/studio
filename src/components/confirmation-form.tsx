@@ -580,12 +580,49 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><Church className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Inscripción Académica</h3></div>
               <div className="grid gap-6 md:grid-cols-2">
-                <FormField control={form.control} name="catechesisYear" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Nivel *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione el año" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">1° Año (Inicial)</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año (Confirmación)</SelectItem><SelectItem value="ADULTOS">Adultos (Intensivo)</SelectItem></Select><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="attendanceDay" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Horario *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccione horario" /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem><SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem></Select><FormMessage /></FormItem>
-                )} />
+                <FormField
+                  control={form.control}
+                  name="catechesisYear"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-bold">Nivel *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-12 rounded-xl">
+                            <SelectValue placeholder="Seleccione el nivel" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="PRIMER_AÑO">1° Año (Inicial)</SelectItem>
+                          <SelectItem value="SEGUNDO_AÑO">2° Año (Confirmación)</SelectItem>
+                          <SelectItem value="ADULTOS">Adultos (Intensivo)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="attendanceDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-bold">Horario de Preferencia *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-12 rounded-xl">
+                            <SelectValue placeholder="Seleccione horario" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="SABADO">Sábados (15:30 a 18:30)</SelectItem>
+                          <SelectItem value="DOMINGO">Domingos (08:00 a 11:00)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             </div>
 
@@ -613,7 +650,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             </div>
 
             <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b pb-2"><Wallet className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Método de Inscripción</h3></div>
+              <div className="flex items-center gap-3 border-b pb-2"><Wallet className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Método de Pago</h3></div>
               <FormField control={form.control} name="paymentMethod" render={({ field }) => (
                 <FormItem className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -642,7 +679,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <div className="relative border-2 border-dashed rounded-3xl h-40 flex flex-col items-center justify-center bg-white cursor-pointer" onClick={() => proofInputRef.current?.click()}>
                     {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><ImageIcon className="h-10 w-10 text-slate-300" /><span className="text-xs font-bold text-slate-400 uppercase">Cargar Comprobante</span></>}
                     <div className="absolute bottom-2 right-2 flex gap-2">
-                      <Button type="button" size="sm" className="rounded-full h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); startCamera("PAYMENT_PROOF"); }}><Camera className="h-4 w-4" /></Button>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); startCamera("PAYMENT_PROOF"); }} className="h-8 w-8 bg-primary text-white rounded-full flex items-center justify-center shadow-lg"><Camera className="h-4 w-4" /></button>
                     </div>
                   </div>
                   <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
@@ -652,7 +689,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </CardContent>
           <CardFooter className="bg-slate-50 p-10 flex flex-col gap-6">
             <div className="flex items-center justify-between bg-white px-6 py-3 rounded-2xl border w-full max-w-xs">
-              <span className="text-[10px] font-black text-slate-400 uppercase">Monto:</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase">Monto a abonar:</span>
               <FormField control={form.control} name="registrationCost" render={({ field }) => (
                 <FormItem className="space-y-0"><FormControl><div className="flex items-center gap-1"><Input type="number" {...field} className="w-20 h-8 p-0 border-none text-right font-black text-primary focus-visible:ring-0" /><span className="font-black text-primary">Gs.</span></div></FormControl></FormItem>
               )} />
@@ -670,7 +707,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           <div className="relative bg-black aspect-[3/4] flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" /></div>
           <DialogFooter className="p-6 bg-slate-50 flex gap-3">
             <Button type="button" variant="outline" className="flex-1 h-12" onClick={stopCamera}>CANCELAR</Button>
-            <Button type="button" className="flex-1 h-12" onClick={takePhoto}>TOMAR FOTO</Button>
+            <Button type="button" className="flex-1 h-12 bg-primary text-white" onClick={takePhoto}>TOMAR FOTO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -679,6 +716,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 }
 
 function ReceiptOfficialContent({ submittedData, dateDay, monthName }: { submittedData: any, dateDay: any, monthName: any }) {
+  const provId = submittedData?.id?.includes('_') ? submittedData.id.split('_')[1] : (submittedData?.id || '---');
+  
   return (
     <div id="receipt-content-official" className="bg-white p-10 text-black font-serif border-[4px] border-black w-[800px] h-auto min-h-[1000px] mx-auto">
       <div className="flex gap-4 mb-8">
@@ -688,7 +727,7 @@ function ReceiptOfficialContent({ submittedData, dateDay, monthName }: { submitt
         </div>
         <div className="w-[220px] flex flex-col gap-2">
           <div className="border-[2px] border-black p-2 text-center h-[60%] flex flex-col justify-center"><p className="text-[10px] font-black uppercase">GS.</p><p className="text-2xl font-black">{submittedData?.registrationCost?.toLocaleString('es-PY')}</p></div>
-          <div className="border-[2px] border-black p-1 text-center flex-1"><p className="text-[8px] font-bold uppercase">RECIBO PROV.</p><p className="text-xs font-black font-mono">{submittedData?.id.split('_')[1]}</p></div>
+          <div className="border-[2px] border-black p-1 text-center flex-1"><p className="text-[8px] font-bold uppercase">RECIBO PROV.</p><p className="text-xs font-black font-mono">{provId}</p></div>
         </div>
       </div>
       <div className="text-center mb-10"><h2 className="text-4xl font-black italic tracking-[0.2em] border-b-[3px] border-black inline-block px-16 pb-1">RECIBO</h2></div>
