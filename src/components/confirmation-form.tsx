@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -250,9 +251,15 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setCaptureTarget(target)
     try {
       if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } }
-      })
+      const constraints = {
+        video: { 
+          deviceId: deviceId ? { exact: deviceId } : undefined, 
+          width: { ideal: 1280 }, 
+          height: { ideal: 720 },
+          facingMode: deviceId ? undefined : "environment"
+        }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
       setCurrentStream(stream)
       setHasCameraPermission(true)
       const availableDevices = await navigator.mediaDevices.enumerateDevices()
@@ -441,6 +448,43 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     window.open(`https://wa.me/?text=${encoded}`, '_blank');
   }
 
+  const ImageInputSection = ({ 
+    title, 
+    preview, 
+    onCamera, 
+    onFile, 
+    target 
+  }: { 
+    title: string, 
+    preview: string | null, 
+    onCamera: () => void, 
+    onFile: () => void, 
+    target: CaptureTarget 
+  }) => (
+    <div className="space-y-2">
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{title}</p>
+      <div className="relative group mx-auto">
+        <div 
+          className="h-40 w-full rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 overflow-hidden flex flex-col items-center justify-center cursor-pointer shadow-inner transition-all hover:bg-slate-100"
+          onClick={onCamera}
+        >
+          {preview ? (
+            <img src={preview} className="h-full w-full object-cover" />
+          ) : (
+            <div className="text-center space-y-2">
+              <Camera className="h-8 w-8 text-slate-300 mx-auto" />
+              <p className="text-[8px] font-bold text-slate-400 uppercase">Tocar para capturar</p>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-center gap-2 mt-2">
+          <Button type="button" variant="outline" size="sm" className="h-8 text-[9px] font-black uppercase rounded-xl" onClick={onCamera}><Camera className="h-3.5 w-3.5 mr-1.5" /> Cámara</Button>
+          <Button type="button" variant="outline" size="sm" className="h-8 text-[9px] font-black uppercase rounded-xl" onClick={onFile}><ImageIcon className="h-3.5 w-3.5 mr-1.5" /> Galería</Button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (isSubmittedSuccessfully) {
     const hasPaid = submittedData?.paymentMethod !== "SIN_PAGO";
     const dateDay = submittedData?.timestamp?.getDate();
@@ -516,20 +560,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             <CardDescription className="text-white/80">Catequesis de Confirmación - Santuario Nacional NSPS</CardDescription>
           </CardHeader>
           <CardContent className="p-8 space-y-12">
-            <div className="flex flex-col items-center gap-4">
-              <div className="relative group">
-                <Avatar className="h-32 w-32 border-4 border-slate-50 shadow-xl">
-                  <AvatarImage src={photoPreview || undefined} className="object-cover" />
-                  <AvatarFallback className="bg-slate-100 text-slate-300"><User className="h-16 w-16" /></AvatarFallback>
-                </Avatar>
-                <div className="absolute -bottom-2 -right-2 flex gap-2">
-                  <button type="button" onClick={() => startCamera("STUDENT_PHOTO")} className="h-9 w-9 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg active:scale-95 transition-transform"><Camera className="h-4 w-4" /></button>
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="h-9 w-9 bg-accent text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg active:scale-95 transition-transform"><ImageIcon className="h-4 w-4" /></button>
-                </div>
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "photoUrl")} />
-              </div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Foto del Postulante</p>
-            </div>
+            <ImageInputSection 
+              title="Foto del Postulante" 
+              preview={photoPreview} 
+              onCamera={() => startCamera("STUDENT_PHOTO")} 
+              onFile={() => fileInputRef.current?.click()} 
+              target="STUDENT_PHOTO" 
+            />
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "photoUrl")} />
 
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2"><UserPlus className="h-5 w-5 text-primary" /><h3 className="font-headline font-bold text-lg">Datos del Confirmando</h3></div>
@@ -638,9 +676,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <FormField control={form.control} name="baptismBook" render={({ field }) => (<FormItem><FormControl><Input placeholder="Libro" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
                     <FormField control={form.control} name="baptismFolio" render={({ field }) => (<FormItem><FormControl><Input placeholder="Folio" {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
                   </div>
-                  <div className="border-2 border-dashed rounded-3xl h-40 flex flex-col items-center justify-center bg-white cursor-pointer overflow-hidden" onClick={() => startCamera("BAPTISM_CERT")}>
-                    {baptismPreview ? <img src={baptismPreview} className="w-full h-full object-cover" /> : <><Book className="h-10 w-10 text-slate-300 mb-2" /><span className="text-xs font-bold text-slate-400 uppercase">Foto Certificado</span></>}
-                  </div>
+                  <ImageInputSection 
+                    title="Certificado de Bautismo" 
+                    preview={baptismPreview} 
+                    onCamera={() => startCamera("BAPTISM_CERT")} 
+                    onFile={() => baptismInputRef.current?.click()} 
+                    target="BAPTISM_CERT" 
+                  />
                   <input type="file" ref={baptismInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "baptismCertificatePhotoUrl")} />
                 </div>
               )}
@@ -676,12 +718,13 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <div className="space-y-1"><p className="text-[10px] font-black text-slate-400 uppercase">Titular</p><p className="text-sm font-bold text-slate-700">{costs?.accountOwner || "Santuario NSPS"}</p></div>
                     {costs?.alias && (<div className="p-4 bg-white rounded-2xl border-2 border-primary/20 flex items-center justify-between"><p className="text-lg font-black text-primary">{costs.alias}</p><Button type="button" size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(costs.alias || "")}><Copy className="h-4 w-4" /></Button></div>)}
                   </div>
-                  <div className="relative border-2 border-dashed rounded-3xl h-40 flex flex-col items-center justify-center bg-white cursor-pointer" onClick={() => proofInputRef.current?.click()}>
-                    {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><ImageIcon className="h-10 w-10 text-slate-300" /><span className="text-xs font-bold text-slate-400 uppercase">Cargar Comprobante</span></>}
-                    <div className="absolute bottom-2 right-2 flex gap-2">
-                      <button type="button" onClick={(e) => { e.stopPropagation(); startCamera("PAYMENT_PROOF"); }} className="h-8 w-8 bg-primary text-white rounded-full flex items-center justify-center shadow-lg"><Camera className="h-4 w-4" /></button>
-                    </div>
-                  </div>
+                  <ImageInputSection 
+                    title="Comprobante de Transferencia" 
+                    preview={proofPreview} 
+                    onCamera={() => startCamera("PAYMENT_PROOF")} 
+                    onFile={() => proofInputRef.current?.click()} 
+                    target="PAYMENT_PROOF" 
+                  />
                   <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
                 </div>
               )}
@@ -702,12 +745,33 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       </Form>
 
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Capturar Foto</DialogTitle></DialogHeader>
-          <div className="relative bg-black aspect-[3/4] flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" /></div>
-          <DialogFooter className="p-6 bg-slate-50 flex gap-3">
-            <Button type="button" variant="outline" className="flex-1 h-12" onClick={stopCamera}>CANCELAR</Button>
-            <Button type="button" className="flex-1 h-12 bg-primary text-white" onClick={takePhoto}>TOMAR FOTO</Button>
+        <DialogContent className="sm:max-w-[500px] w-[95vw] p-0 overflow-hidden rounded-[2.5rem] flex flex-col max-h-[90vh] border-none shadow-2xl">
+          <DialogHeader className="p-4 bg-primary text-white shrink-0">
+            <DialogTitle className="text-sm font-black uppercase tracking-widest text-center">Capturar Foto</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden min-h-0">
+            <video 
+              ref={onVideoRef} 
+              autoPlay 
+              muted 
+              playsInline 
+              className="max-h-full w-full object-contain" 
+            />
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 flex flex-col gap-4 shrink-0 border-t">
+            {devices.length > 1 && (
+              <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}>
+                <SelectTrigger className="h-10 rounded-xl bg-white text-xs border-slate-200"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                <SelectContent>{devices.map((d) => (<SelectItem key={d.deviceId} value={d.deviceId} className="text-xs">{d.label || `Cámara ${d.deviceId.slice(0,5)}`}</SelectItem>))}</SelectContent>
+              </Select>
+            )}
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" className="flex-1 h-14 rounded-2xl font-black text-xs uppercase" onClick={stopCamera}>CANCELAR</Button>
+              <Button type="button" className="flex-1 h-14 bg-primary text-white font-black text-xs uppercase shadow-xl active:scale-95 transition-transform" onClick={takePhoto}>TOMAR FOTO</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -143,9 +143,15 @@ function EditRegistrationForm({
     setCaptureTarget(target)
     try {
       if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } }
-      })
+      const constraints = {
+        video: { 
+          deviceId: deviceId ? { exact: deviceId } : undefined, 
+          width: { ideal: 1280 }, 
+          height: { ideal: 720 },
+          facingMode: deviceId ? undefined : "environment"
+        }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
       setCurrentStream(stream)
       const availableDevices = await navigator.mediaDevices.enumerateDevices()
       setDevices(availableDevices.filter(d => d.kind === 'videoinput'))
@@ -272,113 +278,137 @@ function EditRegistrationForm({
       .finally(() => setIsSubmitting(false))
   }
 
-  return (
-    <form onSubmit={handleEditRegistration} className="flex-1 overflow-hidden flex flex-col">
-      <div className="flex-1 overflow-y-auto p-6 bg-white space-y-8 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase text-slate-400">Foto Perfil</Label>
-            <div className="relative h-40 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden group">
-              {editPhotoPreview ? <img src={editPhotoPreview} className="h-full w-full object-cover" /> : <User className="h-10 w-10 text-slate-200" />}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => startCamera("photo")}><Camera className="h-4 w-4" /></Button>
-                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => { setCaptureTarget("photo"); fileInputRef.current?.click(); }}><ImageIcon className="h-4 w-4" /></Button>
-              </div>
-            </div>
+  const ImageUploadBox = ({ title, preview, target }: { title: string, preview: string | null, target: CaptureTarget }) => (
+    <div className="space-y-2">
+      <Label className="text-[10px] font-black uppercase text-slate-400">{title}</Label>
+      <div className="relative h-48 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden shadow-inner group">
+        {preview ? (
+          <img src={preview} className="h-full w-full object-cover" />
+        ) : (
+          <div className="text-center space-y-1">
+            <ImageIcon className="h-8 w-8 text-slate-200 mx-auto" />
+            <p className="text-[8px] text-slate-300 font-bold uppercase">Sin imagen</p>
           </div>
-          <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase text-slate-400">Cert. Bautismo</Label>
-            <div className="relative h-40 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden group">
-              {editBaptismPreview ? <img src={editBaptismPreview} className="h-full w-full object-cover" /> : <BookOpen className="h-10 w-10 text-slate-200" />}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => startCamera("baptism")}><Camera className="h-4 w-4" /></Button>
-                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => { setCaptureTarget("baptism"); fileInputRef.current?.click(); }}><ImageIcon className="h-4 w-4" /></Button>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase text-slate-400">Comp. Pago</Label>
-            <div className="relative h-40 w-full rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden group">
-              {editPaymentProofPreview ? <img src={editPaymentProofPreview} className="h-full w-full object-cover" /> : <Wallet className="h-10 w-10 text-slate-200" />}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => startCamera("paymentProof")}><Camera className="h-4 w-4" /></Button>
-                <Button type="button" size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => { setCaptureTarget("paymentProof"); fileInputRef.current?.click(); }}><ImageIcon className="h-4 w-4" /></Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, captureTarget)} />
-
-        <div className="grid gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2"><Label>Nombre Completo</Label><Input name="fullName" defaultValue={selectedReg?.fullName} className="uppercase font-bold" /></div>
-            <div className="space-y-2">
-              <Label>Sexo</Label>
-              <Select value={editGender} onValueChange={setEditGender}>
-                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="M">Masculino</SelectItem><SelectItem value="F">Femenino</SelectItem></SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><Label>C.I. N°</Label><Input name="ciNumber" defaultValue={selectedReg?.ciNumber} /></div>
-            <div className="space-y-2"><Label>Celular</Label><Input name="phone" defaultValue={selectedReg?.phone} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><Label>Año Catequesis</Label>
-              <Select value={editCatechesisYear} onValueChange={setEditCatechesisYear}>
-                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2"><Label>Día Asistencia</Label>
-              <Select value={editAttendanceDay} onValueChange={setEditAttendanceDay}>
-                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><Label>Forma de Pago</Label>
-              <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
-                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                  <SelectItem value="NONE">Sin Pago / Pendiente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2"><Label>Monto Cobrado (Gs)</Label>
-              <Input type="number" value={editAmountPaid} onChange={(e) => setEditAmountPaid(Number(e.target.value))} className="font-black text-primary" />
-            </div>
-          </div>
+        )}
+        <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-sm p-2 flex justify-center gap-3 border-t">
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="sm" 
+            className="h-8 text-[9px] font-black uppercase gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors"
+            onClick={() => startCamera(target)}
+          >
+            <Camera className="h-3.5 w-3.5" /> CÁMARA
+          </Button>
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="sm" 
+            className="h-8 text-[9px] font-black uppercase gap-1.5 hover:bg-accent/10 hover:text-accent transition-colors"
+            onClick={() => { setCaptureTarget(target); fileInputRef.current?.click(); }}
+          >
+            <ImageIcon className="h-3.5 w-3.5" /> GALERÍA
+          </Button>
         </div>
       </div>
+    </div>
+  )
+
+  return (
+    <form onSubmit={handleEditRegistration} className="flex-1 overflow-hidden flex flex-col">
+      <ScrollArea className="flex-1">
+        <div className="p-6 bg-white space-y-8 pb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <ImageUploadBox title="Foto Perfil" preview={editPhotoPreview} target="photo" />
+            <ImageUploadBox title="Cert. Bautismo" preview={editBaptismPreview} target="baptism" />
+            <ImageUploadBox title="Comp. Pago" preview={editPaymentProofPreview} target="paymentProof" />
+          </div>
+
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, captureTarget)} />
+
+          <div className="grid gap-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase">Nombre Completo</Label><Input name="fullName" defaultValue={selectedReg?.fullName} className="h-11 rounded-xl uppercase font-black" /></div>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-slate-500 uppercase">Sexo</Label>
+                <Select value={editGender} onValueChange={setEditGender}>
+                  <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="M">Masculino</SelectItem><SelectItem value="F">Femenino</SelectItem></SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase">C.I. N°</Label><Input name="ciNumber" defaultValue={selectedReg?.ciNumber} className="h-11 rounded-xl bg-white" /></div>
+              <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase">Celular</Label><Input name="phone" defaultValue={selectedReg?.phone} className="h-11 rounded-xl bg-white" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase">Nivel</Label>
+                <Select value={editCatechesisYear} onValueChange={setEditCatechesisYear}>
+                  <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase">Día</Label>
+                <Select value={editAttendanceDay} onValueChange={setEditAttendanceDay}>
+                  <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase">Forma de Pago</Label>
+                <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
+                  <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                    <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                    <SelectItem value="NONE">Pendiente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase">Recaudado (Gs)</Label>
+                <Input type="number" value={editAmountPaid} onChange={(e) => setEditAmountPaid(Number(e.target.value))} className="h-11 rounded-xl bg-white font-black text-primary" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </ScrollArea>
 
       <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white"><DialogTitle>Capturar Foto</DialogTitle></DialogHeader>
-          <div className="relative bg-black aspect-[3/4] flex items-center justify-center overflow-hidden"><video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" /></div>
-          <DialogFooter className="p-6 bg-slate-50 flex flex-col gap-4">
+        <DialogContent className="sm:max-w-[500px] w-[95vw] p-0 overflow-hidden rounded-[2.5rem] flex flex-col max-h-[90vh] border-none shadow-2xl">
+          <DialogHeader className="p-4 bg-primary text-white shrink-0">
+            <DialogTitle className="text-sm font-black uppercase tracking-widest text-center">Capturar Foto</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden min-h-0">
+            <video 
+              ref={onVideoRef} 
+              autoPlay 
+              muted 
+              playsInline 
+              className="max-h-full w-full object-contain" 
+            />
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 flex flex-col gap-4 shrink-0 border-t">
             {devices.length > 1 && (
               <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(captureTarget, val); }}>
-                <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
-                <SelectContent>{devices.map((d) => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0,5)}`}</SelectItem>))}</SelectContent>
+                <SelectTrigger className="h-10 rounded-xl bg-white text-xs border-slate-200"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                <SelectContent>{devices.map((d) => (<SelectItem key={d.deviceId} value={d.deviceId} className="text-xs">{d.label || `Cámara ${d.deviceId.slice(0,5)}`}</SelectItem>))}</SelectContent>
               </Select>
             )}
             <div className="flex gap-3">
-              <Button type="button" variant="outline" className="flex-1 h-12" onClick={stopCamera}>CANCELAR</Button>
-              <Button type="button" className="flex-1 h-12 bg-primary text-white font-bold" onClick={takePhoto}>TOMAR FOTO</Button>
+              <Button type="button" variant="outline" className="flex-1 h-14 rounded-2xl font-black text-xs uppercase" onClick={stopCamera}>CANCELAR</Button>
+              <Button type="button" className="flex-1 h-14 bg-primary text-white font-black text-xs uppercase shadow-xl active:scale-95 transition-transform" onClick={takePhoto}>TOMAR FOTO</Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 shrink-0">
-        <Button type="button" variant="outline" className="flex-1 h-12" onClick={onClose}>Cancelar</Button>
-        <Button type="submit" className="flex-1 h-12 bg-slate-900 text-white font-bold" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />} Guardar Cambios</Button>
+        <Button type="button" variant="outline" className="flex-1 h-14 rounded-2xl font-black uppercase text-xs" onClick={onClose}>Cancelar</Button>
+        <Button type="submit" className="flex-1 h-14 bg-slate-900 text-white font-black uppercase text-xs shadow-xl active:scale-95 transition-transform" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />} Guardar Ficha</Button>
       </DialogFooter>
     </form>
   )
