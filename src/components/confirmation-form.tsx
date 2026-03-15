@@ -760,8 +760,23 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
                     <div className="space-y-3">
                       <Label className="font-bold text-slate-700">Comprobante de Pago *</Label>
-                      <div className="border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => startCamera("PAYMENT_PROOF")}>
-                        {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><ArrowRightLeft className="h-10 w-10 text-slate-300 mb-2 group-hover:scale-110 transition-transform" /><span className="text-xs font-bold text-slate-400 uppercase text-center px-8">Capturar Foto o Subir Comprobante</span></>}
+                      <div className="relative border-2 border-dashed rounded-3xl h-48 flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden group hover:bg-slate-100 transition-colors shadow-sm" onClick={() => proofInputRef.current?.click()}>
+                        {proofPreview ? (
+                          <img src={proofPreview} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2">
+                            <ArrowRightLeft className="h-10 w-10 text-slate-300 group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-bold text-slate-400 uppercase text-center px-8">Adjuntar Archivo o Capturar Foto</span>
+                          </div>
+                        )}
+                        <div className="absolute bottom-2 right-2 flex gap-2">
+                          <Button type="button" size="sm" className="rounded-full h-9 w-9 p-0 shadow-lg" onClick={(e) => { e.stopPropagation(); startCamera("PAYMENT_PROOF"); }}>
+                            <Camera className="h-4 w-4" />
+                          </Button>
+                          <Button type="button" variant="secondary" size="sm" className="rounded-full h-9 w-9 p-0 shadow-lg" onClick={(e) => { e.stopPropagation(); proofInputRef.current?.click(); }}>
+                            <ImageIcon className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                       <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "paymentProofUrl")} />
                     </div>
