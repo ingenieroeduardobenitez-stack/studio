@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -410,7 +409,7 @@ function EditRegistrationForm({
                 <Input 
                   type="number" 
                   value={editAmountPaid} 
-                  onChange={(e) => setEditAmountPaid(Number(e.target.value))}
+                  onChange={(e) => setEditAmountPaid(Number(editAmountPaid))}
                   readOnly={!isAdmin}
                   className={cn(
                     "h-11 rounded-xl bg-white border-slate-200 font-bold text-primary",
@@ -1079,7 +1078,6 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE RECIBO OFICIAL (TRASH/VALIDADO) */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl h-[90vh] flex flex-col">
           <DialogHeader className="p-4 bg-slate-50 border-b no-print shrink-0">
@@ -1470,10 +1468,10 @@ function StudentTable({ students, formatYear, getBadge, isAdmin, isTesorero, onA
               {getBadge(reg.status)}
             </TableCell>
             <TableCell className="text-right pr-8">
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 items-center">
                 {reg.status === "POR_VALIDAR" && reg.paymentProofUrl && (
-                  <Button size="sm" className="h-9 px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-black text-[10px] gap-2 shadow-lg active:scale-95 transition-all" onClick={() => onValidate(reg)}>
-                    <CheckCircle2 className="h-3.5 w-3.5" /> VALIDAR
+                  <Button size="sm" className="h-8 px-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 border-none font-black text-[9px] gap-1.5 shadow-sm active:scale-95 transition-all" onClick={() => onValidate(reg)}>
+                    <CheckCircle2 className="h-3 w-3" /> VALIDAR
                   </Button>
                 )}
                 <Button size="icon" variant="ghost" className="h-8 w-8 rounded-xl bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onClick={() => onViewDetails(reg)} title="Ver Ficha">
