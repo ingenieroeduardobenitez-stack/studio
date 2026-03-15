@@ -36,7 +36,9 @@ import {
   BookOpen,
   X,
   Globe,
-  Clock
+  Clock,
+  ZoomIn,
+  ZoomOut
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
@@ -317,6 +319,11 @@ export default function RegistrationsListPage() {
   const [valAmount, setValAmount] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
   const [zoomScale, setZoomScale] = useState(1)
+  
+  // Estados para vista previa de foto ampliada
+  const [isPhotoViewOpen, setIsPhotoViewOpen] = useState(false)
+  const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null)
+  const [photoZoom, setPhotoZoom] = useState(1)
 
   const db = useFirestore()
   const { user } = useUser()
@@ -444,6 +451,12 @@ export default function RegistrationsListPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  const openEnlargedPhoto = (url: string) => {
+    setViewPhotoUrl(url);
+    setIsPhotoViewOpen(true);
+    setPhotoZoom(1);
   }
 
   if (!mounted) return null
@@ -580,7 +593,13 @@ export default function RegistrationsListPage() {
                     <TableRow key={reg.id} className="h-20 hover:bg-slate-50/50 transition-colors">
                       <TableCell className="pl-8">
                         <div className="flex items-center gap-4">
-                          <Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User /></AvatarFallback></Avatar>
+                          <Avatar 
+                            className="h-10 w-10 border shadow-sm cursor-pointer hover:scale-110 transition-transform"
+                            onClick={() => reg.photoUrl && openEnlargedPhoto(reg.photoUrl)}
+                          >
+                            <AvatarImage src={reg.photoUrl} className="object-cover" />
+                            <AvatarFallback><User /></AvatarFallback>
+                          </Avatar>
                           <div className="flex flex-col">
                             <span className="font-bold text-sm text-slate-900 uppercase truncate max-w-[200px]">{reg.fullName}</span>
                             <span className="text-[10px] font-black text-primary leading-tight">{reg.ciNumber}</span>
@@ -659,151 +678,245 @@ export default function RegistrationsListPage() {
         </CardContent>
       </Card>
 
-      {/* DIALOGO DE DETALLE (VER FICHA) */}
+      {/* DIALOGO DE DETALLE (VER FICHA) - VISTA MEJORADA */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
-          <DialogHeader className="p-6 bg-primary text-white shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-12 w-12 border-2 border-white/20">
-                  <AvatarImage src={selectedReg?.photoUrl} className="object-cover" />
-                  <AvatarFallback className="bg-white/10 text-white"><User /></AvatarFallback>
-                </Avatar>
-                <div>
-                  <DialogTitle className="text-xl uppercase font-black tracking-tight">{selectedReg?.fullName}</DialogTitle>
-                  <DialogDescription className="text-white/70">Ficha de Inscripción 2026</DialogDescription>
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
+          <DialogHeader className="p-8 bg-primary text-white shrink-0 relative">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <Church className="h-32 w-32" />
+            </div>
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-6">
+                <div className="relative">
+                  <Avatar 
+                    className="h-24 w-24 border-4 border-white/20 shadow-2xl cursor-pointer hover:scale-105 transition-transform"
+                    onClick={() => selectedReg?.photoUrl && openEnlargedPhoto(selectedReg.photoUrl)}
+                  >
+                    <AvatarImage src={selectedReg?.photoUrl} className="object-cover" />
+                    <AvatarFallback className="bg-white/10 text-white"><User className="h-12 w-12" /></AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-2 -right-2 bg-white text-primary p-1.5 rounded-full shadow-lg">
+                    {selectedReg?.sexo === 'M' ? <Mars className="h-4 w-4" /> : <Venus className="h-4 w-4" />}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <DialogTitle className="text-3xl uppercase font-black tracking-tight leading-none">{selectedReg?.fullName}</DialogTitle>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-white/20 text-white border-none uppercase text-[10px] font-black tracking-widest">{selectedReg?.catechesisYear?.replace('_', ' ')}</Badge>
+                    <span className="h-1 w-1 rounded-full bg-white/40"></span>
+                    <p className="text-white/70 font-bold text-sm uppercase tracking-tighter">C.I. {selectedReg?.ciNumber}</p>
+                  </div>
                 </div>
               </div>
-              <Badge className="bg-white/20 text-white border-none uppercase text-[10px]">{selectedReg?.catechesisYear?.replace('_', ' ')}</Badge>
+              <div className="hidden md:flex flex-col items-end gap-2">
+                <Badge variant="outline" className="border-white/30 text-white bg-white/5 h-8 px-4 rounded-xl">
+                  {selectedReg?.status}
+                </Badge>
+                <p className="text-[10px] font-bold text-white/50 uppercase">Ciclo Lectivo 2026</p>
+              </div>
             </div>
           </DialogHeader>
-          <ScrollArea className="flex-1 bg-slate-50">
-            <div className="p-8 space-y-10">
-              {/* SECCIÓN 1: DATOS PERSONALES */}
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                  <User className="h-3 w-3" /> Información del Postulante
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-6 rounded-3xl border shadow-sm">
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Cédula N°</Label>
-                    <p className="text-sm font-bold text-slate-900">{selectedReg?.ciNumber}</p>
+          
+          <ScrollArea className="flex-1 bg-slate-50/50">
+            <div className="p-8 space-y-8 pb-12">
+              {/* FILA 1: INFORMACIÓN Y CONTACTO */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="border-none shadow-sm bg-white rounded-3xl p-6 space-y-4">
+                  <h4 className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                    <User className="h-3.5 w-3.5" /> Personales
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-[9px] font-bold text-slate-400 uppercase">Edad</Label>
+                      <p className="text-sm font-bold text-slate-900">{selectedReg?.age} años</p>
+                    </div>
+                    <div>
+                      <Label className="text-[9px] font-bold text-slate-400 uppercase">Nacimiento</Label>
+                      <p className="text-sm font-bold text-slate-900">{selectedReg?.birthDate}</p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Nacimiento</Label>
-                    <p className="text-sm font-bold text-slate-900">{selectedReg?.birthDate} ({selectedReg?.age} años)</p>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white rounded-3xl p-6 space-y-4">
+                  <h4 className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5" /> Contacto
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-[9px] font-bold text-slate-400 uppercase">Celular</Label>
+                      <p className="text-sm font-bold text-slate-900">{selectedReg?.phone}</p>
+                    </div>
+                    <div>
+                      <Label className="text-[9px] font-bold text-slate-400 uppercase">Horario</Label>
+                      <p className="text-sm font-bold text-slate-900">{selectedReg?.attendanceDay === 'SABADO' ? 'Sábados' : 'Domingos'}</p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Celular</Label>
-                    <p className="text-sm font-bold text-slate-900">{selectedReg?.phone}</p>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white rounded-3xl p-6 space-y-4">
+                  <h4 className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                    <Wallet className="h-3.5 w-3.5" /> Tesorería
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-[9px] font-bold text-slate-400 uppercase">Estado Pago</Label>
+                      <Badge variant="outline" className={cn("text-[9px] block w-fit mt-1", selectedReg?.paymentStatus === 'PAGADO' ? "bg-green-50 text-green-600 border-green-200" : "bg-amber-50 text-amber-600 border-amber-200")}>
+                        {selectedReg?.paymentStatus}
+                      </Badge>
+                    </div>
+                    <div>
+                      <Label className="text-[9px] font-bold text-slate-400 uppercase">Recaudado</Label>
+                      <p className="text-sm font-black text-slate-900">{selectedReg?.amountPaid?.toLocaleString('es-PY')} Gs.</p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Sexo</Label>
-                    <p className="text-sm font-bold text-slate-900">{selectedReg?.sexo === 'M' ? 'Masculino' : 'Femenino'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-bold text-slate-400 uppercase">Horario</Label>
-                    <p className="text-sm font-bold text-slate-900">{selectedReg?.attendanceDay === 'SABADO' ? 'Sábados' : 'Domingos'}</p>
-                  </div>
-                </div>
+                </Card>
               </div>
 
-              {/* SECCIÓN 2: PADRES / TUTORES */}
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Users className="h-3 w-3" /> Padres / Tutores
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-3xl border shadow-sm">
-                  <div className="space-y-3">
+              {/* SECCIÓN PADRES */}
+              <Card className="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
+                <div className="p-6 bg-slate-50/50 border-b flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Familia / Responsables</span>
+                </div>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-3 border-r pr-8">
                     <Label className="text-[9px] font-black text-slate-400 uppercase border-b pb-1 block">Madre</Label>
                     <p className="text-sm font-bold text-slate-900">{selectedReg?.motherName || 'No registrado'}</p>
-                    {selectedReg?.motherPhone && <p className="text-xs text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg.motherPhone}</p>}
+                    {selectedReg?.motherPhone && (
+                      <Button variant="ghost" className="h-8 p-0 text-primary hover:bg-transparent gap-2" asChild>
+                        <a href={`https://wa.me/${selectedReg.motherPhone.replace(/[^0-9]/g, '')}`} target="_blank">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          <span className="text-xs font-bold">{selectedReg.motherPhone}</span>
+                        </a>
+                      </Button>
+                    )}
                   </div>
                   <div className="space-y-3">
                     <Label className="text-[9px] font-black text-slate-400 uppercase border-b pb-1 block">Padre</Label>
                     <p className="text-sm font-bold text-slate-900">{selectedReg?.fatherName || 'No registrado'}</p>
-                    {selectedReg?.fatherPhone && <p className="text-xs text-slate-500 flex items-center gap-2"><Phone className="h-3 w-3" /> {selectedReg.fatherPhone}</p>}
+                    {selectedReg?.fatherPhone && (
+                      <Button variant="ghost" className="h-8 p-0 text-primary hover:bg-transparent gap-2" asChild>
+                        <a href={`https://wa.me/${selectedReg.fatherPhone.replace(/[^0-9]/g, '')}`} target="_blank">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          <span className="text-xs font-bold">{selectedReg.fatherPhone}</span>
+                        </a>
+                      </Button>
+                    )}
                   </div>
                 </div>
-              </div>
+              </Card>
 
-              {/* SECCIÓN 3: VIDA SACRAMENTAL */}
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                  <BookOpen className="h-3 w-3" /> Vida Sacramental
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 rounded-3xl border shadow-sm">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
-                      <span className="text-xs font-bold text-slate-600">¿Tiene Bautismo?</span>
-                      {selectedReg?.hasBaptism ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
+              {/* SECCIÓN SACRAMENTAL Y DOCUMENTOS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
+                  <div className="p-6 bg-slate-50/50 border-b flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-primary" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Vida Sacramental</span>
+                  </div>
+                  <div className="p-6 space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                      <div className="flex items-center gap-3">
+                        <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", selectedReg?.hasBaptism ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600")}>
+                          {selectedReg?.hasBaptism ? <CheckCircle2 className="h-5 w-5" /> : <X className="h-5 w-5" />}
+                        </div>
+                        <span className="text-xs font-bold text-slate-700">Sacramento del Bautismo</span>
+                      </div>
                     </div>
                     {selectedReg?.hasBaptism && (
-                      <div className="space-y-3 pl-2">
-                        <div className="grid grid-cols-3 gap-2">
-                          <div><Label className="text-[8px] font-bold text-slate-400 uppercase">Libro</Label><p className="text-xs font-bold">{selectedReg.baptismBook || '-'}</p></div>
-                          <div><Label className="text-[8px] font-bold text-slate-400 uppercase">Folio</Label><p className="text-xs font-bold">{selectedReg.baptismFolio || '-'}</p></div>
-                          <div><Label className="text-[8px] font-bold text-slate-400 uppercase">Parroquia</Label><p className="text-xs font-bold">{selectedReg.baptismParish || '-'}</p></div>
+                      <div className="grid grid-cols-3 gap-2 px-2">
+                        <div><Label className="text-[8px] font-bold text-slate-400 uppercase">Libro</Label><p className="text-xs font-bold">{selectedReg.baptismBook || '-'}</p></div>
+                        <div><Label className="text-[8px] font-bold text-slate-400 uppercase">Folio</Label><p className="text-xs font-bold">{selectedReg.baptismFolio || '-'}</p></div>
+                        <div><Label className="text-[8px] font-bold text-slate-400 uppercase">Parroquia</Label><p className="text-xs font-bold truncate">{selectedReg.baptismParish || '-'}</p></div>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                      <div className="flex items-center gap-3">
+                        <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", selectedReg?.hasFirstCommunion ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600")}>
+                          {selectedReg?.hasFirstCommunion ? <CheckCircle2 className="h-5 w-5" /> : <X className="h-5 w-5" />}
                         </div>
+                        <span className="text-xs font-bold text-slate-700">Primera Comunión</span>
                       </div>
-                    )}
-                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
-                      <span className="text-xs font-bold text-slate-600">¿Hizo la Comunión?</span>
-                      {selectedReg?.hasFirstCommunion ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
                     </div>
                   </div>
-                  {selectedReg?.baptismCertificatePhotoUrl && (
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-slate-400 uppercase">Foto Certificado</Label>
-                      <div className="relative aspect-video rounded-2xl overflow-hidden border shadow-inner bg-slate-100 flex items-center justify-center">
-                        <img src={selectedReg.baptismCertificatePhotoUrl} className="object-contain max-h-full" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+                </Card>
 
-              {/* SECCIÓN 4: CUENTA Y PAGOS */}
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Wallet className="h-3 w-3" /> Cuenta y Pagos
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 rounded-3xl border shadow-sm">
-                  <div className="space-y-4">
-                    <div className="p-4 bg-slate-900 text-white rounded-[2rem] space-y-1">
-                      <p className="text-[8px] font-black text-white/50 uppercase tracking-widest">Saldo Recaudado</p>
-                      <p className="text-2xl font-black">{selectedReg?.amountPaid?.toLocaleString('es-PY')} Gs.</p>
-                      <Badge className="bg-white/20 text-white border-none text-[9px] uppercase">{selectedReg?.paymentStatus}</Badge>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-bold text-slate-400 uppercase">Forma de Pago Principal</Label>
-                      <p className="text-sm font-bold text-slate-900">{selectedReg?.lastPaymentMethod || selectedReg?.paymentMethod}</p>
-                    </div>
-                    {selectedReg?.receiptNumber && (
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold text-slate-400 uppercase">N° Recibo Oficial</Label>
-                        <p className="text-sm font-black text-primary font-mono">{selectedReg.receiptNumber}</p>
-                      </div>
-                    )}
+                <Card className="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
+                  <div className="p-6 bg-slate-50/50 border-b flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-primary" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Certificado / Comprobante</span>
                   </div>
-                  {selectedReg?.paymentProofUrl && (
+                  <div className="p-6 grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-slate-400 uppercase">Comprobante Adjunto</Label>
-                      <div className="relative aspect-video rounded-2xl overflow-hidden border shadow-inner bg-slate-100 flex items-center justify-center">
-                        <img src={selectedReg.paymentProofUrl} className="object-contain max-h-full" />
+                      <Label className="text-[9px] font-black text-slate-400 uppercase">Bautismo</Label>
+                      <div 
+                        className="relative aspect-[3/4] rounded-2xl overflow-hidden border shadow-inner bg-slate-100 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                        onClick={() => selectedReg?.baptismCertificatePhotoUrl && openEnlargedPhoto(selectedReg.baptismCertificatePhotoUrl)}
+                      >
+                        {selectedReg?.baptismCertificatePhotoUrl ? (
+                          <img src={selectedReg.baptismCertificatePhotoUrl} className="object-cover w-full h-full" />
+                        ) : <div className="text-[10px] text-slate-400 italic">No adjunto</div>}
                       </div>
                     </div>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-black text-slate-400 uppercase">Comprobante Pago</Label>
+                      <div 
+                        className="relative aspect-[3/4] rounded-2xl overflow-hidden border shadow-inner bg-slate-100 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                        onClick={() => selectedReg?.paymentProofUrl && openEnlargedPhoto(selectedReg.paymentProofUrl)}
+                      >
+                        {selectedReg?.paymentProofUrl ? (
+                          <img src={selectedReg.paymentProofUrl} className="object-cover w-full h-full" />
+                        ) : <div className="text-[10px] text-slate-400 italic">No adjunto</div>}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
-            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
-            <Button className="flex-1 h-12 bg-primary text-white rounded-xl font-bold gap-2 shadow-lg" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Imprimir Ficha
+          
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3 shrink-0">
+            <Button variant="outline" className="flex-1 h-14 rounded-2xl font-black gap-2 border-slate-200" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
+            <Button className="flex-1 h-14 bg-primary text-white rounded-2xl font-black gap-3 shadow-xl active:scale-95 transition-transform" onClick={() => window.print()}>
+              <Printer className="h-5 w-5" /> IMPRIMIR FICHA
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOGO PARA AMPLIAR FOTO (LIGHTBOX) */}
+      <Dialog open={isPhotoViewOpen} onOpenChange={(open) => { setIsPhotoViewOpen(open); if(!open) setPhotoZoom(1); }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center overflow-visible">
+          <div className="relative flex flex-col items-center w-full animate-in zoom-in-95 duration-300">
+            <Button 
+              variant="secondary" 
+              size="icon" 
+              className="absolute -top-14 right-0 rounded-full text-white bg-white/20 hover:bg-white/40 border border-white/10 z-50 shadow-2xl" 
+              onClick={() => setIsPhotoViewOpen(false)}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+            
+            <div className="absolute -bottom-16 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl p-2 px-4 rounded-2xl border border-white/10 shadow-2xl z-50">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setPhotoZoom(prev => Math.max(0.25, prev - 0.25))}><ZoomOut className="h-4 w-4" /></Button>
+              <span className="text-[10px] font-black text-white uppercase w-14 text-center">{Math.round(photoZoom * 100)}%</span>
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setPhotoZoom(prev => Math.min(4, prev + 0.25))}><ZoomIn className="h-4 w-4" /></Button>
+              <Separator orientation="vertical" className="h-4 bg-white/20 mx-1" />
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setPhotoZoom(1)}><Maximize2 className="h-4 w-4" /></Button>
+            </div>
+
+            <div className="w-full bg-slate-950/20 backdrop-blur-md rounded-3xl p-2 border border-white/10 shadow-2xl overflow-hidden">
+              <ScrollArea className="max-h-[80vh] w-full rounded-2xl">
+                <div className="flex items-center justify-center p-4 min-h-[400px]">
+                  <img 
+                    src={viewPhotoUrl || ""} 
+                    className="rounded-xl shadow-2xl transition-all duration-300 select-none h-auto max-w-full" 
+                    style={{ transform: `scale(${photoZoom})` }} 
+                    alt="Foto ampliada" 
+                  />
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
