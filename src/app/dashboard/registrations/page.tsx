@@ -446,6 +446,7 @@ export default function RegistrationsListPage() {
   const [isPhotoViewOpen, setIsPhotoViewOpen] = useState(false)
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null)
   const [photoZoom, setPhotoZoom] = useState(1)
+  const [zoomScale, setZoomScale] = useState(1)
 
   const db = useFirestore()
   const { user } = useUser()
@@ -1108,6 +1109,9 @@ export default function RegistrationsListPage() {
       {/* DIALOGO PARA AMPLIAR FOTO (LIGHTBOX) */}
       <Dialog open={isPhotoViewOpen} onOpenChange={(open) => { setIsPhotoViewOpen(open); if(!open) setPhotoZoom(1); }}>
         <DialogContent className="max-w-[95vw] sm:max-w-3xl p-0 bg-transparent border-none shadow-none flex items-center justify-center overflow-visible">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista Ampliada de Fotografía</DialogTitle>
+          </DialogHeader>
           <div className="relative flex flex-col items-center w-full animate-in zoom-in-95 duration-300">
             <Button 
               variant="secondary" 
@@ -1260,6 +1264,9 @@ export default function RegistrationsListPage() {
       {/* RECIBO POST-VALIDACIÓN */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden bg-white rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-4 bg-slate-50 border-b shrink-0">
+            <DialogTitle className="text-xs font-black uppercase text-slate-400 tracking-widest text-center">Recibo Oficial de Pago</DialogTitle>
+          </DialogHeader>
           <div className="flex-1 overflow-y-auto p-4 bg-slate-100 flex justify-center">
             <div className="bg-white shadow-xl origin-top scale-[0.75] sm:scale-[0.85]">
               <ReceiptContent reg={selectedReg} />
