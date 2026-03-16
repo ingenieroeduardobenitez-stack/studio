@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -27,7 +26,8 @@ import {
   Info,
   Building2,
   Save,
-  Clock
+  Clock,
+  Printer
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
@@ -184,7 +184,7 @@ export default function TreasuryPage() {
         transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
         
         transaction.set(doc(collection(db, "audit_logs")), {
-          userId: currentUser?.uid || "unknown",
+          userId: user?.uid || "unknown",
           userName: catechistName,
           action: `Cobro Tesorería (${paymentType})`,
           module: "tesoreria",
@@ -202,7 +202,7 @@ export default function TreasuryPage() {
       console.error(error)
       toast({ variant: "destructive", title: "Error al procesar", description: "No se pudo completar la transacción." })
     } finally {
-      setIsSubmittingPayment(false)
+      setIsSubmitting(false)
     }
   }
 
