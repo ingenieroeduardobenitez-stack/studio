@@ -39,10 +39,11 @@ import {
   X,
   CalendarDays,
   Zap,
-  Users
+  Users,
+  Edit
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, setDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit, deleteDoc } from "firebase/firestore"
+import { collection, doc, setDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit, deleteDoc, updateDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -63,13 +64,20 @@ export default function TreasuryPage() {
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false)
   const [isSubmittingExpense, setIsSubmittingExpense] = useState(false)
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
+  const [isSubmittingReceiptEdit, setIsSubmittingReceiptEdit] = useState(false)
   
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState(0)
   const [paymentType, setPaymentType] = useState<"EFECTIVO" | "TRANSFERENCIA">("EFECTIVO")
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [isEditReceiptOpen, setIsEditReceiptOpen] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
+
+  // Estados para edición de recibo
+  const [editReceiptNumber, setEditReceiptNumber] = useState("")
+  const [editReceiptDate, setEditReceiptDate] = useState("")
+  const [editReceiptMethod, setEditReceiptMethod] = useState<"EFECTIVO" | "TRANSFERENCIA">("EFECTIVO")
 
   // Estados para Egresos
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false)
@@ -194,6 +202,50 @@ export default function TreasuryPage() {
   const handleViewReceipt = (reg: any) => {
     setSelectedReg(reg)
     setIsReceiptOpen(true)
+  }
+
+  const handleOpenEditReceipt = (reg: any) => {
+    setSelectedReg(reg)
+    setEditReceiptNumber(reg.receiptNumber || "")
+    const dateObj = reg.lastPaymentDate?.toDate ? reg.lastPaymentDate.toDate() : (reg.lastPaymentDate ? new Date(reg.lastPaymentDate) : new Date())
+    setEditReceiptDate(dateObj.toISOString().split('T')[0])
+    setEditReceiptMethod(reg.lastPaymentMethod || "EFECTIVO")
+    setIsEditReceiptOpen(true)
+  }
+
+  const handleSaveReceiptEdit = async () => {
+    if (!db || !selectedReg || isSubmittingReceiptEdit) return
+    setIsSubmittingReceiptEdit(true)
+
+    const regRef = doc(db, "confirmations", selectedReg.id)
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
+
+    try {
+      const updateData = {
+        receiptNumber: editReceiptNumber,
+        lastPaymentDate: new Date(editReceiptDate),
+        lastPaymentMethod: editReceiptMethod,
+        updatedAt: serverTimestamp()
+      }
+
+      await updateDoc(regRef, updateData)
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: currentUser?.uid || "unknown",
+        userName: catechistName,
+        action: "Editar Recibo",
+        module: "tesoreria",
+        details: `Se modificaron los datos del recibo de ${selectedReg.fullName}. Nuevo Nro: ${editReceiptNumber}`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Recibo actualizado" })
+      setIsEditReceiptOpen(false)
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error al actualizar recibo" })
+    } finally {
+      setIsSubmittingReceiptEdit(false)
+    }
   }
 
   const handleProcessPayment = async () => {
@@ -415,8 +467,8 @@ export default function TreasuryPage() {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current
       const canvas = canvasRef.current
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       canvas.getContext('2d')?.drawImage(video, 0, 0)
       setExpenseProof(canvas.toDataURL('image/jpeg', 0.8))
       if (currentStream) currentStream.getTracks().forEach(t => t.stop())
@@ -547,15 +599,26 @@ export default function TreasuryPage() {
                           <TableCell className="text-right pr-8">
                             <div className="flex justify-end gap-2">
                               {hasReceipt ? (
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost" 
-                                  className="h-9 w-9 rounded-xl text-amber-600 hover:bg-amber-50" 
-                                  onClick={() => handleViewReceipt(reg)}
-                                  title="Ver Recibo"
-                                >
-                                  <Receipt className="h-4 w-4" />
-                                </Button>
+                                <>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    className="h-9 w-9 rounded-xl text-amber-600 hover:bg-amber-50" 
+                                    onClick={() => handleViewReceipt(reg)}
+                                    title="Ver Recibo"
+                                  >
+                                    <Receipt className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    className="h-9 w-9 rounded-xl text-blue-600 hover:bg-blue-50" 
+                                    onClick={() => handleOpenEditReceipt(reg)}
+                                    title="Editar Recibo"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </>
                               ) : (
                                 <Button 
                                   size="sm" 
@@ -899,6 +962,58 @@ export default function TreasuryPage() {
               disabled={isSubmittingPayment || (paymentAmount <= 0 && selectedReg?.paymentStatus !== "PAGADO")}
             >
               {isSubmittingPayment ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOGO DE EDICIÓN DE RECIBO */}
+      <Dialog open={isEditReceiptOpen} onOpenChange={setIsEditReceiptOpen}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          <DialogHeader className="p-6 bg-blue-600 text-white">
+            <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Editar Datos de Recibo</DialogTitle>
+            <DialogDescription className="text-white/70">Confirmando: {selectedReg?.fullName}</DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="space-y-2">
+              <Label className="font-bold text-slate-700">Número de Recibo</Label>
+              <Input 
+                value={editReceiptNumber} 
+                onChange={(e) => setEditReceiptNumber(e.target.value)}
+                placeholder="001-001-0000000"
+                className="h-12 rounded-xl bg-slate-50 font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-bold text-slate-700">Fecha de Pago</Label>
+              <Input 
+                type="date"
+                value={editReceiptDate} 
+                onChange={(e) => setEditReceiptDate(e.target.value)}
+                className="h-12 rounded-xl bg-slate-50"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-bold text-slate-700">Forma de Pago</Label>
+              <Select value={editReceiptMethod} onValueChange={(val: any) => setEditReceiptMethod(val)}>
+                <SelectTrigger className="h-12 rounded-xl bg-slate-50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsEditReceiptOpen(false)}>Cancelar</Button>
+            <Button 
+              className="flex-1 h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg" 
+              onClick={handleSaveReceiptEdit} 
+              disabled={isSubmittingReceiptEdit || !editReceiptNumber}
+            >
+              {isSubmittingReceiptEdit ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Cambios"}
             </Button>
           </DialogFooter>
         </DialogContent>
