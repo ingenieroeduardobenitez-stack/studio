@@ -128,7 +128,11 @@ export default function PaymentsManagementPage() {
       if (!matchesSearch) return false
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
-      const matchesStatus = filterStatus === "all" || r.paymentStatus === filterStatus
+      
+      // Lógica de filtro de estado incluyendo el "Ajuste Pendiente"
+      const isEfectivoZero = r.paymentMethod === "EFECTIVO" && (r.amountPaid || 0) === 0;
+      const matchesStatus = filterStatus === "all" || 
+        (filterStatus === "AJUSTE" ? isEfectivoZero : r.paymentStatus === filterStatus);
       
       const currentMethod = r.lastPaymentMethod || r.paymentMethod || "SIN_PAGO";
       const matchesMethod = filterMethod === "all" || currentMethod === filterMethod;
@@ -316,6 +320,20 @@ export default function PaymentsManagementPage() {
                   <SelectItem value="EFECTIVO">Efectivo</SelectItem>
                   <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
                   <SelectItem value="SIN_PAGO">Pendiente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Estado</Label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-[160px] h-12 rounded-2xl bg-white"><SelectValue placeholder="Estado" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Pagos</SelectItem>
+                  <SelectItem value="PAGADO">Pagado</SelectItem>
+                  <SelectItem value="PARCIAL">Parcial</SelectItem>
+                  <SelectItem value="PENDIENTE">Pendiente</SelectItem>
+                  <SelectItem value="AJUSTE">Ajuste Pendiente (Efectivo 0)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
