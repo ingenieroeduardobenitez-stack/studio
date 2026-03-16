@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -27,10 +27,17 @@ import {
   Building2,
   Save,
   Clock,
-  Printer
+  Printer,
+  TrendingDown,
+  Plus,
+  Trash2,
+  Camera,
+  ImageIcon,
+  ArrowDownCircle,
+  X
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, setDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
+import { collection, doc, setDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit, deleteDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -39,6 +46,7 @@ import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default function TreasuryPage() {
   const [mounted, setMounted] = useState(false)
@@ -48,6 +56,7 @@ export default function TreasuryPage() {
   
   const [isCostSaving, setIsCostSaving] = useState(false)
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false)
+  const [isSubmittingExpense, setIsSubmittingExpense] = useState(false)
   
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState(0)
@@ -55,6 +64,18 @@ export default function TreasuryPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
+
+  // Estados para Egresos
+  const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false)
+  const [expenseProof, setExpenseProof] = useState<string | null>(null)
+  const [showCamera, setShowCamera] = useState(false)
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
+  const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
+  
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { user: currentUser } = useUser()
   const { toast } = useToast()
@@ -72,6 +93,12 @@ export default function TreasuryPage() {
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(150))
   }, [db])
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
+
+  const expensesQuery = useMemoFirebase(() => {
+    if (!db) return null
+    return query(collection(db, "expenses"), orderBy("date", "desc"), limit(100))
+  }, [db])
+  const { data: expenses, loading: loadingExpenses } = useCollection(expensesQuery)
 
   const userProfileRef = useMemoFirebase(() => db && currentUser?.uid ? doc(db, "users", currentUser.uid) : null, [db, currentUser?.uid])
   const { data: profile } = useDoc(userProfileRef)
@@ -184,7 +211,7 @@ export default function TreasuryPage() {
         transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
         
         transaction.set(doc(collection(db, "audit_logs")), {
-          userId: user?.uid || "unknown",
+          userId: currentUser?.uid || "unknown",
           userName: catechistName,
           action: `Cobro Tesorería (${paymentType})`,
           module: "tesoreria",
@@ -202,7 +229,119 @@ export default function TreasuryPage() {
       console.error(error)
       toast({ variant: "destructive", title: "Error al procesar", description: "No se pudo completar la transacción." })
     } finally {
-      setIsSubmitting(false)
+      setIsSubmittingPayment(false)
+    }
+  }
+
+  // Lógica de Egresos
+  const handleSaveExpense = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!db || isSubmittingExpense) return
+    setIsSubmittingExpense(true)
+
+    const formData = new FormData(e.currentTarget)
+    const concept = formData.get("concept") as string
+    const amount = Number(formData.get("amount"))
+    const registeredByName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
+
+    try {
+      const expenseData = {
+        concept,
+        amount,
+        proofUrl: expenseProof,
+        date: new Date().toISOString(),
+        registeredBy: currentUser?.uid || "unknown",
+        registeredByName,
+        timestamp: serverTimestamp()
+      }
+
+      await addDoc(collection(db, "expenses"), expenseData)
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: currentUser?.uid || "unknown",
+        userName: registeredByName,
+        action: "Registro de Egreso",
+        module: "tesoreria",
+        details: `Se registró un egreso por ${amount.toLocaleString('es-PY')} Gs. Concepto: ${concept}`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Egreso registrado" })
+      setIsExpenseDialogOpen(false)
+      setExpenseProof(null)
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error al guardar egreso" })
+    } finally {
+      setIsSubmittingExpense(false)
+    }
+  }
+
+  const handleDeleteExpense = async (id: string, concept: string) => {
+    if (!db) return
+    try {
+      await deleteDoc(doc(db, "expenses", id))
+      toast({ title: "Egreso eliminado" })
+      
+      await addDoc(collection(db, "audit_logs"), {
+        userId: currentUser?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero",
+        action: "Eliminar Egreso",
+        module: "tesoreria",
+        details: `Se eliminó el registro de egreso: ${concept}`,
+        timestamp: serverTimestamp()
+      })
+    } catch (error) {
+      toast({ variant: "destructive", title: "No se pudo eliminar" })
+    }
+  }
+
+  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node && currentStream) {
+      if (node.srcObject !== currentStream) {
+        node.srcObject = currentStream;
+        node.play().catch(err => {
+          if (err.name !== 'AbortError') console.error("Video play error:", err);
+        });
+      }
+    }
+    videoRef.current = node;
+  }, [currentStream]);
+
+  const startCamera = async (deviceId?: string) => {
+    try {
+      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+      const constraints = {
+        video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 } }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      setCurrentStream(stream)
+      const availableDevices = await navigator.mediaDevices.enumerateDevices()
+      setDevices(availableDevices.filter(d => d.kind === 'videoinput'))
+      setShowCamera(true)
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Acceso a cámara denegado' })
+    }
+  }
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      canvas.getContext('2d')?.drawImage(video, 0, 0)
+      setExpenseProof(canvas.toDataURL('image/jpeg', 0.8))
+      if (currentStream) currentStream.getTracks().forEach(t => t.stop())
+      setShowCamera(false)
+    }
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => setExpenseProof(reader.result as string)
+      reader.readAsDataURL(file)
     }
   }
 
@@ -217,7 +356,7 @@ export default function TreasuryPage() {
           </div>
           <div>
             <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Gestión de Tesorería</h1>
-            <p className="text-muted-foreground font-medium">Control oficial de ingresos y configuración de aranceles.</p>
+            <p className="text-muted-foreground font-medium">Control oficial de ingresos, egresos y aranceles.</p>
           </div>
         </div>
       </div>
@@ -226,6 +365,9 @@ export default function TreasuryPage() {
         <TabsList className="mb-8 h-12 bg-white p-1 border rounded-xl shadow-sm gap-2">
           <TabsTrigger value="pagos" className="rounded-lg px-8 font-bold data-[state=active]:bg-primary data-[state=active]:text-white">
             <Banknote className="h-4 w-4 mr-2" /> Inscripciones
+          </TabsTrigger>
+          <TabsTrigger value="egresos" className="rounded-lg px-8 font-bold data-[state=active]:bg-red-600 data-[state=active]:text-white">
+            <TrendingDown className="h-4 w-4 mr-2" /> Egresos
           </TabsTrigger>
           <TabsTrigger value="config" className="rounded-lg px-8 font-bold data-[state=active]:bg-primary data-[state=active]:text-white">
             <Settings className="h-4 w-4 mr-2" /> Configuración
@@ -314,6 +456,84 @@ export default function TreasuryPage() {
                         </TableRow>
                       )
                     })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="egresos" className="space-y-6">
+          <div className="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-red-50 rounded-2xl">
+                <ArrowDownCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Salidas de Caja</h3>
+                <p className="text-xs text-slate-400 font-medium">Historial de gastos y egresos del Santuario.</p>
+              </div>
+            </div>
+            <Button className="bg-red-600 hover:bg-red-700 h-12 rounded-xl font-bold gap-2 shadow-lg shadow-red-200" onClick={() => { setExpenseProof(null); setIsExpenseDialogOpen(true); }}>
+              <Plus className="h-5 w-5" /> Registrar Gasto
+            </Button>
+          </div>
+
+          <Card className="border-none shadow-xl overflow-hidden bg-white">
+            <CardContent className="p-0">
+              {loadingExpenses ? (
+                <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-red-600" /></div>
+              ) : !expenses || expenses.length === 0 ? (
+                <div className="py-24 text-center">
+                  <TrendingDown className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-500 font-medium italic">No hay egresos registrados aún.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader className="bg-slate-50/50">
+                    <TableRow>
+                      <TableHead className="pl-8 font-bold">Fecha</TableHead>
+                      <TableHead className="font-bold">Concepto / Descripción</TableHead>
+                      <TableHead className="font-bold text-center">Comprobante</TableHead>
+                      <TableHead className="text-right font-bold">Monto (Gs)</TableHead>
+                      <TableHead className="text-right pr-8 font-bold">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expenses.map((exp) => (
+                      <TableRow key={exp.id} className="h-20 hover:bg-red-50/10 transition-colors">
+                        <TableCell className="pl-8">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-900">{new Date(exp.date).toLocaleDateString('es-PY')}</span>
+                            <span className="text-[10px] text-slate-400 font-medium uppercase">{exp.registeredByName || 'Sistema'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[300px]">
+                          <p className="text-sm font-medium text-slate-700 leading-tight">{exp.concept}</p>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {exp.proofUrl ? (
+                            <Avatar className="h-10 w-10 mx-auto rounded-lg border-2 border-slate-100 shadow-sm cursor-pointer hover:scale-110 transition-transform" onClick={() => {
+                              // Reutilizar lógica de lightbox si se desea
+                              window.open(exp.proofUrl, '_blank')
+                            }}>
+                              <AvatarImage src={exp.proofUrl} className="object-cover" />
+                              <AvatarFallback><ImageIcon className="h-4 w-4" /></AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">N/A</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-black text-red-600 text-base">
+                          -{exp.amount.toLocaleString('es-PY')} Gs.
+                        </TableCell>
+                        <TableCell className="text-right pr-8">
+                          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full text-slate-300 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteExpense(exp.id, exp.concept)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               )}
@@ -458,7 +678,7 @@ export default function TreasuryPage() {
         </TabsContent>
       </Tabs>
 
-      {/* DIALOGO DE PAGO */}
+      {/* DIALOGO DE PAGO (INGRESOS) */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
@@ -509,7 +729,91 @@ export default function TreasuryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* RECIBO OFICIAL */}
+      {/* DIALOGO DE NUEVO EGRESO */}
+      <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-6 bg-red-600 text-white shrink-0">
+            <DialogTitle className="flex items-center gap-2"><TrendingDown className="h-5 w-5" /> Registrar Nuevo Egreso</DialogTitle>
+            <DialogDescription className="text-white/70">Ingresa los detalles del gasto para descontar de caja.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveExpense} className="flex-1 flex flex-col overflow-hidden">
+            <ScrollArea className="flex-1 p-6">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label className="font-bold text-slate-700 uppercase text-[10px]">Concepto / Detalle del Gasto</Label>
+                  <Input name="concept" placeholder="Ej. Compra de focos para el salón" required className="h-12 rounded-xl bg-slate-50" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold text-slate-700 uppercase text-[10px]">Monto del Egreso (Gs)</Label>
+                  <Input name="amount" type="number" placeholder="0" required className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-red-100 text-red-600" />
+                </div>
+                
+                <div className="space-y-3">
+                  <Label className="font-bold text-slate-700 uppercase text-[10px]">Comprobante de Gasto (Opcional)</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button type="button" variant="outline" className="h-12 rounded-xl font-bold gap-2" onClick={() => startCamera()}>
+                      <Camera className="h-4 w-4" /> Cámara
+                    </Button>
+                    <Button type="button" variant="outline" className="h-12 rounded-xl font-bold gap-2" onClick={() => fileInputRef.current?.click()}>
+                      <ImageIcon className="h-4 w-4" /> Galería
+                    </Button>
+                  </div>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                  
+                  <div className="h-48 w-full border-2 border-dashed rounded-3xl bg-slate-50 flex items-center justify-center overflow-hidden relative group">
+                    {expenseProof ? (
+                      <>
+                        <img src={expenseProof} className="h-full w-full object-cover" />
+                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setExpenseProof(null)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-center space-y-1">
+                        <ImageIcon className="h-8 w-8 text-slate-200 mx-auto" />
+                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Sin imagen adjunta</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+            <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3 shrink-0">
+              <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsExpenseDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit" className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg" disabled={isSubmittingExpense}>
+                {isSubmittingExpense ? <Loader2 className="animate-spin h-4 w-4" /> : "Guardar Egreso"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOGO DE CÁMARA PARA EGRESOS */}
+      <Dialog open={showCamera} onOpenChange={(open) => !open && setShowCamera(false)}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-[2.5rem] flex flex-col max-h-[90vh] border-none shadow-2xl">
+          <DialogHeader className="p-4 bg-red-600 text-white shrink-0">
+            <DialogTitle className="text-sm font-black uppercase tracking-widest text-center">Capturar Comprobante</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden min-h-0">
+            <video ref={onVideoRef} autoPlay muted playsInline className="max-h-full w-full object-contain" />
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 flex flex-col gap-4 shrink-0 border-t">
+            {devices.length > 1 && (
+              <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(val); }}>
+                <SelectTrigger className="h-10 rounded-xl bg-white text-xs border-slate-200"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                <SelectContent>{devices.map((d) => (<SelectItem key={d.deviceId} value={d.deviceId} className="text-xs">{d.label || `Cámara ${d.deviceId.slice(0,5)}`}</SelectItem>))}</SelectContent>
+              </Select>
+            )}
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" className="flex-1 h-14 rounded-2xl font-black text-xs uppercase" onClick={() => { if(currentStream) currentStream.getTracks().forEach(t=>t.stop()); setShowCamera(false); }}>CANCELAR</Button>
+              <Button type="button" className="flex-1 h-14 bg-red-600 text-white font-black text-xs uppercase shadow-xl" onClick={takePhoto}>CAPTURAR FOTO</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* RECIBO OFICIAL (INGRESOS) */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden bg-white rounded-3xl h-[90vh] flex flex-col border-none shadow-2xl">
           <DialogHeader className="p-4 bg-slate-50 border-b no-print shrink-0">
