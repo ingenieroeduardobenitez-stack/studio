@@ -78,6 +78,7 @@ export default function TreasuryPage() {
   const [editReceiptNumber, setEditReceiptNumber] = useState("")
   const [editReceiptDate, setEditReceiptDate] = useState("")
   const [editReceiptMethod, setEditReceiptMethod] = useState<"EFECTIVO" | "TRANSFERENCIA">("EFECTIVO")
+  const [editReceiptAmount, setEditReceiptAmount] = useState(0)
 
   // Estados para Egresos
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false)
@@ -210,6 +211,7 @@ export default function TreasuryPage() {
     const dateObj = reg.lastPaymentDate?.toDate ? reg.lastPaymentDate.toDate() : (reg.lastPaymentDate ? new Date(reg.lastPaymentDate) : new Date())
     setEditReceiptDate(dateObj.toISOString().split('T')[0])
     setEditReceiptMethod(reg.lastPaymentMethod || "EFECTIVO")
+    setEditReceiptAmount(reg.amountPaid || 0)
     setIsEditReceiptOpen(true)
   }
 
@@ -220,11 +222,17 @@ export default function TreasuryPage() {
     const regRef = doc(db, "confirmations", selectedReg.id)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
 
+    // Recalcular estado de pago basado en el nuevo monto
+    const regCost = selectedReg.registrationCost || (selectedReg.catechesisYear === "ADULTOS" ? 50000 : 35000);
+    const newStatus = editReceiptAmount >= regCost ? "PAGADO" : (editReceiptAmount > 0 ? "PARCIAL" : "PENDIENTE");
+
     try {
       const updateData = {
         receiptNumber: editReceiptNumber,
         lastPaymentDate: new Date(editReceiptDate),
         lastPaymentMethod: editReceiptMethod,
+        amountPaid: editReceiptAmount,
+        paymentStatus: newStatus,
         updatedAt: serverTimestamp()
       }
 
@@ -235,7 +243,7 @@ export default function TreasuryPage() {
         userName: catechistName,
         action: "Editar Recibo",
         module: "tesoreria",
-        details: `Se modificaron los datos del recibo de ${selectedReg.fullName}. Nuevo Nro: ${editReceiptNumber}`,
+        details: `Se modificaron los datos del recibo de ${selectedReg.fullName}. Nro: ${editReceiptNumber}. Monto: ${editReceiptAmount.toLocaleString('es-PY')} Gs.`,
         timestamp: serverTimestamp()
       })
 
@@ -283,7 +291,7 @@ export default function TreasuryPage() {
         transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
         
         transaction.set(doc(collection(db, "audit_logs")), {
-          userId: currentUser?.uid || "unknown",
+          userId: user?.uid || "unknown",
           userName: catechistName,
           action: `Cobro Tesorería (${paymentType})`,
           module: "tesoreria",
@@ -985,6 +993,15 @@ export default function TreasuryPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label className="font-bold text-slate-700">Monto Cobrado (Gs)</Label>
+              <Input 
+                type="number"
+                value={editReceiptAmount} 
+                onChange={(e) => setEditReceiptAmount(Number(e.target.value))}
+                className="h-12 rounded-xl bg-slate-50 font-black text-primary"
+              />
+            </div>
+            <div className="space-y-2">
               <Label className="font-bold text-slate-700">Fecha de Pago</Label>
               <Input 
                 type="date"
@@ -1180,7 +1197,7 @@ export default function TreasuryPage() {
 
 function ReceiptContent({ reg }: { reg: any }) {
   if (!reg) return null;
-  const date = reg.lastPaymentDate?.toDate ? reg.lastPaymentDate.toDate() : new Date();
+  const date = reg.lastPaymentDate?.toDate ? reg.lastPaymentDate.toDate() : (reg.lastPaymentDate ? new Date(reg.lastPaymentDate) : new Date());
   const dateStr = date.toLocaleDateString('es-PY', { day: '2-digit', month: 'long', year: 'numeric' });
   
   return (
