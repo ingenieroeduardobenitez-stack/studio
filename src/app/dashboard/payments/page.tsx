@@ -109,6 +109,17 @@ export default function PaymentsManagementPage() {
 
   const { data: allConfirmands, loading: loadingRegs } = useCollection(confirmandsQuery)
 
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null
+    return collection(db, "users")
+  }, [db])
+
+  const { data: allUsers } = useCollection(usersQuery)
+
+  const findUserById = (uid: string) => {
+    return allUsers?.find(u => u.id === uid)
+  }
+
   const resetFilters = () => {
     setSearchTerm("");
     setFilterSex("all");
@@ -369,6 +380,7 @@ export default function PaymentsManagementPage() {
                 <TableHeader className="bg-slate-50/50">
                   <TableRow>
                     <TableHead className="pl-8 font-bold">Confirmando</TableHead>
+                    <TableHead className="font-bold">Origen</TableHead>
                     <TableHead className="text-center font-bold">Método</TableHead>
                     <TableHead className="text-center font-bold">Estado Pago</TableHead>
                     <TableHead className="text-right font-bold">Saldo</TableHead>
@@ -382,6 +394,8 @@ export default function PaymentsManagementPage() {
                     const isPaid = reg.paymentStatus === "PAGADO"
                     const declaredMethod = reg.paymentMethod || "SIN_PAGO";
                     const isEfectivoZero = declaredMethod === "EFECTIVO" && (reg.amountPaid || 0) === 0;
+                    const isManual = reg.userId !== "public_registration";
+                    const creator = findUserById(reg.userId);
 
                     return (
                       <TableRow key={reg.id} className="h-20 hover:bg-slate-50/30 transition-colors">
@@ -392,6 +406,18 @@ export default function PaymentsManagementPage() {
                               <span className="font-bold text-sm text-slate-900 uppercase truncate max-w-[180px]">{reg.fullName}</span>
                               <span className="text-[10px] text-slate-500 font-bold uppercase">{reg.catechesisYear?.replace("_", " ")}</span>
                             </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <Badge variant="secondary" className={cn("text-[9px] uppercase font-black w-fit", isManual ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700")}>
+                              {isManual ? "MANUAL" : "PÚBLICO"}
+                            </Badge>
+                            {isManual && creator && (
+                              <span className="text-[9px] text-slate-400 font-bold uppercase mt-1 ml-1 truncate max-w-[100px]">
+                                {creator.firstName}
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
