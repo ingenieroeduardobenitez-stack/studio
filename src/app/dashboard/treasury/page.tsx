@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
 import { 
   Wallet, 
   Settings, 
@@ -37,7 +38,8 @@ import {
   ArrowDownCircle,
   X,
   CalendarDays,
-  Zap
+  Zap,
+  Users
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit, deleteDoc } from "firebase/firestore"
@@ -317,6 +319,15 @@ export default function TreasuryPage() {
     const formData = new FormData(e.currentTarget)
     const category = formData.get("category") as string
     const cost = Number(formData.get("cost"))
+    const appliesToConfirmands = formData.get("appliesToConfirmands") === "on"
+    const appliesToCatechists = formData.get("appliesToCatechists") === "on"
+    
+    if (!appliesToConfirmands && !appliesToCatechists) {
+      toast({ variant: "destructive", title: "Atención", description: "Selecciona al menos un destinatario (Confirmandos o Catequistas)." })
+      setIsSubmittingEvent(false)
+      return
+    }
+
     const creatorName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
 
     try {
@@ -324,6 +335,8 @@ export default function TreasuryPage() {
       await setDoc(doc(db, "events", eventId), {
         category,
         cost,
+        appliesToConfirmands,
+        appliesToCatechists,
         createdAt: serverTimestamp(),
         createdBy: currentUser?.uid || "unknown"
       })
@@ -333,11 +346,11 @@ export default function TreasuryPage() {
         userName: creatorName,
         action: "Crear Evento Especial",
         module: "tesoreria",
-        details: `Se creó el evento "${category}" con costo de ${cost.toLocaleString('es-PY')} Gs.`,
+        details: `Se creó el evento "${category}" (${cost.toLocaleString('es-PY')} Gs.) para: ${[appliesToConfirmands && "Confirmandos", appliesToCatechists && "Catequistas"].filter(Boolean).join(", ")}`,
         timestamp: serverTimestamp()
       })
 
-      toast({ title: "Evento Creado", description: "Ahora los catequistas pueden realizar cobros por este concepto." })
+      toast({ title: "Evento Creado", description: "El concepto de cobro ya está disponible." })
       setIsEventDialogOpen(false)
     } catch (error) {
       toast({ variant: "destructive", title: "Error al crear evento" })
@@ -437,7 +450,7 @@ export default function TreasuryPage() {
             <Banknote className="h-4 w-4 mr-2" /> Inscripciones
           </TabsTrigger>
           <TabsTrigger value="eventos" className="rounded-lg px-8 font-bold data-[state=active]:bg-accent data-[state=active]:text-white">
-            <CalendarDays className="h-4 w-4 mr-2" /> Eventos Especiales
+            <Zap className="h-4 w-4 mr-2" /> Eventos Especiales
           </TabsTrigger>
           <TabsTrigger value="egresos" className="rounded-lg px-8 font-bold data-[state=active]:bg-red-600 data-[state=active]:text-white">
             <TrendingDown className="h-4 w-4 mr-2" /> Egresos
@@ -566,7 +579,10 @@ export default function TreasuryPage() {
                   <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
                     <div className="space-y-1">
                       <CardTitle className="text-sm font-black uppercase text-slate-900">{ev.category}</CardTitle>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">Creado el {new Date(ev.createdAt?.toDate ? ev.createdAt.toDate() : ev.createdAt).toLocaleDateString()}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {ev.appliesToConfirmands && <Badge variant="secondary" className="text-[8px] bg-primary/5 text-primary border-primary/10">CONFIRMANDOS</Badge>}
+                        {ev.appliesToCatechists && <Badge variant="secondary" className="text-[8px] bg-accent/5 text-accent border-accent/10">CATEQUISTAS</Badge>}
+                      </div>
                     </div>
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-full" onClick={() => handleDeleteEvent(ev.id, ev.category)}>
                       <Trash2 className="h-4 w-4" />
@@ -574,7 +590,7 @@ export default function TreasuryPage() {
                   </CardHeader>
                   <CardContent className="p-8 text-center space-y-4">
                     <p className="text-3xl font-black text-accent tracking-tighter">{ev.cost.toLocaleString('es-PY')} Gs.</p>
-                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic">Este monto será el que visualice el catequista al momento de cobrar al alumno.</p>
+                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic">Este monto será el que visualice el catequista al momento de cobrar.</p>
                   </CardContent>
                 </Card>
               ))
@@ -868,10 +884,25 @@ export default function TreasuryPage() {
                 <Label className="font-bold text-slate-700 uppercase text-[10px]">Costo del Evento (Gs)</Label>
                 <Input name="cost" type="number" placeholder="0" required className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-accent/20 text-accent" />
               </div>
+
+              <div className="space-y-4">
+                <Label className="font-bold text-slate-700 uppercase text-[10px]">Dirigido a:</Label>
+                <div className="flex gap-6">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="confirmands" name="appliesToConfirmands" defaultChecked />
+                    <Label htmlFor="confirmands" className="text-xs font-bold cursor-pointer">Confirmandos</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="catechists" name="appliesToCatechists" />
+                    <Label htmlFor="catechists" className="text-xs font-bold cursor-pointer">Catequistas</Label>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
                 <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-blue-700 leading-relaxed font-medium">
-                  Este evento aparecerá automáticamente en el módulo de cobros de los catequistas para que puedan registrar los aportes de sus confirmandos.
+                  Este evento aparecerá automáticamente en el módulo de cobros correspondiente para que puedan registrar los aportes.
                 </p>
               </div>
             </div>
