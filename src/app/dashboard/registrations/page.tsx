@@ -472,16 +472,6 @@ export default function RegistrationsListPage() {
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
 
-  const stats = useMemo(() => {
-    if (!registrations) return { total: 0, males: 0, females: 0 }
-    const active = registrations.filter(r => !r.isArchived)
-    return {
-      total: active.length,
-      males: active.filter(r => r.sexo === "M").length,
-      females: active.filter(r => r.sexo === "F").length
-    }
-  }, [registrations])
-
   const filteredRegistrations = useMemo(() => {
     if (!registrations) return []
     return registrations.filter(r => {
@@ -505,6 +495,15 @@ export default function RegistrationsListPage() {
       return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay && matchesPayment;
     })
   }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterPaymentMethod])
+
+  const stats = useMemo(() => {
+    if (!filteredRegistrations) return { total: 0, males: 0, females: 0 }
+    return {
+      total: filteredRegistrations.length,
+      males: filteredRegistrations.filter(r => r.sexo === "M").length,
+      females: filteredRegistrations.filter(r => r.sexo === "F").length
+    }
+  }, [filteredRegistrations])
 
   const resetFilters = () => {
     setSearchTerm("")
@@ -1008,7 +1007,7 @@ export default function RegistrationsListPage() {
                     <p className="text-sm font-bold text-slate-900">{selectedReg?.motherName || 'No registrado'}</p>
                     {selectedReg?.motherPhone && (
                       <Button variant="ghost" className="h-8 p-0 text-primary hover:bg-transparent gap-2" asChild>
-                        <a href={`https://wa.me/${selectedReg.motherPhone.replace(/[^0-99]/g, '')}`} target="_blank">
+                        <a href={`https://wa.me/${selectedReg.motherPhone.replace(/[^0-9]/g, '')}`} target="_blank">
                           <MessageCircle className="h-3.5 w-3.5" />
                           <span className="text-xs font-bold">{selectedReg.motherPhone}</span>
                         </a>
