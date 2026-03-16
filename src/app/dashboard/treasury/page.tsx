@@ -35,7 +35,9 @@ import {
   Camera,
   ImageIcon,
   ArrowDownCircle,
-  X
+  X,
+  CalendarDays,
+  Zap
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, setDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit, deleteDoc } from "firebase/firestore"
@@ -58,6 +60,7 @@ export default function TreasuryPage() {
   const [isCostSaving, setIsCostSaving] = useState(false)
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false)
   const [isSubmittingExpense, setIsSubmittingExpense] = useState(false)
+  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
   
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState(0)
@@ -74,6 +77,9 @@ export default function TreasuryPage() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
   
+  // Estados para Eventos
+  const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
+
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -100,6 +106,12 @@ export default function TreasuryPage() {
     return query(collection(db, "expenses"), orderBy("date", "desc"), limit(100))
   }, [db])
   const { data: expenses, loading: loadingExpenses } = useCollection(expensesQuery)
+
+  const eventsQuery = useMemoFirebase(() => {
+    if (!db) return null
+    return query(collection(db, "events"), orderBy("createdAt", "desc"))
+  }, [db])
+  const { data: events, loading: loadingEvents } = useCollection(eventsQuery)
 
   const userProfileRef = useMemoFirebase(() => db && currentUser?.uid ? doc(db, "users", currentUser.uid) : null, [db, currentUser?.uid])
   const { data: profile } = useDoc(userProfileRef)
@@ -296,6 +308,63 @@ export default function TreasuryPage() {
     }
   }
 
+  // Lógica de Eventos
+  const handleCreateEvent = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!db || isSubmittingEvent) return
+    setIsSubmittingEvent(true)
+
+    const formData = new FormData(e.currentTarget)
+    const category = formData.get("category") as string
+    const cost = Number(formData.get("cost"))
+    const creatorName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
+
+    try {
+      const eventId = `event_${Date.now()}`
+      await setDoc(doc(db, "events", eventId), {
+        category,
+        cost,
+        createdAt: serverTimestamp(),
+        createdBy: currentUser?.uid || "unknown"
+      })
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: currentUser?.uid || "unknown",
+        userName: creatorName,
+        action: "Crear Evento Especial",
+        module: "tesoreria",
+        details: `Se creó el evento "${category}" con costo de ${cost.toLocaleString('es-PY')} Gs.`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Evento Creado", description: "Ahora los catequistas pueden realizar cobros por este concepto." })
+      setIsEventDialogOpen(false)
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error al crear evento" })
+    } finally {
+      setIsSubmittingEvent(false)
+    }
+  }
+
+  const handleDeleteEvent = async (id: string, category: string) => {
+    if (!db) return
+    try {
+      await deleteDoc(doc(db, "events", id))
+      toast({ title: "Evento eliminado" })
+      
+      await addDoc(collection(db, "audit_logs"), {
+        userId: currentUser?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero",
+        action: "Eliminar Evento",
+        module: "tesoreria",
+        details: `Se eliminó el evento especial: ${category}`,
+        timestamp: serverTimestamp()
+      })
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error al eliminar" })
+    }
+  }
+
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
       if (node.srcObject !== currentStream) {
@@ -366,6 +435,9 @@ export default function TreasuryPage() {
         <TabsList className="mb-8 h-12 bg-white p-1 border rounded-xl shadow-sm gap-2">
           <TabsTrigger value="pagos" className="rounded-lg px-8 font-bold data-[state=active]:bg-primary data-[state=active]:text-white">
             <Banknote className="h-4 w-4 mr-2" /> Inscripciones
+          </TabsTrigger>
+          <TabsTrigger value="eventos" className="rounded-lg px-8 font-bold data-[state=active]:bg-accent data-[state=active]:text-white">
+            <CalendarDays className="h-4 w-4 mr-2" /> Eventos Especiales
           </TabsTrigger>
           <TabsTrigger value="egresos" className="rounded-lg px-8 font-bold data-[state=active]:bg-red-600 data-[state=active]:text-white">
             <TrendingDown className="h-4 w-4 mr-2" /> Egresos
@@ -464,6 +536,52 @@ export default function TreasuryPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="eventos" className="space-y-6">
+          <div className="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-accent/10 rounded-2xl">
+                <Zap className="h-6 w-6 text-accent" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Eventos Especiales</h3>
+                <p className="text-xs text-slate-400 font-medium">Crea conceptos de cobro adicionales para la catequesis.</p>
+              </div>
+            </div>
+            <Button className="bg-accent hover:bg-accent/90 h-12 rounded-xl font-bold gap-2 shadow-lg shadow-accent/20" onClick={() => setIsEventDialogOpen(true)}>
+              <Plus className="h-5 w-5" /> Nuevo Evento
+            </Button>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {loadingEvents ? (
+              <div className="col-span-full flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-accent" /></div>
+            ) : !events || events.length === 0 ? (
+              <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+                <CalendarDays className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-500 font-medium italic">No hay eventos especiales creados.</p>
+              </div>
+            ) : (
+              events.map((ev) => (
+                <Card key={ev.id} className="border-none shadow-md bg-white rounded-3xl overflow-hidden group hover:shadow-xl transition-all">
+                  <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="text-sm font-black uppercase text-slate-900">{ev.category}</CardTitle>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">Creado el {new Date(ev.createdAt?.toDate ? ev.createdAt.toDate() : ev.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-full" onClick={() => handleDeleteEvent(ev.id, ev.category)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="p-8 text-center space-y-4">
+                    <p className="text-3xl font-black text-accent tracking-tighter">{ev.cost.toLocaleString('es-PY')} Gs.</p>
+                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic">Este monto será el que visualice el catequista al momento de cobrar al alumno.</p>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
         <TabsContent value="egresos" className="space-y-6">
           <div className="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100">
             <div className="flex items-center gap-4">
@@ -515,7 +633,6 @@ export default function TreasuryPage() {
                         <TableCell className="text-center">
                           {exp.proofUrl ? (
                             <Avatar className="h-10 w-10 mx-auto rounded-lg border-2 border-slate-100 shadow-sm cursor-pointer hover:scale-110 transition-transform" onClick={() => {
-                              // Reutilizar lógica de lightbox si se desea
                               window.open(exp.proofUrl, '_blank')
                             }}>
                               <AvatarImage src={exp.proofUrl} className="object-cover" />
@@ -731,6 +848,40 @@ export default function TreasuryPage() {
               {isSubmittingPayment ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Cobro"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOGO DE NUEVO EVENTO */}
+      <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          <DialogHeader className="p-6 bg-accent text-white">
+            <DialogTitle className="flex items-center gap-2"><Zap className="h-5 w-5" /> Crear Nuevo Evento</DialogTitle>
+            <DialogDescription className="text-white/70">Define el concepto y el costo que cobrarán los catequistas.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateEvent}>
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <Label className="font-bold text-slate-700 uppercase text-[10px]">Nombre / Categoría del Evento</Label>
+                <Input name="category" placeholder="Ej. Retiro Espiritual 2026" required className="h-12 rounded-xl bg-slate-50" />
+              </div>
+              <div className="space-y-2">
+                <Label className="font-bold text-slate-700 uppercase text-[10px]">Costo del Evento (Gs)</Label>
+                <Input name="cost" type="number" placeholder="0" required className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-accent/20 text-accent" />
+              </div>
+              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
+                <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-blue-700 leading-relaxed font-medium">
+                  Este evento aparecerá automáticamente en el módulo de cobros de los catequistas para que puedan registrar los aportes de sus confirmandos.
+                </p>
+              </div>
+            </div>
+            <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+              <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setIsEventDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit" className="flex-1 h-12 rounded-xl bg-accent hover:bg-accent/90 text-white font-bold shadow-lg" disabled={isSubmittingEvent}>
+                {isSubmittingEvent ? <Loader2 className="animate-spin h-4 w-4" /> : "Crear Evento"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
