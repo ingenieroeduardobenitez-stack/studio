@@ -94,20 +94,20 @@ export default function DashboardPage() {
           </h1>
           <p className="text-muted-foreground">Bienvenido al Sistema de la Confirmación Juvenil NSPS</p>
         </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold gap-2 h-11" onClick={() => setIsReportOpen(true)}>
-              <FileText className="h-4 w-4" /> Generar Informe
-            </Button>
-          )}
-          <Button asChild className="bg-primary hover:bg-primary/90 h-11 px-6 rounded-xl font-bold shadow-lg">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <Button asChild className="bg-primary hover:bg-primary/90 h-12 sm:h-11 px-6 rounded-xl font-bold shadow-lg">
             <Link href="/dashboard/registration">
-              <ClipboardCheck className="mr-2 h-4 w-4" /> Nueva Inscripción
+              <ClipboardCheck className="mr-2 h-5 w-5 sm:h-4 sm:w-4" /> Nueva Inscripción
             </Link>
           </Button>
-          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
-            <QrCode className="h-4 w-4" /> QR Inscripción
+          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-12 sm:h-11" onClick={() => setIsQrOpen(true)}>
+            <QrCode className="h-5 w-5 sm:h-4 sm:w-4" /> QR Inscripción
           </Button>
+          {isAdmin && (
+            <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold gap-2 h-12 sm:h-11" onClick={() => setIsReportOpen(true)}>
+              <FileText className="h-5 w-5 sm:h-4 sm:w-4" /> Generar Informe
+            </Button>
+          )}
         </div>
       </div>
 
