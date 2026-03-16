@@ -33,19 +33,40 @@ export default function DashboardPage() {
   // Consulta ultra-ligera limitada para estadísticas (Plan Blaze)
   const statsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
-    return query(collection(db, "confirmations"), limit(500))
+    return query(collection(db, "confirmations"), limit(1000))
   }, [db, user])
 
   const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery)
 
   const stats = useMemo(() => {
-    if (!allRegs) return { total: 0, firstYear: 0, secondYear: 0, adults: 0 }
+    if (!allRegs) return { 
+      total: 0, 
+      firstYear: 0, 
+      secondYear: 0, 
+      adults: 0,
+      firstYearSabado: 0,
+      firstYearDomingo: 0,
+      secondYearSabado: 0,
+      secondYearDomingo: 0,
+      adultsSabado: 0,
+      adultsDomingo: 0
+    }
+    
     const active = allRegs.filter(r => !r.isArchived)
+    
     return {
       total: active.length,
       firstYear: active.filter(r => r.catechesisYear === "PRIMER_AÑO").length,
       secondYear: active.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length,
-      adults: active.filter(r => r.catechesisYear === "ADULTOS").length
+      adults: active.filter(r => r.catechesisYear === "ADULTOS").length,
+      
+      // Detalle para el informe detallado
+      firstYearSabado: active.filter(r => r.catechesisYear === "PRIMER_AÑO" && r.attendanceDay === "SABADO").length,
+      firstYearDomingo: active.filter(r => r.catechesisYear === "PRIMER_AÑO" && r.attendanceDay === "DOMINGO").length,
+      secondYearSabado: active.filter(r => r.catechesisYear === "SEGUNDO_AÑO" && r.attendanceDay === "SABADO").length,
+      secondYearDomingo: active.filter(r => r.catechesisYear === "SEGUNDO_AÑO" && r.attendanceDay === "DOMINGO").length,
+      adultsSabado: active.filter(r => r.catechesisYear === "ADULTOS" && r.attendanceDay === "SABADO").length,
+      adultsDomingo: active.filter(r => r.catechesisYear === "ADULTOS" && r.attendanceDay === "DOMINGO").length,
     }
   }, [allRegs])
 
@@ -250,28 +271,59 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
 
       <div className="space-y-10">
         <div className="space-y-4">
-          <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">1. Resumen de Postulantes por Categoría</h3>
+          <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">1. Resumen de Postulantes por Categoría y Turno</h3>
           <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50">
-                  <th className="p-5 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b">Categoría / Nivel</th>
-                  <th className="p-5 text-[10px] font-black uppercase text-slate-500 tracking-widest text-right border-b">Cantidad Inscritos</th>
+                  <th className="p-5 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b">Categoría / Nivel / Horario</th>
+                  <th className="p-5 text-[10px] font-black uppercase text-slate-500 tracking-widest text-right border-b">Inscritos</th>
                 </tr>
               </thead>
               <tbody className="text-sm font-medium text-slate-700">
-                <tr className="border-b last:border-0 hover:bg-slate-50/50">
-                  <td className="p-5">CATEQUESIS DE PRIMER AÑO (INICIAL)</td>
-                  <td className="p-5 text-right font-black text-lg">{stats.firstYear}</td>
+                {/* PRIMER AÑO */}
+                <tr className="bg-slate-50/30">
+                  <td className="p-4 font-black text-slate-900">CATEQUESIS DE PRIMER AÑO (INICIAL)</td>
+                  <td className="p-4 text-right font-black text-slate-900">{stats.firstYear}</td>
                 </tr>
-                <tr className="border-b last:border-0 hover:bg-slate-50/50">
-                  <td className="p-5">CATEQUESIS DE SEGUNDO AÑO (CONFIRMACIÓN)</td>
-                  <td className="p-5 text-right font-black text-lg">{stats.secondYear}</td>
+                <tr className="border-b">
+                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Sábados (15:30 hs)</td>
+                  <td className="p-3 text-right font-bold text-slate-700">{stats.firstYearSabado}</td>
                 </tr>
-                <tr className="border-b last:border-0 hover:bg-slate-50/50">
-                  <td className="p-5">CURSO INTENSIVO PARA ADULTOS</td>
-                  <td className="p-5 text-right font-black text-lg">{stats.adults}</td>
+                <tr className="border-b">
+                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Domingos (08:00 hs)</td>
+                  <td className="p-3 text-right font-bold text-slate-700">{stats.firstYearDomingo}</td>
                 </tr>
+
+                {/* SEGUNDO AÑO */}
+                <tr className="bg-slate-50/30">
+                  <td className="p-4 font-black text-slate-900">CATEQUESIS DE SEGUNDO AÑO (CONFIRMACIÓN)</td>
+                  <td className="p-4 text-right font-black text-slate-900">{stats.secondYear}</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Sábados (15:30 hs)</td>
+                  <td className="p-3 text-right font-bold text-slate-700">{stats.secondYearSabado}</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Domingos (08:00 hs)</td>
+                  <td className="p-3 text-right font-bold text-slate-700">{stats.secondYearDomingo}</td>
+                </tr>
+
+                {/* ADULTOS */}
+                <tr className="bg-slate-50/30">
+                  <td className="p-4 font-black text-slate-900">CURSO INTENSIVO PARA ADULTOS</td>
+                  <td className="p-4 text-right font-black text-slate-900">{stats.adults}</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Sábados (15:30 hs)</td>
+                  <td className="p-3 text-right font-bold text-slate-700">{stats.adultsSabado}</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Domingos (08:00 hs)</td>
+                  <td className="p-3 text-right font-bold text-slate-700">{stats.adultsDomingo}</td>
+                </tr>
+
+                {/* TOTAL GENERAL */}
                 <tr className="bg-primary/5">
                   <td className="p-6 text-base font-black text-primary uppercase">Total de Inscripciones Registradas</td>
                   <td className="p-6 text-right text-3xl font-black text-primary">{stats.total}</td>
@@ -285,7 +337,7 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
           <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">2. Observaciones Administrativas</h3>
           <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
             <p className="text-xs leading-relaxed text-slate-600 font-medium italic">
-              El presente informe refleja la situación actual de los postulantes inscritos para el ciclo 2026. 
+              El presente informe refleja la situación actual de los postulantes inscritos para el ciclo 2026, distribuidos por niveles y turnos de asistencia. 
               Los datos han sido extraídos automáticamente del Sistema de Gestión de Confirmación Juvenil NSPS.
             </p>
           </div>
@@ -293,7 +345,6 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
       </div>
 
       <div className="mt-24 grid grid-cols-3 gap-8">
-        {/* FIRMA 1: EMISOR */}
         <div className="text-center space-y-4 relative">
           <div className="h-px w-full bg-slate-300"></div>
           <div className="space-y-1">
@@ -308,7 +359,6 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
           </div>
         </div>
 
-        {/* FIRMA 2: FLAVIA TUCUNA */}
         <div className="text-center space-y-4 relative">
           <div className="h-px w-full bg-slate-300"></div>
           <div className="space-y-1">
@@ -323,7 +373,6 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
           </div>
         </div>
 
-        {/* FIRMA 3: CARLONGO BENITEZ */}
         <div className="text-center space-y-4 relative">
           <div className="h-px w-full bg-slate-300"></div>
           <div className="space-y-1">
