@@ -477,6 +477,10 @@ export default function TreasuryPage() {
                   onChange={(e) => setSearchTerm(e.target.value)} 
                 />
               </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 rounded-xl border border-primary/10">
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-sm font-bold text-primary">{filteredRegs.length} Registros</span>
+              </div>
               <div className="flex gap-2">
                 <Select value={filterYear} onValueChange={setFilterYear}>
                   <SelectTrigger className="w-[140px] h-12 rounded-2xl bg-white"><SelectValue placeholder="Nivel" /></SelectTrigger>
