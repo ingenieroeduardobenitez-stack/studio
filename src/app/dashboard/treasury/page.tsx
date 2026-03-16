@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -142,8 +143,8 @@ export default function TreasuryPage() {
       data.ownerCi = formData.get("ownerCi") as string || ""
       data.alias = formData.get("alias") as string || ""
     } else {
+      data.bankName = formData.get("bankName") as string || ""
       data.alias = formData.get("alias") as string || ""
-      data.bankName = ""
       data.accountNumber = ""
       data.ownerCi = ""
     }
@@ -618,15 +619,19 @@ export default function TreasuryPage() {
                       ) : (
                         <>
                           <div className="space-y-2">
+                            <Label className="text-xs font-bold text-slate-500">Nombre del Banco</Label>
+                            <Input name="bankName" defaultValue={treasurySettings?.bankName} placeholder="Ej. ueno bank" className="h-12 rounded-xl bg-white" required />
+                          </div>
+                          <div className="space-y-2">
                             <Label className="text-xs font-bold text-slate-500">Alias de Transferencia</Label>
                             <Input name="alias" defaultValue={treasurySettings?.alias} placeholder="Ej. parroquia.ps" className="h-12 rounded-xl font-bold text-primary bg-white text-lg" required />
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-2 md:col-span-2">
                             <Label className="text-xs font-bold text-slate-500">Titular de la Cuenta</Label>
                             <Input name="accountOwner" defaultValue={treasurySettings?.accountOwner} placeholder="Nombre completo o Parroquia" className="h-12 rounded-xl bg-white" required />
                           </div>
                           <p className="text-[10px] text-muted-foreground italic md:col-span-2 mt-2">
-                            * En este modo, el postulante solo verá el Alias y el Nombre del Titular para realizar transferencias rápidas.
+                            * En este modo, el postulante solo verá el Banco, el Alias y el Nombre del Titular para realizar transferencias rápidas.
                           </p>
                         </>
                       )}
