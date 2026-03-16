@@ -528,6 +528,7 @@ export default function TreasuryPage() {
                     {filteredRegs.map((reg) => {
                       const pending = (reg.registrationCost || 35000) - (reg.amountPaid || 0)
                       const isPaid = reg.paymentStatus === "PAGADO"
+                      const hasReceipt = !!reg.receiptNumber
                       return (
                         <TableRow key={reg.id} className="h-20 hover:bg-slate-50/30 transition-colors">
                           <TableCell className="pl-8">
@@ -545,7 +546,7 @@ export default function TreasuryPage() {
                           <TableCell className="text-right font-black text-sm">{pending > 0 ? pending.toLocaleString('es-PY') : "0"} Gs.</TableCell>
                           <TableCell className="text-right pr-8">
                             <div className="flex justify-end gap-2">
-                              {reg.receiptNumber && (
+                              {hasReceipt ? (
                                 <Button 
                                   size="icon" 
                                   variant="ghost" 
@@ -555,10 +556,20 @@ export default function TreasuryPage() {
                                 >
                                   <Receipt className="h-4 w-4" />
                                 </Button>
+                              ) : (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className={cn(
+                                    "h-9 rounded-xl font-bold gap-2",
+                                    isPaid ? "border-amber-500 text-amber-600 hover:bg-amber-50" : "border-primary text-primary hover:bg-primary/5"
+                                  )} 
+                                  onClick={() => handleOpenPayment(reg)}
+                                >
+                                  {isPaid ? <Receipt className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
+                                  {isPaid ? "Generar Recibo" : "Cobrar"}
+                                </Button>
                               )}
-                              <Button size="sm" variant="outline" className="h-9 rounded-xl font-bold border-primary text-primary hover:bg-primary/5 gap-2" onClick={() => handleOpenPayment(reg)} disabled={isPaid}>
-                                <Banknote className="h-4 w-4" /> Cobrar
-                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -795,7 +806,7 @@ export default function TreasuryPage() {
                 </CardContent>
                 <CardFooter className="bg-slate-50 p-6 border-t flex justify-end">
                   <Button type="submit" disabled={isCostSaving} className="rounded-xl h-12 px-8 font-bold shadow-lg gap-2">
-                    {isCostSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    {isCostSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
                     Guardar Configuración
                   </Button>
                 </CardFooter>
@@ -882,8 +893,12 @@ export default function TreasuryPage() {
           </div>
           <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
             <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
-            <Button className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg" onClick={handleProcessPayment} disabled={isSubmittingPayment || paymentAmount <= 0}>
-              {isSubmittingPayment ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Cobro"}
+            <Button 
+              className="flex-1 h-12 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg" 
+              onClick={handleProcessPayment} 
+              disabled={isSubmittingPayment || (paymentAmount <= 0 && selectedReg?.paymentStatus !== "PAGADO")}
+            >
+              {isSubmittingPayment ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar"}
             </Button>
           </DialogFooter>
         </DialogContent>
