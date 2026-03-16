@@ -35,7 +35,9 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Receipt
+  Receipt,
+  AlertTriangle,
+  Users
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction, orderBy, limit } from "firebase/firestore"
@@ -55,6 +57,7 @@ export default function PaymentsManagementPage() {
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [filterMethod, setFilterMethod] = useState<string>("all")
 
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState(0)
@@ -100,7 +103,7 @@ export default function PaymentsManagementPage() {
 
   const confirmandsQuery = useMemoFirebase(() => {
     if (!db) return null
-    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(100))
+    return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200))
   }, [db])
 
   const { data: allConfirmands, loading: loadingRegs } = useCollection(confirmandsQuery)
@@ -110,6 +113,7 @@ export default function PaymentsManagementPage() {
     setFilterSex("all");
     setFilterYear("all");
     setFilterStatus("all");
+    setFilterMethod("all");
   }
 
   const filteredConfirmands = useMemo(() => {
@@ -124,9 +128,12 @@ export default function PaymentsManagementPage() {
       if (!matchesSearch) return false
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
-      const matchesStatus = filterStatus === "all" || r.status === filterStatus
+      const matchesStatus = filterStatus === "all" || r.paymentStatus === filterStatus
+      
+      const currentMethod = r.lastPaymentMethod || r.paymentMethod || "SIN_PAGO";
+      const matchesMethod = filterMethod === "all" || currentMethod === filterMethod;
 
-      if (!matchesSex || !matchesYear || !matchesStatus) return false
+      if (!matchesSex || !matchesYear || !matchesStatus || !matchesMethod) return false
 
       if (profile?.role === "Administrador" || profile?.role === "Tesorero") return true
 
@@ -138,14 +145,14 @@ export default function PaymentsManagementPage() {
       }
       return true
     })
-  }, [allConfirmands, searchTerm, myGroups, profile, filterSex, filterYear, filterStatus])
+  }, [allConfirmands, searchTerm, myGroups, profile, filterSex, filterYear, filterStatus, filterMethod])
 
   const handleOpenPayment = (reg: any) => {
     setSelectedReg(reg)
-    const pending = (reg.registrationCost || 0) - (reg.amountPaid || 0)
+    const pending = (reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? 50000 : 35000)) - (reg.amountPaid || 0)
     setPaymentAmount(pending > 0 ? pending : 0)
     setSelectedEventId("inscripcion")
-    setPaymentType("EFECTIVO")
+    setPaymentType(reg.paymentMethod === "TRANSFERENCIA" ? "TRANSFERENCIA" : "EFECTIVO")
     setPaymentProofUrl(null)
     setIsPaymentDialogOpen(true)
   }
@@ -278,21 +285,57 @@ export default function PaymentsManagementPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-3xl font-headline font-bold text-primary tracking-tight">Control de Cobros</h1>
+        <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 rounded-xl border border-primary/10">
+          <Users className="h-4 w-4 text-primary" />
+          <span className="text-sm font-bold text-primary">{filteredConfirmands.length} Registros</span>
+        </div>
       </div>
 
       <div className="space-y-4">
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar por nombre o C.I..." 
-                className="pl-9 h-12 rounded-2xl" 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-              />
+          <div className="flex flex-col md:flex-row md:items-end gap-4">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Buscador</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Nombre o C.I..." 
+                  className="pl-9 h-12 rounded-2xl bg-slate-50 border-none shadow-inner" 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                />
+              </div>
             </div>
-            <Button variant="ghost" className="h-12 rounded-2xl gap-2 font-bold" onClick={resetFilters}><FilterX className="h-4 w-4" /> Limpiar</Button>
+            
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Método</Label>
+              <Select value={filterMethod} onValueChange={setFilterMethod}>
+                <SelectTrigger className="w-[160px] h-12 rounded-2xl bg-white"><SelectValue placeholder="Método" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Métodos</SelectItem>
+                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                  <SelectItem value="SIN_PAGO">Pendiente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Nivel</Label>
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger className="w-[140px] h-12 rounded-2xl bg-white"><SelectValue placeholder="Nivel" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Niveles</SelectItem>
+                  <SelectItem value="PRIMER_AÑO">1° Año</SelectItem>
+                  <SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem>
+                  <SelectItem value="ADULTOS">Adultos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button variant="ghost" className="h-12 w-12 rounded-2xl p-0 hover:bg-slate-100" onClick={resetFilters} title="Limpiar Filtros">
+              <FilterX className="h-5 w-5 text-slate-400" />
+            </Button>
           </div>
         </div>
 
@@ -300,42 +343,83 @@ export default function PaymentsManagementPage() {
           <CardContent className="p-0">
             {loadingRegs ? (
               <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : filteredConfirmands.length === 0 ? (
+              <div className="py-20 text-center text-muted-foreground italic">No se encontraron registros con estos filtros.</div>
             ) : (
               <Table>
                 <TableHeader className="bg-slate-50/50">
                   <TableRow>
-                    <TableHead className="font-bold pl-8">Confirmando</TableHead>
-                    <TableHead className="text-center">Nivel</TableHead>
-                    <TableHead className="text-center">Estado Pago</TableHead>
-                    <TableHead className="text-center">Saldo</TableHead>
+                    <TableHead className="pl-8 font-bold">Confirmando</TableHead>
+                    <TableHead className="text-center font-bold">Método</TableHead>
+                    <TableHead className="text-center font-bold">Estado Pago</TableHead>
+                    <TableHead className="text-right font-bold">Saldo</TableHead>
                     <TableHead className="text-right pr-8 font-bold">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredConfirmands.map((reg) => {
-                    const pending = (reg.registrationCost || 35000) - (reg.amountPaid || 0)
+                    const currentCost = reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? 50000 : 35000)
+                    const pending = currentCost - (reg.amountPaid || 0)
                     const isPaid = reg.paymentStatus === "PAGADO"
+                    const declaredMethod = reg.paymentMethod || "SIN_PAGO";
+                    const isEfectivoZero = declaredMethod === "EFECTIVO" && (reg.amountPaid || 0) === 0;
+
                     return (
-                      <TableRow key={reg.id} className="h-20">
+                      <TableRow key={reg.id} className="h-20 hover:bg-slate-50/30 transition-colors">
                         <TableCell className="pl-8">
                           <div className="flex items-center gap-4">
-                            <Avatar className="h-10 w-10 border"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User /></AvatarFallback></Avatar>
-                            <div className="flex flex-col"><span className="font-bold text-sm text-slate-900 uppercase">{reg.fullName}</span><span className="text-[10px] text-slate-500 font-bold">{reg.ciNumber}</span></div>
+                            <Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={reg.photoUrl} className="object-cover" /><AvatarFallback><User /></AvatarFallback></Avatar>
+                            <div className="flex flex-col">
+                              <span className="font-bold text-sm text-slate-900 uppercase truncate max-w-[180px]">{reg.fullName}</span>
+                              <span className="text-[10px] text-slate-500 font-bold uppercase">{reg.catechesisYear?.replace("_", " ")}</span>
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center"><Badge variant="secondary" className="text-[9px] uppercase">{reg.catechesisYear?.replace("_", " ")}</Badge></TableCell>
-                        <TableCell className="text-center"><Badge variant="outline" className={cn(isPaid ? "bg-green-50 text-green-600 border-green-200" : "")}>{reg.paymentStatus || "PENDIENTE"}</Badge></TableCell>
-                        <TableCell className="text-center font-black text-sm">{pending > 0 ? pending.toLocaleString('es-PY') : "0"} Gs.</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary" className="text-[9px] uppercase gap-1.5">
+                            {declaredMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : declaredMethod === "TRANSFERENCIA" ? <ArrowRightLeft className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                            {declaredMethod}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <Badge variant="outline" className={cn(isPaid ? "bg-green-50 text-green-600 border-green-200" : "bg-amber-50 text-amber-600 border-amber-200")}>
+                              {reg.paymentStatus || "PENDIENTE"}
+                            </Badge>
+                            {isEfectivoZero && (
+                              <span className="text-[8px] font-black text-orange-600 uppercase flex items-center gap-1 animate-pulse">
+                                <AlertTriangle className="h-2 w-2" /> AJUSTE PENDIENTE
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-black text-sm text-slate-900">
+                          {pending > 0 ? pending.toLocaleString('es-PY') : "0"} Gs.
+                        </TableCell>
                         <TableCell className="text-right pr-8">
                           <div className="flex justify-end gap-2">
-                            {reg.receiptNumber && (
-                              <Button size="icon" variant="outline" className="h-10 w-10 rounded-xl border-amber-200 text-amber-600 hover:bg-amber-50" onClick={() => handleViewReceipt(reg)} title="Ver Recibo">
+                            {reg.receiptNumber ? (
+                              <Button size="icon" variant="outline" className="h-10 w-10 rounded-xl border-amber-200 text-amber-600 hover:bg-amber-50 shadow-sm" onClick={() => handleViewReceipt(reg)} title="Ver Recibo">
                                 <Receipt className="h-4 w-4" />
                               </Button>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className={cn(
+                                  "h-10 rounded-xl font-bold px-4 gap-2 transition-all active:scale-95",
+                                  isEfectivoZero ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100" : "border-primary text-primary hover:bg-primary/5"
+                                )} 
+                                onClick={() => handleOpenPayment(reg)}
+                                disabled={isPaid && !!reg.receiptNumber}
+                              >
+                                {isEfectivoZero ? (
+                                  <><CheckCircle2 className="h-4 w-4" /> Validar Efectivo</>
+                                ) : (
+                                  <><Banknote className="h-4 w-4" /> Confirmar Pago</>
+                                )}
+                              </Button>
                             )}
-                            <Button size="sm" variant="outline" className="h-10 rounded-xl font-bold border-primary text-primary" onClick={() => handleOpenPayment(reg)} disabled={isPaid}>
-                              {isPaid ? <CheckCircle2 className="h-4 w-4 mr-2" /> : "Confirmar Pago"}
-                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -348,30 +432,95 @@ export default function PaymentsManagementPage() {
         </Card>
       </div>
 
+      {/* DIÁLOGO DE PROCESAR PAGO */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white">
-            <DialogTitle>Confirmar Cobro</DialogTitle>
-            <DialogDescription className="text-white/70">Ingresa el monto recibido para {selectedReg?.fullName}.</DialogDescription>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-[2rem]">
+          <DialogHeader className="p-8 bg-primary text-white shrink-0">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-white/20 rounded-xl">
+                <Banknote className="h-6 w-6" />
+              </div>
+              <DialogTitle className="text-2xl font-headline">Confirmar Cobro</DialogTitle>
+            </div>
+            <DialogDescription className="text-white/70">Confirmando: {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
-          <div className="p-6 space-y-6">
-            <div className="space-y-3"><Label className="font-bold">Monto a Recibir (Gs)</Label><Input type="number" className="h-14 text-2xl font-black rounded-2xl" value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} /></div>
-            <div className="space-y-3"><Label className="font-bold">Tipo de Pago</Label>
+          
+          <div className="p-8 space-y-6">
+            <div className="bg-slate-50 p-5 rounded-3xl border border-dashed border-slate-200 space-y-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Pendiente de Cobro:</p>
+              <p className="text-3xl font-black text-primary tracking-tighter">
+                {((selectedReg?.registrationCost || (selectedReg?.catechesisYear === "ADULTOS" ? 50000 : 35000)) - (selectedReg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="font-bold text-slate-700 ml-1">Monto Recibido (Gs)</Label>
+              <Input 
+                type="number" 
+                className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-primary/20 text-primary text-center" 
+                value={paymentAmount} 
+                onChange={(e) => setPaymentAmount(Number(e.target.value))} 
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="font-bold text-slate-700 ml-1">Forma de Pago Real</Label>
               <Select value={paymentType} onValueChange={(val: any) => setPaymentType(val)}>
-                <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="EFECTIVO">Efectivo</SelectItem><SelectItem value="TRANSFERENCIA">Transferencia</SelectItem></SelectContent>
+                <SelectTrigger className="h-12 rounded-2xl bg-slate-50 border-none shadow-inner">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EFECTIVO">
+                    <div className="flex items-center gap-2 font-bold"><Banknote className="h-4 w-4" /> Efectivo (Caja)</div>
+                  </SelectItem>
+                  <SelectItem value="TRANSFERENCIA">
+                    <div className="flex items-center gap-2 font-bold"><ArrowRightLeft className="h-4 w-4" /> Transferencia</div>
+                  </SelectItem>
+                </SelectContent>
               </Select>
             </div>
-            <div className="space-y-3"><Label className="font-bold">Comprobante (Opcional)</Label><div className="border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center bg-slate-50 cursor-pointer" onClick={() => startCamera()}>{paymentProofUrl ? <img src={paymentProofUrl} className="h-full w-full object-cover rounded-xl" /> : <ImageIcon className="h-8 w-8 text-slate-300" />}</div></div>
+
+            {paymentType === "TRANSFERENCIA" && (
+              <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                <Label className="font-bold text-slate-700 ml-1">Comprobante (Foto)</Label>
+                <div 
+                  className={cn(
+                    "border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden",
+                    paymentProofUrl ? "border-primary bg-primary/5" : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                  )} 
+                  onClick={() => startCamera()}
+                >
+                  {paymentProofUrl ? (
+                    <img src={paymentProofUrl} className="h-full w-full object-cover" alt="Comprobante" />
+                  ) : (
+                    <div className="text-center space-y-1">
+                      <ImageIcon className="h-6 w-6 text-slate-300 mx-auto" />
+                      <p className="text-[10px] font-black text-slate-400 uppercase">Tocar para Capturar</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3"><Button variant="outline" className="flex-1" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button><Button className="flex-1 bg-green-600 font-bold" onClick={handleProcessPayment} disabled={isSubmitting || paymentAmount <= 0}>Confirmar</Button></DialogFooter>
+
+          <DialogFooter className="p-8 bg-slate-50 border-t flex flex-row gap-3">
+            <Button variant="outline" className="flex-1 h-14 rounded-2xl font-black uppercase text-xs" onClick={() => setIsPaymentDialogOpen(false)}>Cancelar</Button>
+            <Button 
+              className="flex-1 h-14 bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all" 
+              onClick={handleProcessPayment} 
+              disabled={isSubmitting || paymentAmount <= 0}
+            >
+              {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "PROCESAR COBRO"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* DIALOGO DE RECIBO OFICIAL */}
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
-        <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-3xl h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none shadow-2xl bg-white rounded-[2rem] h-[90vh] flex flex-col">
           <DialogHeader className="p-4 bg-slate-50 border-b no-print shrink-0">
-            <DialogTitle className="text-xs font-black uppercase text-slate-400 tracking-widest">Vista Previa de Recibo</DialogTitle>
+            <DialogTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Comprobante Oficial Emitido</DialogTitle>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto p-4 bg-slate-100 no-print flex justify-center">
@@ -380,59 +529,41 @@ export default function PaymentsManagementPage() {
             </div>
           </div>
 
-          {/* REAL PRINT CONTENT (unscaled) */}
           <div className="hidden print:block">
             <ReceiptContent reg={selectedReg} formatDate={formatReceiptDate} />
           </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3 no-print shrink-0">
-            <Button variant="outline" className="flex-1 rounded-xl font-bold h-12" onClick={() => setIsReceiptOpen(false)}>Cerrar</Button>
-            <Button variant="secondary" className="flex-1 rounded-xl font-bold h-12 bg-green-50 text-green-700 border-green-200 gap-2" onClick={shareViaWhatsApp}>
-              <MessageCircle className="h-4 w-4" /> WhatsApp
+            <Button variant="outline" className="flex-1 rounded-2xl font-black h-14 border-slate-200" onClick={() => setIsReceiptOpen(false)}>CERRAR</Button>
+            <Button variant="secondary" className="flex-1 rounded-2xl font-black h-14 bg-green-50 text-green-700 border-green-200 gap-2" onClick={shareViaWhatsApp}>
+              <MessageCircle className="h-5 w-5" /> WHATSAPP
             </Button>
-            <Button className="flex-1 bg-primary text-white rounded-xl font-bold gap-2 shadow-lg h-12" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Imprimir
+            <Button className="flex-1 bg-primary text-white rounded-2xl font-black gap-2 shadow-xl h-14 active:scale-95" onClick={() => window.print()}>
+              <Printer className="h-5 w-5" /> IMPRIMIR
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* CÁMARA */}
       <Dialog open={showCamera} onOpenChange={(open) => !open && setShowCamera(false)}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-3xl">
-          <DialogHeader className="p-6 bg-primary text-white">
-            <DialogTitle>Capturar Foto del Comprobante</DialogTitle>
-            <DialogDescription className="text-white/70">Asegúrate de que los datos del pago sean legibles.</DialogDescription>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-primary text-white shrink-0">
+            <DialogTitle className="text-center uppercase font-black text-sm tracking-widest">Capturar Foto Comprobante</DialogTitle>
           </DialogHeader>
-          <div className="relative bg-black aspect-[3/4]"><video ref={onVideoRef} autoPlay playsInline className="w-full h-full object-cover" /><canvas ref={canvasRef} className="hidden" /></div>
-          <DialogFooter className="p-6 bg-slate-50 border-t"><Button className="w-full h-12 rounded-xl font-bold bg-primary" onClick={takePhoto}>Capturar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isProofViewOpen} onOpenChange={(open) => { setIsProofViewOpen(open); if(!open) setZoomScale(1); }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-4xl p-0 bg-transparent border-none shadow-none flex items-center justify-center overflow-visible">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Vista de Documento</DialogTitle>
-            <DialogDescription>Previsualización ampliada del documento seleccionado.</DialogDescription>
-          </DialogHeader>
-          <div className="relative flex flex-col items-center w-full">
-            <Button variant="secondary" size="icon" className="absolute -top-14 right-0 rounded-full text-white bg-white/20 hover:bg-white/40 border border-white/10 z-50" onClick={() => setIsProofViewOpen(false)}>
-              <X className="h-6 w-6" />
-            </Button>
-            <div className="absolute -bottom-16 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl p-2 px-4 rounded-2xl border border-white/10 shadow-2xl z-50">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.max(0.25, prev - 0.25))}><ZoomOut className="h-4 w-4" /></Button>
-              <span className="text-[10px] font-black text-white uppercase w-14 text-center">{Math.round(zoomScale * 100)}%</span>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(prev => Math.min(4, prev + 0.25))}><ZoomIn className="h-4 w-4" /></Button>
-              <Separator orientation="vertical" className="h-4 bg-white/20 mx-1" />
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10" onClick={() => setZoomScale(1)}><Maximize2 className="h-4 w-4" /></Button>
-            </div>
-            <div className="w-full bg-slate-950/20 backdrop-blur-sm rounded-3xl p-2 border border-white/10 shadow-2xl overflow-hidden">
-              <ScrollArea className="max-h-[75vh] w-full rounded-2xl">
-                <div className="flex items-center justify-center p-4 md:p-10 min-h-[400px]">
-                  <img src={viewProofUrl || ""} className="rounded-xl shadow-2xl transition-all duration-300 select-none h-auto" style={{ width: zoomScale === 1 ? 'auto' : `${zoomScale * 100}%`, maxWidth: zoomScale === 1 ? '100%' : 'none', maxHeight: zoomScale === 1 ? '75vh' : 'none', objectFit: 'contain' }} alt="Documento" />
-                </div>
-              </ScrollArea>
-            </div>
+          <div className="relative bg-black aspect-[3/4]">
+            <video ref={onVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
           </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
+            {devices.length > 1 && (
+              <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(val); }}>
+                <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                <SelectContent>{devices.map((d) => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0,5)}`}</SelectItem>))}</SelectContent>
+              </Select>
+            )}
+            <Button className="w-full h-14 rounded-2xl font-black bg-primary text-lg active:scale-95 transition-all" onClick={takePhoto}>CAPTURAR AHORA</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -489,7 +620,7 @@ function ReceiptContent({ reg, formatDate }: { reg: any, formatDate: any }) {
         <div className="flex items-baseline gap-2">
           <span className="font-bold whitespace-nowrap">Observación:</span>
           <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">
-            Saldo Pendiente: {((reg?.registrationCost || 35000) - (reg?.amountPaid || 0)).toLocaleString('es-PY')} Gs.
+            Pago regularizado vía {reg?.lastPaymentMethod || 'EFECTIVO'}.
           </span>
         </div>
       </div>
