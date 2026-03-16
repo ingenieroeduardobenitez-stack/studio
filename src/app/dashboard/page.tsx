@@ -219,7 +219,7 @@ export default function DashboardPage() {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto p-8 bg-slate-100 no-print flex justify-center">
-            <div className="bg-white shadow-2xl origin-top scale-[0.75] mb-[-15%]">
+            <div className="bg-white shadow-2xl origin-top scale-[0.8]">
               <ExecutiveReportContent stats={stats} profile={profile} />
             </div>
           </div>
@@ -251,92 +251,92 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
   const reporterRole = profile?.role ? profile.role.toUpperCase() : "PERSONAL AUTORIZADO";
 
   return (
-    <div id="executive-report" className="bg-white p-12 text-slate-900 w-[800px] h-auto min-h-[1050px] mx-auto border-[1px] border-slate-200 relative">
-      <div className="flex items-center justify-between border-b-2 border-primary pb-8 mb-8">
-        <div className="relative h-24 w-24">
-          <Image src="/logo.png" fill alt="Logo" className="object-contain p-2" />
+    <div id="executive-report" className="bg-white p-10 text-slate-900 w-[794px] h-auto min-h-[1050px] mx-auto border-[1px] border-slate-200 relative font-body">
+      <div className="flex items-center justify-between border-b-2 border-primary pb-6 mb-6">
+        <div className="relative h-20 w-20">
+          <Image src="/logo.png" fill alt="Logo" className="object-contain p-1" />
         </div>
         <div className="text-right">
-          <h2 className="text-xl font-black text-primary leading-tight">SANTUARIO NACIONAL</h2>
-          <p className="text-sm font-bold text-slate-600 uppercase tracking-widest">Nuestra Señora del Perpetuo Socorro</p>
-          <div className="h-1 w-20 bg-accent ml-auto mt-2"></div>
+          <h2 className="text-lg font-black text-primary leading-tight">SANTUARIO NACIONAL</h2>
+          <p className="text-xs font-bold text-slate-600 uppercase tracking-widest">Nuestra Señora del Perpetuo Socorro</p>
+          <div className="h-1 w-16 bg-accent ml-auto mt-1"></div>
         </div>
       </div>
 
-      <div className="text-center mb-12 space-y-2">
-        <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase">Informe Ejecutivo de Inscripciones</h1>
-        <p className="text-lg font-bold text-primary italic">Confirmación Juvenil - Ciclo Lectivo 2026</p>
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] pt-4">Estado de Situación al {currentDate}</p>
+      <div className="text-center mb-8 space-y-1">
+        <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Informe Ejecutivo de Inscripciones</h1>
+        <p className="text-base font-bold text-primary italic">Confirmación Juvenil - Ciclo Lectivo 2026</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] pt-2">Estado de Situación al {currentDate}</p>
       </div>
 
-      <div className="space-y-10">
-        <div className="space-y-4">
-          <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">1. Resumen de Postulantes por Categoría y Turno</h3>
-          <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+      <div className="space-y-8">
+        <div className="space-y-3">
+          <h3 className="text-[9px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-3">1. Resumen de Postulantes por Categoría y Turno</h3>
+          <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50">
-                  <th className="p-5 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b">Categoría / Nivel / Horario</th>
-                  <th className="p-5 text-[10px] font-black uppercase text-slate-500 tracking-widest text-right border-b">Inscritos</th>
+                  <th className="p-3 text-[9px] font-black uppercase text-slate-500 tracking-widest border-b">Categoría / Nivel / Horario</th>
+                  <th className="p-3 text-[9px] font-black uppercase text-slate-500 tracking-widest text-right border-b">Inscritos</th>
                 </tr>
               </thead>
-              <tbody className="text-sm font-medium text-slate-700">
+              <tbody className="text-xs font-medium text-slate-700">
                 {/* PRIMER AÑO */}
                 <tr className="bg-slate-50/30">
-                  <td className="p-4 font-black text-slate-900">CATEQUESIS DE PRIMER AÑO (INICIAL)</td>
-                  <td className="p-4 text-right font-black text-slate-900">{stats.firstYear}</td>
+                  <td className="p-3 font-black text-slate-900">CATEQUESIS DE PRIMER AÑO (INICIAL)</td>
+                  <td className="p-3 text-right font-black text-slate-900">{stats.firstYear}</td>
                 </tr>
                 <tr className="border-b">
-                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Sábados (15:30 hs)</td>
-                  <td className="p-3 text-right font-bold text-slate-700">{stats.firstYearSabado}</td>
+                  <td className="p-2 pl-8 text-[11px] text-slate-500 italic">- Turno Sábados (15:30 hs)</td>
+                  <td className="p-2 text-right font-bold text-slate-700">{stats.firstYearSabado}</td>
                 </tr>
                 <tr className="border-b">
-                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Domingos (08:00 hs)</td>
-                  <td className="p-3 text-right font-bold text-slate-700">{stats.firstYearDomingo}</td>
+                  <td className="p-2 pl-8 text-[11px] text-slate-500 italic">- Turno Domingos (08:00 hs)</td>
+                  <td className="p-2 text-right font-bold text-slate-700">{stats.firstYearDomingo}</td>
                 </tr>
 
                 {/* SEGUNDO AÑO */}
                 <tr className="bg-slate-50/30">
-                  <td className="p-4 font-black text-slate-900">CATEQUESIS DE SEGUNDO AÑO (CONFIRMACIÓN)</td>
-                  <td className="p-4 text-right font-black text-slate-900">{stats.secondYear}</td>
+                  <td className="p-3 font-black text-slate-900">CATEQUESIS DE SEGUNDO AÑO (CONFIRMACIÓN)</td>
+                  <td className="p-3 text-right font-black text-slate-900">{stats.secondYear}</td>
                 </tr>
                 <tr className="border-b">
-                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Sábados (15:30 hs)</td>
-                  <td className="p-3 text-right font-bold text-slate-700">{stats.secondYearSabado}</td>
+                  <td className="p-2 pl-8 text-[11px] text-slate-500 italic">- Turno Sábados (15:30 hs)</td>
+                  <td className="p-2 text-right font-bold text-slate-700">{stats.secondYearSabado}</td>
                 </tr>
                 <tr className="border-b">
-                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Domingos (08:00 hs)</td>
-                  <td className="p-3 text-right font-bold text-slate-700">{stats.secondYearDomingo}</td>
+                  <td className="p-2 pl-8 text-[11px] text-slate-500 italic">- Turno Domingos (08:00 hs)</td>
+                  <td className="p-2 text-right font-bold text-slate-700">{stats.secondYearDomingo}</td>
                 </tr>
 
                 {/* ADULTOS */}
                 <tr className="bg-slate-50/30">
-                  <td className="p-4 font-black text-slate-900">CURSO INTENSIVO PARA ADULTOS</td>
-                  <td className="p-4 text-right font-black text-slate-900">{stats.adults}</td>
+                  <td className="p-3 font-black text-slate-900">CURSO INTENSIVO PARA ADULTOS</td>
+                  <td className="p-3 text-right font-black text-slate-900">{stats.adults}</td>
                 </tr>
                 <tr className="border-b">
-                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Sábados (15:30 hs)</td>
-                  <td className="p-3 text-right font-bold text-slate-700">{stats.adultsSabado}</td>
+                  <td className="p-2 pl-8 text-[11px] text-slate-500 italic">- Turno Sábados (15:30 hs)</td>
+                  <td className="p-2 text-right font-bold text-slate-700">{stats.adultsSabado}</td>
                 </tr>
                 <tr className="border-b">
-                  <td className="p-3 pl-10 text-xs text-slate-500 italic">- Turno Domingos (08:00 hs)</td>
-                  <td className="p-3 text-right font-bold text-slate-700">{stats.adultsDomingo}</td>
+                  <td className="p-2 pl-8 text-[11px] text-slate-500 italic">- Turno Domingos (08:00 hs)</td>
+                  <td className="p-2 text-right font-bold text-slate-700">{stats.adultsDomingo}</td>
                 </tr>
 
                 {/* TOTAL GENERAL */}
                 <tr className="bg-primary/5">
-                  <td className="p-6 text-base font-black text-primary uppercase">Total de Inscripciones Registradas</td>
-                  <td className="p-6 text-right text-3xl font-black text-primary">{stats.total}</td>
+                  <td className="p-4 text-sm font-black text-primary uppercase">Total de Inscripciones Registradas</td>
+                  <td className="p-4 text-right text-2xl font-black text-primary">{stats.total}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <div className="space-y-4 pt-4">
-          <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-4">2. Observaciones Administrativas</h3>
-          <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
-            <p className="text-xs leading-relaxed text-slate-600 font-medium italic">
+        <div className="space-y-3 pt-2">
+          <h3 className="text-[9px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-3">2. Observaciones Administrativas</h3>
+          <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+            <p className="text-[11px] leading-relaxed text-slate-600 font-medium italic">
               El presente informe refleja la situación actual de los postulantes inscritos para el ciclo 2026, distribuidos por niveles y turnos de asistencia. 
               Los datos han sido extraídos automáticamente del Sistema de Gestión de Confirmación Juvenil NSPS.
             </p>
@@ -344,53 +344,53 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
         </div>
       </div>
 
-      <div className="mt-24 grid grid-cols-3 gap-8">
-        <div className="text-center space-y-4 relative">
+      <div className="mt-20 grid grid-cols-3 gap-6">
+        <div className="text-center space-y-3 relative">
           <div className="h-px w-full bg-slate-300"></div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase text-slate-900 leading-none">{reporterName}</p>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Generado por</p>
+          <div className="space-y-0.5">
+            <p className="text-[9px] font-black uppercase text-slate-900 leading-none">{reporterName}</p>
+            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Generado por</p>
           </div>
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-80">
+          <div className="absolute -top-20 left-1/2 -translate-x-1/2 opacity-80">
             <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
-              <QRCodeCanvas value={`NSPS-AUTH-GEN-${profile?.id || 'SYSTEM'}-${Date.now()}`} size={60} level="M" />
+              <QRCodeCanvas value={`NSPS-AUTH-GEN-${profile?.id || 'SYSTEM'}-${Date.now()}`} size={50} level="M" />
             </div>
-            <p className="text-[6px] font-black text-blue-700 uppercase mt-1">Sello Autoría</p>
+            <p className="text-[5px] font-black text-blue-700 uppercase mt-1">Sello Autoría</p>
           </div>
         </div>
 
-        <div className="text-center space-y-4 relative">
+        <div className="text-center space-y-3 relative">
           <div className="h-px w-full bg-slate-300"></div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase text-slate-900 leading-none">FLAVIA TUCUNA</p>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">COORDINADORA</p>
+          <div className="space-y-0.5">
+            <p className="text-[9px] font-black uppercase text-slate-900 leading-none">FLAVIA TUCUNA</p>
+            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">COORDINADORA</p>
           </div>
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-80">
+          <div className="absolute -top-20 left-1/2 -translate-x-1/2 opacity-80">
             <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
-              <QRCodeCanvas value={`NSPS-COORD-FLAVIA-${Date.now()}`} size={60} level="M" />
+              <QRCodeCanvas value={`NSPS-COORD-FLAVIA-${Date.now()}`} size={50} level="M" />
             </div>
-            <p className="text-[6px] font-black text-primary uppercase mt-1">Sello Digital</p>
+            <p className="text-[5px] font-black text-primary uppercase mt-1">Sello Digital</p>
           </div>
         </div>
 
-        <div className="text-center space-y-4 relative">
+        <div className="text-center space-y-3 relative">
           <div className="h-px w-full bg-slate-300"></div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase text-slate-900 leading-none">CARLONGO BENITEZ</p>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">COORDINADOR GRAL.</p>
+          <div className="space-y-0.5">
+            <p className="text-[9px] font-black uppercase text-slate-900 leading-none">CARLONGO BENITEZ</p>
+            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">COORDINADOR GRAL.</p>
           </div>
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-80">
+          <div className="absolute -top-20 left-1/2 -translate-x-1/2 opacity-80">
             <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
-              <QRCodeCanvas value={`NSPS-COORD-CARLONGO-${Date.now()}`} size={60} level="M" />
+              <QRCodeCanvas value={`NSPS-COORD-CARLONGO-${Date.now()}`} size={50} level="M" />
             </div>
-            <p className="text-[6px] font-black text-primary uppercase mt-1">Sello Digital</p>
+            <p className="text-[5px] font-black text-primary uppercase mt-1">Sello Digital</p>
           </div>
         </div>
       </div>
 
-      <div className="absolute bottom-10 left-12 right-12 flex items-center justify-between border-t pt-4">
-        <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.3em]">Documento Oficial del Santuario Nacional NSPS</p>
-        <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.3em]">Página 1 de 1</p>
+      <div className="absolute bottom-8 left-10 right-10 flex items-center justify-between border-t pt-3">
+        <p className="text-[7px] font-bold text-slate-300 uppercase tracking-[0.3em]">Documento Oficial del Santuario Nacional NSPS</p>
+        <p className="text-[7px] font-bold text-slate-300 uppercase tracking-[0.3em]">Página 1 de 1</p>
       </div>
     </div>
   )
