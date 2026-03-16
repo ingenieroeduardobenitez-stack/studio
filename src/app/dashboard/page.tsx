@@ -100,13 +100,13 @@ export default function DashboardPage() {
               <FileText className="h-4 w-4" /> Generar Informe
             </Button>
           )}
-          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
-            <QrCode className="h-4 w-4" /> QR Inscripción
-          </Button>
           <Button asChild className="bg-primary hover:bg-primary/90 h-11 px-6 rounded-xl font-bold shadow-lg">
             <Link href="/dashboard/registration">
               <ClipboardCheck className="mr-2 h-4 w-4" /> Nueva Inscripción
             </Link>
+          </Button>
+          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
+            <QrCode className="h-4 w-4" /> QR Inscripción
           </Button>
         </div>
       </div>
