@@ -191,6 +191,11 @@ export default function TreasuryPage() {
     setIsPaymentDialogOpen(true)
   }
 
+  const handleViewReceipt = (reg: any) => {
+    setSelectedReg(reg)
+    setIsReceiptOpen(true)
+  }
+
   const handleProcessPayment = async () => {
     if (!db || !selectedReg || !treasuryRef || isSubmittingPayment) return
     setIsSubmittingPayment(true)
@@ -535,9 +540,22 @@ export default function TreasuryPage() {
                           </TableCell>
                           <TableCell className="text-right font-black text-sm">{pending > 0 ? pending.toLocaleString('es-PY') : "0"} Gs.</TableCell>
                           <TableCell className="text-right pr-8">
-                            <Button size="sm" variant="outline" className="h-9 rounded-xl font-bold border-primary text-primary hover:bg-primary/5 gap-2" onClick={() => handleOpenPayment(reg)} disabled={isPaid}>
-                              <Banknote className="h-4 w-4" /> Cobrar
-                            </Button>
+                            <div className="flex justify-end gap-2">
+                              {reg.receiptNumber && (
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-9 w-9 rounded-xl text-amber-600 hover:bg-amber-50" 
+                                  onClick={() => handleViewReceipt(reg)}
+                                  title="Ver Recibo"
+                                >
+                                  <Receipt className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button size="sm" variant="outline" className="h-9 rounded-xl font-bold border-primary text-primary hover:bg-primary/5 gap-2" onClick={() => handleOpenPayment(reg)} disabled={isPaid}>
+                                <Banknote className="h-4 w-4" /> Cobrar
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       )
