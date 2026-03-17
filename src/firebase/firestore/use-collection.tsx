@@ -22,6 +22,7 @@ export type WithId<T> = T & { id: string };
 export interface UseCollectionResult<T> {
   data: WithId<T>[] | null; // Document data with ID, or null.
   isLoading: boolean;       // True if loading.
+  loading: boolean;         // Alias for compatibility.
   error: FirestoreError | Error | null; // Error object, or null.
 }
 
@@ -48,7 +49,6 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  // Initialize loading as true if we have a query to avoid the "empty" flash
   const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
@@ -75,10 +75,12 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
-        const path: string =
-          memoizedTargetRefOrQuery.type === 'collection'
+        let path: string = 'unknown';
+        try {
+          path = memoizedTargetRefOrQuery.type === 'collection'
             ? (memoizedTargetRefOrQuery as CollectionReference).path
-            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
+            : (memoizedTargetRefOrQuery as any)._query?.path?.canonicalString() || 'query';
+        } catch (e) {}
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
@@ -98,5 +100,14 @@ export function useCollection<T = any>(
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
   }
-  return { data, isLoading, error };
+
+  // Si hay una query pero la data es null, forzamos isLoading a true para evitar falsos "0"
+  const actualLoading = isLoading || (!!memoizedTargetRefOrQuery && data === null);
+
+  return { 
+    data, 
+    isLoading: actualLoading, 
+    loading: actualLoading, 
+    error 
+  };
 }
