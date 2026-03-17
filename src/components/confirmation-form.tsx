@@ -326,20 +326,22 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setIsSearchingCi(true);
     clearErrors("ciNumber");
     
+    // Normalización agresiva del CI para búsqueda
     const cleanCi = ciValue.replace(/[^0-9]/g, '');
     
     try {
       // 1. VALIDACIÓN INMEDIATA DE DUPLICADO: Buscar si ya está inscripto
-      // Buscamos tanto con el valor exacto como con el valor limpio para asegurar coincidencia
       const confirmationsRef = collection(db, "confirmations");
+      // Buscamos sin restricción de isArchived inicialmente para verificar en memoria y ser más seguros
       const ciCheckQuery = query(
         confirmationsRef, 
-        where("ciNumber", "in", [ciValue, cleanCi]),
-        where("isArchived", "==", false)
+        where("ciNumber", "in", [ciValue, cleanCi])
       );
       
       const querySnapshot = await getDocs(ciCheckQuery);
-      if (!querySnapshot.empty) {
+      const existingInscritos = querySnapshot.docs.filter(d => !d.data().isArchived);
+
+      if (existingInscritos.length > 0) {
         setError("ciNumber", {
           type: "manual",
           message: "Esta persona ya se encuentra registrada como inscripta."
@@ -353,7 +355,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         return;
       }
 
-      // 2. BÚSQUEDA EN REPOSITORIO DE CÉDULAS PARA PRECARGA (Solo si no es duplicado)
+      // 2. BÚSQUEDA EN REPOSITORIO DE CÉDULAS PARA PRECARGA
       const docSnap = await getDoc(doc(db, "cedulas", cleanCi));
       if (docSnap.exists()) {
         const data = docSnap.data();
