@@ -55,7 +55,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase"
-import { doc, setDoc, getDoc, serverTimestamp, collection } from "firebase/firestore"
+import { doc, setDoc, getDoc, getDocs, query, where, serverTimestamp, collection } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -349,6 +349,24 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!db) return;
     setLoading(true);
     try {
+      // CONTROL DE DUPLICADOS: Buscar si ya existe el C.I. activo
+      const ciCheckQuery = query(
+        collection(db, "confirmations"), 
+        where("ciNumber", "==", values.ciNumber),
+        where("isArchived", "==", false)
+      );
+      
+      const querySnapshot = await getDocs(ciCheckQuery);
+      if (!querySnapshot.empty) {
+        toast({
+          variant: "destructive",
+          title: "Documento duplicado",
+          description: "Ya existe un confirmando inscrito con este número de cédula.",
+        });
+        setLoading(false);
+        return;
+      }
+
       const regId = `conf_${Date.now()}`;
       
       const cleanData = (obj: any) => {
@@ -398,6 +416,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         paymentStatus: finalPaymentStatus,
         amountPaid: finalAmountPaid,
         registrationCost: regCost,
+        isArchived: false,
         createdAt: serverTimestamp()
       })
 
