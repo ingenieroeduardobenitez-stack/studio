@@ -4,7 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, FileText, Printer, ChevronRight, RefreshCw } from "lucide-react"
 import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
-import { doc, collection, getDocs, query, where, writeBatch } from "firebase/firestore"
+import { doc, collection, getDocs, query, where, setDoc } from "firebase/firestore"
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -78,9 +78,9 @@ export default function DashboardPage() {
       })
 
       await setDoc(doc(db, "settings", "stats"), newStats, { merge: true })
-      toast({ title: "Estadísticas actualizadas" })
+      toast({ title: "Estadísticas sincronizadas", description: "Los contadores del Dashboard ahora son precisos." })
     } catch (e) {
-      toast({ variant: "destructive", title: "Error al recalcular" })
+      toast({ variant: "destructive", title: "Error al sincronizar" })
     } finally {
       setIsRecalculating(false)
     }
@@ -112,7 +112,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           {isAdmin && (
-            <Button variant="ghost" size="sm" onClick={handleRecalculateStats} disabled={isRecalculating} className="text-slate-400 hover:text-primary">
+            <Button variant="ghost" size="sm" onClick={handleRecalculateStats} disabled={isRecalculating} className="text-slate-400 hover:text-primary h-11 px-4">
               {isRecalculating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               Sincronizar Totales
             </Button>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.total}</div>
-            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Optimizado</p>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Gestión Optimizada</p>
           </CardContent>
         </Card>
 
