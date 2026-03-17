@@ -28,10 +28,13 @@ import {
   CheckCircle2,
   X,
   ImageIcon,
-  Info
+  Info,
+  Shapes,
+  CreditCard,
+  Plus
 } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, limit } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
+import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, limit, runTransaction } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -43,14 +46,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [limitCount, setLimitCount] = useState(50) // OPTIMIZACIÓN: Paginación de 50 en 50
+  const [limitCount, setLimitCount] = useState(50)
   
-  // Filtros de estado local
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
@@ -58,7 +59,6 @@ export default function RegistrationsListPage() {
   const [filterDay, setFilterDay] = useState<string>("all")
   const [filterMethod, setFilterMethod] = useState<string>("all")
   
-  // Estados para diálogos
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
@@ -67,36 +67,35 @@ export default function RegistrationsListPage() {
   const [isProcessing, setIsProcessing] = useState(false)
 
   const db = useFirestore()
+  const { user } = useUser()
   const { toast } = useToast()
 
   useEffect(() => { 
     setMounted(true)
   }, [])
 
-  // Consultas principales optimizadas con LIMIT y ONCE para mejorar velocidad
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
-    // Si hay búsqueda, quitamos el límite para encontrar en toda la base
     const currentLimit = searchTerm ? 100 : limitCount
     return query(collection(db, "confirmations"), limit(currentLimit))
   }, [db, limitCount, searchTerm])
 
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
+  const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
 
   const { data: rawData, loading } = useCollection(regsQuery, { once: true })
   const { data: allGroups } = useCollection(groupsQuery, { once: true })
   const { data: allUsers } = useCollection(usersQuery, { once: true })
 
-  // Procesamiento de datos en memoria (Ordenamiento y Filtrado de activos)
   const registrations = useMemo(() => {
     if (!rawData) return []
     return [...rawData]
-      .filter(r => r.isArchived !== true) // Solo activos
+      .filter(r => r.isArchived !== true)
       .sort((a, b) => {
         const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt ? new Date(a.createdAt) : new Date(0))
         const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt ? new Date(b.createdAt) : new Date(0))
-        return dateB.getTime() - dateA.getTime() // Más nuevos primero
+        return dateB.getTime() - dateA.getTime()
       })
   }, [rawData])
 
@@ -129,7 +128,6 @@ export default function RegistrationsListPage() {
         cleanCi.includes(searchTerm.replace(/[^0-9]/g, ''))
       
       const isRepetido = duplicateCis.has(cleanCi)
-      
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
       const matchesStatus = filterStatus === "all" || (filterStatus === "REPETIDO" ? isRepetido : r.status === filterStatus)
@@ -141,17 +139,51 @@ export default function RegistrationsListPage() {
     })
   }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterMethod, duplicateCis])
 
-  // Funciones de gestión
   const handleOpenDetails = (reg: any) => {
     setSelectedReg(reg)
     setIsDetailsOpen(true)
+  }
+
+  const handleOpenAssignGroup = (reg: any) => {
+    setSelectedReg(reg)
+    setIsDetailsOpen(true)
+    // Se podría añadir lógica para activar la pestaña de grupos directamente
+  }
+
+  const handleQuickValidate = async (reg: any) => {
+    if (!db || !treasuryRef || isProcessing) return
+    setIsProcessing(true)
+    const regRef = doc(db, "confirmations", reg.id)
+    const catechistName = user?.displayName || "Tesorero"
+    
+    try {
+      await runTransaction(db, async (transaction) => {
+        const treasurySnap = await transaction.get(treasuryRef);
+        const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
+        const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
+        const regCost = reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? 50000 : 35000);
+
+        transaction.update(regRef, {
+          amountPaid: regCost,
+          paymentStatus: "PAGADO",
+          status: "INSCRITO",
+          validatedBy: catechistName,
+          receiptNumber: formattedReceipt,
+          lastPaymentDate: serverTimestamp(),
+          lastPaymentMethod: reg.paymentMethod || "TRANSFERENCIA"
+        });
+        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+      });
+      toast({ title: "Validación rápida completada" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al validar" })
+    } finally { setIsProcessing(false) }
   }
 
   const handleUpdateDetails = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!db || !selectedReg || isProcessing) return
     setIsProcessing(true)
-
     const formData = new FormData(e.currentTarget)
     const updateData = {
       fullName: (formData.get("fullName") as string).toUpperCase(),
@@ -161,14 +193,12 @@ export default function RegistrationsListPage() {
       catechesisYear: formData.get("catechesisYear") as string,
       updatedAt: serverTimestamp()
     }
-
     try {
       await updateDoc(doc(db, "confirmations", selectedReg.id), updateData)
-      toast({ title: "Ficha actualizada", description: "Los cambios se guardaron correctamente." })
+      toast({ title: "Ficha actualizada" })
       setIsDetailsOpen(false)
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al actualizar" })
-    } finally { setIsProcessing(false) }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    finally { setIsProcessing(false) }
   }
 
   const handleWithdrawal = async () => {
@@ -181,12 +211,11 @@ export default function RegistrationsListPage() {
         withdrawalReason,
         withdrawalDate: serverTimestamp()
       })
-      toast({ title: "Baja procesada", description: "El confirmando ha sido retirado de la lista activa." })
+      toast({ title: "Baja procesada" })
       setIsWithdrawalOpen(false)
       setIsDetailsOpen(false)
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al procesar baja" })
-    } finally { setIsProcessing(false) }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    finally { setIsProcessing(false) }
   }
 
   const handleDelete = async () => {
@@ -196,27 +225,13 @@ export default function RegistrationsListPage() {
       await deleteDoc(doc(db, "confirmations", selectedReg.id));
       toast({ title: "Registro eliminado" })
       setIsDeleteDialogOpen(false)
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al eliminar" })
-    } finally { setIsProcessing(false) }
-  }
-
-  const openWhatsApp = (phone: string, name: string) => {
-    if (!phone) return
-    let cleanPhone = phone.replace(/[^0-9]/g, '')
-    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1)
-    if (!cleanPhone.startsWith('595')) cleanPhone = '595' + cleanPhone
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola ${name}, te escribimos del Santuario Nuestra Señora del Perpetuo Socorro...`)}`, '_blank')
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    finally { setIsProcessing(false) }
   }
 
   const resetFilters = () => {
-    setSearchTerm("")
-    setFilterSex("all")
-    setFilterYear("all")
-    setFilterStatus("all")
-    setFilterOrigin("all")
-    setFilterDay("all")
-    setFilterMethod("all")
+    setSearchTerm(""); setFilterSex("all"); setFilterYear("all");
+    setFilterStatus("all"); setFilterOrigin("all"); setFilterDay("all"); setFilterMethod("all");
   }
 
   if (!mounted) return null
@@ -226,7 +241,7 @@ export default function RegistrationsListPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold text-primary tracking-tight">Lista de Confirmandos</h1>
-          <p className="text-muted-foreground font-medium">Listado general de postulantes del ciclo 2026.</p>
+          <p className="text-muted-foreground font-medium">Gestión administrativa de postulantes ciclo 2026.</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" className="rounded-xl h-12 font-bold px-6 border-slate-200 bg-white hover:bg-slate-50 gap-2 shadow-sm" onClick={() => {
@@ -250,21 +265,21 @@ export default function RegistrationsListPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="border-none shadow-xl bg-white rounded-3xl p-6 border-l-4 border-l-primary">
+        <Card className="border-none shadow-sm bg-white rounded-3xl p-6 border-l-4 border-l-primary">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total en Vista</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Inscritos</p>
             <Users className="h-4 w-4 text-primary opacity-40" />
           </div>
           <p className="text-4xl font-black text-slate-900 leading-none">{loading ? "..." : stats.total}</p>
         </Card>
-        <Card className="border-none shadow-xl bg-white rounded-3xl p-6 border-l-4 border-l-blue-500">
+        <Card className="border-none shadow-sm bg-white rounded-3xl p-6 border-l-4 border-l-blue-500">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Masculinos</p>
             <div className="text-blue-500 font-black text-xs">♂</div>
           </div>
           <p className="text-4xl font-black text-slate-900 leading-none">{loading ? "..." : stats.masc}</p>
         </Card>
-        <Card className="border-none shadow-xl bg-white rounded-3xl p-6 border-l-4 border-l-pink-500">
+        <Card className="border-none shadow-sm bg-white rounded-3xl p-6 border-l-4 border-l-pink-500">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Femeninos</p>
             <div className="text-pink-500 font-black text-xs">♀</div>
@@ -277,11 +292,11 @@ export default function RegistrationsListPage() {
         <CardHeader className="bg-slate-50/30 p-8 pb-0">
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal (Búsqueda en toda la base)</Label>
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal</Label>
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input 
-                  placeholder="Buscar por Nombre o C.I..." 
+                  placeholder="Nombre o C.I..." 
                   className="pl-12 h-14 rounded-2xl bg-white border-slate-200 shadow-sm text-lg" 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
@@ -290,105 +305,27 @@ export default function RegistrationsListPage() {
             </div>
             
             <div className="flex flex-wrap gap-4 pb-8 border-b border-slate-100">
-              <div className="space-y-1.5 flex-1 min-w-[140px]">
-                <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label>
-                <Select value={filterSex} onValueChange={setFilterSex}>
-                  <SelectTrigger className="h-12 rounded-2xl bg-white border-slate-200"><SelectValue placeholder="Sexo" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Sexos</SelectItem>
-                    <SelectItem value="M">Masculinos</SelectItem>
-                    <SelectItem value="F">Femeninos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]">
-                <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel</Label>
-                <Select value={filterYear} onValueChange={setFilterYear}>
-                  <SelectTrigger className="h-12 rounded-2xl bg-white border-slate-200"><SelectValue placeholder="Nivel" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Niveles</SelectItem>
-                    <SelectItem value="PRIMER_AÑO">Primer Año</SelectItem>
-                    <SelectItem value="SEGUNDO_AÑO">Segundo Año</SelectItem>
-                    <SelectItem value="ADULTOS">Adultos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]">
-                <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="h-12 rounded-2xl bg-white border-slate-200"><SelectValue placeholder="Estado" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Estados</SelectItem>
-                    <SelectItem value="INSCRITO">Inscritos</SelectItem>
-                    <SelectItem value="POR_VALIDAR">Por Validar</SelectItem>
-                    <SelectItem value="REPETIDO">Solo Repetidos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]">
-                <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Origen</Label>
-                <Select value={filterOrigin} onValueChange={setFilterOrigin}>
-                  <SelectTrigger className="h-12 rounded-2xl bg-white border-slate-200"><SelectValue placeholder="Origen" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Orígenes</SelectItem>
-                    <SelectItem value="MANUAL">Manual (Personal)</SelectItem>
-                    <SelectItem value="PUBLICO">Público (Web)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]">
-                <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label>
-                <Select value={filterDay} onValueChange={setFilterDay}>
-                  <SelectTrigger className="h-12 rounded-2xl bg-white border-slate-200"><SelectValue placeholder="Horario" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Horarios</SelectItem>
-                    <SelectItem value="SABADO">Sábados</SelectItem>
-                    <SelectItem value="DOMINGO">Domingos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]">
-                <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Forma de Pago</Label>
-                <Select value={filterMethod} onValueChange={setFilterMethod}>
-                  <SelectTrigger className="h-12 rounded-2xl bg-white border-slate-200"><SelectValue placeholder="Pago" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Métodos</SelectItem>
-                    <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                    <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end pb-1">
-                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-slate-100" onClick={resetFilters}>
-                  <FilterX className="h-5 w-5 text-slate-400" />
-                </Button>
-              </div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label><Select value={filterSex} onValueChange={setFilterSex}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Sexo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="M">Masc.</SelectItem><SelectItem value="F">Fem.</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel</Label><Select value={filterYear} onValueChange={setFilterYear}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Nivel" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label><Select value={filterStatus} onValueChange={setFilterStatus}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="INSCRITO">Inscritos</SelectItem><SelectItem value="POR_VALIDAR">Por Validar</SelectItem><SelectItem value="REPETIDO">Repetidos</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label><Select value={filterDay} onValueChange={setFilterDay}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Horario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent></Select></div>
+              <div className="flex items-end pb-1"><Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-slate-100" onClick={resetFilters}><FilterX className="h-5 w-5 text-slate-400" /></Button></div>
             </div>
           </div>
         </CardHeader>
         
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-32 gap-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Optimizando consulta...</p>
-            </div>
+            <div className="flex flex-col items-center justify-center py-32 gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Cargando...</p></div>
           ) : filteredRegistrations.length === 0 ? (
-            <div className="py-32 text-center">
-              <div className="bg-slate-50 h-20 w-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <User className="h-10 w-10 text-slate-200" />
-              </div>
-              <p className="text-slate-500 font-bold">No se encontraron confirmandos activos.</p>
-              <p className="text-slate-400 text-xs">Prueba ajustando los filtros de búsqueda.</p>
-            </div>
+            <div className="py-32 text-center text-slate-400 italic">No se encontraron registros.</div>
           ) : (
             <>
               <Table>
                 <TableHeader className="bg-slate-50/50 border-y">
-                  <TableRow>
+                  <TableRow className="hover:bg-transparent">
                     <TableHead className="pl-8 py-5 font-bold text-slate-500">Confirmando</TableHead>
-                    <TableHead className="font-bold text-slate-500">Origen</TableHead>
-                    <TableHead className="font-bold text-slate-500">Año / Nivel</TableHead>
+                    <TableHead className="font-bold text-slate-500">Año / Horario</TableHead>
                     <TableHead className="font-bold text-slate-500">Forma Pago</TableHead>
                     <TableHead className="text-center font-bold text-slate-500">Estado</TableHead>
                     <TableHead className="font-bold text-slate-500">Fecha Insc.</TableHead>
@@ -400,11 +337,10 @@ export default function RegistrationsListPage() {
                     const cleanCi = reg.ciNumber?.replace(/[^0-9]/g, '') || ""
                     const isRepetido = duplicateCis.has(cleanCi)
                     const isManual = reg.userId !== "public_registration"
-                    const creator = allUsers?.find(u => u.id === reg.userId)
                     const createdDate = reg.createdAt?.toDate ? reg.createdAt.toDate() : (reg.createdAt ? new Date(reg.createdAt) : new Date())
                     
                     return (
-                      <TableRow key={reg.id} className="h-24 hover:bg-slate-50/50 transition-colors border-slate-100">
+                      <TableRow key={reg.id} className="h-24 hover:bg-slate-50/30 transition-colors border-slate-100">
                         <TableCell className="pl-8">
                           <div className="flex items-center gap-4">
                             <Avatar className="h-12 w-12 border-2 border-white shadow-sm ring-1 ring-slate-100">
@@ -413,83 +349,86 @@ export default function RegistrationsListPage() {
                             </Avatar>
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
-                                <span className="font-black text-base text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>
+                                <span className="font-black text-sm text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>
                                 {isRepetido && (
                                   <Badge className="bg-red-500 hover:bg-red-600 text-white text-[8px] font-black h-4 px-1.5 rounded-full animate-pulse">REPETIDO</Badge>
                                 )}
                               </div>
-                              <span className="text-sm font-bold text-blue-600 tracking-tighter mt-1">{reg.ciNumber}</span>
+                              <span className="text-xs font-bold text-blue-600 tracking-tighter mt-1">{reg.ciNumber}</span>
                               <span className="text-[10px] text-slate-400 font-medium">{reg.phone}</span>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col items-start gap-1">
-                            <Badge variant="secondary" className={cn("text-[9px] font-black tracking-widest h-5 px-2", isManual ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700")}>
-                              {isManual ? "MANUAL" : "PÚBLICO"}
-                            </Badge>
-                            {isManual && (
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-1">
-                                {creator ? creator.firstName : "SISTEMA"}
-                              </span>
+                            {!isManual && (
+                              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[8px] font-black tracking-widest px-2 h-5 rounded-full ml-2">PÚBLICO</Badge>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1.5">
-                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-slate-200 bg-white">
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-slate-200 bg-white w-fit">
                               {reg.catechesisYear?.replace("_", " ")}
                             </Badge>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">
                               {reg.attendanceDay}S
                             </span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-1.5 text-[10px] font-black text-accent uppercase">
-                              {reg.paymentMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
-                              {reg.paymentMethod}
-                            </div>
-                            <span className="text-xs font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
-                              {(reg.registrationCost || 35000).toLocaleString('es-PY')} Gs.
-                            </span>
+                          <div className="flex items-center gap-1.5 text-[9px] font-black text-blue-600 uppercase">
+                            <CreditCard className="h-3 w-3" />
+                            {reg.paymentMethod || "TRANSFERENCIA"}
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          <Badge className={cn("h-7 px-4 rounded-full text-[10px] font-black tracking-widest border-none shadow-sm", 
-                            reg.status === "POR_VALIDAR" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white")}>
+                          <Badge variant="outline" className={cn("h-6 px-3 rounded-full text-[9px] font-black tracking-widest border-orange-200 text-orange-600 bg-orange-50", 
+                            reg.status === "INSCRITO" && "border-green-200 text-green-600 bg-green-50")}>
                             {reg.status}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="text-xs font-black text-slate-700 tracking-tighter">{createdDate.toLocaleDateString('es-PY')}</span>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">{createdDate.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="text-xs font-bold text-slate-700">{createdDate.toLocaleDateString('es-PY')}</span>
+                            <span className="text-[9px] text-slate-400 font-medium">{createdDate.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
-                          <div className="flex justify-end gap-2">
-                            <Button size="icon" variant="ghost" className="h-10 w-10 rounded-full text-slate-300 hover:text-primary hover:bg-primary/5" onClick={() => handleOpenDetails(reg)}>
+                          <div className="flex items-center justify-end gap-3">
+                            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full text-slate-300 hover:text-primary" onClick={() => handleOpenDetails(reg)}>
                               <Eye className="h-5 w-5" />
                             </Button>
+                            
+                            {reg.status === "POR_VALIDAR" && (
+                              <Button 
+                                variant="outline" 
+                                className="h-9 px-6 rounded-full font-black text-[10px] tracking-widest border-blue-600 text-blue-600 hover:bg-blue-50 transition-all uppercase"
+                                onClick={() => handleQuickValidate(reg)}
+                                disabled={isProcessing}
+                              >
+                                VALIDAR
+                              </Button>
+                            )}
+
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-slate-300 hover:bg-slate-100">
+                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-slate-300 hover:bg-slate-100">
                                   <MoreHorizontal className="h-5 w-5" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-2xl border-none shadow-2xl">
-                                <DropdownMenuLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1">Opciones</DropdownMenuLabel>
                                 <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenDetails(reg)}>
                                   <FileText className="h-4 w-4 text-slate-400" /> <span className="font-bold">Editar Ficha</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenAssignGroup(reg)}>
+                                  <Shapes className="h-4 w-4 text-slate-400" /> <span className="font-bold">Asignar Grupo</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3 text-orange-600" onClick={() => { setSelectedReg(reg); setIsWithdrawalOpen(true); }}>
+                                  <UserMinus className="h-4 w-4" /> <span className="font-bold">Dar de Baja</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   onClick={() => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} 
                                   className="h-11 rounded-xl text-destructive focus:bg-red-50 focus:text-destructive cursor-pointer gap-3"
                                 >
-                                  <Trash2 className="h-4 w-4" /> <span className="font-bold">Eliminar Definitivo</span>
+                                  <Trash2 className="h-4 w-4" /> <span className="font-bold">Eliminar</span>
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -500,15 +439,10 @@ export default function RegistrationsListPage() {
                   })}
                 </TableBody>
               </Table>
-              {/* BOTÓN CARGAR MÁS (OPTIMIZACIÓN) */}
               {!searchTerm && registrations.length >= limitCount && (
                 <div className="p-8 flex justify-center bg-slate-50/30 border-t">
-                  <Button 
-                    variant="outline" 
-                    className="h-12 rounded-xl px-10 font-bold border-primary text-primary hover:bg-primary/5 gap-2"
-                    onClick={() => setLimitCount(prev => prev + 50)}
-                  >
-                    <Users className="h-4 w-4" /> Cargar más registros...
+                  <Button variant="outline" className="h-12 rounded-xl px-10 font-bold border-primary text-primary hover:bg-primary/5 gap-2" onClick={() => setLimitCount(prev => prev + 50)}>
+                    Cargar más registros...
                   </Button>
                 </div>
               )}
@@ -517,7 +451,7 @@ export default function RegistrationsListPage() {
         </CardContent>
       </Card>
 
-      {/* DIÁLOGO FICHA DE INSCRIPCIÓN */}
+      {/* DIÁLOGO FICHA DE INSCRIPCIÓN (MODAL ELEGANTE) */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
           {selectedReg && (
@@ -549,106 +483,30 @@ export default function RegistrationsListPage() {
 
                   <TabsContent value="general" className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</Label>
-                        <Input name="fullName" defaultValue={selectedReg.fullName} required className="h-12 rounded-xl bg-white border-slate-200 uppercase font-bold" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de C.I.</Label>
-                        <Input name="ciNumber" defaultValue={selectedReg.ciNumber} required className="h-12 rounded-xl bg-white border-slate-200 font-bold" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono / Celular</Label>
-                        <div className="flex gap-2">
-                          <Input name="phone" defaultValue={selectedReg.phone} required className="h-12 rounded-xl bg-white border-slate-200 font-bold" />
-                          <Button type="button" variant="outline" size="icon" className="h-12 w-12 rounded-xl border-green-200 text-green-600 hover:bg-green-50" onClick={() => openWhatsApp(selectedReg.phone, selectedReg.fullName)}>
-                            <MessageCircle className="h-5 w-5" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Nacimiento</Label>
-                        <div className="h-12 rounded-xl bg-white border flex items-center px-4 font-bold text-slate-700">
-                          {selectedReg.birthDate} ({selectedReg.age} años)
-                        </div>
-                      </div>
+                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</Label><Input name="fullName" defaultValue={selectedReg.fullName} required className="h-12 rounded-xl bg-white border-slate-200 uppercase font-bold" /></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de C.I.</Label><Input name="ciNumber" defaultValue={selectedReg.ciNumber} required className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono / Celular</Label><Input name="phone" defaultValue={selectedReg.phone} required className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Nacimiento</Label><div className="h-12 rounded-xl bg-white border flex items-center px-4 font-bold text-slate-700">{selectedReg.birthDate} ({selectedReg.age} años)</div></div>
                     </div>
                   </TabsContent>
 
                   <TabsContent value="catechesis" className="space-y-6">
                     <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label>
-                          <Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}>
-                            <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem>
-                              <SelectItem value="SEGUNDO_AÑO">SEGUNDO AÑO</SelectItem>
-                              <SelectItem value="ADULTOS">ADULTOS</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignar Grupo</Label>
-                          <Select name="groupId" defaultValue={selectedReg.groupId || "none"}>
-                            <SelectTrigger className="h-12 rounded-xl font-bold">
-                              <SelectValue placeholder="Sin grupo asignado" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>
-                              {allGroups?.filter(g => g.catechesisYear === selectedReg.catechesisYear).map(g => (
-                                <SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay})</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label><Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem><SelectItem value="SEGUNDO_AÑO">SEGUNDO AÑO</SelectItem><SelectItem value="ADULTOS">ADULTOS</SelectItem></SelectContent></Select></div>
+                        <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignar Grupo</Label><Select name="groupId" defaultValue={selectedReg.groupId || "none"}><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Sin grupo asignado" /></SelectTrigger><SelectContent><SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>{allGroups?.filter(g => g.catechesisYear === selectedReg.catechesisYear).map(g => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay})</SelectItem>))}</SelectContent></Select></div>
                       </div>
-                      <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                        <Info className="h-5 w-5 text-primary shrink-0" />
-                        <p className="text-[10px] text-primary/70 leading-relaxed font-medium">
-                          Al cambiar el grupo, el confirmando aparecerá automáticamente en la lista de asistencia del catequista responsable. Asegúrate de que el día coincida con su preferencia original ({selectedReg.attendanceDay}S).
-                        </p>
-                      </div>
+                      <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10"><Info className="h-5 w-5 text-primary shrink-0" /><p className="text-[10px] text-primary/70 leading-relaxed font-medium">Al cambiar el grupo, el confirmando aparecerá automáticamente en la lista del catequista responsable.</p></div>
                     </div>
                   </TabsContent>
 
                   <TabsContent value="documents" className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <ImageIcon className="h-4 w-4 text-slate-400" />
-                          <h4 className="text-xs font-black uppercase text-slate-500">Certificado de Bautismo</h4>
-                        </div>
+                        <div className="flex items-center gap-2 mb-2"><ImageIcon className="h-4 w-4 text-slate-400" /><h4 className="text-xs font-black uppercase text-slate-500">Certificado de Bautismo</h4></div>
                         {selectedReg.baptismCertificatePhotoUrl ? (
-                          <div className="relative group aspect-[4/3] rounded-2xl overflow-hidden border shadow-inner">
-                            <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Button type="button" variant="secondary" size="sm" className="rounded-full font-bold" onClick={() => window.open(selectedReg.baptismCertificatePhotoUrl, '_blank')}>Ampliar Foto</Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="aspect-[4/3] rounded-2xl bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center text-slate-300">
-                            <X className="h-8 w-8 mb-2" />
-                            <span className="text-[10px] font-bold uppercase">No adjunto</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-4">
-                        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                          <h4 className="text-xs font-black uppercase text-slate-500 mb-4">Estado de Sacramentos</h4>
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-600">Bautismo</span>
-                              {selectedReg.hasBaptism ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
-                            </div>
-                            <Separator />
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-600">Primera Comunión</span>
-                              {selectedReg.hasFirstCommunion ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
-                            </div>
-                          </div>
-                        </div>
+                          <div className="relative group aspect-[4/3] rounded-2xl overflow-hidden border shadow-inner"><img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" /></div>
+                        ) : (<div className="aspect-[4/3] rounded-2xl bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center text-slate-300"><X className="h-8 w-8 mb-2" /><span className="text-[10px] font-bold uppercase">No adjunto</span></div>)}
                       </div>
                     </div>
                   </TabsContent>
@@ -656,13 +514,13 @@ export default function RegistrationsListPage() {
               </div>
 
               <DialogFooter className="p-8 bg-white border-t flex items-center justify-between">
-                <Button type="button" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50 font-black gap-2 h-12 rounded-xl" onClick={() => setIsWithdrawalOpen(true)}>
+                <Button type="button" variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 font-black gap-2 h-12 rounded-xl" onClick={() => setIsWithdrawalOpen(true)}>
                   <UserMinus className="h-5 w-5" /> DAR DE BAJA
                 </Button>
                 <div className="flex gap-3">
                   <Button type="button" variant="outline" className="h-12 px-8 rounded-xl font-bold border-slate-200" onClick={() => setIsDetailsOpen(false)}>Cerrar</Button>
-                  <Button type="submit" className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-xl shadow-primary/20 gap-2" disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <><Save className="h-5 w-5" /> GUARDAR CAMBIOS</>}
+                  <Button type="submit" className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-xl gap-2" disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5" />} GUARDAR CAMBIOS
                   </Button>
                 </div>
               </DialogFooter>
@@ -671,26 +529,23 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ALERT DIALOG ELIMINAR */}
+      {/* DIÁLOGO DAR DE BAJA (JUSTIFICADO) */}
+      <Dialog open={isWithdrawalOpen} onOpenChange={setIsWithdrawalOpen}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          <DialogHeader className="p-6 bg-orange-600 text-white"><DialogTitle>Procesar Baja Definitiva</DialogTitle></DialogHeader>
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-slate-600">Explica el motivo por el cual el alumno abandona la catequesis.</p>
+            <div className="space-y-2"><Label className="font-bold">Motivo del Retiro</Label><Input value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} placeholder="Ej. Cambio de domicilio, decisión personal..." className="h-12 rounded-xl" /></div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t gap-3"><Button variant="outline" onClick={() => setIsWithdrawalOpen(false)}>Cancelar</Button><Button className="bg-orange-600 hover:bg-orange-700 font-bold" onClick={handleWithdrawal} disabled={!withdrawalReason || isProcessing}>Confirmar Baja</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
-          <div className="bg-red-600 p-8 text-white">
-            <AlertTriangle className="h-12 w-12 mx-auto mb-4" />
-            <AlertDialogTitle className="text-2xl font-black text-center uppercase tracking-tight">¿Confirmar Eliminación?</AlertDialogTitle>
-          </div>
-          <div className="p-8 space-y-4">
-            <AlertDialogDescription className="text-center text-slate-600 font-medium">
-              Esta acción es irreversible. Se borrará permanentemente la ficha de <br/>
-              <strong className="text-slate-900 font-black text-lg">"{selectedReg?.fullName}"</strong> <br/>
-              incluyendo fotos y registros asociados.
-            </AlertDialogDescription>
-          </div>
-          <AlertDialogFooter className="p-8 bg-slate-50 gap-3 border-t">
-            <AlertDialogCancel className="rounded-2xl h-14 font-black flex-1 border-slate-200">CANCELAR</AlertDialogCancel>
-            <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white rounded-2xl h-14 font-black flex-1 shadow-xl shadow-red-100" onClick={handleDelete} disabled={isProcessing}>
-              {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : "ELIMINAR AHORA"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          <div className="bg-red-600 p-8 text-white"><AlertTriangle className="h-12 w-12 mx-auto mb-4" /><AlertDialogTitle className="text-2xl font-black text-center uppercase">¿Eliminar Registro?</AlertDialogTitle></div>
+          <div className="p-8"><AlertDialogDescription className="text-center font-medium">Esta acción es irreversible. Se borrará permanentemente la ficha de <strong className="text-slate-900">"{selectedReg?.fullName}"</strong>.</AlertDialogDescription></div>
+          <AlertDialogFooter className="p-8 bg-slate-50 gap-3 border-t"><AlertDialogCancel className="rounded-2xl h-14 font-black flex-1">CANCELAR</AlertDialogCancel><AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white rounded-2xl h-14 font-black flex-1" onClick={handleDelete} disabled={isProcessing}>ELIMINAR AHORA</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
