@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
+import { cn } from "@/lib/utils"
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
@@ -110,7 +111,6 @@ export default function DashboardPage() {
         <DashboardStatCard title="Adultos" value={stats.adults} icon={<User className="h-3.5 w-3.5" />} color="orange" loading={loadingRegs} />
       </div>
 
-      {/* DIALOGOS DE QR E INFORME (CONTENIDO ORIGINAL) */}
       <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl h-[90vh] max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
