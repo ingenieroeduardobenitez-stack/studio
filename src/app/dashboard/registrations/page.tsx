@@ -31,10 +31,11 @@ import {
   Info,
   Shapes,
   CreditCard,
+  RotateCcw,
   Plus
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction } from "firebase/firestore"
+import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -60,6 +61,7 @@ export default function RegistrationsListPage() {
   
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false)
   const [withdrawalReason, setWithdrawalReason] = useState("")
@@ -73,7 +75,6 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  // CARGA TOTAL SIN LÍMITES PARA FLUIDEZ MÁXIMA
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
     return collection(db, "confirmations")
@@ -97,6 +98,9 @@ export default function RegistrationsListPage() {
         return dateB.getTime() - dateA.getTime()
       })
   }, [rawData])
+
+  const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
+  const { data: profile } = useDoc(userProfileRef)
 
   const stats = useMemo(() => {
     if (!registrations) return { total: 0, masc: 0, fem: 0 }
@@ -147,7 +151,7 @@ export default function RegistrationsListPage() {
     if (!db || !treasuryRef || isProcessing) return
     setIsProcessing(true)
     const regRef = doc(db, "confirmations", reg.id)
-    const catechistName = user?.displayName || "Tesorero"
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
     
     try {
       await runTransaction(db, async (transaction) => {
@@ -171,6 +175,42 @@ export default function RegistrationsListPage() {
     } catch (e) {
       toast({ variant: "destructive", title: "Error al validar" })
     } finally { setIsProcessing(false) }
+  }
+
+  const handleRevertValidation = async () => {
+    if (!db || !selectedReg || isProcessing) return
+    setIsProcessing(true)
+    const regRef = doc(db, "confirmations", selectedReg.id)
+    
+    try {
+      await updateDoc(regRef, {
+        status: "POR_VALIDAR",
+        paymentStatus: "PENDIENTE",
+        amountPaid: 0,
+        receiptNumber: null,
+        validatedBy: null,
+        lastPaymentDate: null,
+        lastPaymentMethod: null,
+        updatedAt: serverTimestamp()
+      })
+
+      await addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
+        action: "Anular Validación",
+        module: "tesoreria",
+        details: `Se anuló la validación de ${selectedReg.fullName}. Registro volvió a 'Por Validar'.`,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Validación Anulada", description: "El registro ha vuelto al estado pendiente." })
+      setIsRevertDialogOpen(false)
+      setIsDetailsOpen(false)
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al revertir" })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleUpdateDetails = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -412,6 +452,11 @@ export default function RegistrationsListPage() {
                               <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenDetails(reg)}>
                                 <Shapes className="h-4 w-4 text-slate-400" /> <span className="font-bold">Asignar Grupo</span>
                               </DropdownMenuItem>
+                              {reg.status === "INSCRITO" && (
+                                <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3 text-amber-600" onClick={() => { setSelectedReg(reg); setIsRevertDialogOpen(true); }}>
+                                  <RotateCcw className="h-4 w-4" /> <span className="font-bold">Anular Validación</span>
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3 text-orange-600" onClick={() => { setSelectedReg(reg); setIsWithdrawalOpen(true); }}>
                                 <UserMinus className="h-4 w-4" /> <span className="font-bold">Dar de Baja</span>
                               </DropdownMenuItem>
@@ -498,9 +543,16 @@ export default function RegistrationsListPage() {
               </div>
 
               <DialogFooter className="p-8 bg-white border-t flex items-center justify-between">
-                <Button type="button" variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 font-black gap-2 h-12 rounded-xl" onClick={() => setIsWithdrawalOpen(true)}>
-                  <UserMinus className="h-5 w-5" /> DAR DE BAJA
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="button" variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 font-black gap-2 h-12 rounded-xl" onClick={() => setIsWithdrawalOpen(true)}>
+                    <UserMinus className="h-5 w-5" /> BAJA
+                  </Button>
+                  {selectedReg.status === "INSCRITO" && (
+                    <Button type="button" variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-black gap-2 h-12 rounded-xl" onClick={() => setIsRevertDialogOpen(true)}>
+                      <RotateCcw className="h-5 w-5" /> ANULAR PAGO
+                    </Button>
+                  )}
+                </div>
                 <div className="flex gap-3">
                   <Button type="button" variant="outline" className="h-12 px-8 rounded-xl font-bold border-slate-200" onClick={() => setIsDetailsOpen(false)}>Cerrar</Button>
                   <Button type="submit" className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-xl gap-2" disabled={isProcessing}>
@@ -512,6 +564,15 @@ export default function RegistrationsListPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* DIÁLOGO ANULAR VALIDACIÓN */}
+      <AlertDialog open={isRevertDialogOpen} onOpenChange={setIsRevertDialogOpen}>
+        <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
+          <div className="bg-amber-500 p-8 text-white"><RotateCcw className="h-12 w-12 mx-auto mb-4" /><AlertDialogTitle className="text-2xl font-black text-center uppercase">¿Anular Validación?</AlertDialogTitle></div>
+          <div className="p-8"><AlertDialogDescription className="text-center font-medium">Se anulará el recibo de <strong className="text-slate-900">"{selectedReg?.fullName}"</strong>. El estado volverá a "Por Validar" y el monto pagado se reiniciará a cero. Esta acción se registrará en la auditoría.</AlertDialogDescription></div>
+          <AlertDialogFooter className="p-8 bg-slate-50 gap-3 border-t"><AlertDialogCancel className="rounded-2xl h-14 font-black flex-1">CANCELAR</AlertDialogCancel><AlertDialogAction className="bg-amber-600 hover:bg-amber-700 text-white rounded-2xl h-14 font-black flex-1" onClick={handleRevertValidation} disabled={isProcessing}>ANULAR AHORA</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* DIÁLOGO DAR DE BAJA (JUSTIFICADO) */}
       <Dialog open={isWithdrawalOpen} onOpenChange={setIsWithdrawalOpen}>
