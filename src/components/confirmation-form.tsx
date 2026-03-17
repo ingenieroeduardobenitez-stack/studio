@@ -32,7 +32,8 @@ import {
   Info,
   Building2,
   MessageCircle,
-  UserCheck
+  UserCheck,
+  AlertTriangle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -324,7 +325,27 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!db || !ciValue || ciValue.length < 5) return;
     setIsSearchingCi(true);
     const cleanCi = ciValue.replace(/[^0-9]/g, '');
+    
     try {
+      // 1. VALIDACIÓN INMEDIATA DE DUPLICADO: Buscar si ya está inscripto
+      const ciCheckQuery = query(
+        collection(db, "confirmations"), 
+        where("ciNumber", "==", ciValue),
+        where("isArchived", "==", false)
+      );
+      
+      const querySnapshot = await getDocs(ciCheckQuery);
+      if (!querySnapshot.empty) {
+        toast({
+          variant: "destructive",
+          title: "Persona ya registrada",
+          description: "Este número de cédula ya se encuentra registrado como inscripto en el sistema.",
+        });
+        setIsSearchingCi(false);
+        return;
+      }
+
+      // 2. BÚSQUEDA EN REPOSITORIO DE CÉDULAS PARA PRECARGA
       const docSnap = await getDoc(doc(db, "cedulas", cleanCi));
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -338,10 +359,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         }
         toast({ title: "Datos precargados" });
       } else {
-        toast({ variant: "destructive", title: "No encontrado", description: "La cédula no figura en la base de datos." });
+        toast({ variant: "destructive", title: "Cédula no hallada", description: "El número no figura en nuestra base de datos nacional, deberá completar los campos manualmente." });
       }
     } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la búsqueda." });
+      toast({ variant: "destructive", title: "Error de conexión", description: "No se pudo realizar la búsqueda en este momento." });
     } finally { setIsSearchingCi(false); }
   }
 
@@ -349,7 +370,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!db) return;
     setLoading(true);
     try {
-      // CONTROL DE DUPLICADOS: Buscar si ya existe el C.I. activo
+      // CONTROL FINAL DE DUPLICADOS antes de persistir
       const ciCheckQuery = query(
         collection(db, "confirmations"), 
         where("ciNumber", "==", values.ciNumber),
@@ -603,7 +624,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     <FormLabel className="font-bold">N° de C.I. *</FormLabel>
                     <div className="flex gap-2">
                       <FormControl><Input placeholder="Sin puntos" {...field} className="h-12 rounded-xl" /></FormControl>
-                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl font-bold bg-primary shadow-lg shadow-primary/20"><Search className="h-4 w-4" /></Button>
+                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl font-bold bg-primary shadow-lg shadow-primary/20">
+                        {isSearchingCi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
                     </div>
                     <FormMessage />
                   </FormItem>
