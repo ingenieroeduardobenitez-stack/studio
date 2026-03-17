@@ -43,7 +43,8 @@ import {
   FlipHorizontal,
   UserX,
   Shapes,
-  Info
+  Info,
+  AlertTriangle
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp, addDoc, runTransaction, query, orderBy, limit } from "firebase/firestore"
@@ -472,6 +473,24 @@ export default function RegistrationsListPage() {
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
 
+  // LÓGICA PARA DETECTAR DUPLICADOS
+  const duplicateCis = useMemo(() => {
+    if (!registrations) return new Set<string>();
+    const counts = new Map<string, number>();
+    registrations.forEach(r => {
+      if (r.isArchived) return;
+      const ci = r.ciNumber?.trim();
+      if (ci) {
+        counts.set(ci, (counts.get(ci) || 0) + 1);
+      }
+    });
+    const dups = new Set<string>();
+    counts.forEach((count, ci) => {
+      if (count > 1) dups.add(ci);
+    });
+    return dups;
+  }, [registrations]);
+
   const filteredRegistrations = useMemo(() => {
     if (!registrations) return []
     return registrations.filter(r => {
@@ -480,7 +499,10 @@ export default function RegistrationsListPage() {
       const matchesSearch = !searchTerm || r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || r.ciNumber?.includes(searchTerm);
       const matchesSex = filterSex === "all" || r.sexo === filterSex;
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear;
-      const matchesStatus = filterStatus === "all" || r.status === filterStatus;
+      
+      // Filtro especial para repetidos en el selector de Estado
+      const matchesStatus = filterStatus === "all" || 
+        (filterStatus === "REPETIDOS" ? (r.ciNumber && duplicateCis.has(r.ciNumber)) : r.status === filterStatus);
       
       const isPublicOrigin = r.userId === "public_registration";
       const matchesOrigin = filterOrigin === "all" || 
@@ -494,7 +516,7 @@ export default function RegistrationsListPage() {
 
       return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay && matchesPayment;
     })
-  }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterPaymentMethod])
+  }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterPaymentMethod, duplicateCis])
 
   const stats = useMemo(() => {
     if (!filteredRegistrations) return { total: 0, males: 0, females: 0 }
@@ -743,6 +765,7 @@ export default function RegistrationsListPage() {
                   <SelectItem value="all">Todos Estados</SelectItem>
                   <SelectItem value="INSCRITO">Inscrito</SelectItem>
                   <SelectItem value="POR_VALIDAR">Por Validar</SelectItem>
+                  <SelectItem value="REPETIDOS" className="text-red-600 font-bold">Solo Repetidos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -811,9 +834,10 @@ export default function RegistrationsListPage() {
                   const isManual = reg.userId !== "public_registration";
                   const hasProof = !!reg.paymentProofUrl;
                   const isEfectivo = reg.lastPaymentMethod === "EFECTIVO" || reg.paymentMethod === "EFECTIVO";
+                  const isDuplicate = reg.ciNumber && duplicateCis.has(reg.ciNumber);
                   
                   return (
-                    <TableRow key={reg.id} className="h-20 hover:bg-slate-50/50 transition-colors">
+                    <TableRow key={reg.id} className={cn("h-20 transition-colors", isDuplicate ? "bg-red-50/30 hover:bg-red-50/50" : "hover:bg-slate-50/50")}>
                       <TableCell className="pl-8">
                         <div className="flex items-center gap-4">
                           <Avatar 
@@ -824,7 +848,12 @@ export default function RegistrationsListPage() {
                             <AvatarFallback><User /></AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col">
-                            <span className="font-bold text-sm text-slate-900 uppercase truncate max-w-[200px]">{reg.fullName}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-slate-900 uppercase truncate max-w-[200px]">{reg.fullName}</span>
+                              {isDuplicate && (
+                                <Badge variant="destructive" className="animate-pulse h-4 px-1.5 text-[8px] font-black uppercase tracking-tighter">REPETIDO</Badge>
+                              )}
+                            </div>
                             <span className="text-[10px] font-black text-primary leading-tight">{reg.ciNumber}</span>
                             <span className="text-[10px] text-slate-400 font-medium">{reg.phone}</span>
                           </div>
