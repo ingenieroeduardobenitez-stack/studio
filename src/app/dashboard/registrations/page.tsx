@@ -34,7 +34,7 @@ import {
   RotateCcw,
   Plus
 } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -548,7 +548,7 @@ export default function RegistrationsListPage() {
                     <UserMinus className="h-5 w-5" /> BAJA
                   </Button>
                   {selectedReg.status === "INSCRITO" && (
-                    <Button type="button" variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-black gap-2 h-12 rounded-xl" onClick={() => setIsRevertDialogOpen(true)}>
+                    <Button type="button" variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-black gap-2 h-12 rounded-xl" onClick={() => { setSelectedReg(reg); setIsRevertDialogOpen(true); }}>
                       <RotateCcw className="h-5 w-5" /> ANULAR PAGO
                     </Button>
                   )}
