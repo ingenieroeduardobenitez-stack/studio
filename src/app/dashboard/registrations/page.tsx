@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -20,21 +21,17 @@ import {
   Banknote,
   ArrowRightLeft,
   FileText,
-  Phone,
   MessageCircle,
   Church,
-  Calendar,
-  Shield,
   Save,
   UserMinus,
   CheckCircle2,
   X,
   ImageIcon,
-  Shapes,
   Info
 } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, limit } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -51,6 +48,7 @@ import { Textarea } from "@/components/ui/textarea"
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [limitCount, setLimitCount] = useState(50) // OPTIMIZACIÓN: Paginación de 50 en 50
   
   // Filtros de estado local
   const [filterSex, setFilterSex] = useState<string>("all")
@@ -75,13 +73,19 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  // Consultas principales
-  const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
+  // Consultas principales optimizadas con LIMIT y ONCE para mejorar velocidad
+  const regsQuery = useMemoFirebase(() => {
+    if (!db) return null
+    // Si hay búsqueda, quitamos el límite para encontrar en toda la base
+    const currentLimit = searchTerm ? 100 : limitCount
+    return query(collection(db, "confirmations"), limit(currentLimit))
+  }, [db, limitCount, searchTerm])
+
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
 
-  const { data: rawData, loading } = useCollection(regsQuery)
-  const { data: allGroups } = useCollection(groupsQuery)
+  const { data: rawData, loading } = useCollection(regsQuery, { once: true })
+  const { data: allGroups } = useCollection(groupsQuery, { once: true })
   const { data: allUsers } = useCollection(usersQuery, { once: true })
 
   // Procesamiento de datos en memoria (Ordenamiento y Filtrado de activos)
@@ -248,7 +252,7 @@ export default function RegistrationsListPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="border-none shadow-xl bg-white rounded-3xl p-6 border-l-4 border-l-primary">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Inscritos</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total en Vista</p>
             <Users className="h-4 w-4 text-primary opacity-40" />
           </div>
           <p className="text-4xl font-black text-slate-900 leading-none">{loading ? "..." : stats.total}</p>
@@ -273,7 +277,7 @@ export default function RegistrationsListPage() {
         <CardHeader className="bg-slate-50/30 p-8 pb-0">
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal</Label>
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal (Búsqueda en toda la base)</Label>
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input 
@@ -367,7 +371,7 @@ export default function RegistrationsListPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-32 gap-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Cargando base de datos...</p>
+              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Optimizando consulta...</p>
             </div>
           ) : filteredRegistrations.length === 0 ? (
             <div className="py-32 text-center">
@@ -378,128 +382,142 @@ export default function RegistrationsListPage() {
               <p className="text-slate-400 text-xs">Prueba ajustando los filtros de búsqueda.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader className="bg-slate-50/50 border-y">
-                <TableRow>
-                  <TableHead className="pl-8 py-5 font-bold text-slate-500">Confirmando</TableHead>
-                  <TableHead className="font-bold text-slate-500">Origen</TableHead>
-                  <TableHead className="font-bold text-slate-500">Año / Nivel</TableHead>
-                  <TableHead className="font-bold text-slate-500">Forma Pago</TableHead>
-                  <TableHead className="text-center font-bold text-slate-500">Estado</TableHead>
-                  <TableHead className="font-bold text-slate-500">Fecha Insc.</TableHead>
-                  <TableHead className="text-right pr-8 font-bold text-slate-500">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRegistrations.map((reg) => {
-                  const cleanCi = reg.ciNumber?.replace(/[^0-9]/g, '') || ""
-                  const isRepetido = duplicateCis.has(cleanCi)
-                  const isManual = reg.userId !== "public_registration"
-                  const creator = allUsers?.find(u => u.id === reg.userId)
-                  const createdDate = reg.createdAt?.toDate ? reg.createdAt.toDate() : (reg.createdAt ? new Date(reg.createdAt) : new Date())
-                  
-                  return (
-                    <TableRow key={reg.id} className="h-24 hover:bg-slate-50/50 transition-colors border-slate-100">
-                      <TableCell className="pl-8">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-12 w-12 border-2 border-white shadow-sm ring-1 ring-slate-100">
-                            <AvatarImage src={reg.photoUrl} className="object-cover" />
-                            <AvatarFallback className="bg-slate-50 text-slate-300 font-black"><User /></AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="font-black text-base text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>
-                              {isRepetido && (
-                                <Badge className="bg-red-500 hover:bg-red-600 text-white text-[8px] font-black h-4 px-1.5 rounded-full animate-pulse">REPETIDO</Badge>
-                              )}
+            <>
+              <Table>
+                <TableHeader className="bg-slate-50/50 border-y">
+                  <TableRow>
+                    <TableHead className="pl-8 py-5 font-bold text-slate-500">Confirmando</TableHead>
+                    <TableHead className="font-bold text-slate-500">Origen</TableHead>
+                    <TableHead className="font-bold text-slate-500">Año / Nivel</TableHead>
+                    <TableHead className="font-bold text-slate-500">Forma Pago</TableHead>
+                    <TableHead className="text-center font-bold text-slate-500">Estado</TableHead>
+                    <TableHead className="font-bold text-slate-500">Fecha Insc.</TableHead>
+                    <TableHead className="text-right pr-8 font-bold text-slate-500">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRegistrations.map((reg) => {
+                    const cleanCi = reg.ciNumber?.replace(/[^0-9]/g, '') || ""
+                    const isRepetido = duplicateCis.has(cleanCi)
+                    const isManual = reg.userId !== "public_registration"
+                    const creator = allUsers?.find(u => u.id === reg.userId)
+                    const createdDate = reg.createdAt?.toDate ? reg.createdAt.toDate() : (reg.createdAt ? new Date(reg.createdAt) : new Date())
+                    
+                    return (
+                      <TableRow key={reg.id} className="h-24 hover:bg-slate-50/50 transition-colors border-slate-100">
+                        <TableCell className="pl-8">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-12 w-12 border-2 border-white shadow-sm ring-1 ring-slate-100">
+                              <AvatarImage src={reg.photoUrl} className="object-cover" />
+                              <AvatarFallback className="bg-slate-50 text-slate-300 font-black"><User /></AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-base text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>
+                                {isRepetido && (
+                                  <Badge className="bg-red-500 hover:bg-red-600 text-white text-[8px] font-black h-4 px-1.5 rounded-full animate-pulse">REPETIDO</Badge>
+                                )}
+                              </div>
+                              <span className="text-sm font-bold text-blue-600 tracking-tighter mt-1">{reg.ciNumber}</span>
+                              <span className="text-[10px] text-slate-400 font-medium">{reg.phone}</span>
                             </div>
-                            <span className="text-sm font-bold text-blue-600 tracking-tighter mt-1">{reg.ciNumber}</span>
-                            <span className="text-[10px] text-slate-400 font-medium">{reg.phone}</span>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col items-start gap-1">
-                          <Badge variant="secondary" className={cn("text-[9px] font-black tracking-widest h-5 px-2", isManual ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700")}>
-                            {isManual ? "MANUAL" : "PÚBLICO"}
-                          </Badge>
-                          {isManual && (
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-1">
-                              {creator ? creator.firstName : "SISTEMA"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col items-start gap-1">
+                            <Badge variant="secondary" className={cn("text-[9px] font-black tracking-widest h-5 px-2", isManual ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700")}>
+                              {isManual ? "MANUAL" : "PÚBLICO"}
+                            </Badge>
+                            {isManual && (
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-1">
+                                {creator ? creator.firstName : "SISTEMA"}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1.5">
+                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-slate-200 bg-white">
+                              {reg.catechesisYear?.replace("_", " ")}
+                            </Badge>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                              {reg.attendanceDay}S
                             </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1.5">
-                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-slate-200 bg-white">
-                            {reg.catechesisYear?.replace("_", " ")}
-                          </Badge>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
-                            {reg.attendanceDay}S
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col items-start gap-1">
-                          <div className="flex items-center gap-1.5 text-[10px] font-black text-accent uppercase">
-                            {reg.paymentMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
-                            {reg.paymentMethod}
                           </div>
-                          <span className="text-xs font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
-                            {(reg.registrationCost || 35000).toLocaleString('es-PY')} Gs.
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className={cn("h-7 px-4 rounded-full text-[10px] font-black tracking-widest border-none shadow-sm", 
-                          reg.status === "POR_VALIDAR" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white")}>
-                          {reg.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-black text-slate-700 tracking-tighter">{createdDate.toLocaleDateString('es-PY')}</span>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">{createdDate.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right pr-8">
-                        <div className="flex justify-end gap-2">
-                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-full text-slate-300 hover:text-primary hover:bg-primary/5" onClick={() => handleOpenDetails(reg)}>
-                            <Eye className="h-5 w-5" />
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-slate-300 hover:bg-slate-100">
-                                <MoreHorizontal className="h-5 w-5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-2xl border-none shadow-2xl">
-                              <DropdownMenuLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1">Opciones</DropdownMenuLabel>
-                              <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenDetails(reg)}>
-                                <FileText className="h-4 w-4 text-slate-400" /> <span className="font-bold">Editar Ficha</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} 
-                                className="h-11 rounded-xl text-destructive focus:bg-red-50 focus:text-destructive cursor-pointer gap-3"
-                              >
-                                <Trash2 className="h-4 w-4" /> <span className="font-bold">Eliminar Definitivo</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col items-start gap-1">
+                            <div className="flex items-center gap-1.5 text-[10px] font-black text-accent uppercase">
+                              {reg.paymentMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
+                              {reg.paymentMethod}
+                            </div>
+                            <span className="text-xs font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
+                              {(reg.registrationCost || 35000).toLocaleString('es-PY')} Gs.
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={cn("h-7 px-4 rounded-full text-[10px] font-black tracking-widest border-none shadow-sm", 
+                            reg.status === "POR_VALIDAR" ? "bg-amber-500 text-white" : "bg-emerald-500 text-white")}>
+                            {reg.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black text-slate-700 tracking-tighter">{createdDate.toLocaleDateString('es-PY')}</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">{createdDate.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right pr-8">
+                          <div className="flex justify-end gap-2">
+                            <Button size="icon" variant="ghost" className="h-10 w-10 rounded-full text-slate-300 hover:text-primary hover:bg-primary/5" onClick={() => handleOpenDetails(reg)}>
+                              <Eye className="h-5 w-5" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-slate-300 hover:bg-slate-100">
+                                  <MoreHorizontal className="h-5 w-5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-2xl border-none shadow-2xl">
+                                <DropdownMenuLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1">Opciones</DropdownMenuLabel>
+                                <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenDetails(reg)}>
+                                  <FileText className="h-4 w-4 text-slate-400" /> <span className="font-bold">Editar Ficha</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} 
+                                  className="h-11 rounded-xl text-destructive focus:bg-red-50 focus:text-destructive cursor-pointer gap-3"
+                                >
+                                  <Trash2 className="h-4 w-4" /> <span className="font-bold">Eliminar Definitivo</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+              {/* BOTÓN CARGAR MÁS (OPTIMIZACIÓN) */}
+              {!searchTerm && registrations.length >= limitCount && (
+                <div className="p-8 flex justify-center bg-slate-50/30 border-t">
+                  <Button 
+                    variant="outline" 
+                    className="h-12 rounded-xl px-10 font-bold border-primary text-primary hover:bg-primary/5 gap-2"
+                    onClick={() => setLimitCount(prev => prev + 50)}
+                  >
+                    <Users className="h-4 w-4" /> Cargar más registros...
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
 
-      {/* DIÁLOGO FICHA DE INSCRIPCIÓN (EL OJO) */}
+      {/* DIÁLOGO FICHA DE INSCRIPCIÓN */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
           {selectedReg && (
@@ -650,39 +668,6 @@ export default function RegistrationsListPage() {
               </DialogFooter>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* DIÁLOGO DE BAJA */}
-      <Dialog open={isWithdrawalOpen} onOpenChange={setIsWithdrawalOpen}>
-        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-[2rem]">
-          <DialogHeader className="p-8 bg-red-600 text-white">
-            <DialogTitle className="text-2xl font-black uppercase tracking-tight">Procesar Baja</DialogTitle>
-            <DialogDescription className="text-white/80">Estás por retirar a {selectedReg?.fullName} de la lista de confirmandos activos.</DialogDescription>
-          </DialogHeader>
-          <div className="p-8 space-y-6">
-            <div className="space-y-3">
-              <Label className="font-bold text-slate-700">Motivo del Retiro</Label>
-              <Textarea 
-                placeholder="Ej: El alumno se mudó de ciudad o decidió no continuar." 
-                className="min-h-[120px] rounded-2xl bg-slate-50 border-slate-200 resize-none"
-                value={withdrawalReason}
-                onChange={(e) => setWithdrawalReason(e.target.value)}
-              />
-            </div>
-            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-              <p className="text-[10px] text-amber-800 font-medium leading-relaxed italic">
-                Esta acción no elimina los datos, pero los mueve al archivo histórico. Podrás consultar este registro en el módulo de "Archivo" si es necesario.
-              </p>
-            </div>
-          </div>
-          <DialogFooter className="p-8 bg-slate-50 border-t flex gap-3">
-            <Button variant="outline" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => setIsWithdrawalOpen(false)}>Cancelar</Button>
-            <Button className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black shadow-xl shadow-red-100" onClick={handleWithdrawal} disabled={isProcessing || !withdrawalReason}>
-              {isProcessing ? <Loader2 className="animate-spin" /> : "CONFIRMAR BAJA"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

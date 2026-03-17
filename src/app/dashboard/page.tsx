@@ -32,13 +32,13 @@ export default function DashboardPage() {
 
   const { data: profile } = useDoc(userProfileRef)
 
-  // Recuperar todos los confirmandos activos para cálculo de estadísticas en tiempo real
+  // OPTIMIZACIÓN: Carga única (once: true) para cálculo de estadísticas iniciales
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
     return query(collection(db, "confirmations"), where("isArchived", "==", false))
   }, [db])
 
-  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
+  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
 
   const stats = useMemo(() => {
     if (!registrations) return { total: 0, firstYear: 0, secondYear: 0, adults: 0, firstYearSabado: 0, firstYearDomingo: 0, secondYearSabado: 0, secondYearDomingo: 0, adultsSabado: 0, adultsDomingo: 0 }

@@ -80,11 +80,41 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
+// OPTIMIZACIÓN: Función para comprimir imágenes antes de subir a Firestore
+const compressImage = (base64Str: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new (window as any).Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 400; // Suficiente para documentos y perfil
+      const MAX_HEIGHT = 400;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compresión agresiva pero legible
+    };
+  });
+};
+
 export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isSearchingCi, setIsSearchingCi] = useState(false)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false)
   const [submittedData, setSubmittedData] = useState<any>(null)
 
@@ -132,7 +162,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setIsSearchingCi(true); clearErrors("ciNumber");
     const cleanCi = ciValue.replace(/[^0-9]/g, '');
     try {
-      // 1. Verificación inmediata de duplicados en inscripciones activas
       const ciCheckQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue), where("isArchived", "==", false));
       const querySnapshot = await getDocs(ciCheckQuery);
       if (!querySnapshot.empty) {
@@ -140,7 +169,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         setIsSearchingCi(false); return;
       }
 
-      // 2. Búsqueda en repositorio de cédulas para precarga
       const docSnap = await getDoc(doc(db, "cedulas", cleanCi));
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -162,8 +190,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const isEfectivo = values.paymentMethod === "EFECTIVO";
       const regCost = Number(values.registrationCost);
       
+      // OPTIMIZACIÓN: Comprimir fotos si existen antes de enviarlas a Firestore
+      let finalPhotoUrl = values.photoUrl;
+      let finalCertUrl = values.baptismCertificatePhotoUrl;
+
+      if (values.photoUrl?.startsWith('data:image')) {
+        finalPhotoUrl = await compressImage(values.photoUrl);
+      }
+      if (values.baptismCertificatePhotoUrl?.startsWith('data:image')) {
+        finalCertUrl = await compressImage(values.baptismCertificatePhotoUrl);
+      }
+
       const regData = {
         ...values,
+        photoUrl: finalPhotoUrl || "",
+        baptismCertificatePhotoUrl: finalCertUrl || "",
         userId: user?.uid || (isPublic ? "public_registration" : "manual"),
         status: isEfectivo ? "INSCRITO" : "POR_VALIDAR",
         paymentStatus: isEfectivo ? "PAGADO" : "PENDIENTE",
