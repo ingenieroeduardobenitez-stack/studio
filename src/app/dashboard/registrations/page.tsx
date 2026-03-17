@@ -64,6 +64,7 @@ export default function RegistrationsListPage() {
   const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false)
+  const [isValidatingProofOpen, setIsValidatingProofOpen] = useState(false)
   const [withdrawalReason, setWithdrawalReason] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
 
@@ -171,7 +172,7 @@ export default function RegistrationsListPage() {
         });
         transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
       });
-      toast({ title: "Validación rápida completada" })
+      toast({ title: "Validación completada con éxito" })
     } catch (e) {
       toast({ variant: "destructive", title: "Error al validar" })
     } finally { setIsProcessing(false) }
@@ -432,7 +433,14 @@ export default function RegistrationsListPage() {
                             <Button 
                               variant="outline" 
                               className="h-9 px-6 rounded-full font-black text-[10px] tracking-widest border-blue-600 text-blue-600 hover:bg-blue-50 transition-all uppercase"
-                              onClick={() => handleQuickValidate(reg)}
+                              onClick={() => {
+                                if (reg.paymentProofUrl) {
+                                  setSelectedReg(reg);
+                                  setIsValidatingProofOpen(true);
+                                } else {
+                                  handleQuickValidate(reg);
+                                }
+                              }}
                               disabled={isProcessing}
                             >
                               VALIDAR
@@ -479,6 +487,55 @@ export default function RegistrationsListPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* DIÁLOGO VISOR DE COMPROBANTE PARA VALIDACIÓN */}
+      <Dialog open={isValidatingProofOpen} onOpenChange={setIsValidatingProofOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-[2rem]">
+          <DialogHeader className="p-6 bg-blue-600 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl"><ImageIcon className="h-5 w-5" /></div>
+              <div>
+                <DialogTitle className="font-black uppercase tracking-tight">Validar Comprobante</DialogTitle>
+                <DialogDescription className="text-white/80">Verifica el depósito de {selectedReg?.fullName}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="aspect-[3/4] relative bg-slate-100 rounded-2xl overflow-hidden border shadow-inner">
+              {selectedReg?.paymentProofUrl ? (
+                <img src={selectedReg.paymentProofUrl} className="w-full h-full object-contain" alt="Comprobante de pago" />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <ImageIcon className="h-12 w-12 mb-2" />
+                  <p className="text-xs font-bold uppercase">Sin Comprobante Adjunto</p>
+                </div>
+              )}
+            </div>
+            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none mb-1">Monto a Validar:</p>
+                <p className="text-2xl font-black text-blue-700 tracking-tight">
+                  {(selectedReg?.registrationCost || (selectedReg?.catechesisYear === "ADULTOS" ? 50000 : 35000)).toLocaleString('es-PY')} Gs.
+                </p>
+              </div>
+              <Badge className="bg-blue-600 text-white h-8 px-4 rounded-full font-black">{selectedReg?.paymentMethod}</Badge>
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
+            <Button variant="outline" className="flex-1 h-14 rounded-2xl font-black uppercase text-xs border-slate-200" onClick={() => setIsValidatingProofOpen(false)}>Cancelar</Button>
+            <Button 
+              className="flex-1 h-14 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-blue-100 active:scale-95 transition-all" 
+              onClick={() => {
+                handleQuickValidate(selectedReg);
+                setIsValidatingProofOpen(false);
+              }}
+              disabled={isProcessing}
+            >
+              {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : "Confirmar Validación"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* DIÁLOGO FICHA DE INSCRIPCIÓN (MODAL ELEGANTE) */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
