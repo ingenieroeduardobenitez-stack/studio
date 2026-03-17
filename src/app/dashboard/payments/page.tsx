@@ -38,7 +38,8 @@ import {
   Receipt,
   AlertTriangle,
   Users,
-  Clock
+  Clock,
+  Eye
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction, orderBy, limit } from "firebase/firestore"
@@ -141,7 +142,6 @@ export default function PaymentsManagementPage() {
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
       
-      // Lógica de filtro de estado incluyendo el "Ajuste Pendiente"
       const isEfectivoZero = r.paymentMethod === "EFECTIVO" && (r.amountPaid || 0) === 0;
       const matchesStatus = filterStatus === "all" || 
         (filterStatus === "AJUSTE" ? isEfectivoZero : r.paymentStatus === filterStatus);
@@ -391,7 +391,7 @@ export default function PaymentsManagementPage() {
                   {filteredConfirmands.map((reg) => {
                     const currentCost = reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? 50000 : 35000)
                     const pending = currentCost - (reg.amountPaid || 0)
-                    const isPaid = reg.paymentStatus === "PAGADO"
+                    const isPaid = reg.paymentStatus === "PAGADO" || (reg.amountPaid >= currentCost && currentCost > 0);
                     const declaredMethod = reg.paymentMethod || "SIN_PAGO";
                     const isEfectivoZero = declaredMethod === "EFECTIVO" && (reg.amountPaid || 0) === 0;
                     const isManual = reg.userId !== "public_registration";
@@ -458,7 +458,6 @@ export default function PaymentsManagementPage() {
                                   "border-primary text-primary hover:bg-primary/5"
                                 )} 
                                 onClick={() => handleOpenPayment(reg)}
-                                disabled={isPaid && !!reg.receiptNumber}
                               >
                                 {isEfectivoZero ? (
                                   <><CheckCircle2 className="h-4 w-4" /> Validar Efectivo</>
