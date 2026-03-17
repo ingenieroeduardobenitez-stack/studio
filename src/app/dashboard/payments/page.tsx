@@ -69,8 +69,11 @@ export default function PaymentsManagementPage() {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
-  const [viewProofUrl, setViewProofUrl] = useState<string | null>(null)
-  const [isProofViewOpen, setIsProofViewOpen] = useState(false)
+  
+  // Estados para el Laboratorio de Validación (Mismo que Lista de Confirmandos)
+  const [isValidationOpen, setIsValidationOpen] = useState(false)
+  const [valAmount, setValAmount] = useState(0)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [zoomScale, setZoomScale] = useState(1)
 
   const [showCamera, setShowCamera] = useState(false)
@@ -176,6 +179,69 @@ export default function PaymentsManagementPage() {
   const handleViewReceipt = (reg: any) => {
     setSelectedReg(reg)
     setIsReceiptOpen(true)
+  }
+
+  // Funciones del Laboratorio de Validación
+  const handleOpenValidation = (reg: any) => {
+    setSelectedReg(reg)
+    const pending = (reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? 50000 : 35000)) - (reg.amountPaid || 0)
+    setValAmount(pending > 0 ? pending : 0)
+    setIsValidationOpen(true)
+  }
+
+  const handleConfirmValidation = async () => {
+    if (!db || !selectedReg || !treasurySettingsRef || isProcessing) return
+    setIsProcessing(true)
+    const regRef = doc(db, "confirmations", selectedReg.id)
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Validador"
+    try {
+      await runTransaction(db, async (transaction) => {
+        const treasurySnap = await transaction.get(treasurySettingsRef);
+        const nextReceipt = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
+        const formattedReceipt = `001-001-${String(nextReceipt).padStart(7, '0')}`;
+        
+        const newPaid = (selectedReg.amountPaid || 0) + valAmount;
+        const regCost = selectedReg.registrationCost || (selectedReg.catechesisYear === "ADULTOS" ? 50000 : 35000);
+        
+        const updatePayload = { 
+          amountPaid: newPaid, 
+          paymentStatus: newPaid >= regCost ? "PAGADO" : "PARCIAL", 
+          status: "INSCRITO",
+          validatedBy: catechistName,
+          receiptNumber: formattedReceipt,
+          lastPaymentDate: serverTimestamp(),
+          lastPaymentMethod: "TRANSFERENCIA"
+        };
+
+        transaction.update(regRef, updatePayload);
+        transaction.update(treasurySettingsRef, { nextReceiptNumber: nextReceipt + 1 });
+        
+        transaction.set(doc(collection(db, "audit_logs")), {
+          userId: user?.uid || "unknown",
+          userName: catechistName,
+          action: "Validación de Transferencia (Cobros)",
+          module: "pagos",
+          details: `Validado cobro de ${valAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          timestamp: serverTimestamp()
+        });
+
+        setSelectedReg({ ...selectedReg, ...updatePayload });
+      });
+      toast({ title: "Validación Exitosa" })
+      setIsValidationOpen(false)
+      setIsReceiptOpen(true)
+    } catch (e) { toast({ variant: "destructive", title: "Error al validar" }) }
+    finally { setIsProcessing(false) }
+  }
+
+  const handleDownloadProof = () => {
+    if (!selectedReg?.paymentProofUrl) return;
+    const link = document.createElement("a");
+    link.href = selectedReg.paymentProofUrl;
+    link.download = `comprobante-${selectedReg.ciNumber || selectedReg.id}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   const handleProcessPayment = async () => {
@@ -396,6 +462,7 @@ export default function PaymentsManagementPage() {
                     const isEfectivoZero = declaredMethod === "EFECTIVO" && (reg.amountPaid || 0) === 0;
                     const isManual = reg.userId !== "public_registration";
                     const creator = findUserById(reg.userId);
+                    const hasProof = !!reg.paymentProofUrl;
 
                     return (
                       <TableRow key={reg.id} className="h-20 hover:bg-slate-50/30 transition-colors">
@@ -447,6 +514,15 @@ export default function PaymentsManagementPage() {
                               <Button size="icon" variant="outline" className="h-10 w-10 rounded-xl border-amber-200 text-amber-600 hover:bg-amber-50 shadow-sm" onClick={() => handleViewReceipt(reg)} title="Ver Recibo">
                                 <Receipt className="h-4 w-4" />
                               </Button>
+                            ) : reg.status === "POR_VALIDAR" && hasProof ? (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="h-10 rounded-xl font-bold px-4 bg-slate-900 text-white hover:bg-black gap-2 transition-all active:scale-95" 
+                                onClick={() => handleOpenValidation(reg)}
+                              >
+                                VALIDAR
+                              </Button>
                             ) : (
                               <Button 
                                 size="sm" 
@@ -480,7 +556,57 @@ export default function PaymentsManagementPage() {
         </Card>
       </div>
 
-      {/* DIÁLOGO DE PROCESAR PAGO */}
+      {/* DIÁLOGO DE LABORATORIO DE VALIDACIÓN (IDÉNTICO A LISTA DE CONFIRMANDOS) */}
+      <Dialog open={isValidationOpen} onOpenChange={setIsValidationOpen}>
+        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Laboratorio de Validación</DialogTitle>
+                <DialogDescription className="text-slate-400">Procesando transferencia de {selectedReg?.fullName}</DialogDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="icon" className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white border-none" onClick={handleDownloadProof} title="Descargar Comprobante"><Download className="h-4 w-4" /></Button>
+                <Button variant="secondary" size="icon" className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white border-none" onClick={() => setZoomScale(prev => prev === 1 ? 2 : 1)} title="Zoom"><Maximize2 className="h-4 w-4" /></Button>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 relative overflow-auto">
+              {selectedReg?.paymentProofUrl ? (
+                <img 
+                  src={selectedReg.paymentProofUrl} 
+                  className="max-w-full h-auto rounded-xl shadow-lg transition-transform duration-300 origin-center" 
+                  style={{ transform: `scale(${zoomScale})` }} 
+                  alt="Comprobante"
+                />
+              ) : <div className="text-slate-400 italic">Sin comprobante para mostrar</div>}
+            </div>
+            <div className="w-full md:w-[350px] bg-white border-l p-8 space-y-8 overflow-y-auto">
+              <div className="space-y-4">
+                <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Información del Postulante</Label>
+                <div className="p-4 bg-slate-50 rounded-2xl space-y-2">
+                  <p className="text-sm font-black text-slate-900 uppercase">{selectedReg?.fullName}</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase">C.I. {selectedReg?.ciNumber}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{selectedReg?.catechesisYear?.replace('_', ' ')}</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <Label className="font-bold">Monto a Confirmar (Gs)</Label>
+                <Input type="number" className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-primary/20" value={valAmount} onChange={(e) => setValAmount(Number(e.target.value))} />
+                <p className="text-[10px] text-slate-400 italic">Verifica que el monto coincida exactamente con la imagen adjunta.</p>
+              </div>
+              <div className="pt-4">
+                <Button className="w-full h-14 rounded-2xl bg-green-600 hover:bg-green-700 font-bold text-lg gap-2 shadow-xl shadow-green-100" onClick={handleConfirmValidation} disabled={isProcessing}>
+                  {isProcessing ? <Loader2 className="animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> VALIDAR Y EMITIR RECIBO</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO DE PROCESAR PAGO MANUAL */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-[2rem]">
           <DialogHeader className="p-8 bg-primary text-white shrink-0">
