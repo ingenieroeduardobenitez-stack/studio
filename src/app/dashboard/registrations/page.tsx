@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -458,14 +457,15 @@ export default function RegistrationsListPage() {
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
   const { data: profile } = useDoc(userProfileRef)
 
+  // OPTIMIZACIÓN: Carga única (once: true) para la lista de confirmandos
   const registrationsQuery = useMemoFirebase(() => db ? query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200)) : null, [db])
-  const { data: registrations, loading: loadingRegs } = useCollection(registrationsQuery)
+  const { data: registrations, loading: loadingRegs } = useCollection(registrationsQuery, { once: true })
 
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
-  const { data: allGroups } = useCollection(groupsQuery)
+  const { data: allGroups } = useCollection(groupsQuery, { once: true })
 
   const allUsersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
-  const { data: allUsers } = useCollection(allUsersQuery)
+  const { data: allUsers } = useCollection(allUsersQuery, { once: true })
 
   const findUserById = (uid: string) => {
     return allUsers?.find(u => u.id === uid)
@@ -682,7 +682,7 @@ export default function RegistrationsListPage() {
             const a = document.createElement('a');
             a.href = url; a.download = 'confirmandos.csv'; a.click();
           }}><Download className="h-4 w-4" /> Exportar</Button>
-          <Button asChild className="bg-primary hover:bg-primary/90 rounded-xl h-11 font-bold px-6 shadow-lg shadow-primary/20"><a href="/dashboard/registration">Nueva Ficha</a></Button>
+          <Button asChild className="bg-primary hover:bg-primary/90 rounded-xl h-11 font-bold px-6 shadow-lg shadow-primary/20"><Link href="/dashboard/registration" prefetch={false}>Nueva Ficha</Link></Button>
         </div>
       </div>
 

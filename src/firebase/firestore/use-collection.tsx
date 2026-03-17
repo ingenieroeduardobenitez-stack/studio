@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import {
   Query,
   onSnapshot,
+  getDocs,
   DocumentData,
   FirestoreError,
   QuerySnapshot,
@@ -39,11 +40,12 @@ export interface InternalQuery extends Query<DocumentData> {
 }
 
 /**
- * React hook to subscribe to a Firestore collection or query in real-time.
- * Handles nullable references/queries.
+ * React hook to subscribe to a Firestore collection or query.
+ * Supports an optional 'once' mode to fetch data only once instead of real-time.
  */
 export function useCollection<T = any>(
     memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
+    options?: { once?: boolean }
 ): UseCollectionResult<T> {
   type ResultItemType = WithId<T>;
   type StateDataType = ResultItemType[] | null;
@@ -63,6 +65,40 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
+    // MODO CARGA ÚNICA (Ahorro de recursos)
+    if (options?.once) {
+      getDocs(memoizedTargetRefOrQuery)
+        .then((snapshot) => {
+          const results: ResultItemType[] = [];
+          for (const doc of snapshot.docs) {
+            results.push({ ...(doc.data() as T), id: doc.id });
+          }
+          setData(results);
+          setError(null);
+          setIsLoading(false);
+        })
+        .catch((err: FirestoreError) => {
+          let path: string = 'unknown';
+          try {
+            path = memoizedTargetRefOrQuery.type === 'collection'
+              ? (memoizedTargetRefOrQuery as CollectionReference).path
+              : (memoizedTargetRefOrQuery as any)._query?.path?.canonicalString() || 'query';
+          } catch (e) {}
+
+          const contextualError = new FirestorePermissionError({
+            operation: 'list',
+            path,
+          });
+
+          setError(contextualError);
+          setData(null);
+          setIsLoading(false);
+          errorEmitter.emit('permission-error', contextualError);
+        });
+      return;
+    }
+
+    // MODO TIEMPO REAL (onSnapshot)
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
@@ -85,23 +121,22 @@ export function useCollection<T = any>(
         const contextualError = new FirestorePermissionError({
           operation: 'list',
           path,
-        })
+        });
 
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
+        setError(contextualError);
+        setData(null);
+        setIsLoading(false);
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]);
+  }, [memoizedTargetRefOrQuery, options?.once]);
 
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
   }
 
-  // Si hay una query pero la data es null, forzamos isLoading a true para evitar falsos "0"
   const actualLoading = isLoading || (!!memoizedTargetRefOrQuery && data === null);
 
   return { 

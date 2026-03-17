@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -45,9 +44,10 @@ export default function FinancialStatsPage() {
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const expensesQuery = useMemoFirebase(() => db ? collection(db, "expenses") : null, [db])
 
-  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
-  const { data: users, loading: loadingUsers } = useCollection(usersQuery)
-  const { data: expenses, loading: loadingExpenses } = useCollection(expensesQuery)
+  // OPTIMIZACIÓN: Carga única (once: true) para estadísticas
+  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
+  const { data: users, loading: loadingUsers } = useCollection(usersQuery, { once: true })
+  const { data: expenses, loading: loadingExpenses } = useCollection(expensesQuery, { once: true })
 
   const totals = useMemo(() => {
     // Ingresos reales (lo que ya se pagó)
@@ -57,7 +57,6 @@ export default function FinancialStatsPage() {
     const porValidar = registrations?.filter(r => r.status === "POR_VALIDAR") || []
     const pendingValidationCount = porValidar.length
     const pendingValidationAmount = porValidar.reduce((sum, r) => {
-      // Usar costo registrado o fallback según nivel
       const cost = r.registrationCost || (r.catechesisYear === "ADULTOS" ? 50000 : 35000);
       return sum + cost;
     }, 0)

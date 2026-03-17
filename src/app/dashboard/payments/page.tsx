@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -104,21 +103,22 @@ export default function PaymentsManagementPage() {
     return query(collection(db, "groups"), where("catequistaIds", "array-contains", user.uid))
   }, [db, user?.uid])
 
-  const { data: myGroups } = useCollection(myGroupsQuery)
+  const { data: myGroups } = useCollection(myGroupsQuery, { once: true })
 
   const confirmandsQuery = useMemoFirebase(() => {
     if (!db) return null
     return query(collection(db, "confirmations"), orderBy("createdAt", "desc"), limit(200))
   }, [db])
 
-  const { data: allConfirmands, loading: loadingRegs } = useCollection(confirmandsQuery)
+  // OPTIMIZACIÓN: Carga única
+  const { data: allConfirmands, loading: loadingRegs } = useCollection(confirmandsQuery, { once: true })
 
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null
     return collection(db, "users")
   }, [db])
 
-  const { data: allUsers } = useCollection(usersQuery)
+  const { data: allUsers } = useCollection(usersQuery, { once: true })
 
   const findUserById = (uid: string) => {
     return allUsers?.find(u => u.id === uid)
@@ -555,7 +555,7 @@ export default function PaymentsManagementPage() {
         </Card>
       </div>
 
-      {/* DIÁLOGO DE LABORATORIO DE VALIDACIÓN (IDÉNTICO A LISTA DE CONFIRMANDOS) */}
+      {/* DIÁLOGO DE LABORATORIO DE VALIDACIÓN */}
       <Dialog open={isValidationOpen} onOpenChange={setIsValidationOpen}>
         <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">

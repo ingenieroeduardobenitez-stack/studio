@@ -1,4 +1,3 @@
-
 "use client"
 
 import Link from "next/link"
@@ -71,7 +70,6 @@ const adminItems = [
   { id: "usuarios", name: "Gestión de Usuarios", href: "/dashboard/admin/users", icon: Users },
   { id: "grupos", name: "Gestión de Grupos", href: "/dashboard/admin/groups", icon: Shapes },
   { id: "sorteo", name: "Sorteo de Grupos", href: "/dashboard/admin/sorting", icon: Dices },
-  { id: "conexiones", name: "Monitoreo Conexiones", href: "/dashboard/admin/connections", icon: Globe },
   { id: "auditoria", name: "Auditoría de Acciones", href: "/dashboard/admin/audit", icon: ShieldCheck },
   { id: "archivar", name: "Cierre de Año / Archivo", href: "/dashboard/admin/archive", icon: Archive },
 ]
@@ -124,7 +122,7 @@ export function DashboardSidebar() {
     <Sidebar collapsible="offcanvas" className="z-[60] shadow-2xl border-r bg-white">
       <SidebarHeader className="p-6 border-b bg-white">
         <div className="flex items-center justify-between w-full">
-          <Link href="/dashboard" className="flex items-center gap-3">
+          <Link href="/dashboard" prefetch={false} className="flex items-center gap-3">
             <div className="relative h-10 w-10 bg-white rounded-xl shadow-md border flex items-center justify-center overflow-hidden">
               <Image 
                 src="/logo.png" 
@@ -170,7 +168,7 @@ export function DashboardSidebar() {
                       return (
                         <SidebarMenuItem key={item.href} className="px-2">
                           <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
-                            <Link href={item.href} onClick={() => setOpen(false)}>
+                            <Link href={item.href} prefetch={false} onClick={() => setOpen(false)}>
                               <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
                               <span className="font-bold">{item.name}</span>
                             </Link>
@@ -207,7 +205,7 @@ export function DashboardSidebar() {
                       return (
                         <SidebarMenuItem key={item.id} className="px-2">
                           <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
-                            <Link href={item.href} onClick={() => setOpen(false)}>
+                            <Link href={item.href} prefetch={false} onClick={() => setOpen(false)}>
                               <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
                               <span className="font-bold">{item.name}</span>
                             </Link>
@@ -244,7 +242,7 @@ export function DashboardSidebar() {
                       return (
                         <SidebarMenuItem key={item.id} className="px-2">
                           <SidebarMenuButton asChild isActive={isActive} className={cn(isActive ? "bg-primary/10 text-primary" : "hover:bg-slate-50")}>
-                            <Link href={item.href} onClick={() => setOpen(false)}>
+                            <Link href={item.href} prefetch={false} onClick={() => setOpen(false)}>
                               <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400")} />
                               <span className="font-bold">{item.name}</span>
                             </Link>

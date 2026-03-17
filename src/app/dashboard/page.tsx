@@ -30,13 +30,13 @@ export default function DashboardPage() {
 
   const { data: profile } = useDoc(userProfileRef)
 
-  // Consulta ultra-ligera limitada para estadísticas (Plan Blaze)
+  // OPTIMIZACIÓN: Carga única (once: true) para ahorrar lecturas en el dashboard
   const statsQuery = useMemoFirebase(() => {
     if (!db || !user) return null
     return query(collection(db, "confirmations"), limit(1000))
   }, [db, user])
 
-  const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery)
+  const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery, { once: true })
 
   const stats = useMemo(() => {
     if (!allRegs) return { 
@@ -95,19 +95,17 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Bienvenido al Sistema de la Confirmación Juvenil NSPS</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          {/* BOTÓN PRIMARIO: NUEVA INSCRIPCIÓN (ENCIMA EN MÓVIL) */}
+          {/* OPTIMIZACIÓN: prefetch={false} en todos los botones del dashboard */}
           <Button asChild className="bg-primary hover:bg-primary/90 h-12 sm:h-11 px-6 rounded-xl font-bold shadow-lg order-1 sm:order-1">
-            <Link href="/dashboard/registration">
+            <Link href="/dashboard/registration" prefetch={false}>
               <ClipboardCheck className="mr-2 h-5 w-5 sm:h-4 sm:w-4" /> Nueva Inscripción
             </Link>
           </Button>
           
-          {/* BOTÓN SECUNDARIO: QR INSCRIPCIÓN */}
           <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-12 sm:h-11 order-2 sm:order-2" onClick={() => setIsQrOpen(true)}>
             <QrCode className="h-5 w-5 sm:h-4 sm:w-4" /> QR Inscripción
           </Button>
           
-          {/* BOTÓN TERCIARIO: GENERAR INFORME */}
           {isAdmin && (
             <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold gap-2 h-12 sm:h-11 order-3 sm:order-3" onClick={() => setIsReportOpen(true)}>
               <FileText className="h-5 w-5 sm:h-4 sm:w-4" /> Generar Informe
@@ -124,7 +122,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.total}</div>
-            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Sincronización ligera</p>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Carga única</p>
           </CardContent>
         </Card>
 

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -49,7 +48,8 @@ export default function AuditPage() {
     return query(collection(db, "audit_logs"), orderBy("timestamp", "desc"), limit(200))
   }, [db])
 
-  const { data: logs, loading } = useCollection(auditQuery)
+  // OPTIMIZACIÓN: Carga única (once: true) para el registro de auditoría
+  const { data: logs, loading } = useCollection(auditQuery, { once: true })
 
   const filteredLogs = useMemo(() => {
     if (!logs) return []

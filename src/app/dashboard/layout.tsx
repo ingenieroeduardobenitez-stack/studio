@@ -1,4 +1,3 @@
-
 "use client"
 
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
@@ -6,9 +5,8 @@ import { Menu, Loader2 } from "lucide-react"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { UserNav } from "@/components/user-nav"
 import { NotificationBell } from "@/components/notification-bell"
-import { useEffect, useRef } from "react"
-import { useUser, useFirestore } from "@/firebase"
-import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { useEffect } from "react"
+import { useUser } from "@/firebase"
 import { useRouter } from "next/navigation"
 
 export default function DashboardLayout({
@@ -17,10 +15,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, isUserLoading } = useUser()
-  const db = useFirestore()
   const router = useRouter()
-  const presenceInterval = useRef<NodeJS.Timeout | null>(null)
-  const lastUpdateRef = useRef<number>(0)
 
   // Guardia de Autenticación
   useEffect(() => {
@@ -29,54 +24,10 @@ export default function DashboardLayout({
     }
   }, [user, isUserLoading, router])
 
-  // Sistema de Presencia (Heartbeat) ULTRA-CONSERVADOR para el Plan Blaze
-  // Solo actualiza una vez cada 15 minutos (900,000 ms) para reducir costos drasticamente
-  useEffect(() => {
-    if (!db || !user?.uid) return
-
-    const userRef = doc(db, "users", user.uid)
-    
-    const updatePresence = (status: "online" | "offline") => {
-      const now = Date.now()
-      
-      // Bloqueo estricto: no más de una actualización cada 15 minutos si está en línea
-      if (status === "online" && (now - lastUpdateRef.current < 900000)) {
-        return
-      }
-
-      lastUpdateRef.current = now
-      updateDoc(userRef, {
-        status: status,
-        lastSeen: serverTimestamp()
-      }).catch(() => {
-        // Silencio para no saturar logs si falla por cuota o tasa excedida
-      })
-    }
-
-    // Primera señal de vida al entrar
-    updatePresence("online")
-
-    // Heartbeat cada 15 minutos
-    presenceInterval.current = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        updatePresence("online")
-      }
-    }, 900000)
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        updatePresence("online")
-      }
-    }
-
-    window.addEventListener("beforeunload", () => updatePresence("offline"))
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    
-    return () => {
-      if (presenceInterval.current) clearInterval(presenceInterval.current)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-    }
-  }, [db, user?.uid])
+  /**
+   * OPTIMIZACIÓN: Se ha eliminado el sistema de presencia (online/offline)
+   * para reducir drásticamente las solicitudes de escritura y lectura en Firebase.
+   */
 
   if (isUserLoading || !user) {
     return (
