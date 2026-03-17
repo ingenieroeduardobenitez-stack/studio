@@ -1,23 +1,27 @@
+
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, FileText, Printer, ChevronRight } from "lucide-react"
-import { useUser, useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { doc, collection, query, limit } from "firebase/firestore"
+import { ClipboardCheck, Users, Calendar, Loader2, Church, User, QrCode, FileText, Printer, ChevronRight, RefreshCw } from "lucide-react"
+import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
+import { doc, collection, getDocs, query, where, writeBatch } from "firebase/firestore"
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
-import { Separator } from "@/components/ui/separator"
+import { useToast } from "@/hooks/use-toast"
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const [isQrOpen, setIsQrOpen] = useState(false)
   const [isReportOpen, setIsReportOpen] = useState(false)
+  const [isRecalculating, setIsRecalculating] = useState(false)
+  
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
+  const { toast } = useToast()
 
   useEffect(() => {
     setMounted(true)
@@ -30,45 +34,57 @@ export default function DashboardPage() {
 
   const { data: profile } = useDoc(userProfileRef)
 
-  // OPTIMIZACIÓN: Carga única (once: true) para ahorrar lecturas en el dashboard
-  const statsQuery = useMemoFirebase(() => {
-    if (!db || !user) return null
-    return query(collection(db, "confirmations"), limit(1000))
-  }, [db, user])
-
-  const { data: allRegs, isLoading: statsLoading } = useCollection(statsQuery, { once: true })
+  // OPTIMIZACIÓN CRÍTICA: Lectura de un solo documento de estadísticas
+  const statsRef = useMemoFirebase(() => db ? doc(db, "settings", "stats") : null, [db])
+  const { data: statsDoc, loading: statsLoading } = useDoc(statsRef)
 
   const stats = useMemo(() => {
-    if (!allRegs) return { 
-      total: 0, 
-      firstYear: 0, 
-      secondYear: 0, 
-      adults: 0,
-      firstYearSabado: 0,
-      firstYearDomingo: 0,
-      secondYearSabado: 0,
-      secondYearDomingo: 0,
-      adultsSabado: 0,
-      adultsDomingo: 0
+    if (!statsDoc) return { 
+      total: 0, firstYear: 0, secondYear: 0, adults: 0,
+      firstYearSabado: 0, firstYearDomingo: 0,
+      secondYearSabado: 0, secondYearDomingo: 0,
+      adultsSabado: 0, adultsDomingo: 0
     }
-    
-    const active = allRegs.filter(r => !r.isArchived)
-    
-    return {
-      total: active.length,
-      firstYear: active.filter(r => r.catechesisYear === "PRIMER_AÑO").length,
-      secondYear: active.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length,
-      adults: active.filter(r => r.catechesisYear === "ADULTOS").length,
+    return statsDoc
+  }, [statsDoc])
+
+  const handleRecalculateStats = async () => {
+    if (!db || isRecalculating) return
+    setIsRecalculating(true)
+    try {
+      const q = query(collection(db, "confirmations"), where("isArchived", "==", false))
+      const snap = await getDocs(q)
       
-      // Detalle para el informe detallado
-      firstYearSabado: active.filter(r => r.catechesisYear === "PRIMER_AÑO" && r.attendanceDay === "SABADO").length,
-      firstYearDomingo: active.filter(r => r.catechesisYear === "PRIMER_AÑO" && r.attendanceDay === "DOMINGO").length,
-      secondYearSabado: active.filter(r => r.catechesisYear === "SEGUNDO_AÑO" && r.attendanceDay === "SABADO").length,
-      secondYearDomingo: active.filter(r => r.catechesisYear === "SEGUNDO_AÑO" && r.attendanceDay === "DOMINGO").length,
-      adultsSabado: active.filter(r => r.catechesisYear === "ADULTOS" && r.attendanceDay === "SABADO").length,
-      adultsDomingo: active.filter(r => r.catechesisYear === "ADULTOS" && r.attendanceDay === "DOMINGO").length,
+      const newStats = {
+        total: 0, firstYear: 0, secondYear: 0, adults: 0,
+        firstYearSabado: 0, firstYearDomingo: 0,
+        secondYearSabado: 0, secondYearDomingo: 0,
+        adultsSabado: 0, adultsDomingo: 0
+      }
+
+      snap.forEach(doc => {
+        const d = doc.data()
+        newStats.total++
+        if (d.catechesisYear === "PRIMER_AÑO") {
+          newStats.firstYear++
+          if (d.attendanceDay === "SABADO") newStats.firstYearSabado++; else newStats.firstYearDomingo++;
+        } else if (d.catechesisYear === "SEGUNDO_AÑO") {
+          newStats.secondYear++
+          if (d.attendanceDay === "SABADO") newStats.secondYearSabado++; else newStats.secondYearDomingo++;
+        } else if (d.catechesisYear === "ADULTOS") {
+          newStats.adults++
+          if (d.attendanceDay === "SABADO") newStats.adultsSabado++; else newStats.adultsDomingo++;
+        }
+      })
+
+      await setDoc(doc(db, "settings", "stats"), newStats, { merge: true })
+      toast({ title: "Estadísticas actualizadas" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al recalcular" })
+    } finally {
+      setIsRecalculating(false)
     }
-  }, [allRegs])
+  }
 
   const registrationUrl = typeof window !== 'undefined' ? `${window.location.origin}/inscripcion` : ""
 
@@ -92,23 +108,28 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">
             ¡Hola, {profile?.firstName || "Catequista"}!
           </h1>
-          <p className="text-muted-foreground">Bienvenido al Sistema de la Confirmación Juvenil NSPS</p>
+          <p className="text-muted-foreground">Panel de Control Institucional NSPS</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          {/* OPTIMIZACIÓN: prefetch={false} en todos los botones del dashboard */}
-          <Button asChild className="bg-primary hover:bg-primary/90 h-12 sm:h-11 px-6 rounded-xl font-bold shadow-lg order-1 sm:order-1">
+          {isAdmin && (
+            <Button variant="ghost" size="sm" onClick={handleRecalculateStats} disabled={isRecalculating} className="text-slate-400 hover:text-primary">
+              {isRecalculating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Sincronizar Totales
+            </Button>
+          )}
+          <Button asChild className="bg-primary hover:bg-primary/90 h-11 px-6 rounded-xl font-bold shadow-lg">
             <Link href="/dashboard/registration" prefetch={false}>
-              <ClipboardCheck className="mr-2 h-5 w-5 sm:h-4 sm:w-4" /> Nueva Inscripción
+              <ClipboardCheck className="mr-2 h-4 w-4" /> Nueva Inscripción
             </Link>
           </Button>
           
-          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-12 sm:h-11 order-2 sm:order-2" onClick={() => setIsQrOpen(true)}>
-            <QrCode className="h-5 w-5 sm:h-4 sm:w-4" /> QR Inscripción
+          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
+            <QrCode className="h-4 w-4" /> QR
           </Button>
           
           {isAdmin && (
-            <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold gap-2 h-12 sm:h-11 order-3 sm:order-3" onClick={() => setIsReportOpen(true)}>
-              <FileText className="h-5 w-5 sm:h-4 sm:w-4" /> Generar Informe
+            <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold gap-2 h-11" onClick={() => setIsReportOpen(true)}>
+              <FileText className="h-4 w-4" /> Informe
             </Button>
           )}
         </div>
@@ -122,7 +143,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.total}</div>
-            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Carga única</p>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Optimizado</p>
           </CardContent>
         </Card>
 
@@ -133,7 +154,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.firstYear}</div>
-            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Total nivel inicial</p>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Nivel Inicial</p>
           </CardContent>
         </Card>
 
@@ -144,7 +165,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.secondYear}</div>
-            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Total nivel final</p>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Nivel Final</p>
           </CardContent>
         </Card>
 
@@ -155,7 +176,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="text-2xl font-black text-slate-900">{statsLoading ? "..." : stats.adults}</div>
-            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Inscripción especial</p>
+            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Especial</p>
           </CardContent>
         </Card>
       </div>
@@ -251,7 +272,6 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
   });
 
   const reporterName = profile ? `${profile.firstName} ${profile.lastName}`.toUpperCase() : "SECRETARÍA ADMINISTRATIVA";
-  const reporterRole = profile?.role ? profile.role.toUpperCase() : "PERSONAL AUTORIZADO";
 
   return (
     <div id="executive-report" className="bg-white p-10 text-slate-900 w-[794px] h-auto min-h-[1050px] mx-auto border-[1px] border-slate-200 relative font-body">
@@ -284,7 +304,6 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
                 </tr>
               </thead>
               <tbody className="text-xs font-medium text-slate-700">
-                {/* PRIMER AÑO */}
                 <tr className="bg-slate-50/30">
                   <td className="p-3 font-black text-slate-900">CATEQUESIS DE PRIMER AÑO (INICIAL)</td>
                   <td className="p-3 text-right font-black text-slate-900">{stats.firstYear}</td>
@@ -298,7 +317,6 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
                   <td className="p-2 text-right font-bold text-slate-700">{stats.firstYearDomingo}</td>
                 </tr>
 
-                {/* SEGUNDO AÑO */}
                 <tr className="bg-slate-50/30">
                   <td className="p-3 font-black text-slate-900">CATEQUESIS DE SEGUNDO AÑO (CONFIRMACIÓN)</td>
                   <td className="p-3 text-right font-black text-slate-900">{stats.secondYear}</td>
@@ -312,7 +330,6 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
                   <td className="p-2 text-right font-bold text-slate-700">{stats.secondYearDomingo}</td>
                 </tr>
 
-                {/* ADULTOS */}
                 <tr className="bg-slate-50/30">
                   <td className="p-3 font-black text-slate-900">CURSO INTENSIVO PARA ADULTOS</td>
                   <td className="p-3 text-right font-black text-slate-900">{stats.adults}</td>
@@ -326,7 +343,6 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
                   <td className="p-2 text-right font-bold text-slate-700">{stats.adultsDomingo}</td>
                 </tr>
 
-                {/* TOTAL GENERAL */}
                 <tr className="bg-primary/5">
                   <td className="p-4 text-sm font-black text-primary uppercase">Total de Inscripciones Registradas</td>
                   <td className="p-4 text-right text-2xl font-black text-primary">{stats.total}</td>
@@ -335,65 +351,24 @@ function ExecutiveReportContent({ stats, profile }: { stats: any, profile: any }
             </table>
           </div>
         </div>
-
-        <div className="space-y-3 pt-2">
-          <h3 className="text-[9px] font-black text-primary uppercase tracking-[0.2em] border-l-4 border-primary pl-3">2. Observaciones Administrativas</h3>
-          <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-            <p className="text-[11px] leading-relaxed text-slate-600 font-medium italic">
-              El presente informe refleja la situación actual de los postulantes inscritos para el ciclo 2026, distribuidos por niveles y turnos de asistencia. 
-              Los datos han sido extraídos automáticamente del Sistema de Gestión de Confirmación Juvenil NSPS.
-            </p>
-          </div>
-        </div>
       </div>
 
       <div className="mt-20 grid grid-cols-3 gap-6">
         <div className="text-center space-y-3 relative">
           <div className="h-px w-full bg-slate-300"></div>
-          <div className="space-y-0.5">
-            <p className="text-[9px] font-black uppercase text-slate-900 leading-none">{reporterName}</p>
-            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Generado por</p>
-          </div>
-          <div className="absolute -top-20 left-1/2 -translate-x-1/2 opacity-80">
-            <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
-              <QRCodeCanvas value={`NSPS-AUTH-GEN-${profile?.id || 'SYSTEM'}-${Date.now()}`} size={50} level="M" />
-            </div>
-            <p className="text-[5px] font-black text-blue-700 uppercase mt-1">Sello Autoría</p>
-          </div>
+          <p className="text-[9px] font-black uppercase text-slate-900">{reporterName}</p>
+          <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-none">Generado por</p>
         </div>
-
         <div className="text-center space-y-3 relative">
           <div className="h-px w-full bg-slate-300"></div>
-          <div className="space-y-0.5">
-            <p className="text-[9px] font-black uppercase text-slate-900 leading-none">FLAVIA TUCUNA</p>
-            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">COORDINADORA</p>
-          </div>
-          <div className="absolute -top-20 left-1/2 -translate-x-1/2 opacity-80">
-            <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
-              <QRCodeCanvas value={`NSPS-COORD-FLAVIA-${Date.now()}`} size={50} level="M" />
-            </div>
-            <p className="text-[5px] font-black text-primary uppercase mt-1">Sello Digital</p>
-          </div>
+          <p className="text-[9px] font-black uppercase text-slate-900">FLAVIA TUCUNA</p>
+          <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-none">COORDINADORA</p>
         </div>
-
         <div className="text-center space-y-3 relative">
           <div className="h-px w-full bg-slate-300"></div>
-          <div className="space-y-0.5">
-            <p className="text-[9px] font-black uppercase text-slate-900 leading-none">CARLONGO BENITEZ</p>
-            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">COORDINADOR GRAL.</p>
-          </div>
-          <div className="absolute -top-20 left-1/2 -translate-x-1/2 opacity-80">
-            <div className="p-1 border border-slate-100 rounded-lg bg-white shadow-sm">
-              <QRCodeCanvas value={`NSPS-COORD-CARLONGO-${Date.now()}`} size={50} level="M" />
-            </div>
-            <p className="text-[5px] font-black text-primary uppercase mt-1">Sello Digital</p>
-          </div>
+          <p className="text-[9px] font-black uppercase text-slate-900">CARLONGO BENITEZ</p>
+          <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-none">COORDINADOR GRAL.</p>
         </div>
-      </div>
-
-      <div className="absolute bottom-8 left-10 right-10 flex items-center justify-between border-t pt-3">
-        <p className="text-[7px] font-bold text-slate-300 uppercase tracking-[0.3em]">Documento Oficial del Santuario Nacional NSPS</p>
-        <p className="text-[7px] font-bold text-slate-300 uppercase tracking-[0.3em]">Página 1 de 1</p>
       </div>
     </div>
   )
