@@ -1,8 +1,7 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -15,21 +14,15 @@ import {
   Trash2, 
   Eye,
   AlertTriangle,
-  CheckCircle2,
-  Filter,
+  FilterX,
   Download,
-  Receipt,
   Users,
-  Calendar,
-  CreditCard,
   Banknote,
   ArrowRightLeft,
-  Clock,
-  FilterX,
   FileText
 } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, deleteDoc, query, where, orderBy, limit } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { collection, doc, deleteDoc, query, orderBy, limit } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -62,16 +55,22 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  // Consulta de datos activa (sin paginación para garantizar visibilidad de todo el padrón)
+  // Traemos todos los documentos sin filtrar por isArchived en la query para mayor compatibilidad
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
-    return query(collection(db, "confirmations"), where("isArchived", "==", false))
+    return collection(db, "confirmations")
   }, [db])
 
-  const { data: registrations, loading } = useCollection(regsQuery)
+  const { data: allData, loading } = useCollection(regsQuery)
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const { data: allUsers } = useCollection(usersQuery, { once: true })
+
+  // Filtrar activos (no archivados) en memoria
+  const registrations = useMemo(() => {
+    if (!allData) return []
+    return allData.filter(r => r.isArchived !== true)
+  }, [allData])
 
   // Cálculos para las tarjetas de resumen
   const stats = useMemo(() => {
@@ -89,7 +88,8 @@ export default function RegistrationsListPage() {
     const counts: Record<string, number> = {}
     registrations.forEach(r => {
       if (r.ciNumber) {
-        counts[r.ciNumber] = (counts[r.ciNumber] || 0) + 1
+        const cleanCi = r.ciNumber.replace(/[^0-9]/g, '')
+        counts[cleanCi] = (counts[cleanCi] || 0) + 1
       }
     })
     return new Set(Object.keys(counts).filter(ci => counts[ci] > 1))
@@ -98,11 +98,12 @@ export default function RegistrationsListPage() {
   const filteredRegistrations = useMemo(() => {
     if (!registrations) return []
     return registrations.filter((r: any) => {
+      const cleanCi = r.ciNumber?.replace(/[^0-9]/g, '') || ""
       const matchesSearch = !searchTerm || 
         r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        r.ciNumber?.includes(searchTerm)
+        cleanCi.includes(searchTerm.replace(/[^0-9]/g, ''))
       
-      const isRepetido = duplicateCis.has(r.ciNumber)
+      const isRepetido = duplicateCis.has(cleanCi)
       
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
@@ -148,7 +149,18 @@ export default function RegistrationsListPage() {
           <p className="text-muted-foreground font-medium">Listado general de postulantes del ciclo 2026.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="rounded-xl h-12 font-bold px-6 border-slate-200 bg-white hover:bg-slate-50 gap-2 shadow-sm">
+          <Button variant="outline" className="rounded-xl h-12 font-bold px-6 border-slate-200 bg-white hover:bg-slate-50 gap-2 shadow-sm" onClick={() => {
+            if (filteredRegistrations.length === 0) return;
+            const headers = ["Nombre", "CI", "Celular", "Año", "Dia", "Estado"];
+            const rows = filteredRegistrations.map(r => [r.fullName, r.ciNumber, r.phone, r.catechesisYear, r.attendanceDay, r.status]);
+            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(",")).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "lista_confirmandos.csv");
+            document.body.appendChild(link);
+            link.click();
+          }}>
             <Download className="h-4 w-4" /> Exportar
           </Button>
           <Button asChild className="bg-primary hover:bg-primary/90 rounded-2xl h-12 font-black px-8 shadow-lg shadow-primary/20 text-white">
@@ -306,7 +318,8 @@ export default function RegistrationsListPage() {
               </TableHeader>
               <TableBody>
                 {filteredRegistrations.map((reg) => {
-                  const isRepetido = duplicateCis.has(reg.ciNumber)
+                  const cleanCi = reg.ciNumber?.replace(/[^0-9]/g, '') || ""
+                  const isRepetido = duplicateCis.has(cleanCi)
                   const isManual = reg.userId !== "public_registration"
                   const creator = allUsers?.find(u => u.id === reg.userId)
                   const createdDate = reg.createdAt?.toDate ? reg.createdAt.toDate() : (reg.createdAt ? new Date(reg.createdAt) : new Date())
@@ -389,8 +402,10 @@ export default function RegistrationsListPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-2xl border-none shadow-2xl">
                               <DropdownMenuLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1">Opciones</DropdownMenuLabel>
-                              <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3">
-                                <FileText className="h-4 w-4 text-slate-400" /> <span className="font-bold">Editar Ficha</span>
+                              <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" asChild>
+                                <Link href="/dashboard/registration">
+                                  <FileText className="h-4 w-4 text-slate-400" /> <span className="font-bold">Editar Ficha</span>
+                                </Link>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
