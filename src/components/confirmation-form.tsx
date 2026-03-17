@@ -169,7 +169,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     },
   })
 
-  const { watch, setValue } = form
+  const { watch, setValue, setError, clearErrors } = form
   const birthDate = watch("birthDate")
   const hasBaptism = watch("hasBaptism")
   const catechesisYear = watch("catechesisYear")
@@ -324,28 +324,36 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const handleLookupCi = async (ciValue: string) => {
     if (!db || !ciValue || ciValue.length < 5) return;
     setIsSearchingCi(true);
+    clearErrors("ciNumber");
+    
     const cleanCi = ciValue.replace(/[^0-9]/g, '');
     
     try {
       // 1. VALIDACIÓN INMEDIATA DE DUPLICADO: Buscar si ya está inscripto
+      // Buscamos tanto con el valor exacto como con el valor limpio para asegurar coincidencia
+      const confirmationsRef = collection(db, "confirmations");
       const ciCheckQuery = query(
-        collection(db, "confirmations"), 
-        where("ciNumber", "==", ciValue),
+        confirmationsRef, 
+        where("ciNumber", "in", [ciValue, cleanCi]),
         where("isArchived", "==", false)
       );
       
       const querySnapshot = await getDocs(ciCheckQuery);
       if (!querySnapshot.empty) {
+        setError("ciNumber", {
+          type: "manual",
+          message: "Esta persona ya se encuentra registrada como inscripta."
+        });
         toast({
           variant: "destructive",
           title: "Persona ya registrada",
-          description: "Este número de cédula ya se encuentra registrado como inscripto en el sistema.",
+          description: "Este número de cédula ya posee una ficha activa en el sistema.",
         });
         setIsSearchingCi(false);
         return;
       }
 
-      // 2. BÚSQUEDA EN REPOSITORIO DE CÉDULAS PARA PRECARGA
+      // 2. BÚSQUEDA EN REPOSITORIO DE CÉDULAS PARA PRECARGA (Solo si no es duplicado)
       const docSnap = await getDoc(doc(db, "cedulas", cleanCi));
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -359,7 +367,11 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         }
         toast({ title: "Datos precargados" });
       } else {
-        toast({ variant: "destructive", title: "Cédula no hallada", description: "El número no figura en nuestra base de datos nacional, deberá completar los campos manualmente." });
+        toast({ 
+          variant: "destructive", 
+          title: "Cédula no hallada", 
+          description: "El número no figura en nuestra base de datos nacional, complete los campos manualmente." 
+        });
       }
     } catch (e) {
       toast({ variant: "destructive", title: "Error de conexión", description: "No se pudo realizar la búsqueda en este momento." });
@@ -371,14 +383,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     setLoading(true);
     try {
       // CONTROL FINAL DE DUPLICADOS antes de persistir
+      const cleanCi = values.ciNumber.replace(/[^0-9]/g, '');
       const ciCheckQuery = query(
         collection(db, "confirmations"), 
-        where("ciNumber", "==", values.ciNumber),
+        where("ciNumber", "in", [values.ciNumber, cleanCi]),
         where("isArchived", "==", false)
       );
       
       const querySnapshot = await getDocs(ciCheckQuery);
       if (!querySnapshot.empty) {
+        setError("ciNumber", {
+          type: "manual",
+          message: "Esta persona ya se encuentra registrada como inscripta."
+        });
         toast({
           variant: "destructive",
           title: "Documento duplicado",
