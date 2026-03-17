@@ -80,6 +80,7 @@ import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { QRCodeCanvas } from "qrcode.react"
 import Image from "next/image"
+import Link from "next/link"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
@@ -139,6 +140,7 @@ function EditRegistrationForm({
         ctx?.drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
+      img.onerror = (e: any) => reject(e);
       img.src = source;
     });
   };
