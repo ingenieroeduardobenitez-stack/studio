@@ -34,7 +34,7 @@ import {
   Plus
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
-import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, limit, runTransaction } from "firebase/firestore"
+import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -50,7 +50,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [limitCount, setLimitCount] = useState(50)
   
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
@@ -74,19 +73,19 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
+  // CARGA TOTAL SIN LÍMITES PARA FLUIDEZ MÁXIMA
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
-    const currentLimit = searchTerm ? 100 : limitCount
-    return query(collection(db, "confirmations"), limit(currentLimit))
-  }, [db, limitCount, searchTerm])
+    return collection(db, "confirmations")
+  }, [db])
 
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
 
-  const { data: rawData, loading } = useCollection(regsQuery, { once: true })
-  const { data: allGroups } = useCollection(groupsQuery, { once: true })
-  const { data: allUsers } = useCollection(usersQuery, { once: true })
+  const { data: rawData, loading } = useCollection(regsQuery)
+  const { data: allGroups } = useCollection(groupsQuery)
+  const { data: allUsers } = useCollection(usersQuery)
 
   const registrations = useMemo(() => {
     if (!rawData) return []
@@ -142,12 +141,6 @@ export default function RegistrationsListPage() {
   const handleOpenDetails = (reg: any) => {
     setSelectedReg(reg)
     setIsDetailsOpen(true)
-  }
-
-  const handleOpenAssignGroup = (reg: any) => {
-    setSelectedReg(reg)
-    setIsDetailsOpen(true)
-    // Se podría añadir lógica para activar la pestaña de grupos directamente
   }
 
   const handleQuickValidate = async (reg: any) => {
@@ -320,133 +313,124 @@ export default function RegistrationsListPage() {
           ) : filteredRegistrations.length === 0 ? (
             <div className="py-32 text-center text-slate-400 italic">No se encontraron registros.</div>
           ) : (
-            <>
-              <Table>
-                <TableHeader className="bg-slate-50/50 border-y">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="pl-8 py-5 font-bold text-slate-500">Confirmando</TableHead>
-                    <TableHead className="font-bold text-slate-500">Año / Horario</TableHead>
-                    <TableHead className="font-bold text-slate-500">Forma Pago</TableHead>
-                    <TableHead className="text-center font-bold text-slate-500">Estado</TableHead>
-                    <TableHead className="font-bold text-slate-500">Fecha Insc.</TableHead>
-                    <TableHead className="text-right pr-8 font-bold text-slate-500">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRegistrations.map((reg) => {
-                    const cleanCi = reg.ciNumber?.replace(/[^0-9]/g, '') || ""
-                    const isRepetido = duplicateCis.has(cleanCi)
-                    const isManual = reg.userId !== "public_registration"
-                    const createdDate = reg.createdAt?.toDate ? reg.createdAt.toDate() : (reg.createdAt ? new Date(reg.createdAt) : new Date())
-                    
-                    return (
-                      <TableRow key={reg.id} className="h-24 hover:bg-slate-50/30 transition-colors border-slate-100">
-                        <TableCell className="pl-8">
-                          <div className="flex items-center gap-4">
-                            <Avatar className="h-12 w-12 border-2 border-white shadow-sm ring-1 ring-slate-100">
-                              <AvatarImage src={reg.photoUrl} className="object-cover" />
-                              <AvatarFallback className="bg-slate-50 text-slate-300 font-black"><User /></AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
-                                <span className="font-black text-sm text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>
-                                {isRepetido && (
-                                  <Badge className="bg-red-500 hover:bg-red-600 text-white text-[8px] font-black h-4 px-1.5 rounded-full animate-pulse">REPETIDO</Badge>
-                                )}
-                              </div>
-                              <span className="text-xs font-bold text-blue-600 tracking-tighter mt-1">{reg.ciNumber}</span>
-                              <span className="text-[10px] text-slate-400 font-medium">{reg.phone}</span>
-                            </div>
-                            {!isManual && (
-                              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[8px] font-black tracking-widest px-2 h-5 rounded-full ml-2">PÚBLICO</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-slate-200 bg-white w-fit">
-                              {reg.catechesisYear?.replace("_", " ")}
-                            </Badge>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">
-                              {reg.attendanceDay}S
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 text-[9px] font-black text-blue-600 uppercase">
-                            <CreditCard className="h-3 w-3" />
-                            {reg.paymentMethod || "TRANSFERENCIA"}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className={cn("h-6 px-3 rounded-full text-[9px] font-black tracking-widest border-orange-200 text-orange-600 bg-orange-50", 
-                            reg.status === "INSCRITO" && "border-green-200 text-green-600 bg-green-50")}>
-                            {reg.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
+            <Table>
+              <TableHeader className="bg-slate-50/50 border-y">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-8 py-5 font-bold text-slate-500">Confirmando</TableHead>
+                  <TableHead className="font-bold text-slate-500">Año / Horario</TableHead>
+                  <TableHead className="font-bold text-slate-500">Forma Pago</TableHead>
+                  <TableHead className="text-center font-bold text-slate-500">Estado</TableHead>
+                  <TableHead className="font-bold text-slate-500">Fecha Insc.</TableHead>
+                  <TableHead className="text-right pr-8 font-bold text-slate-500">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRegistrations.map((reg) => {
+                  const cleanCi = reg.ciNumber?.replace(/[^0-9]/g, '') || ""
+                  const isRepetido = duplicateCis.has(cleanCi)
+                  const isManual = reg.userId !== "public_registration"
+                  const createdDate = reg.createdAt?.toDate ? reg.createdAt.toDate() : (reg.createdAt ? new Date(reg.createdAt) : new Date())
+                  
+                  return (
+                    <TableRow key={reg.id} className="h-24 hover:bg-slate-50/30 transition-colors border-slate-100">
+                      <TableCell className="pl-8">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-12 w-12 border-2 border-white shadow-sm ring-1 ring-slate-100">
+                            <AvatarImage src={reg.photoUrl} className="object-cover" />
+                            <AvatarFallback className="bg-slate-50 text-slate-300 font-black"><User /></AvatarFallback>
+                          </Avatar>
                           <div className="flex flex-col">
-                            <span className="text-xs font-bold text-slate-700">{createdDate.toLocaleDateString('es-PY')}</span>
-                            <span className="text-[9px] text-slate-400 font-medium">{createdDate.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-sm text-slate-900 uppercase tracking-tight leading-none">{reg.fullName}</span>
+                              {isRepetido && (
+                                <Badge className="bg-red-500 hover:bg-red-600 text-white text-[8px] font-black h-4 px-1.5 rounded-full animate-pulse">REPETIDO</Badge>
+                              )}
+                            </div>
+                            <span className="text-xs font-bold text-blue-600 tracking-tighter mt-1">{reg.ciNumber}</span>
+                            <span className="text-[10px] text-slate-400 font-medium">{reg.phone}</span>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-right pr-8">
-                          <div className="flex items-center justify-end gap-3">
-                            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full text-slate-300 hover:text-primary" onClick={() => handleOpenDetails(reg)}>
-                              <Eye className="h-5 w-5" />
+                          {!isManual && (
+                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[8px] font-black tracking-widest px-2 h-5 rounded-full ml-2">PÚBLICO</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-slate-200 bg-white w-fit">
+                            {reg.catechesisYear?.replace("_", " ")}
+                          </Badge>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                            {reg.attendanceDay}S
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-[9px] font-black text-blue-600 uppercase">
+                          <CreditCard className="h-3 w-3" />
+                          {reg.paymentMethod || "TRANSFERENCIA"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className={cn("h-6 px-3 rounded-full text-[9px] font-black tracking-widest border-orange-200 text-orange-600 bg-orange-50", 
+                          reg.status === "INSCRITO" && "border-green-200 text-green-600 bg-green-50")}>
+                          {reg.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-slate-700">{createdDate.toLocaleDateString('es-PY')}</span>
+                          <span className="text-[9px] text-slate-400 font-medium">{createdDate.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right pr-8">
+                        <div className="flex items-center justify-end gap-3">
+                          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full text-slate-300 hover:text-primary" onClick={() => handleOpenDetails(reg)}>
+                            <Eye className="h-5 w-5" />
+                          </Button>
+                          
+                          {reg.status === "POR_VALIDAR" && (
+                            <Button 
+                              variant="outline" 
+                              className="h-9 px-6 rounded-full font-black text-[10px] tracking-widest border-blue-600 text-blue-600 hover:bg-blue-50 transition-all uppercase"
+                              onClick={() => handleQuickValidate(reg)}
+                              disabled={isProcessing}
+                            >
+                              VALIDAR
                             </Button>
-                            
-                            {reg.status === "POR_VALIDAR" && (
-                              <Button 
-                                variant="outline" 
-                                className="h-9 px-6 rounded-full font-black text-[10px] tracking-widest border-blue-600 text-blue-600 hover:bg-blue-50 transition-all uppercase"
-                                onClick={() => handleQuickValidate(reg)}
-                                disabled={isProcessing}
-                              >
-                                VALIDAR
-                              </Button>
-                            )}
+                          )}
 
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-slate-300 hover:bg-slate-100">
-                                  <MoreHorizontal className="h-5 w-5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-2xl border-none shadow-2xl">
-                                <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenDetails(reg)}>
-                                  <FileText className="h-4 w-4 text-slate-400" /> <span className="font-bold">Editar Ficha</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenAssignGroup(reg)}>
-                                  <Shapes className="h-4 w-4 text-slate-400" /> <span className="font-bold">Asignar Grupo</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3 text-orange-600" onClick={() => { setSelectedReg(reg); setIsWithdrawalOpen(true); }}>
-                                  <UserMinus className="h-4 w-4" /> <span className="font-bold">Dar de Baja</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  onClick={() => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} 
-                                  className="h-11 rounded-xl text-destructive focus:bg-red-50 focus:text-destructive cursor-pointer gap-3"
-                                >
-                                  <Trash2 className="h-4 w-4" /> <span className="font-bold">Eliminar</span>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-              {!searchTerm && registrations.length >= limitCount && (
-                <div className="p-8 flex justify-center bg-slate-50/30 border-t">
-                  <Button variant="outline" className="h-12 rounded-xl px-10 font-bold border-primary text-primary hover:bg-primary/5 gap-2" onClick={() => setLimitCount(prev => prev + 50)}>
-                    Cargar más registros...
-                  </Button>
-                </div>
-              )}
-            </>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-slate-300 hover:bg-slate-100">
+                                <MoreHorizontal className="h-5 w-5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-2xl border-none shadow-2xl">
+                              <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenDetails(reg)}>
+                                <FileText className="h-4 w-4 text-slate-400" /> <span className="font-bold">Editar Ficha</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenDetails(reg)}>
+                                <Shapes className="h-4 w-4 text-slate-400" /> <span className="font-bold">Asignar Grupo</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3 text-orange-600" onClick={() => { setSelectedReg(reg); setIsWithdrawalOpen(true); }}>
+                                <UserMinus className="h-4 w-4" /> <span className="font-bold">Dar de Baja</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} 
+                                className="h-11 rounded-xl text-destructive focus:bg-red-50 focus:text-destructive cursor-pointer gap-3"
+                              >
+                                <Trash2 className="h-4 w-4" /> <span className="font-bold">Eliminar</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

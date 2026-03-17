@@ -32,31 +32,24 @@ export default function DashboardPage() {
 
   const { data: profile } = useDoc(userProfileRef)
 
-  // OPTIMIZACIÓN: Carga única (once: true) para cálculo de estadísticas iniciales
+  // RESTAURADO: Cálculo dinámico en tiempo real para estadísticas precisas
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
     return query(collection(db, "confirmations"), where("isArchived", "==", false))
   }, [db])
 
-  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
+  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
 
   const stats = useMemo(() => {
-    if (!registrations) return { total: 0, firstYear: 0, secondYear: 0, adults: 0, firstYearSabado: 0, firstYearDomingo: 0, secondYearSabado: 0, secondYearDomingo: 0, adultsSabado: 0, adultsDomingo: 0 }
+    if (!registrations) return { total: 0, firstYear: 0, secondYear: 0, adults: 0 }
     
-    const s = { total: 0, firstYear: 0, secondYear: 0, adults: 0, firstYearSabado: 0, firstYearDomingo: 0, secondYearSabado: 0, secondYearDomingo: 0, adultsSabado: 0, adultsDomingo: 0 }
+    const s = { total: 0, firstYear: 0, secondYear: 0, adults: 0 }
     
     registrations.forEach(reg => {
       s.total++
-      if (reg.catechesisYear === "PRIMER_AÑO") {
-        s.firstYear++
-        if (reg.attendanceDay === "SABADO") s.firstYearSabado++; else s.firstYearDomingo++;
-      } else if (reg.catechesisYear === "SEGUNDO_AÑO") {
-        s.secondYear++
-        if (reg.attendanceDay === "SABADO") s.secondYearSabado++; else s.secondYearDomingo++;
-      } else if (reg.catechesisYear === "ADULTOS") {
-        s.adults++
-        if (reg.attendanceDay === "SABADO") s.adultsSabado++; else s.adultsDomingo++;
-      }
+      if (reg.catechesisYear === "PRIMER_AÑO") s.firstYear++
+      else if (reg.catechesisYear === "SEGUNDO_AÑO") s.secondYear++
+      else if (reg.catechesisYear === "ADULTOS") s.adults++
     })
     return s
   }, [registrations])
