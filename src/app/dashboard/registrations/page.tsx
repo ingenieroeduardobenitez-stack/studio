@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -20,18 +20,33 @@ import {
   Users,
   Banknote,
   ArrowRightLeft,
-  FileText
+  FileText,
+  Phone,
+  MessageCircle,
+  Church,
+  Calendar,
+  Shield,
+  Save,
+  UserMinus,
+  CheckCircle2,
+  X,
+  ImageIcon,
+  Shapes
 } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, deleteDoc } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
+import { collection, doc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
@@ -45,8 +60,12 @@ export default function RegistrationsListPage() {
   const [filterDay, setFilterDay] = useState<string>("all")
   const [filterMethod, setFilterMethod] = useState<string>("all")
   
+  // Estados para diálogos
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false)
+  const [withdrawalReason, setWithdrawalReason] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
 
   const db = useFirestore()
@@ -56,15 +75,13 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  // Consulta simple para evitar errores de índice compuesto
-  const regsQuery = useMemoFirebase(() => {
-    if (!db) return null
-    return collection(db, "confirmations")
-  }, [db])
+  // Consultas principales
+  const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
+  const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
+  const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
 
   const { data: rawData, loading } = useCollection(regsQuery)
-
-  const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
+  const { data: allGroups } = useCollection(groupsQuery)
   const { data: allUsers } = useCollection(usersQuery, { once: true })
 
   // Procesamiento de datos en memoria (Ordenamiento y Filtrado de activos)
@@ -120,6 +137,54 @@ export default function RegistrationsListPage() {
     })
   }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterMethod, duplicateCis])
 
+  // Funciones de gestión
+  const handleOpenDetails = (reg: any) => {
+    setSelectedReg(reg)
+    setIsDetailsOpen(true)
+  }
+
+  const handleUpdateDetails = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!db || !selectedReg || isProcessing) return
+    setIsProcessing(true)
+
+    const formData = new FormData(e.currentTarget)
+    const updateData = {
+      fullName: (formData.get("fullName") as string).toUpperCase(),
+      ciNumber: formData.get("ciNumber") as string,
+      phone: formData.get("phone") as string,
+      groupId: formData.get("groupId") as string,
+      catechesisYear: formData.get("catechesisYear") as string,
+      updatedAt: serverTimestamp()
+    }
+
+    try {
+      await updateDoc(doc(db, "confirmations", selectedReg.id), updateData)
+      toast({ title: "Ficha actualizada", description: "Los cambios se guardaron correctamente." })
+      setIsDetailsOpen(false)
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al actualizar" })
+    } finally { setIsProcessing(false) }
+  }
+
+  const handleWithdrawal = async () => {
+    if (!db || !selectedReg || isProcessing || !withdrawalReason) return
+    setIsProcessing(true)
+    try {
+      await updateDoc(doc(db, "confirmations", selectedReg.id), {
+        isArchived: true,
+        status: "BAJA",
+        withdrawalReason,
+        withdrawalDate: serverTimestamp()
+      })
+      toast({ title: "Baja procesada", description: "El confirmando ha sido retirado de la lista activa." })
+      setIsWithdrawalOpen(false)
+      setIsDetailsOpen(false)
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al procesar baja" })
+    } finally { setIsProcessing(false) }
+  }
+
   const handleDelete = async () => {
     if (!db || !selectedReg) return
     setIsProcessing(true)
@@ -130,6 +195,14 @@ export default function RegistrationsListPage() {
     } catch (e) {
       toast({ variant: "destructive", title: "Error al eliminar" })
     } finally { setIsProcessing(false) }
+  }
+
+  const openWhatsApp = (phone: string, name: string) => {
+    if (!phone) return
+    let cleanPhone = phone.replace(/[^0-9]/g, '')
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1)
+    if (!cleanPhone.startsWith('595')) cleanPhone = '595' + cleanPhone
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola ${name}, te escribimos del Santuario Nuestra Señora del Perpetuo Socorro...`)}`, '_blank')
   }
 
   const resetFilters = () => {
@@ -392,7 +465,7 @@ export default function RegistrationsListPage() {
                       </TableCell>
                       <TableCell className="text-right pr-8">
                         <div className="flex justify-end gap-2">
-                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-full text-slate-300 hover:text-primary hover:bg-primary/5">
+                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-full text-slate-300 hover:text-primary hover:bg-primary/5" onClick={() => handleOpenDetails(reg)}>
                             <Eye className="h-5 w-5" />
                           </Button>
                           <DropdownMenu>
@@ -403,17 +476,15 @@ export default function RegistrationsListPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-2xl border-none shadow-2xl">
                               <DropdownMenuLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1">Opciones</DropdownMenuLabel>
-                              <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" asChild>
-                                <Link href="/dashboard/registration">
-                                  <FileText className="h-4 w-4 text-slate-400" /> <span className="font-bold">Editar Ficha</span>
-                                </Link>
+                              <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3" onClick={() => handleOpenDetails(reg)}>
+                                <FileText className="h-4 w-4 text-slate-400" /> <span className="font-bold">Editar Ficha</span>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 onClick={() => { setSelectedReg(reg); setIsDeleteDialogOpen(true); }} 
                                 className="h-11 rounded-xl text-destructive focus:bg-red-50 focus:text-destructive cursor-pointer gap-3"
                               >
-                                <Trash2 className="h-4 w-4" /> <span className="font-bold">Eliminar Permanentemente</span>
+                                <Trash2 className="h-4 w-4" /> <span className="font-bold">Eliminar Definitivo</span>
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -428,6 +499,194 @@ export default function RegistrationsListPage() {
         </CardContent>
       </Card>
 
+      {/* DIÁLOGO FICHA DE INSCRIPCIÓN (EL OJO) */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
+          {selectedReg && (
+            <form onSubmit={handleUpdateDetails} className="flex flex-col h-full overflow-hidden">
+              <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 relative">
+                <div className="absolute top-0 right-0 p-8 opacity-10"><Church className="h-24 w-24" /></div>
+                <div className="flex items-center gap-6 relative z-10">
+                  <Avatar className="h-20 w-20 border-4 border-white/20 shadow-xl">
+                    <AvatarImage src={selectedReg.photoUrl} className="object-cover" />
+                    <AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1">
+                    <DialogTitle className="text-3xl font-black uppercase tracking-tight leading-none">{selectedReg.fullName}</DialogTitle>
+                    <div className="flex items-center gap-3">
+                      <Badge className="bg-primary/20 text-primary-foreground border-none px-3 font-bold">{selectedReg.status}</Badge>
+                      <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">ID: {selectedReg.id.split('_')[1]}</span>
+                    </div>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="flex-1 overflow-y-auto bg-slate-50 p-8">
+                <Tabs defaultValue="general" className="w-full">
+                  <TabsList className="mb-8 bg-white border p-1 rounded-xl shadow-sm h-12 w-full justify-start gap-2">
+                    <TabsTrigger value="general" className="rounded-lg px-6 font-bold">Datos Generales</TabsTrigger>
+                    <TabsTrigger value="catechesis" className="rounded-lg px-6 font-bold">Catequesis</TabsTrigger>
+                    <TabsTrigger value="documents" className="rounded-lg px-6 font-bold">Documentos</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="general" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</Label>
+                        <Input name="fullName" defaultValue={selectedReg.fullName} required className="h-12 rounded-xl bg-white border-slate-200 uppercase font-bold" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de C.I.</Label>
+                        <Input name="ciNumber" defaultValue={selectedReg.ciNumber} required className="h-12 rounded-xl bg-white border-slate-200 font-bold" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono / Celular</Label>
+                        <div className="flex gap-2">
+                          <Input name="phone" defaultValue={selectedReg.phone} required className="h-12 rounded-xl bg-white border-slate-200 font-bold" />
+                          <Button type="button" variant="outline" size="icon" className="h-12 w-12 rounded-xl border-green-200 text-green-600 hover:bg-green-50" onClick={() => openWhatsApp(selectedReg.phone, selectedReg.fullName)}>
+                            <MessageCircle className="h-5 w-5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Nacimiento</Label>
+                        <div className="h-12 rounded-xl bg-white border flex items-center px-4 font-bold text-slate-700">
+                          {selectedReg.birthDate} ({selectedReg.age} años)
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="catechesis" className="space-y-6">
+                    <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label>
+                          <Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}>
+                            <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem>
+                              <SelectItem value="SEGUNDO_AÑO">SEGUNDO AÑO</SelectItem>
+                              <SelectItem value="ADULTOS">ADULTOS</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignar Grupo</Label>
+                          <Select name="groupId" defaultValue={selectedReg.groupId || "none"}>
+                            <SelectTrigger className="h-12 rounded-xl font-bold">
+                              <SelectValue placeholder="Sin grupo asignado" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>
+                              {allGroups?.filter(g => g.catechesisYear === selectedReg.catechesisYear).map(g => (
+                                <SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay})</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                        <Info className="h-5 w-5 text-primary shrink-0" />
+                        <p className="text-[10px] text-primary/70 leading-relaxed font-medium">
+                          Al cambiar el grupo, el confirmando aparecerá automáticamente en la lista de asistencia del catequista responsable. Asegúrate de que el día coincida con su preferencia original ({selectedReg.attendanceDay}S).
+                        </p>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="documents" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <ImageIcon className="h-4 w-4 text-slate-400" />
+                          <h4 className="text-xs font-black uppercase text-slate-500">Certificado de Bautismo</h4>
+                        </div>
+                        {selectedReg.baptismCertificatePhotoUrl ? (
+                          <div className="relative group aspect-[4/3] rounded-2xl overflow-hidden border shadow-inner">
+                            <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Button type="button" variant="secondary" size="sm" className="rounded-full font-bold" onClick={() => window.open(selectedReg.baptismCertificatePhotoUrl, '_blank')}>Ampliar Foto</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="aspect-[4/3] rounded-2xl bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center text-slate-300">
+                            <X className="h-8 w-8 mb-2" />
+                            <span className="text-[10px] font-bold uppercase">No adjunto</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                          <h4 className="text-xs font-black uppercase text-slate-500 mb-4">Estado de Sacramentos</h4>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-600">Bautismo</span>
+                              {selectedReg.hasBaptism ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-600">Primera Comunión</span>
+                              {selectedReg.hasFirstCommunion ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <X className="h-5 w-5 text-red-400" />}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              <DialogFooter className="p-8 bg-white border-t flex items-center justify-between">
+                <Button type="button" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50 font-black gap-2 h-12 rounded-xl" onClick={() => setIsWithdrawalOpen(true)}>
+                  <UserMinus className="h-5 w-5" /> DAR DE BAJA
+                </Button>
+                <div className="flex gap-3">
+                  <Button type="button" variant="outline" className="h-12 px-8 rounded-xl font-bold border-slate-200" onClick={() => setIsDetailsOpen(false)}>Cerrar</Button>
+                  <Button type="submit" className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-xl shadow-primary/20 gap-2" disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <><Save className="h-5 w-5" /> GUARDAR CAMBIOS</>}
+                  </Button>
+                </div>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO DE BAJA */}
+      <Dialog open={isWithdrawalOpen} onOpenChange={setIsWithdrawalOpen}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-[2rem]">
+          <DialogHeader className="p-8 bg-red-600 text-white">
+            <DialogTitle className="text-2xl font-black uppercase tracking-tight">Procesar Baja</DialogTitle>
+            <DialogDescription className="text-white/80">Estás por retirar a {selectedReg?.fullName} de la lista de confirmandos activos.</DialogDescription>
+          </DialogHeader>
+          <div className="p-8 space-y-6">
+            <div className="space-y-3">
+              <Label className="font-bold text-slate-700">Motivo del Retiro</Label>
+              <Textarea 
+                placeholder="Ej: El alumno se mudó de ciudad o decidió no continuar." 
+                className="min-h-[120px] rounded-2xl bg-slate-50 border-slate-200 resize-none"
+                value={withdrawalReason}
+                onChange={(e) => setWithdrawalReason(e.target.value)}
+              />
+            </div>
+            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-amber-800 font-medium leading-relaxed italic">
+                Esta acción no elimina los datos, pero los mueve al archivo histórico. Podrás consultar este registro en el módulo de "Archivo" si es necesario.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="p-8 bg-slate-50 border-t flex gap-3">
+            <Button variant="outline" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => setIsWithdrawalOpen(false)}>Cancelar</Button>
+            <Button className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black shadow-xl shadow-red-100" onClick={handleWithdrawal} disabled={isProcessing || !withdrawalReason}>
+              {isProcessing ? <Loader2 className="animate-spin" /> : "CONFIRMAR BAJA"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ALERT DIALOG ELIMINAR */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           <div className="bg-red-600 p-8 text-white">
