@@ -453,13 +453,17 @@ export default function PaymentsManagementPage() {
                                 variant="outline" 
                                 className={cn(
                                   "h-10 rounded-xl font-bold px-4 gap-2 transition-all active:scale-95",
-                                  isEfectivoZero ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100" : "border-primary text-primary hover:bg-primary/5"
+                                  isEfectivoZero ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100" : 
+                                  isPaid ? "border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100" : 
+                                  "border-primary text-primary hover:bg-primary/5"
                                 )} 
                                 onClick={() => handleOpenPayment(reg)}
                                 disabled={isPaid && !!reg.receiptNumber}
                               >
                                 {isEfectivoZero ? (
                                   <><CheckCircle2 className="h-4 w-4" /> Validar Efectivo</>
+                                ) : isPaid ? (
+                                  <><Receipt className="h-4 w-4" /> Generar Recibo</>
                                 ) : (
                                   <><Banknote className="h-4 w-4" /> Confirmar Pago</>
                                 )}
@@ -553,7 +557,7 @@ export default function PaymentsManagementPage() {
             <Button 
               className="flex-1 h-14 bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all" 
               onClick={handleProcessPayment} 
-              disabled={isSubmitting || paymentAmount <= 0}
+              disabled={isSubmitting || (paymentAmount <= 0 && selectedReg?.paymentStatus !== "PAGADO")}
             >
               {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "PROCESAR COBRO"}
             </Button>
