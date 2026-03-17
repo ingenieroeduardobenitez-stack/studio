@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -31,7 +30,8 @@ import {
   CheckCircle2,
   X,
   ImageIcon,
-  Shapes
+  Shapes,
+  Info
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
 import { collection, doc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore"
