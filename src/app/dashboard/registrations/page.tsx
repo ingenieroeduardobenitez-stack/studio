@@ -488,56 +488,60 @@ export default function RegistrationsListPage() {
         </CardContent>
       </Card>
 
-      {/* DIÁLOGO VISOR DE COMPROBANTE PARA VALIDACIÓN */}
+      {/* DIÁLOGO VISOR DE COMPROBANTE PARA VALIDACIÓN - AJUSTADO A PANTALLA */}
       <Dialog open={isValidatingProofOpen} onOpenChange={setIsValidatingProofOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-[2rem]">
-          <DialogHeader className="p-6 bg-blue-600 text-white shrink-0">
+        <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[92vh] max-h-[92vh] flex flex-col">
+          <DialogHeader className="p-8 pb-6 bg-blue-600 text-white shrink-0 relative">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-xl"><ImageIcon className="h-5 w-5" /></div>
               <div>
-                <DialogTitle className="font-black uppercase tracking-tight">Validar Comprobante</DialogTitle>
-                <DialogDescription className="text-white/80">Verifica el depósito de {selectedReg?.fullName}</DialogDescription>
+                <DialogTitle className="font-black uppercase tracking-tight">Verificar Comprobante</DialogTitle>
+                <DialogDescription className="text-white/80">Validación de ingreso para {selectedReg?.fullName}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
-          <div className="p-6 space-y-6">
-            <div className="aspect-[3/4] relative bg-slate-100 rounded-2xl overflow-hidden border shadow-inner">
+          
+          <div className="flex-1 overflow-y-auto bg-slate-50 p-6 flex flex-col gap-6">
+            <div className="flex-1 min-h-[300px] relative bg-white rounded-3xl overflow-hidden border shadow-sm flex items-center justify-center p-2">
               {selectedReg?.paymentProofUrl ? (
-                <img src={selectedReg.paymentProofUrl} className="w-full h-full object-contain" alt="Comprobante de pago" />
+                <img 
+                  src={selectedReg.paymentProofUrl} 
+                  className="max-w-full max-h-full object-contain rounded-xl" 
+                  alt="Comprobante de pago" 
+                />
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                  <ImageIcon className="h-12 w-12 mb-2" />
-                  <p className="text-xs font-bold uppercase">Sin Comprobante Adjunto</p>
+                <div className="flex flex-col items-center justify-center h-full text-slate-300">
+                  <ImageIcon className="h-16 w-16 mb-2 opacity-20" />
+                  <p className="text-xs font-bold uppercase tracking-widest">Sin imagen adjunta</p>
                 </div>
               )}
             </div>
-            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none mb-1">Monto a Validar:</p>
-                <p className="text-2xl font-black text-blue-700 tracking-tight">
+          </div>
+
+          <DialogFooter className="p-6 bg-white border-t shrink-0">
+            <div className="w-full bg-blue-50/50 p-5 rounded-[2rem] border border-blue-100 flex items-center justify-between shadow-sm">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none">Monto a Validar:</p>
+                <p className="text-3xl font-black text-blue-700 tracking-tighter">
                   {(selectedReg?.registrationCost || (selectedReg?.catechesisYear === "ADULTOS" ? 50000 : 35000)).toLocaleString('es-PY')} Gs.
                 </p>
               </div>
-              <Badge className="bg-blue-600 text-white h-8 px-4 rounded-full font-black">{selectedReg?.paymentMethod}</Badge>
+              <Button 
+                className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all gap-2" 
+                onClick={() => {
+                  handleQuickValidate(selectedReg);
+                  setIsValidatingProofOpen(false);
+                }}
+                disabled={isProcessing}
+              >
+                {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : "CONFIRMAR"}
+              </Button>
             </div>
-          </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row gap-3">
-            <Button variant="outline" className="flex-1 h-14 rounded-2xl font-black uppercase text-xs border-slate-200" onClick={() => setIsValidatingProofOpen(false)}>Cancelar</Button>
-            <Button 
-              className="flex-1 h-14 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-blue-100 active:scale-95 transition-all" 
-              onClick={() => {
-                handleQuickValidate(selectedReg);
-                setIsValidatingProofOpen(false);
-              }}
-              disabled={isProcessing}
-            >
-              {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : "Confirmar Validación"}
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO FICHA DE INSCRIPCIÓN (MODAL ELEGANTE) */}
+      {/* DIÁLOGO FICHA DE INSCRIPCIÓN */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
           {selectedReg && (
@@ -631,7 +635,7 @@ export default function RegistrationsListPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* DIÁLOGO DAR DE BAJA (JUSTIFICADO) */}
+      {/* DIÁLOGO DAR DE BAJA */}
       <Dialog open={isWithdrawalOpen} onOpenChange={setIsWithdrawalOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-orange-600 text-white"><DialogTitle>Procesar Baja Definitiva</DialogTitle></DialogHeader>
@@ -643,6 +647,7 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
+      {/* DIÁLOGO ELIMINAR */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           <div className="bg-red-600 p-8 text-white"><AlertTriangle className="h-12 w-12 mx-auto mb-4" /><AlertDialogTitle className="text-2xl font-black text-center uppercase">¿Eliminar Registro?</AlertDialogTitle></div>
