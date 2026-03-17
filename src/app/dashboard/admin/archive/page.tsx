@@ -11,7 +11,7 @@ import {
   CheckCircle2
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, writeBatch, serverTimestamp, setDoc, query, where, getDocs } from "firebase/firestore"
+import { collection, doc, writeBatch, query, where } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 
 export default function ArchiveAdminPage() {
@@ -22,12 +22,8 @@ export default function ArchiveAdminPage() {
   const db = useFirestore()
   const { user } = useUser()
 
-  const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
-  const { data: profile } = useDoc(userProfileRef)
-
   useEffect(() => { setMounted(true) }, [])
 
-  // Consulta liviana: solo candidatos a promoción
   const candidatesQuery = useMemoFirebase(() => db ? query(collection(db, "confirmations"), where("isArchived", "==", false)) : null, [db])
   const { data: activeStudents, loading } = useCollection(candidatesQuery)
 
@@ -35,34 +31,6 @@ export default function ArchiveAdminPage() {
     firstYear: activeStudents?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0,
     graduates: activeStudents?.filter(r => r.catechesisYear === "SEGUNDO_AÑO" || r.catechesisYear === "ADULTOS").length || 0
   }), [activeStudents])
-
-  const handleRecalculateStats = async (database: any) => {
-    const q = query(collection(database, "confirmations"), where("isArchived", "==", false))
-    const snap = await getDocs(q)
-    const newStats = { 
-      total: 0, firstYear: 0, secondYear: 0, adults: 0, 
-      firstYearSabado: 0, firstYearDomingo: 0, 
-      secondYearSabado: 0, secondYearDomingo: 0, 
-      adultsSabado: 0, adultsDomingo: 0 
-    }
-    snap.forEach(doc => {
-      const d = doc.data(); 
-      newStats.total++;
-      if (d.catechesisYear === "PRIMER_AÑO") { 
-        newStats.firstYear++; 
-        if (d.attendanceDay === "SABADO") newStats.firstYearSabado++; else newStats.firstYearDomingo++; 
-      }
-      else if (d.catechesisYear === "SEGUNDO_AÑO") { 
-        newStats.secondYear++; 
-        if (d.attendanceDay === "SABADO") newStats.secondYearSabado++; else newStats.secondYearDomingo++; 
-      }
-      else if (d.catechesisYear === "ADULTOS") { 
-        newStats.adults++; 
-        if (d.attendanceDay === "SABADO") newStats.adultsSabado++; else newStats.adultsDomingo++; 
-      }
-    });
-    await setDoc(doc(database, "settings", "stats"), newStats, { merge: true });
-  }
 
   const handlePromoteFirstToSecond = async () => {
     if (!db || !activeStudents) return
@@ -73,8 +41,7 @@ export default function ArchiveAdminPage() {
     students.forEach(s => { batch.update(doc(db, "confirmations", s.id), { catechesisYear: "SEGUNDO_AÑO" }) })
     try {
       await batch.commit()
-      await handleRecalculateStats(db)
-      toast({ title: "Promoción completada y estadísticas actualizadas" })
+      toast({ title: "Promoción completada" })
     } finally { setIsProcessing(false) }
   }
 
@@ -87,8 +54,7 @@ export default function ArchiveAdminPage() {
     graduates.forEach(s => { batch.update(doc(db, "confirmations", s.id), { isArchived: true, status: "ARCHIVADO", archiveYear: new Date().getFullYear() }) })
     try {
       await batch.commit()
-      await handleRecalculateStats(db)
-      toast({ title: "Cierre de año exitoso y estadísticas actualizadas" })
+      toast({ title: "Cierre de año exitoso" })
     } finally { setIsProcessing(false) }
   }
 
@@ -109,7 +75,7 @@ export default function ArchiveAdminPage() {
           <CardHeader><CardTitle className="flex items-center gap-2"><Archive className="h-5 w-5" /> Archivo y Culminación</CardTitle></CardHeader>
           <CardContent><div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border"><span className="text-sm font-bold uppercase">Por Graduarse</span><span className="text-2xl font-bold text-accent">{stats.graduates}</span></div></CardContent>
           <CardFooter><Button className="w-full h-12 rounded-xl bg-accent font-bold" onClick={handleArchiveGraduates} disabled={isProcessing || stats.graduates === 0}>{isProcessing ? <Loader2 className="animate-spin" /> : "Archivar y Graduar"}</Button></CardFooter>
-        </div>
+        </Card>
       </div>
     </div>
   )
