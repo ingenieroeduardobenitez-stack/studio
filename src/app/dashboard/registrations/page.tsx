@@ -23,7 +23,7 @@ import {
   FileText
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, deleteDoc, query, orderBy, limit } from "firebase/firestore"
+import { collection, doc, deleteDoc } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -37,7 +37,7 @@ export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   
-  // Filtros
+  // Filtros de estado local
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
@@ -56,22 +56,28 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
+  // Consulta simple para evitar errores de índice compuesto
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
     return collection(db, "confirmations")
   }, [db])
 
-  const { data: allData, loading } = useCollection(regsQuery)
+  const { data: rawData, loading } = useCollection(regsQuery)
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const { data: allUsers } = useCollection(usersQuery, { once: true })
 
-  // Filtrado en memoria para asegurar máxima visibilidad de datos
+  // Procesamiento de datos en memoria (Ordenamiento y Filtrado de activos)
   const registrations = useMemo(() => {
-    if (!allData) return []
-    // Mostramos todo lo que no esté archivado explícitamente
-    return allData.filter(r => r.isArchived !== true)
-  }, [allData])
+    if (!rawData) return []
+    return [...rawData]
+      .filter(r => r.isArchived !== true) // Solo activos
+      .sort((a, b) => {
+        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt ? new Date(a.createdAt) : new Date(0))
+        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt ? new Date(b.createdAt) : new Date(0))
+        return dateB.getTime() - dateA.getTime() // Más nuevos primero
+      })
+  }, [rawData])
 
   const stats = useMemo(() => {
     if (!registrations) return { total: 0, masc: 0, fem: 0 }
@@ -95,7 +101,6 @@ export default function RegistrationsListPage() {
   }, [registrations])
 
   const filteredRegistrations = useMemo(() => {
-    if (!registrations) return []
     return registrations.filter((r: any) => {
       const cleanCi = r.ciNumber?.replace(/[^0-9]/g, '') || ""
       const matchesSearch = !searchTerm || 
@@ -423,7 +428,6 @@ export default function RegistrationsListPage() {
         </CardContent>
       </Card>
 
-      {/* DIALOGO DE ELIMINACION */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           <div className="bg-red-600 p-8 text-white">
