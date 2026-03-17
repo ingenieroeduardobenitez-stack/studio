@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -36,7 +37,7 @@ export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   
-  // Estados de Filtros
+  // Filtros
   const [filterSex, setFilterSex] = useState<string>("all")
   const [filterYear, setFilterYear] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
@@ -55,7 +56,6 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  // Traemos todos los documentos sin filtrar por isArchived en la query para mayor compatibilidad
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
     return collection(db, "confirmations")
@@ -66,13 +66,13 @@ export default function RegistrationsListPage() {
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const { data: allUsers } = useCollection(usersQuery, { once: true })
 
-  // Filtrar activos (no archivados) en memoria
+  // Filtrado en memoria para asegurar máxima visibilidad de datos
   const registrations = useMemo(() => {
     if (!allData) return []
+    // Mostramos todo lo que no esté archivado explícitamente
     return allData.filter(r => r.isArchived !== true)
   }, [allData])
 
-  // Cálculos para las tarjetas de resumen
   const stats = useMemo(() => {
     if (!registrations) return { total: 0, masc: 0, fem: 0 }
     return {
@@ -82,7 +82,6 @@ export default function RegistrationsListPage() {
     }
   }, [registrations])
 
-  // Identificación de duplicados por número de cédula
   const duplicateCis = useMemo(() => {
     if (!registrations) return new Set<string>()
     const counts: Record<string, number> = {}
@@ -142,7 +141,6 @@ export default function RegistrationsListPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      {/* CABECERA PRINCIPAL */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold text-primary tracking-tight">Lista de Confirmandos</h1>
@@ -169,7 +167,6 @@ export default function RegistrationsListPage() {
         </div>
       </div>
 
-      {/* TARJETAS DE ESTADISTICAS */}
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="border-none shadow-xl bg-white rounded-3xl p-6 border-l-4 border-l-primary">
           <div className="flex items-center justify-between mb-2">
@@ -194,7 +191,6 @@ export default function RegistrationsListPage() {
         </Card>
       </div>
 
-      {/* PANEL DE BUSQUEDA Y FILTROS */}
       <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
         <CardHeader className="bg-slate-50/30 p-8 pb-0">
           <div className="space-y-6">
