@@ -181,7 +181,6 @@ export default function PaymentsManagementPage() {
     setIsReceiptOpen(true)
   }
 
-  // Funciones del Laboratorio de Validación
   const handleOpenValidation = (reg: any) => {
     setSelectedReg(reg)
     const pending = (reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? 50000 : 35000)) - (reg.amountPaid || 0)
@@ -518,7 +517,7 @@ export default function PaymentsManagementPage() {
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                className="h-10 rounded-xl font-bold px-4 bg-slate-900 text-white hover:bg-black gap-2 transition-all active:scale-95" 
+                                className="h-10 rounded-full font-black px-6 text-primary border-slate-200 bg-white hover:bg-slate-50 transition-all active:scale-95 shadow-sm uppercase tracking-wider" 
                                 onClick={() => handleOpenValidation(reg)}
                               >
                                 VALIDAR
@@ -528,7 +527,7 @@ export default function PaymentsManagementPage() {
                                 size="sm" 
                                 variant="outline" 
                                 className={cn(
-                                  "h-10 rounded-xl font-bold px-4 gap-2 transition-all active:scale-95",
+                                  "h-10 rounded-xl font-black px-4 gap-2 transition-all active:scale-95",
                                   isEfectivoZero ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100" : 
                                   isPaid ? "border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100" : 
                                   "border-primary text-primary hover:bg-primary/5"

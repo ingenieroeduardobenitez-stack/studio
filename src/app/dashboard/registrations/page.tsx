@@ -881,7 +881,14 @@ export default function RegistrationsListPage() {
                             <Eye className="h-4 w-4" />
                           </Button>
                           {reg.status === "POR_VALIDAR" && hasProof && (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] font-black bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200" onClick={() => handleOpenValidation(reg)}>VALIDAR</Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-10 rounded-full font-black px-6 text-primary border-slate-200 bg-white hover:bg-slate-50 transition-all active:scale-95 shadow-sm uppercase tracking-wider" 
+                              onClick={() => handleOpenValidation(reg)}
+                            >
+                              VALIDAR
+                            </Button>
                           )}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
