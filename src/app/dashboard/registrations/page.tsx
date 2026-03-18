@@ -31,7 +31,11 @@ import {
   Shapes,
   CreditCard,
   RotateCcw,
-  Plus
+  Plus,
+  Phone,
+  Heart,
+  Calendar,
+  Maximize2
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc } from "firebase/firestore"
@@ -67,6 +71,13 @@ export default function RegistrationsListPage() {
   const [withdrawalReason, setWithdrawalReason] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
 
+  // Estados para Validacion Personalizada
+  const [validationAmount, setValidationAmount] = useState<number>(0)
+  
+  // Estado para Visualizador de Imagen Full
+  const [fullImageViewerOpen, setFullImageOpen] = useState(false)
+  const [fullImageUrl, setFullImageUrl] = useState("")
+
   const db = useFirestore()
   const { user } = useUser()
   const { toast } = useToast()
@@ -87,6 +98,7 @@ export default function RegistrationsListPage() {
   const { data: rawData, loading } = useCollection(regsQuery)
   const { data: allGroups } = useCollection(groupsQuery)
   const { data: allUsers } = useCollection(usersQuery)
+  const { data: costs } = useDoc(treasuryRef)
 
   const registrations = useMemo(() => {
     if (!rawData) return []
@@ -147,10 +159,25 @@ export default function RegistrationsListPage() {
     setIsDetailsOpen(true)
   }
 
-  const handleQuickValidate = async (reg: any) => {
-    if (!db || !treasuryRef || isProcessing) return
+  const handleOpenValidation = (reg: any) => {
+    setSelectedReg(reg)
+    const limit = reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000))
+    setValidationAmount(limit)
+    setIsValidatingProofOpen(true)
+  }
+
+  const handleConfirmValidation = async () => {
+    if (!db || !selectedReg || !treasuryRef || isProcessing) return
+    
+    const limit = selectedReg.registrationCost || (selectedReg.catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000))
+    
+    if (validationAmount > limit) {
+      toast({ variant: "destructive", title: "Monto no permitido", description: `El monto no puede superar el límite de ${limit.toLocaleString('es-PY')} Gs.` })
+      return
+    }
+
     setIsProcessing(true)
-    const regRef = doc(db, "confirmations", reg.id)
+    const regRef = doc(db, "confirmations", selectedReg.id)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
     
     try {
@@ -158,20 +185,29 @@ export default function RegistrationsListPage() {
         const treasurySnap = await transaction.get(treasuryRef);
         const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
-        const regCost = reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? 50000 : 35000);
 
         transaction.update(regRef, {
-          amountPaid: regCost,
-          paymentStatus: "PAGADO",
+          amountPaid: validationAmount,
+          paymentStatus: validationAmount >= limit ? "PAGADO" : "PARCIAL",
           status: "INSCRITO",
           validatedBy: catechistName,
           receiptNumber: formattedReceipt,
           lastPaymentDate: serverTimestamp(),
-          lastPaymentMethod: reg.paymentMethod || "TRANSFERENCIA"
+          lastPaymentMethod: selectedReg.paymentMethod || "TRANSFERENCIA"
         });
         transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+        
+        transaction.set(doc(collection(db, "audit_logs")), {
+          userId: user?.uid || "unknown",
+          userName: catechistName,
+          action: "Validación de Inscripción",
+          module: "inscripcion",
+          details: `Se validó el pago de ${validationAmount.toLocaleString('es-PY')} Gs. para ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          timestamp: serverTimestamp()
+        })
       });
       toast({ title: "Validación completada con éxito" })
+      setIsValidatingProofOpen(false)
     } catch (e) {
       toast({ variant: "destructive", title: "Error al validar" })
     } finally { setIsProcessing(false) }
@@ -224,6 +260,13 @@ export default function RegistrationsListPage() {
       phone: formData.get("phone") as string,
       groupId: formData.get("groupId") as string,
       catechesisYear: formData.get("catechesisYear") as string,
+      motherName: (formData.get("motherName") as string || "").toUpperCase(),
+      motherPhone: formData.get("motherPhone") as string || "",
+      fatherName: (formData.get("fatherName") as string || "").toUpperCase(),
+      fatherPhone: formData.get("fatherPhone") as string || "",
+      baptismParish: formData.get("baptismParish") as string || "",
+      baptismBook: formData.get("baptismBook") as string || "",
+      baptismFolio: formData.get("baptismFolio") as string || "",
       updatedAt: serverTimestamp()
     }
     try {
@@ -260,6 +303,12 @@ export default function RegistrationsListPage() {
       setIsDeleteDialogOpen(false)
     } catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setIsProcessing(false) }
+  }
+
+  const openImageViewer = (url: string) => {
+    if (!url) return;
+    setFullImageUrl(url);
+    setFullImageOpen(true);
   }
 
   const resetFilters = () => {
@@ -378,7 +427,7 @@ export default function RegistrationsListPage() {
                     <TableRow key={reg.id} className="h-24 hover:bg-slate-50/30 transition-colors border-slate-100">
                       <TableCell className="pl-8">
                         <div className="flex items-center gap-4">
-                          <Avatar className="h-12 w-12 border-2 border-white shadow-sm ring-1 ring-slate-100">
+                          <Avatar className="h-12 w-12 border-2 border-white shadow-sm ring-1 ring-slate-100 cursor-pointer" onClick={() => openImageViewer(reg.photoUrl)}>
                             <AvatarImage src={reg.photoUrl} className="object-cover" />
                             <AvatarFallback className="bg-slate-50 text-slate-300 font-black"><User /></AvatarFallback>
                           </Avatar>
@@ -447,14 +496,7 @@ export default function RegistrationsListPage() {
                             <Button 
                               variant="outline" 
                               className="h-9 px-6 rounded-full font-black text-[10px] tracking-widest border-blue-600 text-blue-600 hover:bg-blue-50 transition-all uppercase"
-                              onClick={() => {
-                                if (reg.paymentProofUrl) {
-                                  setSelectedReg(reg);
-                                  setIsValidatingProofOpen(true);
-                                } else {
-                                  handleQuickValidate(reg);
-                                }
-                              }}
+                              onClick={() => handleOpenValidation(reg)}
                               disabled={isProcessing}
                             >
                               VALIDAR
@@ -516,7 +558,7 @@ export default function RegistrationsListPage() {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto bg-slate-50 p-6 flex flex-col gap-6">
-            <div className="flex-1 min-h-[300px] relative bg-white rounded-3xl overflow-hidden border shadow-sm flex items-center justify-center p-2">
+            <div className="flex-1 min-h-[300px] relative bg-white rounded-3xl overflow-hidden border shadow-sm flex items-center justify-center p-2 cursor-pointer" onClick={() => openImageViewer(selectedReg?.paymentProofUrl)}>
               {selectedReg?.paymentProofUrl ? (
                 <img 
                   src={selectedReg.paymentProofUrl} 
@@ -530,48 +572,64 @@ export default function RegistrationsListPage() {
                 </div>
               )}
             </div>
+
+            <div className="space-y-3 px-2">
+              <Label className="font-black text-[10px] text-slate-400 uppercase tracking-widest">Monto Real Recibido (Gs)</Label>
+              <Input 
+                type="number" 
+                value={validationAmount} 
+                onChange={(e) => setValidationAmount(Number(e.target.value))}
+                className="h-14 text-2xl font-black rounded-2xl bg-white border-blue-100 text-blue-700 shadow-sm"
+              />
+              <p className="text-[9px] text-slate-400 italic">
+                * El límite máximo permitido es de {(selectedReg?.registrationCost || (selectedReg?.catechesisYear === "ADULTOS" ? 50000 : 35000)).toLocaleString('es-PY')} Gs.
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="p-6 bg-white border-t shrink-0">
             <div className="w-full bg-blue-50/50 p-5 rounded-[2rem] border border-blue-100 flex items-center justify-between shadow-sm">
               <div className="space-y-0.5">
-                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none">Monto a Validar:</p>
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none">Confirmar Cobro:</p>
                 <p className="text-3xl font-black text-blue-700 tracking-tighter">
-                  {(selectedReg?.registrationCost || (selectedReg?.catechesisYear === "ADULTOS" ? 50000 : 35000)).toLocaleString('es-PY')} Gs.
+                  {validationAmount.toLocaleString('es-PY')} Gs.
                 </p>
               </div>
               <Button 
                 className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all gap-2" 
-                onClick={() => {
-                  handleQuickValidate(selectedReg);
-                  setIsValidatingProofOpen(false);
-                }}
-                disabled={isProcessing}
+                onClick={handleConfirmValidation}
+                disabled={isProcessing || validationAmount <= 0}
               >
-                {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : "CONFIRMAR"}
+                {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : "VALIDAR"}
               </Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO FICHA DE INSCRIPCIÓN */}
+      {/* DIÁLOGO FICHA DE INSCRIPCIÓN ELEGANTE */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
           {selectedReg && (
             <form onSubmit={handleUpdateDetails} className="flex flex-col h-full overflow-hidden">
               <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 relative">
                 <div className="absolute top-0 right-0 p-8 opacity-10"><Church className="h-24 w-24" /></div>
                 <div className="flex items-center gap-6 relative z-10">
-                  <Avatar className="h-20 w-20 border-4 border-white/20 shadow-xl">
-                    <AvatarImage src={selectedReg.photoUrl} className="object-cover" />
-                    <AvatarFallback className="bg-white/10 text-white"><User className="h-10 w-10" /></AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="h-24 w-24 border-4 border-white/20 shadow-xl cursor-pointer" onClick={() => openImageViewer(selectedReg.photoUrl)}>
+                      <AvatarImage src={selectedReg.photoUrl} className="object-cover" />
+                      <AvatarFallback className="bg-white/10 text-white"><User className="h-12 w-12" /></AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-1 -right-1 bg-primary p-1.5 rounded-full border-2 border-slate-900">
+                      <Camera className="h-3 w-3 text-white" />
+                    </div>
+                  </div>
                   <div className="space-y-1">
                     <DialogTitle className="text-3xl font-black uppercase tracking-tight leading-none">{selectedReg.fullName}</DialogTitle>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <Badge className="bg-primary/20 text-primary-foreground border-none px-3 font-bold">{selectedReg.status}</Badge>
-                      <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">ID: {selectedReg.id.split('_')[1]}</span>
+                      <Badge variant="outline" className="border-white/20 text-white/60 font-medium">{selectedReg.catechesisYear?.replace('_', ' ')}</Badge>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">REG N° {selectedReg.id.split('_')[1]}</span>
                     </div>
                   </div>
                 </div>
@@ -579,43 +637,137 @@ export default function RegistrationsListPage() {
 
               <div className="flex-1 overflow-y-auto bg-slate-50 p-8">
                 <Tabs defaultValue="general" className="w-full">
-                  <TabsList className="mb-8 bg-white border p-1 rounded-xl shadow-sm h-12 w-full justify-start gap-2">
-                    <TabsTrigger value="general" className="rounded-lg px-6 font-bold">Datos Generales</TabsTrigger>
-                    <TabsTrigger value="catechesis" className="rounded-lg px-6 font-bold">Catequesis</TabsTrigger>
-                    <TabsTrigger value="documents" className="rounded-lg px-6 font-bold">Documentos</TabsTrigger>
+                  <TabsList className="mb-8 bg-white border p-1 rounded-2xl shadow-sm h-14 w-full justify-start gap-2">
+                    <TabsTrigger value="general" className="rounded-xl px-6 font-bold h-11 data-[state=active]:bg-primary data-[state=active]:text-white">General</TabsTrigger>
+                    <TabsTrigger value="family" className="rounded-xl px-6 font-bold h-11 data-[state=active]:bg-primary data-[state=active]:text-white">Familia</TabsTrigger>
+                    <TabsTrigger value="catechesis" className="rounded-xl px-6 font-bold h-11 data-[state=active]:bg-primary data-[state=active]:text-white">Catequesis</TabsTrigger>
+                    <TabsTrigger value="docs" className="rounded-xl px-6 font-bold h-11 data-[state=active]:bg-primary data-[state=active]:text-white">Documentos & Pagos</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="general" className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</Label><Input name="fullName" defaultValue={selectedReg.fullName} required className="h-12 rounded-xl bg-white border-slate-200 uppercase font-bold" /></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de C.I.</Label><Input name="ciNumber" defaultValue={selectedReg.ciNumber} required className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono / Celular</Label><Input name="phone" defaultValue={selectedReg.phone} required className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Nacimiento</Label><div className="h-12 rounded-xl bg-white border flex items-center px-4 font-bold text-slate-700">{selectedReg.birthDate} ({selectedReg.age} años)</div></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-8 rounded-[2rem] border shadow-sm">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</Label>
+                        <Input name="fullName" defaultValue={selectedReg.fullName} required className="h-12 rounded-xl bg-slate-50 border-none shadow-inner uppercase font-bold" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de C.I.</Label>
+                        <Input name="ciNumber" defaultValue={selectedReg.ciNumber} required className="h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono Principal</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                          <Input name="phone" defaultValue={selectedReg.phone} required className="pl-10 h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Nacimiento</Label>
+                        <div className="h-12 rounded-xl bg-slate-50 border-none shadow-inner flex items-center px-4 font-bold text-slate-700 gap-3">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          {selectedReg.birthDate} ({selectedReg.age} años)
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="family" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="bg-white p-8 rounded-[2rem] border shadow-sm space-y-6">
+                        <div className="flex items-center gap-2 border-b pb-2"><Heart className="h-4 w-4 text-pink-500" /><h4 className="text-xs font-black uppercase text-slate-500">Datos de la Madre</h4></div>
+                        <div className="space-y-4">
+                          <div className="space-y-1.5"><Label className="text-[9px] font-black text-slate-400 uppercase ml-1">Nombre Completo</Label><Input name="motherName" defaultValue={selectedReg.motherName} className="h-11 rounded-xl bg-slate-50 border-none uppercase font-bold" /></div>
+                          <div className="space-y-1.5"><Label className="text-[9px] font-black text-slate-400 uppercase ml-1">Celular</Label><Input name="motherPhone" defaultValue={selectedReg.motherPhone} className="h-11 rounded-xl bg-slate-50 border-none font-bold" /></div>
+                        </div>
+                      </div>
+                      <div className="bg-white p-8 rounded-[2rem] border shadow-sm space-y-6">
+                        <div className="flex items-center gap-2 border-b pb-2"><Heart className="h-4 w-4 text-blue-500" /><h4 className="text-xs font-black uppercase text-slate-500">Datos del Padre</h4></div>
+                        <div className="space-y-4">
+                          <div className="space-y-1.5"><Label className="text-[9px] font-black text-slate-400 uppercase ml-1">Nombre Completo</Label><Input name="fatherName" defaultValue={selectedReg.fatherName} className="h-11 rounded-xl bg-slate-50 border-none uppercase font-bold" /></div>
+                          <div className="space-y-1.5"><Label className="text-[9px] font-black text-slate-400 uppercase ml-1">Celular</Label><Input name="fatherPhone" defaultValue={selectedReg.fatherPhone} className="h-11 rounded-xl bg-slate-50 border-none font-bold" /></div>
+                        </div>
+                      </div>
                     </div>
                   </TabsContent>
 
                   <TabsContent value="catechesis" className="space-y-6">
-                    <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div className="p-8 bg-white rounded-[2rem] border shadow-sm space-y-8">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label><Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem><SelectItem value="SEGUNDO_AÑO">SEGUNDO AÑO</SelectItem><SelectItem value="ADULTOS">ADULTOS</SelectItem></SelectContent></Select></div>
-                        <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignar Grupo</Label><Select name="groupId" defaultValue={selectedReg.groupId || "none"}><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Sin grupo asignado" /></SelectTrigger><SelectContent><SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>{allGroups?.filter(g => g.catechesisYear === selectedReg.catechesisYear).map(g => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay})</SelectItem>))}</SelectContent></Select></div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label>
+                          <Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}>
+                            <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem>
+                              <SelectItem value="SEGUNDO_AÑO">SEGUNDO AÑO</SelectItem>
+                              <SelectItem value="ADULTOS">ADULTOS</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignación de Grupo</Label>
+                          <Select name="groupId" defaultValue={selectedReg.groupId || "none"}>
+                            <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold"><SelectValue placeholder="Sin grupo asignado" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>
+                              {allGroups?.filter(g => g.catechesisYear === selectedReg.catechesisYear).map(g => (
+                                <SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay})</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                      <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                        <Info className="h-5 w-5 text-primary shrink-0" />
-                        <p className="text-[10px] text-primary/70 leading-relaxed font-medium">
-                          Al cambiar el grupo, el confirmando aparecerá automáticamente en la lista de asistencia del catequista responsable. Asegúrate de que el día coincida con su preferencia original ({selectedReg.attendanceDay}S).
-                        </p>
+
+                      <div className="bg-slate-50 p-6 rounded-3xl space-y-4">
+                        <div className="flex items-center gap-2 border-b pb-2"><Church className="h-4 w-4 text-primary" /><h4 className="text-xs font-black uppercase text-slate-500">Datos de Bautismo</h4></div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-1.5"><Label className="text-[9px] font-black text-slate-400 uppercase ml-1">Parroquia</Label><Input name="baptismParish" defaultValue={selectedReg.baptismParish} className="h-10 rounded-xl bg-white border-slate-200" /></div>
+                          <div className="space-y-1.5"><Label className="text-[9px] font-black text-slate-400 uppercase ml-1">Libro</Label><Input name="baptismBook" defaultValue={selectedReg.baptismBook} className="h-10 rounded-xl bg-white border-slate-200" /></div>
+                          <div className="space-y-1.5"><Label className="text-[9px] font-black text-slate-400 uppercase ml-1">Folio</Label><Input name="baptismFolio" defaultValue={selectedReg.baptismFolio} className="h-10 rounded-xl bg-white border-slate-200" /></div>
+                        </div>
                       </div>
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="documents" className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-4">
-                        <div className="flex items-center gap-2 mb-2"><ImageIcon className="h-4 w-4 text-slate-400" /><h4 className="text-xs font-black uppercase text-slate-500">Certificado de Bautismo</h4></div>
-                        {selectedReg.baptismCertificatePhotoUrl ? (
-                          <div className="relative group aspect-[4/3] rounded-2xl overflow-hidden border shadow-inner"><img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover" /></div>
-                        ) : (<div className="aspect-[4/3] rounded-2xl bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center text-slate-300"><X className="h-8 w-8 mb-2" /><span className="text-[10px] font-bold uppercase">No adjunto</span></div>)}
+                  <TabsContent value="docs" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="p-8 bg-white rounded-[2rem] border shadow-sm space-y-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2"><ImageIcon className="h-4 w-4 text-blue-500" /><h4 className="text-xs font-black uppercase text-slate-500">Comprobante de Pago</h4></div>
+                          {selectedReg.receiptNumber && <Badge className="bg-green-100 text-green-700 border-none">RECIBO: {selectedReg.receiptNumber}</Badge>}
+                        </div>
+                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group cursor-pointer" onClick={() => openImageViewer(selectedReg.paymentProofUrl)}>
+                          {selectedReg.paymentProofUrl ? (
+                            <>
+                              <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Maximize2 className="h-8 w-8 text-white" /></div>
+                            </>
+                          ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-2"><ImageIcon className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Sin imagen adjunta</span></div>
+                          )}
+                        </div>
+                        <div className="pt-2 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
+                          <span>Monto Abonado:</span>
+                          <span className="text-slate-900 text-sm">{(selectedReg.amountPaid || 0).toLocaleString('es-PY')} Gs.</span>
+                        </div>
+                      </div>
+
+                      <div className="p-8 bg-white rounded-[2rem] border shadow-sm space-y-4">
+                        <div className="flex items-center gap-2 mb-2"><ImageIcon className="h-4 w-4 text-orange-500" /><h4 className="text-xs font-black uppercase text-slate-500">Certificado de Bautismo</h4></div>
+                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group cursor-pointer" onClick={() => openImageViewer(selectedReg.baptismCertificatePhotoUrl)}>
+                          {selectedReg.baptismCertificatePhotoUrl ? (
+                            <>
+                              <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Maximize2 className="h-8 w-8 text-white" /></div>
+                            </>
+                          ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-2"><ImageIcon className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Sin imagen adjunta</span></div>
+                          )}
+                        </div>
+                        <div className="pt-2 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
+                          <span>Estado SACRAMENTO:</span>
+                          <Badge variant="outline" className={cn("text-[9px]", selectedReg.hasBaptism ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50")}>{selectedReg.hasBaptism ? "BAUTIZADO" : "SIN BAUTISMO"}</Badge>
+                        </div>
                       </div>
                     </div>
                   </TabsContent>
@@ -624,24 +776,34 @@ export default function RegistrationsListPage() {
 
               <DialogFooter className="p-8 bg-white border-t flex items-center justify-between">
                 <div className="flex gap-2">
-                  <Button type="button" variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 font-black gap-2 h-12 rounded-xl" onClick={() => setIsWithdrawalOpen(true)}>
-                    <UserMinus className="h-5 w-5" /> BAJA
+                  <Button type="button" variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 font-black gap-2 h-12 rounded-xl px-6" onClick={() => setIsWithdrawalOpen(true)}>
+                    <UserMinus className="h-5 w-5" /> DAR DE BAJA
                   </Button>
                   {selectedReg.status === "INSCRITO" && (
-                    <Button type="button" variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-black gap-2 h-12 rounded-xl" onClick={() => { setSelectedReg(selectedReg); setIsRevertDialogOpen(true); }}>
+                    <Button type="button" variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-black gap-2 h-12 rounded-xl px-6" onClick={() => { setSelectedReg(selectedReg); setIsRevertDialogOpen(true); }}>
                       <RotateCcw className="h-5 w-5" /> ANULAR PAGO
                     </Button>
                   )}
                 </div>
                 <div className="flex gap-3">
                   <Button type="button" variant="outline" className="h-12 px-8 rounded-xl font-bold border-slate-200" onClick={() => setIsDetailsOpen(false)}>Cerrar</Button>
-                  <Button type="submit" className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-xl gap-2" disabled={isProcessing}>
+                  <Button type="submit" className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-xl gap-2 active:scale-95 transition-all" disabled={isProcessing}>
                     {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5" />} GUARDAR CAMBIOS
                   </Button>
                 </div>
               </DialogFooter>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* VISUALIZADOR DE IMAGEN FULL */}
+      <Dialog open={fullImageViewerOpen} onOpenChange={setFullImageOpen}>
+        <DialogContent className="max-w-[95vw] h-[95vh] p-0 border-none bg-black/95 shadow-2xl flex flex-col items-center justify-center rounded-none sm:rounded-[2.5rem] overflow-hidden">
+          <button className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all" onClick={() => setFullImageOpen(false)}><X className="h-6 w-6" /></button>
+          <div className="w-full h-full p-4 flex items-center justify-center">
+            <img src={fullImageUrl} className="max-w-full max-h-full object-contain animate-in zoom-in-95 duration-300" />
+          </div>
         </DialogContent>
       </Dialog>
 
