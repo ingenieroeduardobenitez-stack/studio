@@ -35,7 +35,8 @@ import {
   Phone,
   Heart,
   Calendar,
-  Maximize2
+  Maximize2,
+  Camera
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc } from "firebase/firestore"
