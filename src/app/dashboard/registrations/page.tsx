@@ -370,7 +370,9 @@ export default function RegistrationsListPage() {
                   const cleanCi = reg.ciNumber?.replace(/[^0-9]/g, '') || ""
                   const isRepetido = duplicateCis.has(cleanCi)
                   const isManual = reg.userId !== "public_registration"
+                  const creator = allUsers?.find(u => u.id === reg.userId)
                   const createdDate = reg.createdAt?.toDate ? reg.createdAt.toDate() : (reg.createdAt ? new Date(reg.createdAt) : new Date())
+                  const isEfectivo = reg.paymentMethod === "EFECTIVO"
                   
                   return (
                     <TableRow key={reg.id} className="h-24 hover:bg-slate-50/30 transition-colors border-slate-100">
@@ -393,9 +395,16 @@ export default function RegistrationsListPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={cn("text-[9px] font-black uppercase tracking-widest px-2.5 h-6 rounded-full border-none shadow-sm", isManual ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700")}>
-                          {isManual ? "MANUAL" : "PÚBLICO"}
-                        </Badge>
+                        <div className="flex flex-col">
+                          <Badge variant="secondary" className={cn("text-[9px] font-black uppercase tracking-widest px-2.5 h-6 rounded-full border-none shadow-sm w-fit", isManual ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700")}>
+                            {isManual ? "MANUAL" : "PÚBLICO"}
+                          </Badge>
+                          {isManual && creator && (
+                            <span className="text-[9px] text-slate-400 font-bold uppercase mt-1 ml-1 truncate max-w-[100px]">
+                              {creator.firstName}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
@@ -408,8 +417,11 @@ export default function RegistrationsListPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5 text-[9px] font-black text-blue-600 uppercase">
-                          <CreditCard className="h-3 w-3" />
+                        <div className={cn(
+                          "flex items-center gap-1.5 text-[9px] font-black uppercase",
+                          isEfectivo ? "text-green-600" : "text-blue-600"
+                        )}>
+                          {isEfectivo ? <Banknote className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
                           {reg.paymentMethod || "TRANSFERENCIA"}
                         </div>
                       </TableCell>
@@ -490,7 +502,7 @@ export default function RegistrationsListPage() {
         </CardContent>
       </Card>
 
-      {/* DIÁLOGO VISOR DE COMPROBANTE PARA VALIDACIÓN - AJUSTADO A PANTALLA */}
+      {/* DIÁLOGO VISOR DE COMPROBANTE PARA VALIDACIÓN */}
       <Dialog open={isValidatingProofOpen} onOpenChange={setIsValidatingProofOpen}>
         <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[92vh] max-h-[92vh] flex flex-col">
           <DialogHeader className="p-8 pb-6 bg-blue-600 text-white shrink-0 relative">
@@ -588,7 +600,12 @@ export default function RegistrationsListPage() {
                         <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label><Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem><SelectItem value="SEGUNDO_AÑO">SEGUNDO AÑO</SelectItem><SelectItem value="ADULTOS">ADULTOS</SelectItem></SelectContent></Select></div>
                         <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignar Grupo</Label><Select name="groupId" defaultValue={selectedReg.groupId || "none"}><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Sin grupo asignado" /></SelectTrigger><SelectContent><SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>{allGroups?.filter(g => g.catechesisYear === selectedReg.catechesisYear).map(g => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay})</SelectItem>))}</SelectContent></Select></div>
                       </div>
-                      <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10"><Info className="h-5 w-5 text-primary shrink-0" /><p className="text-[10px] text-primary/70 leading-relaxed font-medium">Al cambiar el grupo, el confirmando aparecerá automáticamente en la lista de asistencia del catequista responsable. Asegúrate de que el día coincida con su preferencia original ({selectedReg.attendanceDay}S).</p></div>
+                      <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                        <Info className="h-5 w-5 text-primary shrink-0" />
+                        <p className="text-[10px] text-primary/70 leading-relaxed font-medium">
+                          Al cambiar el grupo, el confirmando aparecerá automáticamente en la lista de asistencia del catequista responsable. Asegúrate de que el día coincida con su preferencia original ({selectedReg.attendanceDay}S).
+                        </p>
+                      </div>
                     </div>
                   </TabsContent>
 
