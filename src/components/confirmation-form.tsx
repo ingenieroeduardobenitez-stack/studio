@@ -24,7 +24,9 @@ import {
   FileText,
   X,
   FlipHorizontal,
-  Plus
+  Plus,
+  Info,
+  Calendar
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -491,6 +493,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </Form>
     </Card>
   )
 }
