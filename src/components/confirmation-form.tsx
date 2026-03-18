@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -36,7 +35,6 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import {
@@ -76,6 +74,7 @@ const formSchema = z.object({
   fatherName: z.string().optional(),
   fatherPhone: z.string().optional(),
   tutorName: z.string().optional(),
+  tutorPhone: z.string().optional(),
   catechesisYear: z.enum(["PRIMER_AÑO", "SEGUNDO_AÑO", "ADULTOS"], {
     required_error: "Debe seleccionar un año de catequesis",
   }),
@@ -129,7 +128,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false)
   const [submittedData, setSubmittedData] = useState<any>(null)
 
-  // Estados para Cámara
   const [showCamera, setShowCamera] = useState(false)
   const [cameraTarget, setCameraTarget] = useState<"photoUrl" | "paymentProofUrl" | "baptismCertificatePhotoUrl" | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
@@ -156,7 +154,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       photoUrl: "", paymentMethod: isPublic ? "TRANSFERENCIA" : "EFECTIVO",
       registrationCost: 35000, catechesisYear: "PRIMER_AÑO", attendanceDay: "SABADO",
       hasBaptism: false, hasFirstCommunion: false,
-      motherName: "", motherPhone: "", fatherName: "", fatherPhone: "", tutorName: ""
+      motherName: "", motherPhone: "", fatherName: "", fatherPhone: "", tutorName: "", tutorPhone: ""
     },
   })
 
@@ -323,7 +321,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </CardHeader>
           
           <CardContent className="p-8 space-y-12">
-            {/* SECCIÓN 1: DATOS PERSONALES */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2">
                 <UserPlus className="h-5 w-5 text-primary" />
@@ -366,7 +363,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </div>
 
-            {/* SECCIÓN 2: PADRES Y TUTOR */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2">
                 <Heart className="h-5 w-5 text-pink-500" />
@@ -383,13 +379,30 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormLabel className="text-xs font-bold">Nombre Completo</FormLabel><FormControl><Input {...field} className="h-10 rounded-lg bg-white uppercase font-medium" /></FormControl></FormItem>)} />
                   <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><FormLabel className="text-xs font-bold">Celular</FormLabel><FormControl><Input {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
                 </div>
-                <div className="md:col-span-2">
-                  <FormField control={form.control} name="tutorName" render={({ field }) => (<FormItem><FormLabel className="font-bold">Tutor Responsable (Si no son los padres)</FormLabel><FormControl><Input {...field} placeholder="Nombre del encargado legal" className="h-12 rounded-xl bg-slate-50 uppercase" /></FormControl></FormItem>)} />
+                <div className="md:col-span-2 space-y-4 p-6 bg-slate-50 rounded-[2rem] border">
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Tutor Responsable (Si no son los padres)</p>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField control={form.control} name="tutorName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold">Nombre Completo del Tutor</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Nombre del encargado legal" className="h-10 rounded-lg bg-white uppercase font-medium" />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="tutorPhone" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold">Celular del Tutor</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="09XX" className="h-10 rounded-lg bg-white" />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* SECCIÓN 3: CATEQUESIS */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2">
                 <Church className="h-5 w-5 text-primary" />
@@ -407,7 +420,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <SelectItem value="ADULTOS">CURSO PARA ADULTOS</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="attendanceDay" render={({ field }) => (
@@ -420,13 +432,11 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         <SelectItem value="DOMINGO">DOMINGOS (08:00 hs)</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
                   </FormItem>
                 )} />
               </div>
             </div>
 
-            {/* SECCIÓN 4: SACRAMENTOS */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2">
                 <FileText className="h-5 w-5 text-orange-500" />
@@ -465,7 +475,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
               </div>
             </div>
 
-            {/* SECCIÓN 5: PAGO */}
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b pb-2">
                 <Wallet className="h-5 w-5 text-primary" />
@@ -536,7 +545,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         </form>
       </Form>
 
-      {/* DIÁLOGO DE CÁMARA */}
       <Dialog open={showCamera} onOpenChange={(open) => { 
         if(!open && currentStream) currentStream.getTracks().forEach(t => t.stop()); 
         setShowCamera(open); 
