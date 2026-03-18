@@ -801,6 +801,10 @@ export default function RegistrationsListPage() {
       {/* VISUALIZADOR DE IMAGEN FULL */}
       <Dialog open={fullImageViewerOpen} onOpenChange={setFullImageOpen}>
         <DialogContent className="max-w-[95vw] h-[95vh] p-0 border-none bg-black/95 shadow-2xl flex flex-col items-center justify-center rounded-none sm:rounded-[2.5rem] overflow-hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Visualizador de Imagen</DialogTitle>
+            <DialogDescription>Vista ampliada del documento o foto de perfil</DialogDescription>
+          </DialogHeader>
           <button className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all" onClick={() => setFullImageOpen(false)}><X className="h-6 w-6" /></button>
           <div className="w-full h-full p-4 flex items-center justify-center">
             <img src={fullImageUrl} className="max-w-full max-h-full object-contain animate-in zoom-in-95 duration-300" />
