@@ -54,6 +54,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
