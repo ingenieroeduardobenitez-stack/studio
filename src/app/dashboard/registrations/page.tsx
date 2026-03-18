@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -358,6 +357,7 @@ export default function RegistrationsListPage() {
               <TableHeader className="bg-slate-50/50 border-y">
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="pl-8 py-5 font-bold text-slate-500">Confirmando</TableHead>
+                  <TableHead className="font-bold text-slate-500">Origen</TableHead>
                   <TableHead className="font-bold text-slate-500">Año / Horario</TableHead>
                   <TableHead className="font-bold text-slate-500">Forma Pago</TableHead>
                   <TableHead className="text-center font-bold text-slate-500">Estado</TableHead>
@@ -390,10 +390,12 @@ export default function RegistrationsListPage() {
                             <span className="text-xs font-bold text-blue-600 tracking-tighter mt-1">{reg.ciNumber}</span>
                             <span className="text-[10px] text-slate-400 font-medium">{reg.phone}</span>
                           </div>
-                          {!isManual && (
-                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[8px] font-black tracking-widest px-2 h-5 rounded-full ml-2">PÚBLICO</Badge>
-                          )}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={cn("text-[9px] font-black uppercase tracking-widest px-2.5 h-6 rounded-full border-none shadow-sm", isManual ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700")}>
+                          {isManual ? "MANUAL" : "PÚBLICO"}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
@@ -586,7 +588,7 @@ export default function RegistrationsListPage() {
                         <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label><Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem><SelectItem value="SEGUNDO_AÑO">SEGUNDO AÑO</SelectItem><SelectItem value="ADULTOS">ADULTOS</SelectItem></SelectContent></Select></div>
                         <div className="space-y-2"><Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignar Grupo</Label><Select name="groupId" defaultValue={selectedReg.groupId || "none"}><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Sin grupo asignado" /></SelectTrigger><SelectContent><SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>{allGroups?.filter(g => g.catechesisYear === selectedReg.catechesisYear).map(g => (<SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay})</SelectItem>))}</SelectContent></Select></div>
                       </div>
-                      <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10"><Info className="h-5 w-5 text-primary shrink-0" /><p className="text-[10px] text-primary/70 leading-relaxed font-medium">Al cambiar el grupo, el confirmando aparecerá automáticamente en la lista del catequista responsable.</p></div>
+                      <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10"><Info className="h-5 w-5 text-primary shrink-0" /><p className="text-[10px] text-primary/70 leading-relaxed font-medium">Al cambiar el grupo, el confirmando aparecerá automáticamente en la lista de asistencia del catequista responsable. Asegúrate de que el día coincida con su preferencia original ({selectedReg.attendanceDay}S).</p></div>
                     </div>
                   </TabsContent>
 
@@ -609,7 +611,7 @@ export default function RegistrationsListPage() {
                     <UserMinus className="h-5 w-5" /> BAJA
                   </Button>
                   {selectedReg.status === "INSCRITO" && (
-                    <Button type="button" variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-black gap-2 h-12 rounded-xl" onClick={() => { setSelectedReg(reg); setIsRevertDialogOpen(true); }}>
+                    <Button type="button" variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-black gap-2 h-12 rounded-xl" onClick={() => { setSelectedReg(selectedReg); setIsRevertDialogOpen(true); }}>
                       <RotateCcw className="h-5 w-5" /> ANULAR PAGO
                     </Button>
                   )}
