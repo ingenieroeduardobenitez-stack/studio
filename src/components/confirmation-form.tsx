@@ -174,7 +174,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   useEffect(() => {
     if (birthDate) {
-      const birth = new Date(birthDate); const now = new Date();
+      const birth = new Date(birthDate); 
+      const now = new Date();
       let calculatedAge = now.getFullYear() - birth.getFullYear();
       const m = now.getMonth() - birth.getMonth();
       if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) calculatedAge--;
@@ -201,13 +202,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         if (data.NOM_MADRE) setValue("motherName", data.NOM_MADRE.toUpperCase());
         if (data.NOM_PADRE) setValue("fatherName", data.NOM_PADRE.toUpperCase());
         if (data.FECHA_NACI) setValue("birthDate", data.FECHA_NACI);
-        if (data.SEXO) { const s = String(data.SEXO).toUpperCase(); if (s.startsWith('M')) setValue("sexo", "M"); else if (s.startsWith('F')) setValue("sexo", "F"); }
+        if (data.SEXO) { 
+          const s = String(data.SEXO).toUpperCase(); 
+          if (s.startsWith('M')) setValue("sexo", "M"); 
+          else if (s.startsWith('F')) setValue("sexo", "F"); 
+        }
         toast({ title: "Datos recuperados del Padrón" });
       }
     } finally { setIsSearchingCi(false); }
   }
 
-  // Lógica de Cámara
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node && currentStream) {
       if (node.srcObject !== currentStream) {
@@ -298,10 +302,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </div>
           <p className="text-xs text-slate-400">Guarda este número para cualquier consulta sobre tu inscripción.</p>
         </CardContent>
-        <CardFooter className="p-8 bg-slate-50"><Button className="w-full h-14 rounded-2xl font-black bg-slate-900" asChild><Link href={isPublic ? "/" : "/dashboard"}>FINALIZAR</Link></Button></CardFooter>
+        <CardFooter className="p-8 bg-slate-50">
+          <Button className="w-full h-14 rounded-2xl font-black bg-slate-900" asChild>
+            <Link href={isPublic ? "/" : "/dashboard"}>FINALIZAR</Link>
+          </Button>
+        </CardFooter>
       </Card>
     )
   }
+
+  if (!mounted) return null;
 
   return (
     <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden max-w-4xl mx-auto">
@@ -315,7 +325,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           <CardContent className="p-8 space-y-12">
             {/* SECCIÓN 1: DATOS PERSONALES */}
             <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b pb-2"><UserPlus className="h-5 w-5 text-primary" /><h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">1. Identidad del Postulante</h3></div>
+              <div className="flex items-center gap-3 border-b pb-2">
+                <UserPlus className="h-5 w-5 text-primary" />
+                <h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">1. Identidad del Postulante</h3>
+              </div>
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="md:col-span-2 flex flex-col items-center justify-center space-y-4 py-4">
                   <Label className="font-bold text-slate-700">Foto de Perfil (Frente) *</Label>
@@ -333,7 +346,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 </div>
 
                 <FormField control={form.control} name="ciNumber" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">N° de C.I. *</FormLabel><div className="flex gap-2"><FormControl><Input placeholder="Solo números" {...field} className="h-12 rounded-xl" /></FormControl><Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl bg-primary">{isSearchingCi ? <Loader2 className="animate-spin" /> : <Search className="h-4 w-4" />}</Button></div><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel className="font-bold">N° de C.I. *</FormLabel>
+                    <div className="flex gap-2">
+                      <FormControl><Input placeholder="Solo números" {...field} className="h-12 rounded-xl" /></FormControl>
+                      <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl bg-primary">
+                        {isSearchingCi ? <Loader2 className="animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="fullName" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nombre Completo *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase font-bold" /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="09XX" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
@@ -346,7 +368,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
             {/* SECCIÓN 2: PADRES Y TUTOR */}
             <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b pb-2"><Heart className="h-5 w-5 text-pink-500" /><h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">2. Datos de los Padres / Tutor</h3></div>
+              <div className="flex items-center gap-3 border-b pb-2">
+                <Heart className="h-5 w-5 text-pink-500" />
+                <h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">2. Datos de los Padres / Tutor</h3>
+              </div>
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-4 p-6 bg-slate-50 rounded-[2rem] border">
                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Madre</p>
@@ -366,20 +391,47 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
             {/* SECCIÓN 3: CATEQUESIS */}
             <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b pb-2"><Church className="h-5 w-5 text-primary" /><h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">3. Nivel y Horario de Asistencia</h3></div>
+              <div className="flex items-center gap-3 border-b pb-2">
+                <Church className="h-5 w-5 text-primary" />
+                <h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">3. Nivel y Horario de Asistencia</h3>
+              </div>
               <div className="grid gap-6 md:grid-cols-2">
                 <FormField control={form.control} name="catechesisYear" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Año de Catequesis *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem><SelectItem value="SEGUNDO_AÑO">SEGUNDO AÑO</SelectItem><SelectItem value="ADULTOS">CURSO PARA ADULTOS</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel className="font-bold">Año de Catequesis *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem>
+                        <SelectItem value="SEGUNDO_AÑO">SEGUNDO AÑO</SelectItem>
+                        <SelectItem value="ADULTOS">CURSO PARA ADULTOS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="attendanceDay" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Día de Asistencia *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="SABADO">SÁBADOS (15:30 hs)</SelectItem><SelectItem value="DOMINGO">DOMINGOS (08:00 hs)</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel className="font-bold">Día de Asistencia *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="SABADO">SÁBADOS (15:30 hs)</SelectItem>
+                        <SelectItem value="DOMINGO">DOMINGOS (08:00 hs)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
                 )} />
               </div>
             </div>
 
             {/* SECCIÓN 4: SACRAMENTOS */}
             <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b pb-2"><FileText className="h-5 w-5 text-orange-500" /><h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">4. Sacramentos Recibidos</h3></div>
+              <div className="flex items-center gap-3 border-b pb-2">
+                <FileText className="h-5 w-5 text-orange-500" />
+                <h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">4. Sacramentos Recibidos</h3>
+              </div>
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-4">
                   <FormField control={form.control} name="hasBaptism" render={({ field }) => (<FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 border rounded-xl bg-slate-50/50"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel className="font-bold">¿Ya recibió el Bautismo?</FormLabel></div></FormItem>)} />
@@ -415,7 +467,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
             {/* SECCIÓN 5: PAGO */}
             <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b pb-2"><Wallet className="h-5 w-5 text-primary" /><h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">5. Pago de Inscripción</h3></div>
+              <div className="flex items-center gap-3 border-b pb-2">
+                <Wallet className="h-5 w-5 text-primary" />
+                <h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">5. Pago de Inscripción</h3>
+              </div>
               <div className="p-6 bg-slate-50 rounded-[2rem] border border-dashed flex flex-col items-center justify-center space-y-2">
                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Arancel del Ciclo Lectivo:</p>
                 <p className="text-4xl font-black text-primary tracking-tighter">{establishedLimit.toLocaleString('es-PY')} Gs.</p>
@@ -423,17 +478,29 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
               <FormField control={form.control} name="paymentMethod" render={({ field }) => (
                 <FormItem className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {!isPublic && (<div onClick={() => field.onChange("EFECTIVO")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "EFECTIVO" ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:bg-slate-50")}><Banknote className={cn("h-8 w-8", field.value === "EFECTIVO" ? "text-primary" : "text-slate-300")} /><span className="text-xs font-black uppercase">Efectivo (Caja)</span></div>)}
-                  
-                  <div onClick={() => field.onChange("TRANSFERENCIA")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "TRANSFERENCIA" ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:bg-slate-50")}><ArrowRightLeft className={cn("h-8 w-8", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-300")} /><span className="text-xs font-black uppercase">Transferencia</span></div>
-                  
-                  <div onClick={() => field.onChange("SIN_PAGO")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "SIN_PAGO" ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:bg-slate-50")}><Clock className={cn("h-8 w-8", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-300")} /><span className="text-xs font-black uppercase text-center">{isPublic ? "Pagar en caja el día de catequesis" : "Pendiente / Ajuste"}</span></div>
+                  {!isPublic && (
+                    <div onClick={() => field.onChange("EFECTIVO")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "EFECTIVO" ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:bg-slate-50")}>
+                      <Banknote className={cn("h-8 w-8", field.value === "EFECTIVO" ? "text-primary" : "text-slate-300")} />
+                      <span className="text-xs font-black uppercase">Efectivo (Caja)</span>
+                    </div>
+                  )}
+                  <div onClick={() => field.onChange("TRANSFERENCIA")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "TRANSFERENCIA" ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:bg-slate-50")}>
+                    <ArrowRightLeft className={cn("h-8 w-8", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-300")} />
+                    <span className="text-xs font-black uppercase">Transferencia</span>
+                  </div>
+                  <div onClick={() => field.onChange("SIN_PAGO")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "SIN_PAGO" ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:bg-slate-50")}>
+                    <Clock className={cn("h-8 w-8", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-300")} />
+                    <span className="text-xs font-black uppercase text-center">{isPublic ? "Pagar en caja el día de catequesis" : "Pendiente / Ajuste"}</span>
+                  </div>
                 </FormItem>
               )} />
 
               {paymentMethod === "TRANSFERENCIA" && (
                 <div className="space-y-4 p-8 bg-blue-50/50 rounded-[2.5rem] border border-blue-100 animate-in slide-in-from-top-4 duration-500">
-                  <div className="flex items-center gap-3 mb-2"><Info className="h-5 w-5 text-blue-600" /><p className="text-sm font-bold text-blue-900">Instrucciones de Transferencia</p></div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <Info className="h-5 w-5 text-blue-600" />
+                    <p className="text-sm font-bold text-blue-900">Instrucciones de Transferencia</p>
+                  </div>
                   <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-3">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cuenta del Santuario:</p>
                     <div className="grid grid-cols-2 gap-4">
@@ -451,7 +518,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                     </div>
                     {watch("paymentProofUrl") && (
                       <div className="relative h-48 w-full rounded-2xl overflow-hidden border-2 border-blue-200 mt-2 shadow-lg">
-                        <img src={watch("paymentProofUrl")} className="w-full h-full object-cover" />
+                        <img src={watch("paymentProofUrl")} className="w-full h-full object-cover" alt="Comprobante" />
                         <button type="button" className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg" onClick={() => setValue("paymentProofUrl", "")}><X className="h-4 w-4" /></button>
                       </div>
                     )}
@@ -470,7 +537,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       </Form>
 
       {/* DIÁLOGO DE CÁMARA */}
-      <Dialog open={showCamera} onOpenChange={(open) => { if(!open && currentStream) currentStream.getTracks().forEach(t=>t.stop()); setShowCamera(open); }}>
+      <Dialog open={showCamera} onOpenChange={(open) => { 
+        if(!open && currentStream) currentStream.getTracks().forEach(t => t.stop()); 
+        setShowCamera(open); 
+      }}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
           <DialogHeader className="p-6 bg-primary text-white shrink-0">
             <DialogTitle className="text-center uppercase font-black text-sm tracking-widest">Capturar Fotografía</DialogTitle>
@@ -483,7 +553,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
             {devices.length > 1 && (
               <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(cameraTarget, val); }}>
                 <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
-                <SelectContent>{devices.map((d) => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0,5)}`}</SelectItem>))}</SelectContent>
+                <SelectContent>
+                  {devices.map((d) => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0,5)}`}</SelectItem>))}
+                </SelectContent>
               </Select>
             )}
             <div className="flex gap-3">
@@ -493,7 +565,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Form>
     </Card>
-  )
+  );
 }
