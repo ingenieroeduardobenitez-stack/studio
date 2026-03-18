@@ -115,15 +115,6 @@ export default function RegistrationsListPage() {
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
   const { data: profile } = useDoc(userProfileRef)
 
-  const stats = useMemo(() => {
-    if (!registrations) return { total: 0, masc: 0, fem: 0 }
-    return {
-      total: registrations.length,
-      masc: registrations.filter(r => r.sexo === "M").length,
-      fem: registrations.filter(r => r.sexo === "F").length
-    }
-  }, [registrations])
-
   const duplicateCis = useMemo(() => {
     if (!registrations) return new Set<string>()
     const counts: Record<string, number> = {}
@@ -154,6 +145,15 @@ export default function RegistrationsListPage() {
       return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay && matchesMethod
     })
   }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterMethod, duplicateCis])
+
+  const stats = useMemo(() => {
+    if (!filteredRegistrations) return { total: 0, masc: 0, fem: 0 }
+    return {
+      total: filteredRegistrations.length,
+      masc: filteredRegistrations.filter(r => r.sexo === "M").length,
+      fem: filteredRegistrations.filter(r => r.sexo === "F").length
+    }
+  }, [filteredRegistrations])
 
   const handleOpenDetails = (reg: any) => {
     setSelectedReg(reg)
@@ -347,43 +347,36 @@ export default function RegistrationsListPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="border-none shadow-sm bg-white rounded-3xl p-6 border-l-4 border-l-primary">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Inscritos</p>
-            <Users className="h-4 w-4 text-primary opacity-40" />
-          </div>
-          <p className="text-4xl font-black text-slate-900 leading-none">{loading ? "..." : stats.total}</p>
-        </Card>
-        <Card className="border-none shadow-sm bg-white rounded-3xl p-6 border-l-4 border-l-blue-500">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Masculinos</p>
-            <div className="text-blue-500 font-black text-xs">♂</div>
-          </div>
-          <p className="text-4xl font-black text-slate-900 leading-none">{loading ? "..." : stats.masc}</p>
-        </Card>
-        <Card className="border-none shadow-sm bg-white rounded-3xl p-6 border-l-4 border-l-pink-500">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Femeninos</p>
-            <div className="text-pink-500 font-black text-xs">♀</div>
-          </div>
-          <p className="text-4xl font-black text-slate-900 leading-none">{loading ? "..." : stats.fem}</p>
-        </Card>
-      </div>
-
       <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
         <CardHeader className="bg-slate-50/30 p-8 pb-0">
           <div className="space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal</Label>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input 
-                  placeholder="Nombre o C.I..." 
-                  className="pl-12 h-14 rounded-2xl bg-white border-slate-200 shadow-sm text-lg" 
-                  value={searchTerm} 
-                  onChange={(e) => setSearchTerm(e.target.value)} 
-                />
+            <div className="flex flex-col lg:flex-row gap-6 items-end">
+              <div className="flex-1 w-full space-y-2">
+                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal</Label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Nombre o C.I..." 
+                    className="pl-12 h-14 rounded-2xl bg-white border-slate-200 shadow-sm text-lg" 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 w-full lg:w-auto">
+                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
+                  <p className="text-xl font-black text-primary leading-none">{loading ? "..." : stats.total}</p>
+                </div>
+                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Hombres</p>
+                  <p className="text-xl font-black text-blue-600 leading-none">{loading ? "..." : stats.masc}</p>
+                </div>
+                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mujeres</p>
+                  <p className="text-xl font-black text-pink-600 leading-none">{loading ? "..." : stats.fem}</p>
+                </div>
               </div>
             </div>
             
@@ -489,9 +482,9 @@ export default function RegistrationsListPage() {
                       </TableCell>
                       <TableCell className="text-right pr-8">
                         <div className="flex items-center justify-end gap-3">
-                          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full text-slate-300 hover:text-primary" onClick={() => handleOpenDetails(reg)}>
+                          <button className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-300 hover:text-primary" onClick={() => handleOpenDetails(reg)}>
                             <Eye className="h-5 w-5" />
-                          </Button>
+                          </button>
                           
                           {reg.status === "POR_VALIDAR" && (
                             <Button 
