@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -407,7 +406,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="fullName" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nombre Completo *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase font-bold" /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="09XX" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormMessage></FormItem>)} />
+                <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="09XX" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nacimiento *</FormLabel><FormControl><div className="relative"><Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /><Input type="date" {...field} className="pl-10 h-12 rounded-xl" /></div></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={form.control} name="sexo" render={({ field }) => (<FormItem><FormLabel className="font-bold">Sexo *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="-" /></SelectTrigger></FormControl><SelectContent><SelectItem value="M">Masculino</SelectItem><SelectItem value="F">Femenino</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
