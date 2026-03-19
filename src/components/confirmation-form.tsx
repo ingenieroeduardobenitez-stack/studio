@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -197,7 +196,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       const ciQuery = query(confirmationsCol, where("ciNumber", "==", ciValue));
       const existingSnapshot = await getDocs(ciQuery);
       
-      if (!existingSnapshot.empty) {
+      const isRegistered = !existingSnapshot.empty && existingSnapshot.docs.some(d => !d.data().isArchived);
+
+      if (isRegistered) {
         setError("ciNumber", { type: "manual", message: "Esta persona ya está registrado" });
         toast({ variant: "destructive", title: "Inscripción Duplicada", description: "Esta persona ya está registrado" });
         setIsSearchingCi(false);
@@ -328,8 +329,10 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden max-w-2xl mx-auto text-center">
         <div className="bg-primary p-12 text-white"><CheckCircle2 className="h-16 w-16 mx-auto mb-4" /><h2 className="text-3xl font-black uppercase">¡Registro Exitoso!</h2></div>
         <CardContent className="p-10 space-y-4">
-          <p className="text-slate-500">La ficha de <strong>{submittedData?.fullName}</strong> ha sido enviada correctamente.</p>
-          <div className="p-6 bg-slate-50 rounded-2xl border-2 border-dashed font-mono text-2xl font-bold text-primary">N° {submittedData?.id.split('_')[1]}</div>
+          <p className="text-slate-500 text-lg">La ficha de <strong>{submittedData?.fullName}</strong> ha sido enviada correctamente.</p>
+          <div className="py-4 px-8 bg-slate-50 rounded-2xl border border-slate-100 italic text-slate-400 text-sm">
+            Tus datos ya están en nuestro sistema. Nos pondremos en contacto contigo pronto.
+          </div>
         </CardContent>
         <CardFooter className="p-8 bg-slate-50"><Button className="w-full h-14 rounded-2xl font-black bg-slate-900" asChild><Link href={isPublic ? "/" : "/dashboard"}>FINALIZAR</Link></Button></CardFooter>
       </Card>
@@ -390,7 +393,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <FormField control={form.control} name="fatherPhone" render={({ field }) => (<FormItem><FormLabel className="text-xs">Celular</FormLabel><FormControl><Input {...field} value={field.value || ""} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
                 </div>
                 <div className="md:col-span-2 space-y-4 p-6 bg-slate-50 rounded-[2rem] border">
-                  <p className="text-[10px] font-black uppercase text-slate-400">Tutor Legal (Si aplica)</p>
+                  <p className="text-[10px] font-black uppercase text-slate-400">Responsable / Tutor (Si aplica)</p>
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField control={form.control} name="tutorName" render={({ field }) => (<FormItem><FormLabel className="text-xs">Nombre Tutor</FormLabel><FormControl><Input {...field} value={field.value || ""} className="h-10 rounded-lg bg-white uppercase font-medium" /></FormControl></FormItem>)} />
                     <FormField control={form.control} name="tutorPhone" render={({ field }) => (<FormItem><FormLabel className="text-xs">Celular Tutor</FormLabel><FormControl><Input {...field} value={field.value || ""} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
@@ -467,4 +470,3 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     </Card>
   );
 }
-    
