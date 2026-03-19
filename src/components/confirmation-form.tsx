@@ -193,12 +193,11 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     clearErrors("ciNumber");
     
     try {
-      // 1. VERIFICACIÓN CRÍTICA: ¿Ya existe una inscripción activa para esta C.I.?
+      // 1. VERIFICACIÓN EN LA COLECCIÓN confirmations
       const confirmationsCol = collection(db, "confirmations");
       const ciQuery = query(
         confirmationsCol, 
-        where("ciNumber", "==", ciValue), 
-        where("isArchived", "==", false)
+        where("ciNumber", "==", ciValue)
       );
       
       const existingSnapshot = await getDocs(ciQuery);
@@ -206,12 +205,12 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
       if (!existingSnapshot.empty) {
         setError("ciNumber", { 
           type: "manual", 
-          message: "Este número de Cédula ya posee una ficha de inscripción activa en el sistema." 
+          message: "Esta persona ya está registrado" 
         });
         toast({ 
           variant: "destructive", 
           title: "Inscripción Duplicada", 
-          description: "La persona ya se encuentra registrada en el ciclo actual." 
+          description: "Esta persona ya está registrado" 
         });
         setIsSearchingCi(false);
         return;
@@ -242,7 +241,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     } catch (error: any) {
       if (error.code === 'permission-denied') {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `confirmations/check`,
+          path: `confirmations`,
           operation: 'list',
         }));
       }
@@ -408,9 +407,9 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="fullName" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nombre Completo *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl uppercase font-bold" /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="09XX" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="09XX" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormMessage></FormItem>)} />
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nacimiento *</FormLabel><FormControl><Input type="date" {...field} className="h-12 rounded-xl" /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel className="font-bold">Nacimiento *</FormLabel><FormControl><div className="relative"><Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /><Input type="date" {...field} className="pl-10 h-12 rounded-xl" /></div></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={form.control} name="sexo" render={({ field }) => (<FormItem><FormLabel className="font-bold">Sexo *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="-" /></SelectTrigger></FormControl><SelectContent><SelectItem value="M">Masculino</SelectItem><SelectItem value="F">Femenino</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                 </div>
               </div>
