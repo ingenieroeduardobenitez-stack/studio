@@ -20,8 +20,10 @@ service cloud.firestore {
     }
 
     match /confirmations/{id} {
-      // Se permite crear y leer (para verificar duplicados por C.I.) a cualquier persona
+      // PERMISOS PÚBLICOS: Se permite crear y leer (para verificar duplicados por C.I.) a cualquier persona
+      // v1.3.1 - Asegurando acceso para inscripción pública
       allow create, read: if true;
+      
       // Solo personal autorizado puede modificar o borrar fichas
       allow update, delete: if isSignedIn();
       
@@ -46,8 +48,9 @@ service cloud.firestore {
     }
 
     match /settings/{settingId} {
+      // Se permite lectura pública para que los postulantes vean aranceles y datos de transferencia
       allow read: if true;
-      // Se permite write a usuarios firmados para que catequistas puedan incrementar el nro de recibo
+      // Solo personal firmado puede cambiar la configuración
       allow write: if isSignedIn();
     }
 
@@ -57,7 +60,10 @@ service cloud.firestore {
     }
 
     match /cedulas/{cedulaId} {
-      allow read, write: if true;
+      // Se permite lectura pública para el auto-completado por C.I.
+      allow read: if true;
+      // Solo el script de importación o admin puede escribir
+      allow write: if true; 
     }
 
     match /qr_transactions/{txId} {

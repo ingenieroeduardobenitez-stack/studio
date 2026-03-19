@@ -55,6 +55,8 @@ import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 const formSchema = z.object({
   fullName: z.string().min(5, "Nombre completo requerido"),
@@ -185,15 +187,21 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!db || !ciValue || ciValue.length < 5) return;
     setIsSearchingCi(true); clearErrors("ciNumber");
     const cleanCi = ciValue.replace(/[^0-9]/g, '');
+    
     try {
+      // 1. Verificar duplicados en inscripciones activas
       const ciCheckQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue), where("isArchived", "==", false));
       const querySnapshot = await getDocs(ciCheckQuery);
+      
       if (!querySnapshot.empty) {
         setError("ciNumber", { type: "manual", message: "Esta persona ya se encuentra registrada como inscripta." });
-        setIsSearchingCi(false); return;
+        setIsSearchingCi(false); 
+        return;
       }
 
+      // 2. Consultar Padrón de Cédulas
       const docSnap = await getDoc(doc(db, "cedulas", cleanCi));
+      
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.NOMBRE && data.APELLIDO) setValue("fullName", `${data.NOMBRE} ${data.APELLIDO}`.toUpperCase());
@@ -207,7 +215,17 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         }
         toast({ title: "Datos recuperados del Padrón" });
       }
-    } finally { setIsSearchingCi(false); }
+    } catch (error: any) {
+      console.error("Error al consultar CI:", error);
+      if (error.code === 'permission-denied') {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `confirmations/cedulas/${cleanCi}`,
+          operation: 'get',
+        }));
+      }
+    } finally { 
+      setIsSearchingCi(false); 
+    }
   }
 
   const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
@@ -382,22 +400,8 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <div className="md:col-span-2 space-y-4 p-6 bg-slate-50 rounded-[2rem] border">
                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Tutor Responsable (Si no son los padres)</p>
                   <div className="grid gap-4 md:grid-cols-2">
-                    <FormField control={form.control} name="tutorName" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-bold">Nombre Completo del Tutor</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Nombre del encargado legal" className="h-10 rounded-lg bg-white uppercase font-medium" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="tutorPhone" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-bold">Celular del Tutor</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="09XX" className="h-10 rounded-lg bg-white" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
+                    <FormField control={form.control} name="tutorName" render={({ field }) => (<FormItem><FormLabel className="text-xs font-bold">Nombre del Tutor</FormLabel><FormControl><Input {...field} className="h-10 rounded-lg bg-white uppercase font-medium" /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="tutorPhone" render={({ field }) => (<FormItem><FormLabel className="text-xs font-bold">Celular del Tutor</FormLabel><FormControl><Input {...field} className="h-10 rounded-lg bg-white" /></FormControl></FormItem>)} />
                   </div>
                 </div>
               </div>
@@ -573,6 +577,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </Form>
     </Card>
   );
 }
