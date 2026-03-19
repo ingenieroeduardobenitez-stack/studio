@@ -20,8 +20,10 @@ service cloud.firestore {
     }
 
     match /confirmations/{id} {
-      allow create: if true;
-      allow read, update, delete: if isSignedIn();
+      // Se permite crear y leer (para verificar duplicados por C.I.) a cualquier persona
+      allow create, read: if true;
+      // Solo personal autorizado puede modificar o borrar fichas
+      allow update, delete: if isSignedIn();
       
       match /attendance/{atId} {
         allow read, write: if isSignedIn();
