@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -167,9 +168,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const establishedLimit = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
 
+  // LOGICA DE ARANCEL: Cambia segun el metodo de pago seleccionado
   useEffect(() => {
-    if (catechesisYear) setValue("registrationCost", establishedLimit)
-  }, [catechesisYear, establishedLimit, setValue])
+    if (paymentMethod === "SIN_PAGO") {
+      setValue("registrationCost", 0);
+    } else {
+      setValue("registrationCost", establishedLimit);
+    }
+  }, [paymentMethod, establishedLimit, setValue])
 
   useEffect(() => {
     if (birthDate) {
@@ -213,7 +219,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         toast({ title: "Datos recuperados del Padrón" });
       }
     } catch (error: any) {
-      console.error("Error al consultar CI:", error);
       if (error.code === 'permission-denied') {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: `confirmations/cedulas/${cleanCi}`,
@@ -481,9 +486,44 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <Wallet className="h-5 w-5 text-primary" />
                 <h3 className="font-bold uppercase text-xs tracking-widest text-slate-500">5. Pago de Inscripción</h3>
               </div>
-              <div className="p-6 bg-slate-50 rounded-[2rem] border border-dashed flex flex-col items-center justify-center space-y-2">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Arancel del Ciclo Lectivo:</p>
-                <p className="text-4xl font-black text-primary tracking-tighter">{establishedLimit.toLocaleString('es-PY')} Gs.</p>
+              
+              <div className="grid gap-6 md:grid-cols-2 items-center">
+                <div className="p-6 bg-slate-50 rounded-[2rem] border border-dashed flex flex-col items-center justify-center space-y-2">
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Arancel del Ciclo Lectivo:</p>
+                  <p className="text-4xl font-black text-primary tracking-tighter">{establishedLimit.toLocaleString('es-PY')} Gs.</p>
+                </div>
+
+                <FormField control={form.control} name="registrationCost" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Monto a Registrar (Gs)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        {...field} 
+                        className="h-14 text-2xl font-black rounded-2xl bg-white border-primary/20 text-primary text-center"
+                        disabled={paymentMethod === "SIN_PAGO"}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          // No permitir sobrepasar el limite establecido
+                          if (val > establishedLimit) {
+                            field.onChange(establishedLimit);
+                            toast({ 
+                              variant: "destructive", 
+                              title: "Monto excedido", 
+                              description: `El arancel máximo para este nivel es ${establishedLimit.toLocaleString('es-PY')} Gs.` 
+                            });
+                          } else {
+                            field.onChange(val);
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <p className="text-[9px] text-slate-400 italic text-center mt-1">
+                      {paymentMethod === "SIN_PAGO" ? "Monto bloqueado para pago en caja." : "Puedes modificar si el pago es parcial."}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )} />
               </div>
 
               <FormField control={form.control} name="paymentMethod" render={({ field }) => (
@@ -500,7 +540,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   </div>
                   <div onClick={() => field.onChange("SIN_PAGO")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "SIN_PAGO" ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:bg-slate-50")}>
                     <Clock className={cn("h-8 w-8", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-300")} />
-                    <span className="text-xs font-black uppercase text-center">{isPublic ? "Pagar en caja el día de catequesis" : "Pendiente / Ajuste"}</span>
+                    <span className="text-xs font-black uppercase text-center">Pagar en caja el día de catequesis</span>
                   </div>
                 </FormItem>
               )} />
