@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -39,7 +39,11 @@ import {
   Maximize2,
   Camera,
   Clock,
-  Edit
+  Edit,
+  Move,
+  ZoomIn,
+  FlipHorizontal,
+  Check
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc } from "firebase/firestore"
@@ -56,6 +60,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
+import { Slider } from "@/components/ui/slider"
 
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
@@ -84,8 +89,26 @@ export default function RegistrationsListPage() {
   const [fullImageViewerOpen, setFullImageOpen] = useState(false)
   const [fullImageUrl, setFullImageUrl] = useState("")
 
-  // Estado para la forma de pago en edición (para asegurar captura correcta)
+  // Estado para la forma de pago y foto en edición
   const [editPaymentMethod, setEditPaymentMethod] = useState<string>("")
+  const [editPhotoUrl, setEditPhotoUrl] = useState<string | null>(null)
+
+  // Estados para Cámara y Ajuste de Foto
+  const [showCamera, setShowCamera] = useState(false)
+  const [showAdjuster, setShowAdjuster] = useState(false)
+  const [pendingPhoto, setPendingPhoto] = useState<string | null>(null)
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
+  const [currentStream, setCurrentStream] = useState<MediaStream | null>(null)
+  const [zoom, setZoom] = useState(1)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const adjusterImgRef = useRef<HTMLImageElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const db = useFirestore()
   const { user } = useUser()
@@ -166,9 +189,132 @@ export default function RegistrationsListPage() {
   const handleOpenDetails = (reg: any) => {
     setSelectedReg(reg)
     setEditPaymentMethod(reg.paymentMethod || "TRANSFERENCIA")
+    setEditPhotoUrl(reg.photoUrl || null)
     setIsDetailsOpen(true)
   }
 
+  // Lógica de Cámara y Carga de Archivos
+  const onVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node && currentStream) {
+      if (node.srcObject !== currentStream) {
+        node.srcObject = currentStream;
+        node.play().catch(err => {
+          if (err.name !== 'AbortError') console.error("Video play error:", err);
+        });
+      }
+    }
+    videoRef.current = node;
+  }, [currentStream]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ variant: "destructive", title: "Formato no válido" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPendingPhoto(reader.result as string);
+      setZoom(1);
+      setPosition({ x: 0, y: 0 });
+      setShowAdjuster(true);
+    };
+    reader.readAsDataURL(file);
+    if (e.target) e.target.value = "";
+  }
+
+  const startCamera = async (deviceId?: string) => {
+    try {
+      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+      const constraints = {
+        video: {
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          facingMode: deviceId ? undefined : "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      setCurrentStream(stream)
+      const availableDevices = await navigator.mediaDevices.enumerateDevices()
+      setDevices(availableDevices.filter(d => d.kind === 'videoinput'))
+      if (!selectedDeviceId && availableDevices.length > 0) {
+        setSelectedDeviceId(deviceId || availableDevices.find(d => d.kind === 'videoinput')?.deviceId || "")
+      }
+      setShowCamera(true)
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Acceso a cámara denegado' })
+    }
+  }
+
+  const stopCamera = () => {
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop())
+      setCurrentStream(null)
+    }
+    setShowCamera(false)
+  }
+
+  const takePhoto = async () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        setPendingPhoto(canvas.toDataURL('image/jpeg', 0.9));
+        setZoom(1);
+        setPosition({ x: 0, y: 0 });
+        setShowAdjuster(true);
+        stopCamera();
+      }
+    }
+  }
+
+  const handleAdjusterConfirm = () => {
+    if (!canvasRef.current || !adjusterImgRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    canvas.width = 800;
+    canvas.height = 800;
+    const img = adjusterImgRef.current;
+    const realScale = (img.naturalWidth / img.width) * zoom;
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, 800, 800);
+    ctx.save();
+    ctx.translate(400, 400);
+    ctx.scale(realScale, realScale);
+    ctx.translate(position.x * (img.naturalWidth / (img.width * realScale)), position.y * (img.naturalHeight / (img.height * realScale)));
+    ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
+    ctx.restore();
+    const finalDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    setEditPhotoUrl(finalDataUrl);
+    setShowAdjuster(false);
+    setPendingPhoto(null);
+    toast({ title: "Imagen actualizada" });
+  }
+
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    setIsDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setDragStart({ x: clientX - position.x, y: clientY - position.y });
+  }
+
+  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDragging) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setPosition({ x: clientX - dragStart.x, y: clientY - dragStart.y });
+  }
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  // Funciones de Negocio
   const handleOpenValidation = (reg: any) => {
     setSelectedReg(reg)
     const limit = reg.registrationCost || (reg.catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000))
@@ -178,24 +324,19 @@ export default function RegistrationsListPage() {
 
   const handleConfirmValidation = async () => {
     if (!db || !selectedReg || !treasuryRef || isProcessing) return
-    
     const limit = selectedReg.registrationCost || (selectedReg.catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000))
-    
     if (validationAmount > limit) {
       toast({ variant: "destructive", title: "Monto no permitido", description: `El monto no puede superar el límite de ${limit.toLocaleString('es-PY')} Gs.` })
       return
     }
-
     setIsProcessing(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
-    
     try {
       await runTransaction(db, async (transaction) => {
         const treasurySnap = await transaction.get(treasuryRef);
         const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
-
         transaction.update(regRef, {
           amountPaid: validationAmount,
           paymentStatus: validationAmount >= limit ? "PAGADO" : "PARCIAL",
@@ -206,7 +347,6 @@ export default function RegistrationsListPage() {
           lastPaymentMethod: selectedReg.paymentMethod || "TRANSFERENCIA"
         });
         transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
-        
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",
           userName: catechistName,
@@ -218,16 +358,14 @@ export default function RegistrationsListPage() {
       });
       toast({ title: "Pago confirmado con éxito" })
       setIsValidatingProofOpen(false)
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al confirmar" })
-    } finally { setIsProcessing(false) }
+    } catch (e) { toast({ variant: "destructive", title: "Error al confirmar" }) }
+    finally { setIsProcessing(false) }
   }
 
   const handleRevertValidation = async () => {
     if (!db || !selectedReg || isProcessing) return
     setIsProcessing(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
-    
     try {
       await updateDoc(regRef, {
         status: "POR_VALIDAR",
@@ -239,7 +377,6 @@ export default function RegistrationsListPage() {
         lastPaymentMethod: null,
         updatedAt: serverTimestamp()
       })
-
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "unknown",
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
@@ -248,15 +385,10 @@ export default function RegistrationsListPage() {
         details: `Se anuló la confirmación de pago de ${selectedReg.fullName}. Registro volvió a 'Por Validar'.`,
         timestamp: serverTimestamp()
       })
-
-      toast({ title: "Pago Anulado", description: "El registro ha vuelto al estado pendiente." })
-      setIsRevertDialogOpen(false)
-      setIsDetailsOpen(false)
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al revertir" })
-    } finally {
-      setIsProcessing(false)
-    }
+      toast({ title: "Pago Anulado" })
+      setIsRevertDialogOpen(false); setIsDetailsOpen(false);
+    } catch (e) { toast({ variant: "destructive", title: "Error al revertir" }) }
+    finally { setIsProcessing(false) }
   }
 
   const handleUpdateDetails = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -264,14 +396,14 @@ export default function RegistrationsListPage() {
     if (!db || !selectedReg || isProcessing) return
     setIsProcessing(true)
     const formData = new FormData(e.currentTarget)
-    
     const updateData = {
       fullName: (formData.get("fullName") as string).toUpperCase(),
       ciNumber: formData.get("ciNumber") as string,
       phone: formData.get("phone") as string,
       groupId: formData.get("groupId") as string,
       catechesisYear: formData.get("catechesisYear") as string,
-      paymentMethod: editPaymentMethod, // Usar el estado controlado para asegurar la captura
+      paymentMethod: editPaymentMethod,
+      photoUrl: editPhotoUrl,
       motherName: (formData.get("motherName") as string || "").toUpperCase(),
       motherPhone: formData.get("motherPhone") as string || "",
       fatherName: (formData.get("fatherName") as string || "").toUpperCase(),
@@ -283,17 +415,8 @@ export default function RegistrationsListPage() {
     }
     const regRef = doc(db, "confirmations", selectedReg.id)
     updateDoc(regRef, updateData)
-      .then(() => {
-        toast({ title: "Ficha actualizada" })
-        setIsDetailsOpen(false)
-      })
-      .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: regRef.path,
-          operation: 'update',
-          requestResourceData: updateData,
-        }));
-      })
+      .then(() => { toast({ title: "Ficha actualizada" }); setIsDetailsOpen(false); })
+      .catch(async (error) => { errorEmitter.emit('permission-error', new FirestorePermissionError({ path: regRef.path, operation: 'update', requestResourceData: updateData })); })
       .finally(() => setIsProcessing(false))
   }
 
@@ -301,15 +424,8 @@ export default function RegistrationsListPage() {
     if (!db || !selectedReg || isProcessing || !withdrawalReason) return
     setIsProcessing(true)
     try {
-      await updateDoc(doc(db, "confirmations", selectedReg.id), {
-        isArchived: true,
-        status: "BAJA",
-        withdrawalReason,
-        withdrawalDate: serverTimestamp()
-      })
-      toast({ title: "Baja procesada" })
-      setIsWithdrawalOpen(false)
-      setIsDetailsOpen(false)
+      await updateDoc(doc(db, "confirmations", selectedReg.id), { isArchived: true, status: "BAJA", withdrawalReason, withdrawalDate: serverTimestamp() })
+      toast({ title: "Baja procesada" }); setIsWithdrawalOpen(false); setIsDetailsOpen(false);
     } catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setIsProcessing(false) }
   }
@@ -317,24 +433,13 @@ export default function RegistrationsListPage() {
   const handleDelete = async () => {
     if (!db || !selectedReg) return
     setIsProcessing(true)
-    try {
-      await deleteDoc(doc(db, "confirmations", selectedReg.id));
-      toast({ title: "Registro eliminado" })
-      setIsDeleteDialogOpen(false)
-    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    try { await deleteDoc(doc(db, "confirmations", selectedReg.id)); toast({ title: "Registro eliminado" }); setIsDeleteDialogOpen(false); }
+    catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setIsProcessing(false) }
   }
 
-  const openImageViewer = (url: string) => {
-    if (!url) return;
-    setFullImageUrl(url);
-    setFullImageOpen(true);
-  }
-
-  const resetFilters = () => {
-    setSearchTerm(""); setFilterSex("all"); setFilterYear("all");
-    setFilterStatus("all"); setFilterOrigin("all"); setFilterDay("all"); setFilterMethod("all");
-  }
+  const openImageViewer = (url: string) => { if (!url) return; setFullImageUrl(url); setFullImageOpen(true); }
+  const resetFilters = () => { setSearchTerm(""); setFilterSex("all"); setFilterYear("all"); setFilterStatus("all"); setFilterOrigin("all"); setFilterDay("all"); setFilterMethod("all"); }
 
   if (!mounted) return null
 
@@ -560,69 +665,6 @@ export default function RegistrationsListPage() {
         </CardContent>
       </Card>
 
-      {/* DIÁLOGO VISOR DE COMPROBANTE PARA CONFIRMACION DE PAGO */}
-      <Dialog open={isValidatingProofOpen} onOpenChange={setIsValidatingProofOpen}>
-        <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[92vh] max-h-[92vh] flex flex-col">
-          <DialogHeader className="p-8 pb-6 bg-blue-600 text-white shrink-0 relative">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-xl"><CreditCard className="h-5 w-5" /></div>
-              <div>
-                <DialogTitle className="font-black uppercase tracking-tight">Confirmar Pago</DialogTitle>
-                <DialogDescription className="text-white/80">Gestión de cobro para {selectedReg?.fullName}</DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-y-auto bg-slate-50 p-6 flex flex-col gap-6">
-            <div className="flex-1 min-h-[300px] relative bg-white rounded-3xl overflow-hidden border shadow-sm flex items-center justify-center p-2 cursor-pointer" onClick={() => openImageViewer(selectedReg?.paymentProofUrl)}>
-              {selectedReg?.paymentProofUrl ? (
-                <img 
-                  src={selectedReg.paymentProofUrl} 
-                  className="max-w-full max-h-full object-contain rounded-xl" 
-                  alt="Comprobante de pago" 
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-slate-300">
-                  <ImageIcon className="h-16 w-16 mb-2 opacity-20" />
-                  <p className="text-xs font-bold uppercase tracking-widest">Sin imagen adjunta</p>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3 px-2">
-              <Label className="font-black text-[10px] text-slate-400 uppercase tracking-widest">Monto Real Recibido (Gs)</Label>
-              <Input 
-                type="number" 
-                value={validationAmount} 
-                onChange={(e) => setValidationAmount(Number(e.target.value))}
-                className="h-14 text-2xl font-black rounded-2xl bg-white border-blue-100 text-blue-700 shadow-sm"
-              />
-              <p className="text-[9px] text-slate-400 italic">
-                * El límite máximo permitido es de {(selectedReg?.registrationCost || (selectedReg?.catechesisYear === "ADULTOS" ? 50000 : 35000)).toLocaleString('es-PY')} Gs.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter className="p-6 bg-white border-t shrink-0">
-            <div className="w-full bg-blue-50/50 p-5 rounded-[2rem] border border-blue-100 flex items-center justify-between shadow-sm">
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none">Confirmar Cobro:</p>
-                <p className="text-3xl font-black text-blue-700 tracking-tighter">
-                  {validationAmount.toLocaleString('es-PY')} Gs.
-                </p>
-              </div>
-              <Button 
-                className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all gap-2" 
-                onClick={handleConfirmValidation}
-                disabled={isProcessing || validationAmount <= 0}
-              >
-                {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : "CONFIRMAR PAGO"}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* DIÁLOGO FICHA DE INSCRIPCIÓN ELEGANTE */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
@@ -631,14 +673,28 @@ export default function RegistrationsListPage() {
               <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 relative">
                 <div className="absolute top-0 right-0 p-8 opacity-10"><Church className="h-24 w-24" /></div>
                 <div className="flex items-center gap-6 relative z-10">
-                  <div className="relative">
-                    <Avatar className="h-24 w-24 border-4 border-white/20 shadow-xl cursor-pointer" onClick={() => openImageViewer(selectedReg.photoUrl)}>
-                      <AvatarImage src={selectedReg.photoUrl} className="object-cover" />
+                  <div className="relative group">
+                    <Avatar className="h-24 w-24 border-4 border-white/20 shadow-xl overflow-hidden">
+                      <AvatarImage src={editPhotoUrl || undefined} className="object-cover" />
                       <AvatarFallback className="bg-white/10 text-white"><User className="h-12 w-12" /></AvatarFallback>
                     </Avatar>
-                    <div className="absolute -bottom-1 -right-1 bg-primary p-1.5 rounded-full border-2 border-slate-900">
-                      <Camera className="h-3 w-3 text-white" />
+                    <div className="absolute -bottom-1 -right-1 flex gap-1">
+                      <button 
+                        type="button"
+                        className="h-8 w-8 rounded-full bg-primary text-white border-2 border-slate-900 flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg active:scale-95"
+                        onClick={() => startCamera()}
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                      </button>
+                      <button 
+                        type="button"
+                        className="h-8 w-8 rounded-full bg-blue-600 text-white border-2 border-slate-900 flex items-center justify-center hover:bg-blue-700 transition-all shadow-lg active:scale-95"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <ImageIcon className="h-3.5 w-3.5" />
+                      </button>
                     </div>
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                   </div>
                   <div className="space-y-1">
                     <DialogTitle className="text-3xl font-black uppercase tracking-tight leading-none">{selectedReg.fullName}</DialogTitle>
@@ -808,6 +864,77 @@ export default function RegistrationsListPage() {
               </DialogFooter>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO DE CÁMARA */}
+      <Dialog open={showCamera} onOpenChange={(open) => !open && stopCamera()}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          <DialogHeader className="p-6 bg-primary text-white">
+            <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5" /> Capturar Fotografía</DialogTitle>
+          </DialogHeader>
+          <div className="relative bg-black aspect-square max-h-[60vh] mx-auto flex items-center justify-center overflow-hidden">
+            <video ref={onVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t flex flex-col gap-4">
+            {devices.length > 1 && (
+              <div className="flex items-center gap-2 w-full">
+                <FlipHorizontal className="h-4 w-4 text-slate-400" />
+                <Select value={selectedDeviceId} onValueChange={(val) => { setSelectedDeviceId(val); startCamera(val); }}>
+                  <SelectTrigger className="h-10 rounded-xl bg-white"><SelectValue placeholder="Cambiar Cámara" /></SelectTrigger>
+                  <SelectContent>{devices.map((d) => (<SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0,5)}`}</SelectItem>))}</SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex gap-3 w-full">
+              <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancelar</Button>
+              <Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold gap-2" onClick={takePhoto}>Capturar</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO DE AJUSTE Y RECORTE */}
+      <Dialog open={showAdjuster} onOpenChange={(open) => !open && setShowAdjuster(false)}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          <DialogHeader className="p-6 bg-slate-900 text-white">
+            <DialogTitle className="flex items-center gap-2"><Move className="h-5 w-5" /> Ajustar Fotografía</DialogTitle>
+            <DialogDescription className="text-slate-400">Centra la imagen antes de confirmar.</DialogDescription>
+          </DialogHeader>
+          <div className="p-8 bg-slate-50 flex flex-col items-center gap-8">
+            <div 
+              className="relative w-[300px] h-[300px] rounded-full border-4 border-white shadow-2xl bg-black overflow-hidden cursor-move touch-none"
+              onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+              onTouchStart={handleMouseDown} onTouchMove={handleMouseMove} onTouchEnd={handleMouseUp}
+            >
+              {pendingPhoto && (
+                <img 
+                  ref={adjusterImgRef} src={pendingPhoto} alt="Ajuste"
+                  className="absolute pointer-events-none select-none max-w-none"
+                  style={{
+                    transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                    left: '50%', top: '50%',
+                    marginLeft: adjusterImgRef.current ? -adjusterImgRef.current.width / 2 : 0,
+                    marginTop: adjusterImgRef.current ? -adjusterImgRef.current.height / 2 : 0,
+                    transition: isDragging ? 'none' : 'transform 0.1s'
+                  }}
+                />
+              )}
+              <div className="absolute inset-0 rounded-full border-[100px] border-slate-900/20 pointer-events-none" />
+            </div>
+            <div className="w-full space-y-4 px-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2"><ZoomIn className="h-3 w-3" /> Zoom</Label>
+                <span className="text-[10px] font-bold text-primary">{Math.round(zoom * 100)}%</span>
+              </div>
+              <Slider value={[zoom]} min={0.5} max={3} step={0.01} onValueChange={(val) => setZoom(val[0])} />
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-white border-t flex gap-3">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={() => setShowAdjuster(false)}>Cancelar</Button>
+            <Button className="flex-1 h-12 rounded-xl bg-primary text-white font-bold gap-2 shadow-lg" onClick={handleAdjusterConfirm}><Check className="h-5 w-5" /> Confirmar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
