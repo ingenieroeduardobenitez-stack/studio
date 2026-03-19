@@ -52,7 +52,6 @@ import { doc, setDoc, getDoc, getDocs, query, where, serverTimestamp, collection
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import Image from "next/image"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { errorEmitter } from "@/firebase/error-emitter"
@@ -189,7 +188,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const cleanCi = ciValue.replace(/[^0-9]/g, '');
     
     try {
-      // 1. Verificar duplicados en inscripciones activas
       const ciCheckQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue), where("isArchived", "==", false));
       const querySnapshot = await getDocs(ciCheckQuery);
       
@@ -199,7 +197,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         return;
       }
 
-      // 2. Consultar Padrón de Cédulas
       const docSnap = await getDoc(doc(db, "cedulas", cleanCi));
       
       if (docSnap.exists()) {
@@ -577,7 +574,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Form>
     </Card>
-  );
+  )
 }
