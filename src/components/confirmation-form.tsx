@@ -168,7 +168,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const establishedLimit = catechesisYear === "ADULTOS" ? (costs?.adultCost || 50000) : (costs?.juvenileCost || 35000)
 
-  // LOGICA DE ARANCEL: Cambia segun el metodo de pago seleccionado
   useEffect(() => {
     if (paymentMethod === "SIN_PAGO") {
       setValue("registrationCost", 0);
@@ -194,15 +193,24 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     const cleanCi = ciValue.replace(/[^0-9]/g, '');
     
     try {
-      const ciCheckQuery = query(collection(db, "confirmations"), where("ciNumber", "==", ciValue), where("isArchived", "==", false));
+      // 1. Verificar si ya está inscripto en la colección confirmations
+      const ciCheckQuery = query(
+        collection(db, "confirmations"), 
+        where("ciNumber", "==", ciValue), 
+        where("isArchived", "==", false)
+      );
       const querySnapshot = await getDocs(ciCheckQuery);
       
       if (!querySnapshot.empty) {
-        setError("ciNumber", { type: "manual", message: "Esta persona ya se encuentra registrada como inscripta." });
+        setError("ciNumber", { 
+          type: "manual", 
+          message: "Esta persona ya se encuentra registrada como inscripta en el ciclo actual." 
+        });
         setIsSearchingCi(false); 
         return;
       }
 
+      // 2. Buscar datos en el padrón de cédulas
       const docSnap = await getDoc(doc(db, "cedulas", cleanCi));
       
       if (docSnap.exists()) {
@@ -216,12 +224,14 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           if (s.startsWith('M')) setValue("sexo", "M"); 
           else if (s.startsWith('F')) setValue("sexo", "F"); 
         }
-        toast({ title: "Datos recuperados del Padrón" });
+        toast({ title: "Se encontraron los datos" });
+      } else {
+        toast({ title: "CI no encontrada", description: "No se encontraron datos automáticos, por favor completa el formulario manualmente." });
       }
     } catch (error: any) {
       if (error.code === 'permission-denied') {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `confirmations/cedulas/${cleanCi}`,
+          path: `cedulas/${cleanCi}`,
           operation: 'get',
         }));
       }
@@ -366,7 +376,19 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                   <FormItem>
                     <FormLabel className="font-bold">N° de C.I. *</FormLabel>
                     <div className="flex gap-2">
-                      <FormControl><Input placeholder="Solo números" {...field} className="h-12 rounded-xl" /></FormControl>
+                      <FormControl>
+                        <Input 
+                          placeholder="Solo números" 
+                          {...field} 
+                          className="h-12 rounded-xl" 
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleLookupCi(field.value);
+                            }
+                          }}
+                        />
+                      </FormControl>
                       <Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl bg-primary">
                         {isSearchingCi ? <Loader2 className="animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
@@ -504,7 +526,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                         disabled={paymentMethod === "SIN_PAGO"}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          // No permitir sobrepasar el limite establecido
                           if (val > establishedLimit) {
                             field.onChange(establishedLimit);
                             toast({ 
