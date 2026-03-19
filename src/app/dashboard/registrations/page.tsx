@@ -53,6 +53,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
@@ -273,12 +275,20 @@ export default function RegistrationsListPage() {
       baptismFolio: formData.get("baptismFolio") as string || "",
       updatedAt: serverTimestamp()
     }
-    try {
-      await updateDoc(doc(db, "confirmations", selectedReg.id), updateData)
-      toast({ title: "Ficha actualizada" })
-      setIsDetailsOpen(false)
-    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
-    finally { setIsProcessing(false) }
+    const regRef = doc(db, "confirmations", selectedReg.id)
+    updateDoc(regRef, updateData)
+      .then(() => {
+        toast({ title: "Ficha actualizada" })
+        setIsDetailsOpen(false)
+      })
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: regRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+        }));
+      })
+      .finally(() => setIsProcessing(false))
   }
 
   const handleWithdrawal = async () => {
