@@ -189,28 +189,36 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
 
   const handleLookupCi = async (ciValue: string) => {
     if (!db || !ciValue || ciValue.length < 5) return;
-    setIsSearchingCi(true); clearErrors("ciNumber");
-    const cleanCi = ciValue.replace(/[^0-9]/g, '');
+    setIsSearchingCi(true); 
+    clearErrors("ciNumber");
     
     try {
-      // 1. Verificar si ya está inscripto en la colección confirmations
-      const ciCheckQuery = query(
-        collection(db, "confirmations"), 
+      // 1. VERIFICACIÓN CRÍTICA: ¿Ya existe una inscripción activa para esta C.I.?
+      const confirmationsCol = collection(db, "confirmations");
+      const ciQuery = query(
+        confirmationsCol, 
         where("ciNumber", "==", ciValue), 
         where("isArchived", "==", false)
       );
-      const querySnapshot = await getDocs(ciCheckQuery);
       
-      if (!querySnapshot.empty) {
+      const existingSnapshot = await getDocs(ciQuery);
+      
+      if (!existingSnapshot.empty) {
         setError("ciNumber", { 
           type: "manual", 
-          message: "Esta persona ya se encuentra registrada como inscripta en el ciclo actual." 
+          message: "Este número de Cédula ya posee una ficha de inscripción activa en el sistema." 
         });
-        setIsSearchingCi(false); 
+        toast({ 
+          variant: "destructive", 
+          title: "Inscripción Duplicada", 
+          description: "La persona ya se encuentra registrada en el ciclo actual." 
+        });
+        setIsSearchingCi(false);
         return;
       }
 
-      // 2. Buscar datos en el padrón de cédulas
+      // 2. Si no es duplicado, buscar datos en el padrón de cédulas
+      const cleanCi = ciValue.replace(/[^0-9]/g, '');
       const docSnap = await getDoc(doc(db, "cedulas", cleanCi));
       
       if (docSnap.exists()) {
@@ -226,13 +234,16 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         }
         toast({ title: "Se encontraron los datos" });
       } else {
-        toast({ title: "CI no encontrada", description: "No se encontraron datos automáticos, por favor completa el formulario manualmente." });
+        toast({ 
+          title: "Cédula no encontrada", 
+          description: "Por favor, completa los campos manualmente." 
+        });
       }
     } catch (error: any) {
       if (error.code === 'permission-denied') {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `cedulas/${cleanCi}`,
-          operation: 'get',
+          path: `confirmations/check`,
+          operation: 'list',
         }));
       }
     } finally { 
@@ -636,5 +647,5 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
         </DialogContent>
       </Dialog>
     </Card>
-  )
+  );
 }
