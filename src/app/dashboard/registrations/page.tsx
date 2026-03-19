@@ -38,7 +38,8 @@ import {
   Calendar,
   Maximize2,
   Camera,
-  Clock
+  Clock,
+  Edit
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc } from "firebase/firestore"
@@ -82,6 +83,9 @@ export default function RegistrationsListPage() {
   // Estado para Visualizador de Imagen Full
   const [fullImageViewerOpen, setFullImageOpen] = useState(false)
   const [fullImageUrl, setFullImageUrl] = useState("")
+
+  // Estado para la forma de pago en edición (para asegurar captura correcta)
+  const [editPaymentMethod, setEditPaymentMethod] = useState<string>("")
 
   const db = useFirestore()
   const { user } = useUser()
@@ -161,6 +165,7 @@ export default function RegistrationsListPage() {
 
   const handleOpenDetails = (reg: any) => {
     setSelectedReg(reg)
+    setEditPaymentMethod(reg.paymentMethod || "TRANSFERENCIA")
     setIsDetailsOpen(true)
   }
 
@@ -259,13 +264,14 @@ export default function RegistrationsListPage() {
     if (!db || !selectedReg || isProcessing) return
     setIsProcessing(true)
     const formData = new FormData(e.currentTarget)
+    
     const updateData = {
       fullName: (formData.get("fullName") as string).toUpperCase(),
       ciNumber: formData.get("ciNumber") as string,
       phone: formData.get("phone") as string,
       groupId: formData.get("groupId") as string,
       catechesisYear: formData.get("catechesisYear") as string,
-      paymentMethod: formData.get("paymentMethod") as string,
+      paymentMethod: editPaymentMethod, // Usar el estado controlado para asegurar la captura
       motherName: (formData.get("motherName") as string || "").toUpperCase(),
       motherPhone: formData.get("motherPhone") as string || "",
       fatherName: (formData.get("fatherName") as string || "").toUpperCase(),
@@ -673,8 +679,14 @@ export default function RegistrationsListPage() {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Forma de Pago Inicial</Label>
-                        <Select name="paymentMethod" defaultValue={selectedReg.paymentMethod || "TRANSFERENCIA"}>
-                          <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold"><SelectValue /></SelectTrigger>
+                        <Select 
+                          name="paymentMethod" 
+                          value={editPaymentMethod} 
+                          onValueChange={setEditPaymentMethod}
+                        >
+                          <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold">
+                            <SelectValue placeholder="Seleccione método" />
+                          </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="EFECTIVO">EFECTIVO</SelectItem>
                             <SelectItem value="TRANSFERENCIA">TRANSFERENCIA</SelectItem>
