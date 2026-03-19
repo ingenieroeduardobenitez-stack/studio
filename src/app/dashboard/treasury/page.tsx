@@ -293,9 +293,9 @@ export default function TreasuryPage() {
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",
           userName: catechistName,
-          action: `Cobro Tesorería (${paymentType})`,
+          action: `Confirmación Pago Tesorería (${paymentType})`,
           module: "tesoreria",
-          details: `Cobro de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${regData.fullName}. Recibo: ${formattedReceipt}`,
+          details: `Confirmado pago de ${paymentAmount.toLocaleString('es-PY')} Gs. a ${regData.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
         });
 
@@ -589,6 +589,8 @@ export default function TreasuryPage() {
                       const pending = (reg.registrationCost || 35000) - (reg.amountPaid || 0)
                       const isPaid = reg.paymentStatus === "PAGADO"
                       const hasReceipt = !!reg.receiptNumber
+                      const isPagarEnCaja = reg.paymentMethod === "SIN_PAGO"
+                      
                       return (
                         <TableRow key={reg.id} className="h-20 hover:bg-slate-50/30 transition-colors">
                           <TableCell className="pl-8">
@@ -627,6 +629,15 @@ export default function TreasuryPage() {
                                     <Edit className="h-4 w-4" />
                                   </Button>
                                 </>
+                              ) : (reg.status === "POR_VALIDAR" || isPagarEnCaja) ? (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-9 rounded-xl font-bold border-primary text-primary hover:bg-primary/5"
+                                  onClick={() => handleOpenPayment(reg)}
+                                >
+                                  <Banknote className="h-4 w-4 mr-2" /> Confirmar Pago
+                                </Button>
                               ) : (
                                 <Button 
                                   size="sm" 
@@ -638,7 +649,7 @@ export default function TreasuryPage() {
                                   onClick={() => handleOpenPayment(reg)}
                                 >
                                   {isPaid ? <Receipt className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
-                                  {isPaid ? "Generar Recibo" : "Cobrar"}
+                                  {isPaid ? "Generar Recibo" : "Confirmar Pago"}
                                 </Button>
                               )}
                             </div>
@@ -924,7 +935,7 @@ export default function TreasuryPage() {
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
           <DialogHeader className="p-6 bg-primary text-white">
-            <DialogTitle>Registrar Cobro</DialogTitle>
+            <DialogTitle>Confirmar Pago</DialogTitle>
             <DialogDescription className="text-white/70">Confirmando: {selectedReg?.fullName}</DialogDescription>
           </DialogHeader>
           <div className="p-6 space-y-6">
@@ -969,7 +980,7 @@ export default function TreasuryPage() {
               onClick={handleProcessPayment} 
               disabled={isSubmittingPayment || (paymentAmount <= 0 && selectedReg?.paymentStatus !== "PAGADO")}
             >
-              {isSubmittingPayment ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar"}
+              {isSubmittingPayment ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Pago"}
             </Button>
           </DialogFooter>
         </DialogContent>

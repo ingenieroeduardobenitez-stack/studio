@@ -203,16 +203,16 @@ export default function RegistrationsListPage() {
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",
           userName: catechistName,
-          action: "Validación de Inscripción",
+          action: "Confirmación de Pago",
           module: "inscripcion",
-          details: `Se validó el pago de ${validationAmount.toLocaleString('es-PY')} Gs. para ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          details: `Se confirmó el pago de ${validationAmount.toLocaleString('es-PY')} Gs. para ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
         })
       });
-      toast({ title: "Validación completada con éxito" })
+      toast({ title: "Pago confirmado con éxito" })
       setIsValidatingProofOpen(false)
     } catch (e) {
-      toast({ variant: "destructive", title: "Error al validar" })
+      toast({ variant: "destructive", title: "Error al confirmar" })
     } finally { setIsProcessing(false) }
   }
 
@@ -236,13 +236,13 @@ export default function RegistrationsListPage() {
       await addDoc(collection(db, "audit_logs"), {
         userId: user?.uid || "unknown",
         userName: profile ? `${profile.firstName} ${profile.lastName}` : "Administrador",
-        action: "Anular Validación",
+        action: "Anular Pago",
         module: "tesoreria",
-        details: `Se anuló la validación de ${selectedReg.fullName}. Registro volvió a 'Por Validar'.`,
+        details: `Se anuló la confirmación de pago de ${selectedReg.fullName}. Registro volvió a 'Por Validar'.`,
         timestamp: serverTimestamp()
       })
 
-      toast({ title: "Validación Anulada", description: "El registro ha vuelto al estado pendiente." })
+      toast({ title: "Pago Anulado", description: "El registro ha vuelto al estado pendiente." })
       setIsRevertDialogOpen(false)
       setIsDetailsOpen(false)
     } catch (e) {
@@ -263,6 +263,7 @@ export default function RegistrationsListPage() {
       phone: formData.get("phone") as string,
       groupId: formData.get("groupId") as string,
       catechesisYear: formData.get("catechesisYear") as string,
+      paymentMethod: formData.get("paymentMethod") as string,
       motherName: (formData.get("motherName") as string || "").toUpperCase(),
       motherPhone: formData.get("motherPhone") as string || "",
       fatherName: (formData.get("fatherName") as string || "").toUpperCase(),
@@ -491,14 +492,14 @@ export default function RegistrationsListPage() {
                             <Eye className="h-5 w-5" />
                           </button>
                           
-                          {reg.status === "POR_VALIDAR" && (
+                          {(reg.status === "POR_VALIDAR" || isPagarEnCaja) && reg.status !== "INSCRITO" && (
                             <Button 
                               variant="outline" 
                               className="h-9 px-6 rounded-full font-black text-[10px] tracking-widest border-blue-600 text-blue-600 hover:bg-blue-50 transition-all uppercase"
                               onClick={() => handleOpenValidation(reg)}
                               disabled={isProcessing}
                             >
-                              VALIDAR
+                              CONFIRMAR PAGO
                             </Button>
                           )}
 
@@ -517,7 +518,7 @@ export default function RegistrationsListPage() {
                               </DropdownMenuItem>
                               {reg.status === "INSCRITO" && (
                                 <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3 text-amber-600" onClick={() => { setSelectedReg(reg); setIsRevertDialogOpen(true); }}>
-                                  <RotateCcw className="h-4 w-4" /> <span className="font-bold">Anular Validación</span>
+                                  <RotateCcw className="h-4 w-4" /> <span className="font-bold">Anular Pago</span>
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem className="h-11 rounded-xl cursor-pointer gap-3 text-orange-600" onClick={() => { setSelectedReg(reg); setIsWithdrawalOpen(true); }}>
@@ -543,15 +544,15 @@ export default function RegistrationsListPage() {
         </CardContent>
       </Card>
 
-      {/* DIÁLOGO VISOR DE COMPROBANTE PARA VALIDACIÓN */}
+      {/* DIÁLOGO VISOR DE COMPROBANTE PARA CONFIRMACION DE PAGO */}
       <Dialog open={isValidatingProofOpen} onOpenChange={setIsValidatingProofOpen}>
         <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[92vh] max-h-[92vh] flex flex-col">
           <DialogHeader className="p-8 pb-6 bg-blue-600 text-white shrink-0 relative">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-xl"><ImageIcon className="h-5 w-5" /></div>
+              <div className="p-2 bg-white/20 rounded-xl"><CreditCard className="h-5 w-5" /></div>
               <div>
-                <DialogTitle className="font-black uppercase tracking-tight">Verificar Comprobante</DialogTitle>
-                <DialogDescription className="text-white/80">Validación de ingreso para {selectedReg?.fullName}</DialogDescription>
+                <DialogTitle className="font-black uppercase tracking-tight">Confirmar Pago</DialogTitle>
+                <DialogDescription className="text-white/80">Gestión de cobro para {selectedReg?.fullName}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -599,7 +600,7 @@ export default function RegistrationsListPage() {
                 onClick={handleConfirmValidation}
                 disabled={isProcessing || validationAmount <= 0}
               >
-                {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : "VALIDAR"}
+                {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : "CONFIRMAR PAGO"}
               </Button>
             </div>
           </DialogFooter>
@@ -661,11 +662,15 @@ export default function RegistrationsListPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Nacimiento</Label>
-                        <div className="h-12 rounded-xl bg-slate-50 border-none shadow-inner flex items-center px-4 font-bold text-slate-700 gap-3">
-                          <Calendar className="h-4 w-4 text-primary" />
-                          {selectedReg.birthDate} ({selectedReg.age} años)
-                        </div>
+                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Forma de Pago Inicial</Label>
+                        <Select name="paymentMethod" defaultValue={selectedReg.paymentMethod || "TRANSFERENCIA"}>
+                          <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="EFECTIVO">EFECTIVO</SelectItem>
+                            <SelectItem value="TRANSFERENCIA">TRANSFERENCIA</SelectItem>
+                            <SelectItem value="SIN_PAGO">PAGAR EN CAJA</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </TabsContent>
@@ -773,23 +778,11 @@ export default function RegistrationsListPage() {
                 </Tabs>
               </div>
 
-              <DialogFooter className="p-8 bg-white border-t flex items-center justify-between">
-                <div className="flex gap-2">
-                  <Button type="button" variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 font-black gap-2 h-12 rounded-xl px-6" onClick={() => setIsWithdrawalOpen(true)}>
-                    <UserMinus className="h-5 w-5" /> DAR DE BAJA
-                  </Button>
-                  {selectedReg.status === "INSCRITO" && (
-                    <Button type="button" variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-black gap-2 h-12 rounded-xl px-6" onClick={() => { setSelectedReg(selectedReg); setIsRevertDialogOpen(true); }}>
-                      <RotateCcw className="h-4 w-4" /> ANULAR PAGO
-                    </Button>
-                  )}
-                </div>
-                <div className="flex gap-3">
-                  <Button type="button" variant="outline" className="h-12 px-8 rounded-xl font-bold border-slate-200" onClick={() => setIsDetailsOpen(false)}>Cerrar</Button>
-                  <Button type="submit" className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-xl gap-2 active:scale-95 transition-all" disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5" />} GUARDAR CAMBIOS
-                  </Button>
-                </div>
+              <DialogFooter className="p-8 bg-white border-t flex items-center justify-end gap-3">
+                <Button type="button" variant="outline" className="h-12 px-8 rounded-xl font-bold border-slate-200" onClick={() => setIsDetailsOpen(false)}>Cerrar</Button>
+                <Button type="submit" className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-xl gap-2 active:scale-95 transition-all" disabled={isProcessing}>
+                  {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5" />} GUARDAR CAMBIOS
+                </Button>
               </DialogFooter>
             </form>
           )}
@@ -810,10 +803,10 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO ANULAR VALIDACIÓN */}
+      {/* DIÁLOGO ANULAR PAGO */}
       <AlertDialog open={isRevertDialogOpen} onOpenChange={setIsRevertDialogOpen}>
         <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
-          <div className="bg-amber-500 p-8 text-white"><RotateCcw className="h-12 w-12 mx-auto mb-4" /><AlertDialogTitle className="text-2xl font-black text-center uppercase">¿Anular Validación?</AlertDialogTitle></div>
+          <div className="bg-amber-500 p-8 text-white"><RotateCcw className="h-12 w-12 mx-auto mb-4" /><AlertDialogTitle className="text-2xl font-black text-center uppercase">¿Anular Pago?</AlertDialogTitle></div>
           <div className="p-8"><AlertDialogDescription className="text-center font-medium">Se anulará el recibo de <strong className="text-slate-900">"{selectedReg?.fullName}"</strong>. El estado volverá a "Por Validar" y el monto pagado se reiniciará a cero. Esta acción se registrará en la auditoría.</AlertDialogDescription></div>
           <AlertDialogFooter className="p-8 bg-slate-50 gap-3 border-t"><AlertDialogCancel className="rounded-2xl h-14 font-black flex-1">CANCELAR</AlertDialogCancel><AlertDialogAction className="bg-amber-600 hover:bg-amber-700 text-white rounded-2xl h-14 font-black flex-1" onClick={handleRevertValidation} disabled={isProcessing}>ANULAR AHORA</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>

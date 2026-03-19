@@ -70,7 +70,7 @@ export default function PaymentsManagementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
   
-  // Estados para el Laboratorio de Validación (Mismo que Lista de Confirmandos)
+  // Estados para la Confirmación de Pago
   const [isValidationOpen, setIsValidationOpen] = useState(false)
   const [valAmount, setValAmount] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -210,7 +210,7 @@ export default function PaymentsManagementPage() {
           validatedBy: catechistName,
           receiptNumber: formattedReceipt,
           lastPaymentDate: serverTimestamp(),
-          lastPaymentMethod: "TRANSFERENCIA"
+          lastPaymentMethod: selectedReg.paymentMethod || "TRANSFERENCIA"
         };
 
         transaction.update(regRef, updatePayload);
@@ -219,18 +219,18 @@ export default function PaymentsManagementPage() {
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",
           userName: catechistName,
-          action: "Validación de Transferencia (Cobros)",
+          action: "Confirmación de Pago (Cobros)",
           module: "pagos",
-          details: `Validado cobro de ${valAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+          details: `Confirmado cobro de ${valAmount.toLocaleString('es-PY')} Gs. a ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
         });
 
         setSelectedReg({ ...selectedReg, ...updatePayload });
       });
-      toast({ title: "Validación Exitosa" })
+      toast({ title: "Pago Confirmado" })
       setIsValidationOpen(false)
       setIsReceiptOpen(true)
-    } catch (e) { toast({ variant: "destructive", title: "Error al validar" }) }
+    } catch (e) { toast({ variant: "destructive", title: "Error al confirmar pago" }) }
     finally { setIsProcessing(false) }
   }
 
@@ -462,7 +462,6 @@ export default function PaymentsManagementPage() {
                     const isEfectivoZero = declaredMethod === "EFECTIVO" && (reg.amountPaid || 0) === 0;
                     const isManual = reg.userId !== "public_registration";
                     const creator = findUserById(reg.userId);
-                    const hasProof = !!reg.paymentProofUrl;
                     const isPagarEnCaja = declaredMethod === "SIN_PAGO";
                     const methodLabel = isPagarEnCaja ? "PAGAR EN CAJA" : declaredMethod;
 
@@ -516,14 +515,14 @@ export default function PaymentsManagementPage() {
                               <Button size="icon" variant="outline" className="h-10 w-10 rounded-xl border-amber-200 text-amber-600 hover:bg-amber-50 shadow-sm" onClick={() => handleViewReceipt(reg)} title="Ver Recibo">
                                 <Receipt className="h-4 w-4" />
                               </Button>
-                            ) : reg.status === "POR_VALIDAR" && hasProof ? (
+                            ) : (reg.status === "POR_VALIDAR" || isPagarEnCaja) ? (
                               <Button 
                                 size="sm" 
                                 variant="outline" 
                                 className="h-10 rounded-full font-black px-6 text-primary border-slate-200 bg-white hover:bg-slate-50 transition-all active:scale-95 shadow-sm uppercase tracking-wider" 
                                 onClick={() => handleOpenValidation(reg)}
                               >
-                                VALIDAR
+                                CONFIRMAR PAGO
                               </Button>
                             ) : (
                               <Button 
@@ -538,7 +537,7 @@ export default function PaymentsManagementPage() {
                                 onClick={() => handleOpenPayment(reg)}
                               >
                                 {isEfectivoZero ? (
-                                  <><CheckCircle2 className="h-4 w-4" /> Validar Efectivo</>
+                                  <><CheckCircle2 className="h-4 w-4" /> Confirmar Efectivo</>
                                 ) : isPaid ? (
                                   <><Receipt className="h-4 w-4" /> Generar Recibo</>
                                 ) : (
@@ -558,14 +557,14 @@ export default function PaymentsManagementPage() {
         </Card>
       </div>
 
-      {/* DIÁLOGO DE LABORATORIO DE VALIDACIÓN */}
+      {/* DIÁLOGO DE CONFIRMACIÓN DE PAGO */}
       <Dialog open={isValidationOpen} onOpenChange={setIsValidationOpen}>
         <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center justify-between">
               <div>
-                <DialogTitle>Laboratorio de Validación</DialogTitle>
-                <DialogDescription className="text-slate-400">Procesando transferencia de {selectedReg?.fullName}</DialogDescription>
+                <DialogTitle>Confirmación de Pago</DialogTitle>
+                <DialogDescription className="text-slate-400">Procesando abono de {selectedReg?.fullName}</DialogDescription>
               </div>
               <div className="flex gap-2">
                 <Button variant="secondary" size="icon" className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white border-none" onClick={handleDownloadProof} title="Descargar Comprobante"><Download className="h-4 w-4" /></Button>
@@ -582,7 +581,7 @@ export default function PaymentsManagementPage() {
                   style={{ transform: `scale(${zoomScale})` }} 
                   alt="Comprobante"
                 />
-              ) : <div className="text-slate-400 italic">Sin comprobante para mostrar</div>}
+              ) : <div className="text-slate-400 italic">Sin comprobante para mostrar (Pago en Caja o Efectivo)</div>}
             </div>
             <div className="w-full md:w-[350px] bg-white border-l p-8 space-y-8 overflow-y-auto">
               <div className="space-y-4">
@@ -596,11 +595,11 @@ export default function PaymentsManagementPage() {
               <div className="space-y-4">
                 <Label className="font-bold">Monto a Confirmar (Gs)</Label>
                 <Input type="number" className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-primary/20" value={valAmount} onChange={(e) => setValAmount(Number(e.target.value))} />
-                <p className="text-[10px] text-slate-400 italic">Verifica que el monto coincida exactamente con la imagen adjunta.</p>
+                <p className="text-[10px] text-slate-400 italic">Verifica que el monto coincida con el arancel o comprobante.</p>
               </div>
               <div className="pt-4">
                 <Button className="w-full h-14 rounded-2xl bg-green-600 hover:bg-green-700 font-bold text-lg gap-2 shadow-xl shadow-green-100" onClick={handleConfirmValidation} disabled={isProcessing}>
-                  {isProcessing ? <Loader2 className="animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> VALIDAR Y EMITIR RECIBO</>}
+                  {isProcessing ? <Loader2 className="animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> CONFIRMAR PAGO Y EMITIR RECIBO</>}
                 </Button>
               </div>
             </div>
@@ -686,7 +685,7 @@ export default function PaymentsManagementPage() {
               onClick={handleProcessPayment} 
               disabled={isSubmitting || (paymentAmount <= 0 && selectedReg?.paymentStatus !== "PAGADO")}
             >
-              {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "PROCESAR COBRO"}
+              {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "CONFIRMAR PAGO"}
             </Button>
           </DialogFooter>
         </DialogContent>
