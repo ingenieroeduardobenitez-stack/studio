@@ -32,10 +32,10 @@ export default function DashboardPage() {
 
   const { data: profile } = useDoc(userProfileRef)
 
-  // RESTAURADO: Cálculo dinámico en tiempo real para estadísticas precisas
+  // OPTIMIZACIÓN: Consulta general para evitar fallos por campos faltantes en registros antiguos
   const regsQuery = useMemoFirebase(() => {
     if (!db) return null
-    return query(collection(db, "confirmations"), where("isArchived", "==", false))
+    return collection(db, "confirmations")
   }, [db])
 
   const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
@@ -43,9 +43,12 @@ export default function DashboardPage() {
   const stats = useMemo(() => {
     if (!registrations) return { total: 0, firstYear: 0, secondYear: 0, adults: 0 }
     
+    // Filtrar activos en memoria para robustez (registros que no sean explícitamente archivados)
+    const active = registrations.filter(r => r.isArchived !== true)
+    
     const s = { total: 0, firstYear: 0, secondYear: 0, adults: 0 }
     
-    registrations.forEach(reg => {
+    active.forEach(reg => {
       s.total++
       if (reg.catechesisYear === "PRIMER_AÑO") s.firstYear++
       else if (reg.catechesisYear === "SEGUNDO_AÑO") s.secondYear++
@@ -61,7 +64,7 @@ export default function DashboardPage() {
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Sincronizando...</p>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Sincronizando con el Santuario...</p>
         </div>
       </div>
     )
@@ -86,12 +89,12 @@ export default function DashboardPage() {
           </Button>
           
           <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl font-bold gap-2 h-11" onClick={() => setIsQrOpen(true)}>
-            <QrCode className="h-4 w-4" /> QR
+            <QrCode className="h-4 w-4" /> Cartel QR
           </Button>
           
           {isAdmin && (
             <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold gap-2 h-11" onClick={() => setIsReportOpen(true)}>
-              <FileText className="h-4 w-4" /> Informe
+              <FileText className="h-4 w-4" /> Informe Ejecutivo
             </Button>
           )}
         </div>
