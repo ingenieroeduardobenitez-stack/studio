@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -36,7 +37,8 @@ import {
   Heart,
   Calendar,
   Maximize2,
-  Camera
+  Camera,
+  Clock
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc } from "firebase/firestore"
@@ -384,6 +386,7 @@ export default function RegistrationsListPage() {
               <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label><Select value={filterSex} onValueChange={setFilterSex}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Sexo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="M">Masc.</SelectItem><SelectItem value="F">Fem.</SelectItem></SelectContent></Select></div>
               <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel</Label><Select value={filterYear} onValueChange={setFilterYear}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Nivel" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
               <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label><Select value={filterStatus} onValueChange={setFilterStatus}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="INSCRITO">Inscritos</SelectItem><SelectItem value="POR_VALIDAR">Por Validar</SelectItem><SelectItem value="REPETIDO">Repetidos</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Método Pago</Label><Select value={filterMethod} onValueChange={setFilterMethod}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Método" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="EFECTIVO">Efectivo</SelectItem><SelectItem value="TRANSFERENCIA">Transferencia</SelectItem><SelectItem value="SIN_PAGO">Pagar en Caja</SelectItem></SelectContent></Select></div>
               <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label><Select value={filterDay} onValueChange={setFilterDay}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Horario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent></Select></div>
               <div className="flex items-end pb-1"><Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-slate-100" onClick={resetFilters}><FilterX className="h-5 w-5 text-slate-400" /></Button></div>
             </div>
@@ -416,6 +419,8 @@ export default function RegistrationsListPage() {
                   const creator = allUsers?.find(u => u.id === reg.userId)
                   const createdDate = reg.createdAt?.toDate ? reg.createdAt.toDate() : (reg.createdAt ? new Date(reg.createdAt) : new Date())
                   const isEfectivo = reg.paymentMethod === "EFECTIVO"
+                  const isPagarEnCaja = reg.paymentMethod === "SIN_PAGO"
+                  const methodLabel = isPagarEnCaja ? "PAGAR EN CAJA" : (reg.paymentMethod || "TRANSFERENCIA")
                   
                   return (
                     <TableRow key={reg.id} className="h-24 hover:bg-slate-50/30 transition-colors border-slate-100">
@@ -462,10 +467,10 @@ export default function RegistrationsListPage() {
                       <TableCell>
                         <div className={cn(
                           "flex items-center gap-1.5 text-[9px] font-black uppercase",
-                          isEfectivo ? "text-green-600" : "text-blue-600"
+                          isEfectivo ? "text-green-600" : isPagarEnCaja ? "text-amber-600" : "text-blue-600"
                         )}>
-                          {isEfectivo ? <Banknote className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
-                          {reg.paymentMethod || "TRANSFERENCIA"}
+                          {isEfectivo ? <Banknote className="h-3 w-3" /> : isPagarEnCaja ? <Clock className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
+                          {methodLabel}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -476,7 +481,7 @@ export default function RegistrationsListPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-700">{createdDate.toLocaleDateString('es-PY')}</span>
+                          <span className="text-sm font-bold text-slate-700">{createdDate.toLocaleDateString('es-PY')}</span>
                           <span className="text-[9px] text-slate-400 font-medium">{createdDate.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                         </div>
                       </TableCell>
@@ -775,7 +780,7 @@ export default function RegistrationsListPage() {
                   </Button>
                   {selectedReg.status === "INSCRITO" && (
                     <Button type="button" variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-black gap-2 h-12 rounded-xl px-6" onClick={() => { setSelectedReg(selectedReg); setIsRevertDialogOpen(true); }}>
-                      <RotateCcw className="h-5 w-5" /> ANULAR PAGO
+                      <RotateCcw className="h-4 w-4" /> ANULAR PAGO
                     </Button>
                   )}
                 </div>

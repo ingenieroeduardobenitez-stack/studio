@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
@@ -396,7 +397,7 @@ export default function PaymentsManagementPage() {
                   <SelectItem value="all">Todos Métodos</SelectItem>
                   <SelectItem value="EFECTIVO">Efectivo</SelectItem>
                   <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
-                  <SelectItem value="SIN_PAGO">Pendiente</SelectItem>
+                  <SelectItem value="SIN_PAGO">Pagar en Caja</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -462,6 +463,8 @@ export default function PaymentsManagementPage() {
                     const isManual = reg.userId !== "public_registration";
                     const creator = findUserById(reg.userId);
                     const hasProof = !!reg.paymentProofUrl;
+                    const isPagarEnCaja = declaredMethod === "SIN_PAGO";
+                    const methodLabel = isPagarEnCaja ? "PAGAR EN CAJA" : declaredMethod;
 
                     return (
                       <TableRow key={reg.id} className="h-20 hover:bg-slate-50/30 transition-colors">
@@ -488,8 +491,8 @@ export default function PaymentsManagementPage() {
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="secondary" className="text-[9px] uppercase gap-1.5">
-                            {declaredMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : declaredMethod === "TRANSFERENCIA" ? <ArrowRightLeft className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                            {declaredMethod}
+                            {declaredMethod === "EFECTIVO" ? <Banknote className="h-3 w-3" /> : isPagarEnCaja ? <Clock className="h-3 w-3" /> : <ArrowRightLeft className="h-3 w-3" />}
+                            {methodLabel}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">
@@ -793,7 +796,7 @@ function ReceiptContent({ reg, formatDate }: { reg: any, formatDate: any }) {
         <div className="flex items-baseline gap-2">
           <span className="font-bold whitespace-nowrap">Observación:</span>
           <span className="flex-1 border-b border-dotted border-black px-2 italic font-medium">
-            Pago regularizado vía {reg?.lastPaymentMethod || 'EFECTIVO'}.
+            Pago regularizado vía {reg?.lastPaymentMethod === "SIN_PAGO" ? "PAGAR EN CAJA" : (reg?.lastPaymentMethod || 'EFECTIVO')}.
           </span>
         </div>
       </div>
