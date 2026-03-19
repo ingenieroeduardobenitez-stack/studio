@@ -285,7 +285,6 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!db) return;
     setLoading(true);
     
-    // LIMPIEZA DE UNDEFINED (Firestore no acepta undefined)
     const cleanedValues: any = {};
     Object.keys(values).forEach(key => {
       const val = (values as any)[key];
@@ -433,10 +432,23 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                 <FormField control={form.control} name="registrationCost" render={({ field }) => (<FormItem><FormLabel className="font-bold">Monto a Registrar (Gs)</FormLabel><FormControl><Input type="number" {...field} className="h-14 text-2xl font-black text-primary text-center" disabled={paymentMethod === "SIN_PAGO"} onChange={(e) => { const v = Number(e.target.value); field.onChange(v > establishedLimit ? establishedLimit : v); if (v > establishedLimit) toast({ variant: "destructive", title: "Monto excedido", description: "No puede superar el arancel oficial." }); }} /></FormControl></FormItem>)} />
               </div>
               <FormField control={form.control} name="paymentMethod" render={({ field }) => (
-                <FormItem className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {!isPublic && (<div onClick={() => field.onChange("EFECTIVO")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3", field.value === "EFECTIVO" ? "border-primary bg-primary/5" : "border-slate-100")}><Banknote className={cn("h-8 w-8", field.value === "EFECTIVO" ? "text-primary" : "text-slate-300")} /><span className="text-xs font-black uppercase">Efectivo</span></div>)}
-                  <div onClick={() => field.onChange("TRANSFERENCIA")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3", field.value === "TRANSFERENCIA" ? "border-primary bg-primary/5" : "border-slate-100")}><ArrowRightLeft className={cn("h-8 w-8", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-300")} /><span className="text-xs font-black uppercase">Transferencia</span></div>
-                  <div onClick={() => field.onChange("SIN_PAGO")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3", field.value === "SIN_PAGO" ? "border-primary bg-primary/5" : "border-slate-100")}><Clock className={cn("h-8 w-8", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-300")} /><span className="text-xs font-black uppercase text-center">Pagar en caja</span></div>
+                <FormItem className={cn("grid gap-4", isPublic ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2")}>
+                  {!isPublic && (
+                    <div onClick={() => field.onChange("EFECTIVO")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "EFECTIVO" ? "border-primary bg-primary/5" : "border-slate-100")}>
+                      <Banknote className={cn("h-8 w-8", field.value === "EFECTIVO" ? "text-primary" : "text-slate-300")} />
+                      <span className="text-xs font-black uppercase">Efectivo</span>
+                    </div>
+                  )}
+                  <div onClick={() => field.onChange("TRANSFERENCIA")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "TRANSFERENCIA" ? "border-primary bg-primary/5" : "border-slate-100")}>
+                    <ArrowRightLeft className={cn("h-8 w-8", field.value === "TRANSFERENCIA" ? "text-primary" : "text-slate-300")} />
+                    <span className="text-xs font-black uppercase">Transferencia</span>
+                  </div>
+                  {isPublic && (
+                    <div onClick={() => field.onChange("SIN_PAGO")} className={cn("cursor-pointer p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all", field.value === "SIN_PAGO" ? "border-primary bg-primary/5" : "border-slate-100")}>
+                      <Clock className={cn("h-8 w-8", field.value === "SIN_PAGO" ? "text-primary" : "text-slate-300")} />
+                      <span className="text-xs font-black uppercase text-center leading-tight">Pagar en caja el día de catequesis</span>
+                    </div>
+                  )}
                 </FormItem>
               )} />
               {paymentMethod === "TRANSFERENCIA" && (
