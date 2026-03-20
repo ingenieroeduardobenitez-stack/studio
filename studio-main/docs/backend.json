@@ -1,0 +1,158 @@
+
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Perfil del personal de la parroquia (catequistas, coordinadores, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["Catequista", "Coordinador", "Tesorero", "Administrador"] },
+        "photoUrl": { "type": "string", "format": "uri" },
+        "birthDate": { "type": "string", "format": "date", "description": "Fecha de nacimiento del catequista" },
+        "allowedModules": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "eventPayments": { "type": "object", "description": "Registro de pagos de eventos especiales" }
+      }
+    },
+    "Confirmation": {
+      "title": "Confirmation",
+      "description": "Registro de inscripción para el sacramento de la Confirmación",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "ciNumber": { "type": "string" },
+        "phone": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date" },
+        "age": { "type": "number" },
+        "photoUrl": { "type": "string", "format": "uri" },
+        "catechesisYear": { "type": "string" },
+        "attendanceDay": { "type": "string" },
+        "status": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "amountPaid": { "type": "number" },
+        "registrationCost": { "type": "number" },
+        "paymentProofUrl": { "type": "string", "format": "uri" },
+        "eventPayments": { "type": "object" },
+        "groupId": { "type": "string" },
+        "absenceCount": { "type": "number", "default": 0 },
+        "isArchived": { "type": "boolean", "default": false },
+        "withdrawalReason": { "type": "string" },
+        "withdrawalDate": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Attendance": {
+      "title": "AttendanceRecord",
+      "description": "Registro individual de asistencia por fecha",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["PRESENTE", "AUSENTE", "JUSTIFICADO"] },
+        "justificationUrl": { "type": "string", "format": "uri" },
+        "justificationNotes": { "type": "string" },
+        "registeredBy": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Group": {
+      "title": "Group",
+      "description": "Grupo de catequesis asignado a catequistas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "catequistaIds": { "type": "array", "items": { "type": "string" } },
+        "attendanceDay": { "type": "string" },
+        "catechesisYear": { "type": "string" },
+        "schedule": { "type": "string" }
+      }
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Registro de egresos y compras de la parroquia",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "concept": { "type": "string" },
+        "amount": { "type": "number" },
+        "proofUrl": { "type": "string", "format": "uri" },
+        "date": { "type": "string", "format": "date-time" },
+        "registeredBy": { "type": "string" }
+      }
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Eventos especiales con costo (Retiros, Jornadas, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "cost": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "QrTransaction": {
+      "title": "QR Transaction",
+      "description": "Pruebas de transacciones de cobro por QR",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "buyerName": { "type": "string" },
+        "buyerIdentity": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "PAID", "EXPIRED"] },
+        "qrString": { "type": "string" },
+        "token": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "auth": {
+    "providers": [
+      "password"
+    ]
+  },
+  "firestore": {
+    "/confirmations/{confirmationId}": {
+      "schema": { "$ref": "#/entities/Confirmation" },
+      "description": "Colección principal de confirmandos"
+    },
+    "/confirmations/{confirmationId}/attendance/{attendanceId}": {
+      "schema": { "$ref": "#/entities/Attendance" },
+      "description": "Historial de asistencia del confirmando"
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/Event" },
+      "description": "Eventos parroquiales con arancel"
+    },
+    "/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Registro de gastos"
+    },
+    "/groups/{groupId}": {
+      "schema": { "$ref": "#/entities/Group" },
+      "description": "Grupos de catequesis"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Perfiles de usuario"
+    },
+    "/audit_logs/{logId}": {
+      "description": "Registros de auditoría de acciones del personal"
+    },
+    "/qr_transactions/{txId}": {
+      "schema": { "$ref": "#/entities/QrTransaction" },
+      "description": "Registros de prueba del Laboratorio QR"
+    },
+    "/cedulas/{cedulaId}": {
+      "description": "Repositorio de cédulas para validación masiva"
+    }
+  }
+}

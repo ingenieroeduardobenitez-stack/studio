@@ -1,0 +1,229 @@
+
+"use client"
+
+import { useState, useMemo, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { 
+  BarChart3, 
+  TrendingUp, 
+  TrendingDown, 
+  Wallet, 
+  Loader2, 
+  ArrowUpRight, 
+  ArrowDownRight,
+  Filter,
+  Download,
+  AlertCircle,
+  Clock
+} from "lucide-react"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { collection } from "firebase/firestore"
+import { 
+  Bar, 
+  BarChart, 
+  ResponsiveContainer, 
+  XAxis, 
+  YAxis, 
+  Tooltip as RechartsTooltip, 
+  Cell,
+  PieChart,
+  Pie
+} from "recharts"
+import { Button } from "@/components/ui/button"
+
+export default function FinancialStatsPage() {
+  const [mounted, setMounted] = useState(false)
+  const db = useFirestore()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
+  const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
+  const expensesQuery = useMemoFirebase(() => db ? collection(db, "expenses") : null, [db])
+
+  // RESTAURADO: Suscripciones en tiempo real para estadísticas instantáneas
+  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
+  const { data: users, loading: loadingUsers } = useCollection(usersQuery)
+  const { data: expenses, loading: loadingExpenses } = useCollection(expensesQuery)
+
+  const totals = useMemo(() => {
+    const incomeRegs = registrations?.reduce((sum, r) => sum + (r.amountPaid || 0), 0) || 0
+    
+    const porValidar = registrations?.filter(r => r.status === "POR_VALIDAR") || []
+    const pendingValidationCount = porValidar.length
+    const pendingValidationAmount = porValidar.reduce((sum, r) => {
+      const cost = r.registrationCost || (r.catechesisYear === "ADULTOS" ? 50000 : 35000);
+      return sum + cost;
+    }, 0)
+
+    let incomeEvents = 0
+    users?.forEach(u => {
+      if (u.eventPayments) {
+        Object.values(u.eventPayments).forEach((p: any) => {
+          incomeEvents += (p.paid || 0)
+        })
+      }
+    })
+
+    const totalIncome = incomeRegs + incomeEvents
+    const totalExpenses = expenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0
+    
+    return {
+      incomeRegs,
+      incomeEvents,
+      totalIncome,
+      totalExpenses,
+      balance: totalIncome - totalExpenses,
+      pendingValidationCount,
+      pendingValidationAmount
+    }
+  }, [registrations, users, expenses])
+
+  const chartData = [
+    { name: "Ingresos", total: totals.totalIncome, fill: "hsl(var(--primary))" },
+    { name: "Egresos", total: totals.totalExpenses, fill: "hsl(var(--destructive))" },
+  ]
+
+  const distributionData = [
+    { name: "Inscripciones", value: totals.incomeRegs, color: "#4f46e5" },
+    { name: "Cobros Catequistas", value: totals.incomeEvents, color: "#10b981" }
+  ]
+
+  if (!mounted) return null
+
+  const loading = loadingRegs || loadingUsers || loadingExpenses
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-headline font-bold text-primary">Estadísticas Financieras</h1>
+          <p className="text-muted-foreground">Visión general del flujo de caja del Santuario Nacional.</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-40"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="border-none shadow-sm border-l-4 border-l-green-500 bg-white">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Ingresos</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-black text-slate-900">{totals.totalIncome.toLocaleString('es-PY')} Gs.</div>
+                <div className="flex items-center gap-1 mt-1 text-[10px] text-green-600 font-bold">
+                  <ArrowUpRight className="h-3 w-3" /> Actualizado ahora
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm border-l-4 border-l-orange-500 bg-white">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Por Validar</CardTitle>
+                <Clock className="h-4 w-4 text-orange-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-black text-orange-600">{totals.pendingValidationAmount.toLocaleString('es-PY')} Gs.</div>
+                <div className="flex items-center gap-1 mt-1 text-[10px] text-orange-500 font-bold">
+                  <AlertCircle className="h-3 w-3" /> {totals.pendingValidationCount} por procesar
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm border-l-4 border-l-red-500 bg-white">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Egresos</CardTitle>
+                <TrendingDown className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-black text-slate-900">{totals.totalExpenses.toLocaleString('es-PY')} Gs.</div>
+                <div className="flex items-center gap-1 mt-1 text-[10px] text-red-600 font-bold">
+                  <ArrowDownRight className="h-3 w-3" /> Gastos operativos
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm border-l-4 border-l-primary bg-slate-900 text-white">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Balance Real</CardTitle>
+                <Wallet className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-black">{totals.balance.toLocaleString('es-PY')} Gs.</div>
+                <p className="text-[10px] text-slate-400 mt-1">Efectivo/Banco disponible</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-2">
+            <Card className="border-none shadow-xl bg-white overflow-hidden">
+              <CardHeader className="bg-slate-50/50 border-b">
+                <CardTitle className="text-lg flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Comparativa Global</CardTitle>
+                <CardDescription>Entradas vs Salidas de dinero.</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-10">
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 'bold' }} />
+                      <YAxis hide />
+                      <RechartsTooltip 
+                        cursor={{ fill: 'transparent' }} 
+                        formatter={(value: number) => [value.toLocaleString('es-PY') + " Gs.", "Monto"]}
+                      />
+                      <Bar dataKey="total" radius={[8, 8, 0, 0]} barSize={60}>
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-xl bg-white overflow-hidden">
+              <CardHeader className="bg-slate-50/50 border-b">
+                <CardTitle className="text-lg flex items-center gap-2">Distribución de Ingresos</CardTitle>
+                <CardDescription>Origen de los fondos recaudados.</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="h-[300px] w-full relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={distributionData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {distributionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip formatter={(value: number) => value.toLocaleString('es-PY') + " Gs."} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <p className="text-xs font-bold text-slate-400 uppercase">Total</p>
+                    <p className="text-xl font-black text-slate-900">100%</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}

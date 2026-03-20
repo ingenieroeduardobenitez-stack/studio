@@ -1,0 +1,23 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "parish-logo",
+      "description": "Logo institucional de la Parroquia Perpetuo Socorro",
+      "imageUrl": "/logo.png",
+      "imageHint": "church logo"
+    },
+    {
+      "id": "hero-image",
+      "description": "Imagen principal de la parroquia",
+      "imageUrl": "https://picsum.photos/seed/parish-hero/1200/800",
+      "imageHint": "church building"
+    },
+    {
+      "id": "avatar-user",
+      "description": "Avatar predeterminado de usuario",
+      "imageUrl": "https://picsum.photos/seed/catechist-default/200/200",
+      "imageHint": "person profile"
+    }
+  ]
+}
