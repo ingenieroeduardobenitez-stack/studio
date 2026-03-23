@@ -288,7 +288,7 @@ export default function TreasuryPage() {
         };
 
         transaction.update(regRef, updatePayload);
-        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+        transaction.set(treasuryRef!, { nextReceiptNumber: currentNext + 1 }, { merge: true });
         
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",

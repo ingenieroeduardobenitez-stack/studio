@@ -193,38 +193,14 @@ export default function RootPage() {
                   disabled={!isFirebaseReady || loading}
                 />
                 <div className="flex justify-end mt-1">
-                  <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="link" className="px-0 h-auto text-[10px] font-bold text-slate-400 hover:text-primary uppercase tracking-tight">
-                        ¿Olvidaste tu contraseña?
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px] rounded-[2rem]">
-                      <DialogHeader>
-                        <DialogTitle className="text-xl font-headline font-bold text-primary">Recuperar Acceso</DialogTitle>
-                        <DialogDescription className="text-slate-500 text-sm">
-                          Ingresa tu correo institucional para recibir un enlace de restablecimiento.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <form onSubmit={handleResetPassword} className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="resetEmail" className="text-xs font-bold text-slate-700 uppercase">Correo Institucional</Label>
-                          <Input 
-                            id="resetEmail" 
-                            type="email" 
-                            placeholder="usuario@santuario.org" 
-                            required 
-                            className="h-12 rounded-xl bg-slate-50"
-                            value={resetEmail}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetEmail(e.target.value)}
-                          />
-                        </div>
-                        <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={isResetLoading}>
-                          {isResetLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Enviar Enlace"}
-                        </Button>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
+                  <Button 
+                    type="button"
+                    variant="link" 
+                    onClick={() => setIsResetOpen(true)}
+                    className="px-0 h-auto text-[10px] font-bold text-slate-400 hover:text-primary uppercase tracking-tight"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </Button>
                 </div>
               </div>
               <Button 
@@ -262,6 +238,34 @@ export default function RootPage() {
           © 2026 Ing. Eduardo Benítez | Desarrollo de Software - Todos los derechos reservados.
         </p>
       </div>
+
+      <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-headline font-bold text-primary">Recuperar Acceso</DialogTitle>
+            <DialogDescription className="text-slate-500 text-sm">
+              Ingresa tu correo institucional para recibir un enlace de restablecimiento.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleResetPassword} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="resetEmail" className="text-xs font-bold text-slate-700 uppercase">Correo Institucional</Label>
+              <Input 
+                id="resetEmail" 
+                type="email" 
+                placeholder="usuario@santuario.org" 
+                required 
+                className="h-12 rounded-xl bg-slate-50"
+                value={resetEmail}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetEmail(e.target.value)}
+              />
+            </div>
+            <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={isResetLoading}>
+              {isResetLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Enviar Enlace"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

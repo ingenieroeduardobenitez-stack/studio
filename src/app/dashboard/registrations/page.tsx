@@ -346,7 +346,7 @@ export default function RegistrationsListPage() {
           lastPaymentDate: serverTimestamp(),
           lastPaymentMethod: selectedReg.paymentMethod || "TRANSFERENCIA"
         });
-        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+        transaction.set(treasuryRef, { nextReceiptNumber: currentNext + 1 }, { merge: true });
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",
           userName: catechistName,
