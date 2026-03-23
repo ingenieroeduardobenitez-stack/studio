@@ -161,11 +161,13 @@ export default function RegistrationsListPage() {
   const filteredRegistrations = useMemo(() => {
     return registrations.filter((r: any) => {
       const cleanCi = r.ciNumber?.replace(/[^0-9]/g, '') || ""
+      const searchLower = searchTerm.toLowerCase()
+      const searchNumbers = searchTerm.replace(/[^0-9]/g, '')
       const matchesSearch = !searchTerm || 
-        r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        cleanCi.includes(searchTerm.replace(/[^0-9]/g, ''))
-      
-      const isRepetido = duplicateCis.has(cleanCi)
+        r.fullName?.toLowerCase().includes(searchLower) || 
+        (searchNumbers !== "" && cleanCi.includes(searchNumbers)) ||
+        r.phone?.includes(searchTerm) ||
+        r.receiptNumber?.toLowerCase().includes(searchLower)
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
       const matchesStatus = filterStatus === "all" || (filterStatus === "REPETIDO" ? isRepetido : r.status === filterStatus)
