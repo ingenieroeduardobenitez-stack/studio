@@ -92,6 +92,8 @@ export default function RegistrationsListPage() {
   // Estado para la forma de pago y foto en edición
   const [editPaymentMethod, setEditPaymentMethod] = useState<string>("")
   const [editPhotoUrl, setEditPhotoUrl] = useState<string | null>(null)
+  const [editGroupId, setEditGroupId] = useState<string>("none")
+  const [editCatechesisYear, setEditCatechesisYear] = useState<string>("")
 
   // Estados para Cámara y Ajuste de Foto
   const [showCamera, setShowCamera] = useState(false)
@@ -194,6 +196,8 @@ export default function RegistrationsListPage() {
     setSelectedReg(reg)
     setEditPaymentMethod(reg.paymentMethod || "TRANSFERENCIA")
     setEditPhotoUrl(reg.photoUrl || null)
+    setEditGroupId(reg.groupId || "none")
+    setEditCatechesisYear(reg.catechesisYear || "")
     setIsDetailsOpen(true)
   }
 
@@ -424,8 +428,8 @@ export default function RegistrationsListPage() {
       fullName: (formData.get("fullName") as string).toUpperCase(),
       ciNumber: formData.get("ciNumber") as string,
       phone: formData.get("phone") as string,
-      groupId: formData.get("groupId") as string,
-      catechesisYear: formData.get("catechesisYear") as string,
+      groupId: editGroupId === "none" ? null : editGroupId,
+      catechesisYear: editCatechesisYear,
       paymentMethod: editPaymentMethod,
       photoUrl: editPhotoUrl,
       motherName: (formData.get("motherName") as string || "").toUpperCase(),
@@ -801,7 +805,7 @@ export default function RegistrationsListPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label>
-                          <Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}>
+                          <Select value={editCatechesisYear} onValueChange={setEditCatechesisYear}>
                             <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem>
@@ -812,11 +816,11 @@ export default function RegistrationsListPage() {
                         </div>
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignación de Grupo</Label>
-                          <Select name="groupId" defaultValue={selectedReg.groupId || "none"}>
+                          <Select value={editGroupId} onValueChange={setEditGroupId}>
                             <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold"><SelectValue placeholder="Sin grupo asignado" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>
-                              {allGroups?.filter(g => g.catechesisYear === selectedReg.catechesisYear).map(g => (
+                              {allGroups?.filter(g => g.catechesisYear === editCatechesisYear).map(g => (
                                 <SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay})</SelectItem>
                               ))}
                             </SelectContent>
