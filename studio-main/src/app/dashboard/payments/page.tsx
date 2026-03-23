@@ -140,7 +140,9 @@ export default function PaymentsManagementPage() {
       if (r.isArchived) return false
       const matchesSearch = !searchTerm || 
         r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        r.ciNumber?.includes(searchTerm)
+        r.ciNumber?.includes(searchTerm) ||
+        r.phone?.includes(searchTerm) ||
+        r.receiptNumber?.toLowerCase().includes(searchTerm.toLowerCase())
       
       if (!matchesSearch) return false
       const matchesSex = filterSex === "all" || r.sexo === filterSex
@@ -196,7 +198,7 @@ export default function PaymentsManagementPage() {
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Validador"
     try {
       await runTransaction(db, async (transaction) => {
-        const treasurySnap = await transaction.get(treasurySettingsRef);
+        const treasurySnap = await transaction.get(treasurySettingsRef!);
         const nextReceipt = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(nextReceipt).padStart(7, '0')}`;
         
@@ -214,7 +216,7 @@ export default function PaymentsManagementPage() {
         };
 
         transaction.update(regRef, updatePayload);
-        transaction.update(treasurySettingsRef, { nextReceiptNumber: nextReceipt + 1 });
+        transaction.set(treasurySettingsRef!, { nextReceiptNumber: nextReceipt + 1 }, { merge: true });
         
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",
@@ -251,7 +253,7 @@ export default function PaymentsManagementPage() {
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Catequista"
     try {
       await runTransaction(db, async (transaction) => {
-        const treasurySnap = await transaction.get(treasurySettingsRef);
+        const treasurySnap = await transaction.get(treasurySettingsRef!);
         const regSnap = await transaction.get(regRef);
         if (!regSnap.exists()) throw new Error("Registro no encontrado");
         const regData = regSnap.data();
@@ -273,7 +275,7 @@ export default function PaymentsManagementPage() {
         };
 
         transaction.update(regRef, updatePayload);
-        transaction.update(treasurySettingsRef, { nextReceiptNumber: currentNext + 1 });
+        transaction.set(treasurySettingsRef!, { nextReceiptNumber: currentNext + 1 }, { merge: true });
         
         const logRef = doc(collection(db, "audit_logs"));
         transaction.set(logRef, {

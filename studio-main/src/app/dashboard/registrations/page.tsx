@@ -163,7 +163,9 @@ export default function RegistrationsListPage() {
       const cleanCi = r.ciNumber?.replace(/[^0-9]/g, '') || ""
       const matchesSearch = !searchTerm || 
         r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        cleanCi.includes(searchTerm.replace(/[^0-9]/g, ''))
+        cleanCi.includes(searchTerm.replace(/[^0-9]/g, '')) ||
+        r.phone?.includes(searchTerm) ||
+        r.receiptNumber?.toLowerCase().includes(searchTerm.toLowerCase())
       
       const isRepetido = duplicateCis.has(cleanCi)
       const matchesSex = filterSex === "all" || r.sexo === filterSex
@@ -334,9 +336,10 @@ export default function RegistrationsListPage() {
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
     try {
       await runTransaction(db, async (transaction) => {
-        const treasurySnap = await transaction.get(treasuryRef);
+        const treasurySnap = await transaction.get(treasuryRef!);
         const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
+        
         transaction.update(regRef, {
           amountPaid: validationAmount,
           paymentStatus: validationAmount >= limit ? "PAGADO" : "PARCIAL",
@@ -346,7 +349,9 @@ export default function RegistrationsListPage() {
           lastPaymentDate: serverTimestamp(),
           lastPaymentMethod: selectedReg.paymentMethod || "TRANSFERENCIA"
         });
-        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+
+        transaction.set(treasuryRef!, { nextReceiptNumber: currentNext + 1 }, { merge: true });
+        
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",
           userName: catechistName,

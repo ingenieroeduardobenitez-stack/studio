@@ -1,11 +1,20 @@
 {
   "hosting": {
     "site": "confir-juvenil-nsps",
-    "source": ".",
+    "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "confir-juvenil-nsps",
+          "region": "us-central1"
+        }
+      }
     ]
   }
 }

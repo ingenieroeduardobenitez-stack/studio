@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/firebase/provider"
-import { signInWithEmailAndPassword } from "firebase/auth"
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Image from "next/image"
@@ -20,6 +20,7 @@ export default function LoginPage() {
   const auth = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
   const [formData, setFormData] = useState({
     email: "",
     password: ""
@@ -35,6 +36,34 @@ export default function LoginPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value })
+  }
+
+  const handleForgotPassword = async () => {
+    if (!formData.email) {
+      toast({
+        variant: "destructive",
+        title: "Correo requerido",
+        description: "Ingresa tu correo institucional para enviarte el enlace de recuperación.",
+      })
+      return
+    }
+
+    setIsResetting(true)
+    try {
+      await sendPasswordResetEmail(auth, formData.email)
+      toast({
+        title: "Correo enviado",
+        description: "Revisa tu bandeja de entrada para restablecer tu contraseña.",
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo enviar el correo de recuperación.",
+      })
+    } finally {
+      setIsResetting(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,6 +166,14 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" title="Contraseña" className="text-slate-700 font-bold text-xs uppercase tracking-wider">Contraseña</Label>
+                  <button 
+                    type="button" 
+                    onClick={handleForgotPassword}
+                    className="text-[10px] font-bold text-primary hover:underline uppercase tracking-tighter"
+                    disabled={isResetting || loading}
+                  >
+                    {isResetting ? "Enviando..." : "Olvidé mi contraseña"}
+                  </button>
                 </div>
                 <Input 
                   id="password" 
@@ -164,7 +201,7 @@ export default function LoginPage() {
             </CardContent>
             <CardFooter className="bg-slate-50 p-6 flex flex-col gap-4 border-t">
               <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-                Si olvidaste tu contraseña o no tienes acceso, contacta con el administrador del sistema.
+                Si olvidaste tu contraseña utiliza el enlace arriba o contacta con el administrador del sistema.
               </p>
             </CardFooter>
           </form>

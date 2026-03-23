@@ -139,7 +139,9 @@ export default function TreasuryPage() {
       if (reg.isArchived) return false
       const matchesSearch = !searchTerm || 
         reg.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        reg.ciNumber?.includes(searchTerm)
+        reg.ciNumber?.includes(searchTerm) ||
+        reg.phone?.includes(searchTerm) ||
+        reg.receiptNumber?.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesYear = filterYear === "all" || reg.catechesisYear === filterYear
       const matchesStatus = filterStatus === "all" || reg.paymentStatus === filterStatus
       return matchesSearch && matchesYear && matchesStatus
@@ -288,7 +290,7 @@ export default function TreasuryPage() {
         };
 
         transaction.update(regRef, updatePayload);
-        transaction.update(treasuryRef, { nextReceiptNumber: currentNext + 1 });
+        transaction.set(treasuryRef!, { nextReceiptNumber: currentNext + 1 }, { merge: true });
         
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",
