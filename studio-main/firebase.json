@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "confir-juvenil-nsps",
     "source": ".",
     "ignore": [
       "firebase.json",
