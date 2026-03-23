@@ -336,11 +336,13 @@ export default function RegistrationsListPage() {
     setIsProcessing(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
+    let formattedReceipt = '';
+
     try {
       await runTransaction(db, async (transaction) => {
         const treasurySnap = await transaction.get(treasuryRef!);
         const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
-        const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
+        formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
         
         transaction.update(regRef, {
           amountPaid: validationAmount,
@@ -353,20 +355,35 @@ export default function RegistrationsListPage() {
         });
 
         transaction.set(treasuryRef!, { nextReceiptNumber: currentNext + 1 }, { merge: true });
-        
-        transaction.set(doc(collection(db, "audit_logs")), {
+      });
+
+      toast({ title: "Pago confirmado con éxito" })
+      setIsValidatingProofOpen(false)
+
+      // Separate audit log to avoid permission issues within transaction
+      try {
+        await addDoc(collection(db, "audit_logs"), {
           userId: user?.uid || "unknown",
           userName: catechistName,
           action: "Confirmación de Pago",
           module: "inscripcion",
           details: `Se confirmó el pago de ${validationAmount.toLocaleString('es-PY')} Gs. para ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
           timestamp: serverTimestamp()
-        })
-      });
-      toast({ title: "Pago confirmado con éxito" })
-      setIsValidatingProofOpen(false)
-    } catch (e) { toast({ variant: "destructive", title: "Error al confirmar" }) }
-    finally { setIsProcessing(false) }
+        });
+      } catch (auditError) {
+        console.error("Error adding audit log:", auditError);
+        // Optionally, log this error to a different system or show a less critical toast
+      }
+
+    } catch (e: any) {
+      if (e.code === 'permission-denied') {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: regRef.path, operation: 'update', requestResourceData: { amountPaid: validationAmount, paymentStatus: validationAmount >= limit ? "PAGADO" : "PARCIAL", status: "INSCRITO" } }));
+      } else {
+        toast({ variant: "destructive", title: "Error al confirmar", description: e.message || "Ocurrió un error inesperado." });
+      }
+    } finally { 
+      setIsProcessing(false) 
+    }
   }
 
   const handleRevertValidation = async () => {
