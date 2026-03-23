@@ -334,11 +334,12 @@ export default function RegistrationsListPage() {
     setIsProcessing(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
+    let formattedReceipt = ''
     try {
       await runTransaction(db, async (transaction) => {
-        const treasurySnap = await transaction.get(treasuryRef);
+        const treasurySnap = await transaction.get(treasuryRef!);
         const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
-        const formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
+        formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
         transaction.update(regRef, {
           amountPaid: validationAmount,
           paymentStatus: validationAmount >= limit ? "PAGADO" : "PARCIAL",
@@ -348,19 +349,23 @@ export default function RegistrationsListPage() {
           lastPaymentDate: serverTimestamp(),
           lastPaymentMethod: selectedReg.paymentMethod || "TRANSFERENCIA"
         });
-        transaction.set(treasuryRef, { nextReceiptNumber: currentNext + 1 }, { merge: true });
-        transaction.set(doc(collection(db, "audit_logs")), {
-          userId: user?.uid || "unknown",
-          userName: catechistName,
-          action: "Confirmación de Pago",
-          module: "inscripcion",
-          details: `Se confirmó el pago de ${validationAmount.toLocaleString('es-PY')} Gs. para ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
-          timestamp: serverTimestamp()
-        })
+        transaction.set(treasuryRef!, { nextReceiptNumber: currentNext + 1 }, { merge: true });
       });
+      // Audit log separado de la transacción para no bloquear el pago
+      addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: catechistName,
+        action: "Confirmación de Pago",
+        module: "inscripcion",
+        details: `Se confirmó el pago de ${validationAmount.toLocaleString('es-PY')} Gs. para ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+        timestamp: serverTimestamp()
+      }).catch(console.error)
       toast({ title: "Pago confirmado con éxito" })
       setIsValidatingProofOpen(false)
-    } catch (e) { toast({ variant: "destructive", title: "Error al confirmar" }) }
+    } catch (e: any) { 
+      console.error("Confirmar pago error:", e)
+      toast({ variant: "destructive", title: "Error al confirmar", description: e?.message || "Intente nuevamente" }) 
+    }
     finally { setIsProcessing(false) }
   }
 
