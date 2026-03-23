@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth, useUser } from "@/firebase"
-import { signInWithEmailAndPassword } from "firebase/auth"
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import Image from "next/image"
 import Link from "next/link"
 
@@ -24,6 +25,9 @@ export default function RootPage() {
     email: "",
     password: ""
   })
+  const [resetEmail, setResetEmail] = useState("")
+  const [isResetLoading, setIsResetLoading] = useState(false)
+  const [isResetOpen, setIsResetOpen] = useState(false)
 
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
@@ -78,6 +82,37 @@ export default function RootPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetEmail) {
+      toast({
+        variant: "destructive",
+        title: "Correo requerido",
+        description: "Por favor, ingresa tu correo institucional.",
+      })
+      return
+    }
+
+    setIsResetLoading(true)
+    try {
+      await sendPasswordResetEmail(auth, resetEmail)
+      toast({
+        title: "Correo enviado",
+        description: "Se ha enviado un enlace para restablecer tu contraseña.",
+      })
+      setIsResetOpen(false)
+    } catch (error: any) {
+      console.error("Error Reset Auth:", error.code)
+      toast({
+        variant: "destructive",
+        title: "Error al enviar correo",
+        description: "No se pudo procesar la solicitud. Verifica el correo.",
+      })
+    } finally {
+      setIsResetLoading(false)
     }
   }
 
@@ -157,6 +192,40 @@ export default function RootPage() {
                   onChange={handleChange}
                   disabled={!isFirebaseReady || loading}
                 />
+                <div className="flex justify-end mt-1">
+                  <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="link" className="px-0 h-auto text-[10px] font-bold text-slate-400 hover:text-primary uppercase tracking-tight">
+                        ¿Olvidaste tu contraseña?
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px] rounded-[2rem]">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl font-headline font-bold text-primary">Recuperar Acceso</DialogTitle>
+                        <DialogDescription className="text-slate-500 text-sm">
+                          Ingresa tu correo institucional para recibir un enlace de restablecimiento.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleResetPassword} className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="resetEmail" className="text-xs font-bold text-slate-700 uppercase">Correo Institucional</Label>
+                          <Input 
+                            id="resetEmail" 
+                            type="email" 
+                            placeholder="usuario@santuario.org" 
+                            required 
+                            className="h-12 rounded-xl bg-slate-50"
+                            value={resetEmail}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetEmail(e.target.value)}
+                          />
+                        </div>
+                        <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={isResetLoading}>
+                          {isResetLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Enviar Enlace"}
+                        </Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
               <Button 
                 type="submit" 
