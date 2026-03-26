@@ -92,8 +92,6 @@ export default function RegistrationsListPage() {
   // Estado para la forma de pago y foto en edición
   const [editPaymentMethod, setEditPaymentMethod] = useState<string>("")
   const [editPhotoUrl, setEditPhotoUrl] = useState<string | null>(null)
-  const [editGroupId, setEditGroupId] = useState<string>("none")
-  const [editCatechesisYear, setEditCatechesisYear] = useState<string>("")
 
   // Estados para Cámara y Ajuste de Foto
   const [showCamera, setShowCamera] = useState(false)
@@ -170,8 +168,6 @@ export default function RegistrationsListPage() {
         (searchNumbers !== "" && cleanCi.includes(searchNumbers)) ||
         r.phone?.includes(searchTerm) ||
         r.receiptNumber?.toLowerCase().includes(searchLower)
-      
-      const isRepetido = duplicateCis.has(cleanCi)
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
       const matchesStatus = filterStatus === "all" || (filterStatus === "REPETIDO" ? isRepetido : r.status === filterStatus)
@@ -196,8 +192,6 @@ export default function RegistrationsListPage() {
     setSelectedReg(reg)
     setEditPaymentMethod(reg.paymentMethod || "TRANSFERENCIA")
     setEditPhotoUrl(reg.photoUrl || null)
-    setEditGroupId(reg.groupId || "none")
-    setEditCatechesisYear(reg.catechesisYear || "")
     setIsDetailsOpen(true)
   }
 
@@ -340,14 +334,12 @@ export default function RegistrationsListPage() {
     setIsProcessing(true)
     const regRef = doc(db, "confirmations", selectedReg.id)
     const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : "Tesorero"
-    let formattedReceipt = '';
-
+    let formattedReceipt = ''
     try {
       await runTransaction(db, async (transaction) => {
         const treasurySnap = await transaction.get(treasuryRef!);
         const currentNext = treasurySnap.exists() ? (treasurySnap.data()?.nextReceiptNumber || 1) : 1;
         formattedReceipt = `001-001-${String(currentNext).padStart(7, '0')}`;
-        
         transaction.update(regRef, {
           amountPaid: validationAmount,
           paymentStatus: validationAmount >= limit ? "PAGADO" : "PARCIAL",
@@ -357,37 +349,24 @@ export default function RegistrationsListPage() {
           lastPaymentDate: serverTimestamp(),
           lastPaymentMethod: selectedReg.paymentMethod || "TRANSFERENCIA"
         });
-
         transaction.set(treasuryRef!, { nextReceiptNumber: currentNext + 1 }, { merge: true });
       });
-
+      // Audit log separado de la transacción para no bloquear el pago
+      addDoc(collection(db, "audit_logs"), {
+        userId: user?.uid || "unknown",
+        userName: catechistName,
+        action: "Confirmación de Pago",
+        module: "inscripcion",
+        details: `Se confirmó el pago de ${validationAmount.toLocaleString('es-PY')} Gs. para ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
+        timestamp: serverTimestamp()
+      }).catch(console.error)
       toast({ title: "Pago confirmado con éxito" })
       setIsValidatingProofOpen(false)
-
-      // Separate audit log to avoid permission issues within transaction
-      try {
-        await addDoc(collection(db, "audit_logs"), {
-          userId: user?.uid || "unknown",
-          userName: catechistName,
-          action: "Confirmación de Pago",
-          module: "inscripcion",
-          details: `Se confirmó el pago de ${validationAmount.toLocaleString('es-PY')} Gs. para ${selectedReg.fullName}. Recibo: ${formattedReceipt}`,
-          timestamp: serverTimestamp()
-        });
-      } catch (auditError) {
-        console.error("Error adding audit log:", auditError);
-        // Optionally, log this error to a different system or show a less critical toast
-      }
-
-    } catch (e: any) {
-      if (e.code === 'permission-denied') {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: regRef.path, operation: 'update', requestResourceData: { amountPaid: validationAmount, paymentStatus: validationAmount >= limit ? "PAGADO" : "PARCIAL", status: "INSCRITO" } }));
-      } else {
-        toast({ variant: "destructive", title: "Error al confirmar", description: e.message || "Ocurrió un error inesperado." });
-      }
-    } finally { 
-      setIsProcessing(false) 
+    } catch (e: any) { 
+      console.error("Confirmar pago error:", e)
+      toast({ variant: "destructive", title: "Error al confirmar", description: e?.message || "Intente nuevamente" }) 
     }
+    finally { setIsProcessing(false) }
   }
 
   const handleRevertValidation = async () => {
@@ -428,8 +407,8 @@ export default function RegistrationsListPage() {
       fullName: (formData.get("fullName") as string).toUpperCase(),
       ciNumber: formData.get("ciNumber") as string,
       phone: formData.get("phone") as string,
-      groupId: editGroupId === "none" ? null : editGroupId,
-      catechesisYear: editCatechesisYear,
+      groupId: formData.get("groupId") as string,
+      catechesisYear: formData.get("catechesisYear") as string,
       paymentMethod: editPaymentMethod,
       photoUrl: editPhotoUrl,
       motherName: (formData.get("motherName") as string || "").toUpperCase(),
@@ -805,7 +784,7 @@ export default function RegistrationsListPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label>
-                          <Select value={editCatechesisYear} onValueChange={setEditCatechesisYear}>
+                          <Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}>
                             <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem>
@@ -816,11 +795,11 @@ export default function RegistrationsListPage() {
                         </div>
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignación de Grupo</Label>
-                          <Select value={editGroupId} onValueChange={setEditGroupId}>
+                          <Select name="groupId" defaultValue={selectedReg.groupId || "none"}>
                             <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold"><SelectValue placeholder="Sin grupo asignado" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>
-                              {allGroups?.filter(g => g.catechesisYear === editCatechesisYear).map(g => (
+                              {allGroups?.filter(g => g.catechesisYear === selectedReg.catechesisYear).map(g => (
                                 <SelectItem key={g.id} value={g.id}>{g.name} ({g.attendanceDay})</SelectItem>
                               ))}
                             </SelectContent>
@@ -980,74 +959,6 @@ export default function RegistrationsListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO CONFIRMAR PAGO (VALIDACIÓN) AVANZADO */}
-      <Dialog open={isValidatingProofOpen} onOpenChange={setIsValidatingProofOpen}>
-        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle>Confirmación de Pago</DialogTitle>
-                <DialogDescription className="text-slate-400">Procesando abono de {selectedReg?.fullName}</DialogDescription>
-              </div>
-              <div className="flex gap-2">
-                {selectedReg?.paymentProofUrl && (
-                  <Button variant="secondary" size="icon" className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white border-none" onClick={() => {
-                    const link = document.createElement("a");
-                    link.href = selectedReg.paymentProofUrl;
-                    link.download = `comprobante-${selectedReg.ciNumber || selectedReg.id}.jpg`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }} title="Descargar Comprobante">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                )}
-                <Button variant="secondary" size="icon" className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white border-none" onClick={() => setIsValidatingProofOpen(false)} title="Cerrar">
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </DialogHeader>
-          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-            <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 relative overflow-auto">
-              {selectedReg?.paymentProofUrl ? (
-                <img 
-                  src={selectedReg.paymentProofUrl} 
-                  className="max-w-full h-auto rounded-xl shadow-lg transition-transform duration-300 origin-center cursor-pointer"
-                  onClick={() => openImageViewer(selectedReg.paymentProofUrl)}
-                  alt="Comprobante"
-                />
-              ) : (
-                <div className="text-center space-y-4">
-                  <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
-                  <div className="text-slate-400 italic">Sin comprobante para mostrar (Pago en Caja o Efectivo)</div>
-                </div>
-              )}
-            </div>
-            <div className="w-full md:w-[350px] bg-white border-l p-8 space-y-8 overflow-y-auto flex flex-col">
-              <div className="space-y-4">
-                <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Información del Postulante</Label>
-                <div className="p-4 bg-slate-50 rounded-2xl space-y-2">
-                  <p className="text-sm font-black text-slate-900 uppercase">{selectedReg?.fullName}</p>
-                  <p className="text-xs font-bold text-slate-500 uppercase">C.I. {selectedReg?.ciNumber}</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">{selectedReg?.catechesisYear?.replace('_', ' ')}</p>
-                </div>
-              </div>
-              <div className="space-y-4 flex-1">
-                <Label className="font-bold">Monto a Confirmar (Gs)</Label>
-                <Input type="number" className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-primary/20" value={validationAmount} onChange={(e) => setValidationAmount(Number(e.target.value))} />
-                <p className="text-[10px] text-slate-400 italic">Verifica que el monto coincida con el arancel o comprobante.</p>
-              </div>
-              <div className="pt-4 mt-auto">
-                <Button className="w-full h-14 rounded-2xl bg-green-600 hover:bg-green-700 font-bold gap-2 shadow-xl shadow-green-100 active:scale-95 transition-all" onClick={handleConfirmValidation} disabled={isProcessing}>
-                  {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <><CheckCircle2 className="h-5 w-5" /> CONFIRMAR PAGO</>}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* DIÁLOGO ANULAR PAGO */}
       <AlertDialog open={isRevertDialogOpen} onOpenChange={setIsRevertDialogOpen}>
         <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
@@ -1077,6 +988,51 @@ export default function RegistrationsListPage() {
           <AlertDialogFooter className="p-8 bg-slate-50 gap-3 border-t"><AlertDialogCancel className="rounded-2xl h-14 font-black flex-1">CANCELAR</AlertDialogCancel><AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white rounded-2xl h-14 font-black flex-1" onClick={handleDelete} disabled={isProcessing}>ELIMINAR AHORA</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* DIÁLOGO DE CONFIRMACIÓN DE PAGO */}
+      <Dialog open={isValidatingProofOpen} onOpenChange={setIsValidatingProofOpen}>
+        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Confirmación de Pago</DialogTitle>
+                <DialogDescription className="text-slate-400">Procesando abono de {selectedReg?.fullName}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 relative overflow-auto">
+              {selectedReg?.paymentProofUrl ? (
+                <img 
+                  src={selectedReg.paymentProofUrl} 
+                  className="max-w-full h-auto rounded-xl shadow-lg transition-transform duration-300 origin-center" 
+                  alt="Comprobante"
+                />
+              ) : <div className="text-slate-400 italic">Sin comprobante para mostrar</div>}
+            </div>
+            <div className="w-full md:w-[350px] bg-white border-l p-8 space-y-8 overflow-y-auto">
+              <div className="space-y-4">
+                <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Información del Postulante</Label>
+                <div className="p-4 bg-slate-50 rounded-2xl space-y-2">
+                  <p className="text-sm font-black text-slate-900 uppercase">{selectedReg?.fullName}</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase">C.I. {selectedReg?.ciNumber}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{selectedReg?.catechesisYear?.replace('_', ' ')}</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <Label className="font-bold">Monto a Confirmar (Gs)</Label>
+                <Input type="number" className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-primary/20" value={validationAmount} onChange={(e) => setValidationAmount(Number(e.target.value))} />
+                <p className="text-[10px] text-slate-400 italic">Verifica que el monto coincida con el arancel o comprobante.</p>
+              </div>
+              <div className="pt-4">
+                <Button className="w-full h-14 rounded-2xl bg-green-600 hover:bg-green-700 font-bold text-lg gap-2 shadow-xl shadow-green-100" onClick={handleConfirmValidation} disabled={isProcessing}>
+                  {isProcessing ? <Loader2 className="animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> CONFIRMAR PAGO</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

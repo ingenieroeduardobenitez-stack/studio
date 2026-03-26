@@ -12,6 +12,7 @@ import { useAuth } from "@/firebase/provider"
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import Image from "next/image"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 
@@ -20,11 +21,13 @@ export default function LoginPage() {
   const auth = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [isResetting, setIsResetting] = useState(false)
   const [formData, setFormData] = useState({
     email: "",
     password: ""
   })
+  const [resetEmail, setResetEmail] = useState("")
+  const [isResetLoading, setIsResetLoading] = useState(false)
+  const [isResetOpen, setIsResetOpen] = useState(false)
 
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
@@ -36,34 +39,6 @@ export default function LoginPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value })
-  }
-
-  const handleForgotPassword = async () => {
-    if (!formData.email) {
-      toast({
-        variant: "destructive",
-        title: "Correo requerido",
-        description: "Ingresa tu correo institucional para enviarte el enlace de recuperación.",
-      })
-      return
-    }
-
-    setIsResetting(true)
-    try {
-      await sendPasswordResetEmail(auth, formData.email)
-      toast({
-        title: "Correo enviado",
-        description: "Revisa tu bandeja de entrada para restablecer tu contraseña.",
-      })
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No se pudo enviar el correo de recuperación.",
-      })
-    } finally {
-      setIsResetting(false)
-    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,6 +77,37 @@ export default function LoginPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetEmail) {
+      toast({
+        variant: "destructive",
+        title: "Correo requerido",
+        description: "Por favor, ingresa tu correo institucional.",
+      })
+      return
+    }
+
+    setIsResetLoading(true)
+    try {
+      await sendPasswordResetEmail(auth, resetEmail)
+      toast({
+        title: "Correo enviado",
+        description: "Se ha enviado un enlace para restablecer tu contraseña.",
+      })
+      setIsResetOpen(false)
+    } catch (error: any) {
+      console.error("Error Reset Auth:", error.code)
+      toast({
+        variant: "destructive",
+        title: "Error al enviar correo",
+        description: "No se pudo procesar la solicitud. Verifica el correo.",
+      })
+    } finally {
+      setIsResetLoading(false)
     }
   }
 
@@ -166,14 +172,6 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" title="Contraseña" className="text-slate-700 font-bold text-xs uppercase tracking-wider">Contraseña</Label>
-                  <button 
-                    type="button" 
-                    onClick={handleForgotPassword}
-                    className="text-[10px] font-bold text-primary hover:underline uppercase tracking-tighter"
-                    disabled={isResetting || loading}
-                  >
-                    {isResetting ? "Enviando..." : "Olvidé mi contraseña"}
-                  </button>
                 </div>
                 <Input 
                   id="password" 
@@ -184,6 +182,40 @@ export default function LoginPage() {
                   onChange={handleChange}
                   disabled={!isFirebaseReady || loading}
                 />
+                <div className="flex justify-end">
+                  <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="link" className="px-0 h-auto text-[11px] font-bold text-slate-400 hover:text-primary uppercase tracking-tight">
+                        ¿Olvidaste tu contraseña?
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px] rounded-3xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl font-headline font-bold text-primary">Recuperar Acceso</DialogTitle>
+                        <DialogDescription className="text-slate-500 text-sm">
+                          Ingresa tu correo institucional para recibir un enlace de restablecimiento.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleResetPassword} className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="resetEmail" className="text-xs font-bold text-slate-700 uppercase">Correo Institucional</Label>
+                          <Input 
+                            id="resetEmail" 
+                            type="email" 
+                            placeholder="usuario@parroquia.org" 
+                            required 
+                            className="h-12 rounded-xl bg-slate-50"
+                            value={resetEmail}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetEmail(e.target.value)}
+                          />
+                        </div>
+                        <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={isResetLoading}>
+                          {isResetLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Enviar Enlace"}
+                        </Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
               <Button 
                 type="submit" 
@@ -201,7 +233,7 @@ export default function LoginPage() {
             </CardContent>
             <CardFooter className="bg-slate-50 p-6 flex flex-col gap-4 border-t">
               <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-                Si olvidaste tu contraseña utiliza el enlace arriba o contacta con el administrador del sistema.
+                Si olvidaste tu contraseña o no tienes acceso, contacta con el administrador del sistema.
               </p>
             </CardFooter>
           </form>
