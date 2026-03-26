@@ -1,9 +1,0 @@
-node_modules
-.next
-.firebase
-.vercel
-out
-build
-.env
-.env.local
-.DS_Store

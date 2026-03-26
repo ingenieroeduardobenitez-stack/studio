@@ -988,6 +988,51 @@ export default function RegistrationsListPage() {
           <AlertDialogFooter className="p-8 bg-slate-50 gap-3 border-t"><AlertDialogCancel className="rounded-2xl h-14 font-black flex-1">CANCELAR</AlertDialogCancel><AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white rounded-2xl h-14 font-black flex-1" onClick={handleDelete} disabled={isProcessing}>ELIMINAR AHORA</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* DIÁLOGO DE CONFIRMACIÓN DE PAGO */}
+      <Dialog open={isValidatingProofOpen} onOpenChange={setIsValidatingProofOpen}>
+        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl h-[90vh] flex flex-col">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Confirmación de Pago</DialogTitle>
+                <DialogDescription className="text-slate-400">Procesando abono de {selectedReg?.fullName}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 relative overflow-auto">
+              {selectedReg?.paymentProofUrl ? (
+                <img 
+                  src={selectedReg.paymentProofUrl} 
+                  className="max-w-full h-auto rounded-xl shadow-lg transition-transform duration-300 origin-center" 
+                  alt="Comprobante"
+                />
+              ) : <div className="text-slate-400 italic">Sin comprobante para mostrar</div>}
+            </div>
+            <div className="w-full md:w-[350px] bg-white border-l p-8 space-y-8 overflow-y-auto">
+              <div className="space-y-4">
+                <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Información del Postulante</Label>
+                <div className="p-4 bg-slate-50 rounded-2xl space-y-2">
+                  <p className="text-sm font-black text-slate-900 uppercase">{selectedReg?.fullName}</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase">C.I. {selectedReg?.ciNumber}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{selectedReg?.catechesisYear?.replace('_', ' ')}</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <Label className="font-bold">Monto a Confirmar (Gs)</Label>
+                <Input type="number" className="h-14 text-2xl font-black rounded-2xl bg-slate-50 border-primary/20" value={validationAmount} onChange={(e) => setValidationAmount(Number(e.target.value))} />
+                <p className="text-[10px] text-slate-400 italic">Verifica que el monto coincida con el arancel o comprobante.</p>
+              </div>
+              <div className="pt-4">
+                <Button className="w-full h-14 rounded-2xl bg-green-600 hover:bg-green-700 font-bold text-lg gap-2 shadow-xl shadow-green-100" onClick={handleConfirmValidation} disabled={isProcessing}>
+                  {isProcessing ? <Loader2 className="animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> CONFIRMAR PAGO</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

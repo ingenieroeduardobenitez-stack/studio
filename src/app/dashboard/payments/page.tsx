@@ -214,7 +214,7 @@ export default function PaymentsManagementPage() {
         };
 
         transaction.update(regRef, updatePayload);
-        transaction.set(treasurySettingsRef, { nextReceiptNumber: nextReceipt + 1 }, { merge: true });
+        transaction.update(treasurySettingsRef, { nextReceiptNumber: nextReceipt + 1 });
         
         transaction.set(doc(collection(db, "audit_logs")), {
           userId: user?.uid || "unknown",
@@ -273,7 +273,7 @@ export default function PaymentsManagementPage() {
         };
 
         transaction.update(regRef, updatePayload);
-        transaction.set(treasurySettingsRef, { nextReceiptNumber: currentNext + 1 }, { merge: true });
+        transaction.update(treasurySettingsRef, { nextReceiptNumber: currentNext + 1 });
         
         const logRef = doc(collection(db, "audit_logs"));
         transaction.set(logRef, {
