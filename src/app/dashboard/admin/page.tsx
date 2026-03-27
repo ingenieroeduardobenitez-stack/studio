@@ -20,7 +20,7 @@ import {
   Wallet
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { collection, doc, setDoc, serverTimestamp, writeBatch, getDocs, deleteField } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
@@ -31,6 +31,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 export default function AdminPage() {
   const [mounted, setMounted] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isClearingAttendance, setIsClearingAttendance] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
   
   const db = useFirestore()
@@ -56,6 +57,33 @@ export default function AdminPage() {
       setPaymentMethod(settings.paymentMethod)
     }
   }, [settings])
+
+  const handleClearAttendance = async () => {
+    if (!db) return
+    if (!confirm("¿Estás MUY seguro de querer borrar TODAS las asistencias de todos los confirmandos? Accion para PRODUCCIÓN.")) return
+    
+    setIsClearingAttendance(true)
+    try {
+      const snapshot = await getDocs(collection(db, "confirmations"))
+      const batch = writeBatch(db)
+      let count = 0
+      snapshot.docs.forEach((d) => {
+        batch.update(d.ref, {
+           attendanceStatus: deleteField(),
+           needsRecovery: deleteField(),
+           lastAttendanceUpdate: deleteField(),
+           lastAttendanceTakenBy: deleteField()
+        })
+        count++
+      })
+      await batch.commit()
+      toast({ title: "Asistencia limpiada", description: `Se han limpiado los registros de asistencia de ${count} confirmandos.` })
+    } catch (error) {
+       toast({ variant: "destructive", title: "Error", description: "Ocurrió un error al limpiar asistencias." })
+    } finally {
+       setIsClearingAttendance(false)
+    }
+  }
 
   const handleSaveSettings = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -294,6 +322,9 @@ export default function AdminPage() {
                 <Link href="/dashboard/admin/archive">
                   <Church className="h-5 w-5 text-orange-500" /> Cierre de Año
                 </Link>
+              </Button>
+              <Button type="button" onClick={handleClearAttendance} disabled={isClearingAttendance} variant="outline" className="w-full justify-start h-12 rounded-xl font-bold gap-3 border-red-50 text-red-600 hover:bg-red-50">
+                {isClearingAttendance ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />} Limpiar Asistencia Total
               </Button>
             </CardContent>
           </Card>

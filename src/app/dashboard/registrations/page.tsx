@@ -58,12 +58,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { Slider } from "@/components/ui/slider"
 
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
+  const [viewMode, setViewMode] = useState<"flat" | "grouped">("flat")
   const [searchTerm, setSearchTerm] = useState("")
   
   const [filterSex, setFilterSex] = useState<string>("all")
@@ -72,6 +74,7 @@ export default function RegistrationsListPage() {
   const [filterOrigin, setFilterOrigin] = useState<string>("all")
   const [filterDay, setFilterDay] = useState<string>("all")
   const [filterMethod, setFilterMethod] = useState<string>("all")
+  const [filterGroup, setFilterGroup] = useState<string>("all")
   
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -170,14 +173,15 @@ export default function RegistrationsListPage() {
         r.receiptNumber?.toLowerCase().includes(searchLower)
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
-      const matchesStatus = filterStatus === "all" || (filterStatus === "REPETIDO" ? isRepetido : r.status === filterStatus)
+      const matchesStatus = filterStatus === "all" || (filterStatus === "REPETIDO" ? duplicateCis.has(cleanCi) : r.status === filterStatus)
       const matchesOrigin = filterOrigin === "all" || (filterOrigin === "MANUAL" ? r.userId !== "public_registration" : r.userId === "public_registration")
       const matchesDay = filterDay === "all" || r.attendanceDay === filterDay
       const matchesMethod = filterMethod === "all" || r.paymentMethod === filterMethod
+      const matchesGroup = filterGroup === "all" || (filterGroup === "none" ? !r.groupId || r.groupId === "none" : r.groupId === filterGroup)
 
-      return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay && matchesMethod
+      return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay && matchesMethod && matchesGroup
     })
-  }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterMethod, duplicateCis])
+  }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterMethod, filterGroup, duplicateCis])
 
   const stats = useMemo(() => {
     if (!filteredRegistrations) return { total: 0, masc: 0, fem: 0 }
@@ -404,20 +408,20 @@ export default function RegistrationsListPage() {
     setIsProcessing(true)
     const formData = new FormData(e.currentTarget)
     const updateData = {
-      fullName: (formData.get("fullName") as string).toUpperCase(),
-      ciNumber: formData.get("ciNumber") as string,
-      phone: formData.get("phone") as string,
-      groupId: formData.get("groupId") as string,
-      catechesisYear: formData.get("catechesisYear") as string,
+      fullName: (formData.get("fullName") as string || selectedReg.fullName || "").toUpperCase(),
+      ciNumber: formData.get("ciNumber") as string || selectedReg.ciNumber || "",
+      phone: formData.get("phone") as string || selectedReg.phone || "",
+      groupId: formData.get("groupId") as string || selectedReg.groupId || "none",
+      catechesisYear: formData.get("catechesisYear") as string || selectedReg.catechesisYear || "",
       paymentMethod: editPaymentMethod,
-      photoUrl: editPhotoUrl,
-      motherName: (formData.get("motherName") as string || "").toUpperCase(),
-      motherPhone: formData.get("motherPhone") as string || "",
-      fatherName: (formData.get("fatherName") as string || "").toUpperCase(),
-      fatherPhone: formData.get("fatherPhone") as string || "",
-      baptismParish: formData.get("baptismParish") as string || "",
-      baptismBook: formData.get("baptismBook") as string || "",
-      baptismFolio: formData.get("baptismFolio") as string || "",
+      photoUrl: editPhotoUrl !== undefined ? editPhotoUrl : selectedReg.photoUrl,
+      motherName: (formData.get("motherName") as string || selectedReg.motherName || "").toUpperCase(),
+      motherPhone: formData.get("motherPhone") as string || selectedReg.motherPhone || "",
+      fatherName: (formData.get("fatherName") as string || selectedReg.fatherName || "").toUpperCase(),
+      fatherPhone: formData.get("fatherPhone") as string || selectedReg.fatherPhone || "",
+      baptismParish: formData.get("baptismParish") as string || selectedReg.baptismParish || "",
+      baptismBook: formData.get("baptismBook") as string || selectedReg.baptismBook || "",
+      baptismFolio: formData.get("baptismFolio") as string || selectedReg.baptismFolio || "",
       updatedAt: serverTimestamp()
     }
     const regRef = doc(db, "confirmations", selectedReg.id)
@@ -446,89 +450,27 @@ export default function RegistrationsListPage() {
   }
 
   const openImageViewer = (url: string) => { if (!url) return; setFullImageUrl(url); setFullImageOpen(true); }
-  const resetFilters = () => { setSearchTerm(""); setFilterSex("all"); setFilterYear("all"); setFilterStatus("all"); setFilterOrigin("all"); setFilterDay("all"); setFilterMethod("all"); }
+  const resetFilters = () => { setSearchTerm(""); setFilterSex("all"); setFilterYear("all"); setFilterStatus("all"); setFilterOrigin("all"); setFilterDay("all"); setFilterMethod("all"); setFilterGroup("all"); }
 
-  if (!mounted) return null
+  const groupedRegistrations = useMemo(() => {
+    if (!filteredRegistrations) return {}
+    const groups: Record<string, any[]> = {}
+    groups["none"] = []
+    allGroups?.forEach((g: any) => { groups[g.id] = [] })
+    filteredRegistrations.forEach((r: any) => {
+      const gid = r.groupId && r.groupId !== "none" ? r.groupId : "none"
+      if (!groups[gid]) groups[gid] = [] 
+      groups[gid].push(r)
+    })
+    return groups
+  }, [filteredRegistrations, allGroups])
 
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-headline font-bold text-primary tracking-tight">Lista de Confirmandos</h1>
-          <p className="text-muted-foreground font-medium">Gestión administrativa de postulantes ciclo 2026.</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="rounded-xl h-12 font-bold px-6 border-slate-200 bg-white hover:bg-slate-50 gap-2 shadow-sm" onClick={() => {
-            if (filteredRegistrations.length === 0) return;
-            const headers = ["Nombre", "CI", "Celular", "Año", "Dia", "Estado"];
-            const rows = filteredRegistrations.map(r => [r.fullName, r.ciNumber, r.phone, r.catechesisYear, r.attendanceDay, r.status]);
-            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(",")).join("\n");
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "lista_confirmandos.csv");
-            document.body.appendChild(link);
-            link.click();
-          }}>
-            <Download className="h-4 w-4" /> Exportar
-          </Button>
-          <Button asChild className="bg-primary hover:bg-primary/90 rounded-2xl h-12 font-black px-8 shadow-lg shadow-primary/20 text-white">
-            <Link href="/dashboard/registration" prefetch={false}>Nueva Ficha</Link>
-          </Button>
-        </div>
-      </div>
-
-      <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="bg-slate-50/30 p-8 pb-0">
-          <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row gap-6 items-end">
-              <div className="flex-1 w-full space-y-2">
-                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal</Label>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input 
-                    placeholder="Nombre o C.I..." 
-                    className="pl-12 h-14 rounded-2xl bg-white border-slate-200 shadow-sm text-lg" 
-                    value={searchTerm} 
-                    onChange={(e) => setSearchTerm(e.target.value)} 
-                  />
-                </div>
-              </div>
-              
-              <div className="flex gap-3 w-full lg:w-auto">
-                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
-                  <p className="text-xl font-black text-primary leading-none">{loading ? "..." : stats.total}</p>
-                </div>
-                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Hombres</p>
-                  <p className="text-xl font-black text-blue-600 leading-none">{loading ? "..." : stats.masc}</p>
-                </div>
-                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mujeres</p>
-                  <p className="text-xl font-black text-pink-600 leading-none">{loading ? "..." : stats.fem}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-4 pb-8 border-b border-slate-100">
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label><Select value={filterSex} onValueChange={setFilterSex}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Sexo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="M">Masc.</SelectItem><SelectItem value="F">Fem.</SelectItem></SelectContent></Select></div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel</Label><Select value={filterYear} onValueChange={setFilterYear}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Nivel" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label><Select value={filterStatus} onValueChange={setFilterStatus}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="INSCRITO">Inscritos</SelectItem><SelectItem value="POR_VALIDAR">Por Validar</SelectItem><SelectItem value="REPETIDO">Repetidos</SelectItem></SelectContent></Select></div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Método Pago</Label><Select value={filterMethod} onValueChange={setFilterMethod}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Método" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="EFECTIVO">Efectivo</SelectItem><SelectItem value="TRANSFERENCIA">Transferencia</SelectItem><SelectItem value="SIN_PAGO">Pagar en Caja</SelectItem></SelectContent></Select></div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label><Select value={filterDay} onValueChange={setFilterDay}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Horario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent></Select></div>
-              <div className="flex items-end pb-1"><Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-slate-100" onClick={resetFilters}><FilterX className="h-5 w-5 text-slate-400" /></Button></div>
-            </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-32 gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Cargando...</p></div>
-          ) : filteredRegistrations.length === 0 ? (
-            <div className="py-32 text-center text-slate-400 italic">No se encontraron registros.</div>
-          ) : (
-            <Table>
+  const renderTable = (regsToRender: any[]) => {
+    if (regsToRender.length === 0) {
+      return <div className="py-24 text-center text-slate-400 italic">No hay estudiantes asignados a este grupo.</div>
+    }
+    return (
+      <Table>
               <TableHeader className="bg-slate-50/50 border-y">
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="pl-8 py-5 font-bold text-slate-500">Confirmando</TableHead>
@@ -541,7 +483,7 @@ export default function RegistrationsListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRegistrations.map((reg) => {
+                {regsToRender.map((reg: any) => {
                   const cleanCi = reg.ciNumber?.replace(/[^0-9]/g, '') || ""
                   const isRepetido = duplicateCis.has(cleanCi)
                   const isManual = reg.userId !== "public_registration"
@@ -668,7 +610,146 @@ export default function RegistrationsListPage() {
                 })}
               </TableBody>
             </Table>
-          )}
+    )
+  }
+
+  if (!mounted) return null
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-headline font-bold text-primary tracking-tight">Lista de Confirmandos</h1>
+          <p className="text-muted-foreground font-medium">Gestión administrativa de postulantes ciclo 2026.</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" className="rounded-xl h-12 font-bold px-6 border-slate-200 bg-white hover:bg-slate-50 gap-2 shadow-sm" onClick={() => {
+            if (filteredRegistrations.length === 0) return;
+            const headers = ["Nombre", "CI", "Celular", "Año", "Dia", "Estado"];
+            const rows = filteredRegistrations.map(r => [r.fullName, r.ciNumber, r.phone, r.catechesisYear, r.attendanceDay, r.status]);
+            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(",")).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "lista_confirmandos.csv");
+            document.body.appendChild(link);
+            link.click();
+          }}>
+            <Download className="h-4 w-4" /> Exportar
+          </Button>
+          <Button asChild className="bg-primary hover:bg-primary/90 rounded-2xl h-12 font-black px-8 shadow-lg shadow-primary/20 text-white">
+            <Link href="/dashboard/registration" prefetch={false}>Nueva Ficha</Link>
+          </Button>
+        </div>
+      </div>
+
+      <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="bg-slate-50/30 p-8 pb-0">
+          <div className="space-y-6">
+            <div className="flex flex-col lg:flex-row gap-6 items-end">
+              <div className="flex-1 w-full space-y-2">
+                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal</Label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Nombre o C.I..." 
+                    className="pl-12 h-14 rounded-2xl bg-white border-slate-200 shadow-sm text-lg" 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 w-full lg:w-auto">
+                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
+                  <p className="text-xl font-black text-primary leading-none">{loading ? "..." : stats.total}</p>
+                </div>
+                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Hombres</p>
+                  <p className="text-xl font-black text-blue-600 leading-none">{loading ? "..." : stats.masc}</p>
+                </div>
+                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mujeres</p>
+                  <p className="text-xl font-black text-pink-600 leading-none">{loading ? "..." : stats.fem}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap gap-4 pb-8 border-b border-slate-100">
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label><Select value={filterSex} onValueChange={setFilterSex}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Sexo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="M">Masc.</SelectItem><SelectItem value="F">Fem.</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel</Label><Select value={filterYear} onValueChange={setFilterYear}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Nivel" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label><Select value={filterStatus} onValueChange={setFilterStatus}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="INSCRITO">Inscritos</SelectItem><SelectItem value="POR_VALIDAR">Por Validar</SelectItem><SelectItem value="REPETIDO">Repetidos</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Método Pago</Label><Select value={filterMethod} onValueChange={setFilterMethod}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Método" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="EFECTIVO">Efectivo</SelectItem><SelectItem value="TRANSFERENCIA">Transferencia</SelectItem><SelectItem value="SIN_PAGO">Pagar en Caja</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label><Select value={filterDay} onValueChange={setFilterDay}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Horario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Origen</Label><Select value={filterOrigin} onValueChange={setFilterOrigin}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Origen" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="MANUAL">Manual</SelectItem><SelectItem value="PUBLICO">Público</SelectItem></SelectContent></Select></div>
+
+              <div className="flex items-end pb-1"><Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-slate-100" onClick={resetFilters}><FilterX className="h-5 w-5 text-slate-400" /></Button></div>
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="p-0">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
+            <div className="flex justify-end p-4 pb-0 bg-slate-50/10 border-b">
+              <TabsList className="bg-slate-100/80 rounded-xl h-12 p-1 border shadow-xs">
+                <TabsTrigger value="flat" className="rounded-lg px-6 font-bold text-xs h-full data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all uppercase tracking-widest">Vista Plana</TabsTrigger>
+                <TabsTrigger value="grouped" className="rounded-lg px-6 font-bold text-xs h-full data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all uppercase tracking-widest">Vista por Grupos</TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <TabsContent value="flat" className="m-0">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-32 gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Cargando...</p></div>
+              ) : filteredRegistrations.length === 0 ? (
+                <div className="py-32 text-center text-slate-400 italic">No se encontraron registros.</div>
+              ) : renderTable(filteredRegistrations)}
+            </TabsContent>
+
+            <TabsContent value="grouped" className="m-0 p-8 pt-6 space-y-6 bg-slate-50/30">
+              <Accordion type="multiple" className="w-full space-y-4">
+                {groupedRegistrations["none"]?.length > 0 && (
+                  <AccordionItem value="none" className="bg-white border rounded-3xl overflow-hidden shadow-sm px-2">
+                    <AccordionTrigger className="hover:no-underline p-6 py-5">
+                      <div className="flex items-center gap-4 text-left w-full pr-4">
+                        <div className="bg-amber-100 p-3 rounded-2xl shrink-0"><UserMinus className="h-5 w-5 text-amber-600" /></div>
+                        <div className="flex-1">
+                          <h3 className="font-black text-lg text-slate-800 uppercase tracking-tight leading-none">Sin Grupo Asignado</h3>
+                          <p className="text-xs font-bold text-slate-400 mt-1">Alumnos a la espera de integración</p>
+                        </div>
+                        <Badge className="bg-amber-500 text-white font-black px-4 h-8 rounded-full border-none shadow-sm">{groupedRegistrations["none"].length} ALUMNOS</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-0 border-t bg-slate-50/50">
+                       {renderTable(groupedRegistrations["none"])}
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+                
+                {allGroups?.map((g: any) => {
+                  const regs = groupedRegistrations[g.id] || []
+                  if (regs.length === 0) return null
+                  return (
+                     <AccordionItem key={g.id} value={g.id} className="bg-white border rounded-3xl overflow-hidden shadow-sm px-2">
+                       <AccordionTrigger className="hover:no-underline p-6 py-5">
+                         <div className="flex items-center gap-4 text-left w-full pr-4">
+                           <div className="bg-primary/10 p-3 rounded-2xl shrink-0"><Church className="h-5 w-5 text-primary" /></div>
+                           <div className="flex-1">
+                             <h3 className="font-black text-lg text-slate-800 uppercase tracking-tight leading-none">{g.name}</h3>
+                             <p className="text-xs font-bold text-slate-400 mt-1">{g.catechesisYear?.replace('_', ' ')} • {g.attendanceDay}S</p>
+                           </div>
+                           <Badge className="bg-primary text-white font-black px-4 h-8 rounded-full border-none shadow-sm">{regs.length} ALUMNOS</Badge>
+                         </div>
+                       </AccordionTrigger>
+                       <AccordionContent className="p-0 border-t bg-slate-50/50">
+                         {renderTable(regs)}
+                       </AccordionContent>
+                     </AccordionItem>
+                  )
+                })}
+              </Accordion>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -676,7 +757,7 @@ export default function RegistrationsListPage() {
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
           {selectedReg && (
-            <form onSubmit={handleUpdateDetails} className="flex flex-col h-full overflow-hidden">
+            <form key={selectedReg.id} onSubmit={handleUpdateDetails} className="flex flex-col h-full overflow-hidden">
               <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 relative">
                 <div className="absolute top-0 right-0 p-8 opacity-10"><Church className="h-24 w-24" /></div>
                 <div className="flex items-center gap-6 relative z-10">

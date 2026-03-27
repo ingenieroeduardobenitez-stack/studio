@@ -17,18 +17,107 @@ import {
   RefreshCcw,
   AlertCircle
 } from "lucide-react"
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, where, doc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
+import { collection, query, where, doc, updateDoc, serverTimestamp, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
+
+function AttendanceCalendar({ studentId }: { studentId: string }) {
+  const db = useFirestore()
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = today.getMonth() // 0-11
+  
+  const calendarData = useMemo(() => {
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const rows: (Date | null)[][] = []
+    let currentRow: (Date | null)[] = [null, null] // [Sat, Sun]
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(year, month, i)
+      if (d.getDay() === 6) { currentRow[0] = d } 
+      else if (d.getDay() === 0) {
+        currentRow[1] = d
+        rows.push(currentRow)
+        currentRow = [null, null]
+      }
+    }
+    if (currentRow[0] !== null) rows.push(currentRow)
+    
+    const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
+    const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
+    return { rows, startStr, endStr }
+  }, [year, month])
+
+  const attendanceQuery = useMemoFirebase(() => {
+    if (!db || !studentId) return null
+    return query(
+      collection(db, "confirmations", studentId, "attendance"),
+      where("date", ">=", calendarData.startStr),
+      where("date", "<=", calendarData.endStr)
+    )
+  }, [db, studentId, calendarData])
+
+  const { data: attendanceDocs } = useCollection(attendanceQuery)
+  
+  const historyMap = useMemo(() => {
+    const map = new Map<string, string>()
+    attendanceDocs?.forEach((doc: any) => { map.set(doc.date, doc.status) })
+    return map
+  }, [attendanceDocs])
+
+  const monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+  return (
+    <div className="flex flex-col items-center gap-2 py-1">
+       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Mes de {monthNames[month]} de {year}</span>
+       <div className="flex flex-col gap-1">
+          <div className="flex gap-2 w-full justify-between px-2 mb-1">
+             <div className="text-[10px] font-black text-slate-300 w-5 text-center">S</div>
+             <div className="text-[10px] font-black text-slate-300 w-5 text-center">D</div>
+          </div>
+          {calendarData.rows.map((row, rIdx) => (
+             <div key={rIdx} className="flex gap-2 justify-center">
+               {row.map((date: any, cIdx) => {
+                 if (!date) return <div key={cIdx} className="w-6 h-6" />
+                 
+                 const dateAsLocalStr = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0]
+                 const isToday = dateAsLocalStr === new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0]
+                 
+                 const localStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+                 const status = historyMap.get(localStr)
+                 
+                 return (
+                   <div key={cIdx} className={cn(
+                     "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border transition-all shadow-sm",
+                     status === "PRESENTE" ? "bg-green-100 text-green-700 border-green-300" :
+                     status === "AUSENTE" ? "bg-red-100 text-red-700 border-red-300" :
+                     status === "JUSTIFICADO" ? "bg-amber-100 text-amber-700 border-amber-300" :
+                     isToday ? "bg-slate-800 text-white border-none ring-2 ring-primary ring-offset-1" :
+                     "bg-white text-slate-400 border-slate-200 hover:bg-slate-50"
+                   )}>
+                     {date.getDate()}
+                   </div>
+                 )
+               })}
+             </div>
+          ))}
+       </div>
+    </div>
+  )
+}
 
 export default function MyListPage() {
   const { user } = useUser()
   const db = useFirestore()
   const { toast } = useToast()
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null
+    return doc(db, "users", user.uid)
+  }, [db, user?.uid])
+  const { data: profile } = useDoc(userProfileRef)
 
   const myGroupsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
@@ -74,14 +163,28 @@ export default function MyListPage() {
     const regRef = doc(db, "confirmations", id)
     const isRecovery = recoveryConfirmands?.some(r => r.id === id)
     
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.email || "Catequista")
     const updateData = {
       attendanceStatus: status,
       needsRecovery: !isRecovery && status === "AUSENTE",
       ...(isRecovery && status === "PRESENTE" ? { needsRecovery: false } : {}),
-      lastAttendanceUpdate: serverTimestamp()
+      lastAttendanceUpdate: serverTimestamp(),
+      lastAttendanceTakenBy: catechistName
     }
 
-    updateDoc(regRef, updateData)
+    const todayStr = new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0]
+    const attendanceRef = doc(db, "confirmations", id, "attendance", `${id}_${todayStr}`)
+    
+    const batch = writeBatch(db)
+    batch.update(regRef, updateData)
+    batch.set(attendanceRef, {
+      date: todayStr,
+      status: status,
+      registeredBy: user?.uid || "admin",
+      timestamp: serverTimestamp()
+    }, { merge: true })
+
+    batch.commit()
       .then(() => {
         toast({
           title: status === "PRESENTE" ? "Asistencia marcada" : "Ausencia registrada",
@@ -160,6 +263,7 @@ export default function MyListPage() {
                     <TableHead className="w-[80px]">Foto</TableHead>
                     <TableHead>Nombre Completo</TableHead>
                     <TableHead>Estado</TableHead>
+                    <TableHead>Última Asistencia</TableHead>
                     <TableHead className="text-right">Control</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -185,6 +289,9 @@ export default function MyListPage() {
                         >
                           {conf.attendanceStatus || "PENDIENTE"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <AttendanceCalendar studentId={conf.id} />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -245,6 +352,7 @@ export default function MyListPage() {
                     <TableHead className="w-[80px]">Foto</TableHead>
                     <TableHead>Nombre Completo</TableHead>
                     <TableHead>Día Original</TableHead>
+                    <TableHead>Última Asistencia</TableHead>
                     <TableHead className="text-right">Control</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -268,6 +376,18 @@ export default function MyListPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-[10px] uppercase">{conf.attendanceDay}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {conf.lastAttendanceUpdate ? (
+                           <div className="flex flex-col">
+                             <span className="text-xs font-bold text-slate-700">
+                               {conf.lastAttendanceUpdate?.toDate ? conf.lastAttendanceUpdate.toDate().toLocaleDateString('es-PY', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : "Reciente"}
+                             </span>
+                             <span className="text-[10px] text-slate-400 capitalize">Por: {conf.lastAttendanceTakenBy?.toLowerCase() || "Desconocido"}</span>
+                           </div>
+                        ) : (
+                           <span className="text-xs text-slate-400 italic">No registrada</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button 
