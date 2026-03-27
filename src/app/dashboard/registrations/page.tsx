@@ -784,7 +784,11 @@ export default function RegistrationsListPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label>
-                          <Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}>
+                          <Select 
+                            name="catechesisYear" 
+                            value={selectedReg.catechesisYear}
+                            onValueChange={(val) => setSelectedReg({ ...selectedReg, catechesisYear: val, groupId: "none" })}
+                          >
                             <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem>
@@ -795,7 +799,11 @@ export default function RegistrationsListPage() {
                         </div>
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignación de Grupo</Label>
-                          <Select name="groupId" defaultValue={selectedReg.groupId || "none"}>
+                          <Select 
+                            name="groupId" 
+                            value={selectedReg.groupId || "none"}
+                            onValueChange={(val) => setSelectedReg({ ...selectedReg, groupId: val === "none" ? null : val })}
+                          >
                             <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold"><SelectValue placeholder="Sin grupo asignado" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>
