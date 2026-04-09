@@ -20,7 +20,7 @@ import {
   Wallet
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, serverTimestamp, writeBatch, getDocs, deleteField } from "firebase/firestore"
+import { collection, doc, setDoc, serverTimestamp, writeBatch, getDocs, deleteField, getCountFromServer, query, where } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
@@ -34,6 +34,17 @@ export default function AdminPage() {
   const [isClearingAttendance, setIsClearingAttendance] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>("ACCOUNT")
   
+  // Estados para estadísticas (Optimización de costos)
+  const [stats, setStats] = useState({
+    total: 0,
+    firstYear: 0,
+    secondYear: 0,
+    adults: 0,
+    groups: 0,
+    catechists: 0,
+  })
+  const [loadingStats, setLoadingStats] = useState(true)
+  
   const db = useFirestore()
   const { toast } = useToast()
 
@@ -42,15 +53,54 @@ export default function AdminPage() {
   }, [])
 
   // Suscripciones a datos con useMemoFirebase para estabilidad
-  const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
-  const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
-  const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
-
-  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
-  const { data: groups, loading: loadingGroups } = useCollection(groupsQuery)
-  const { data: catechists, loading: loadingUsers } = useCollection(usersQuery)
   const { data: settings, loading: loadingSettings } = useDoc(treasuryRef)
+
+  // Carga eficiente de estadísticas usando getCountFromServer
+  useEffect(() => {
+    if (!db || !mounted) return
+
+    async function fetchStats() {
+      setLoadingStats(true)
+      try {
+        const collConfirmations = collection(db!, "confirmations")
+        const collGroups = collection(db!, "groups")
+        const collUsers = collection(db!, "users")
+
+        // Lanzamos todas las peticiones de conteo en paralelo
+        const [
+          snapTotal,
+          snapFirst,
+          snapSecond,
+          snapAdults,
+          snapGroups,
+          snapUsers
+        ] = await Promise.all([
+          getCountFromServer(collConfirmations),
+          getCountFromServer(query(collConfirmations, where("catechesisYear", "==", "PRIMER_AÑO"))),
+          getCountFromServer(query(collConfirmations, where("catechesisYear", "==", "SEGUNDO_AÑO"))),
+          getCountFromServer(query(collConfirmations, where("catechesisYear", "==", "ADULTOS"))),
+          getCountFromServer(collGroups),
+          getCountFromServer(collUsers)
+        ])
+
+        setStats({
+          total: snapTotal.data().count,
+          firstYear: snapFirst.data().count,
+          secondYear: snapSecond.data().count,
+          adults: snapAdults.data().count,
+          groups: snapGroups.data().count,
+          catechists: snapUsers.data().count,
+        })
+      } catch (error) {
+        console.error("Error al cargar estadísticas:", error)
+      } finally {
+        setLoadingStats(false)
+      }
+    }
+
+    fetchStats()
+  }, [db, mounted])
 
   useEffect(() => {
     if (settings?.paymentMethod) {
@@ -124,15 +174,6 @@ export default function AdminPage() {
 
   if (!mounted) return null
 
-  const stats = {
-    total: registrations?.length || 0,
-    firstYear: registrations?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0,
-    secondYear: registrations?.filter(r => r.catechesisYear === "SEGUNDO_AÑO").length || 0,
-    adults: registrations?.filter(r => r.catechesisYear === "ADULTOS").length || 0,
-    groups: groups?.length || 0,
-    catechists: catechists?.length || 0,
-  }
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -161,7 +202,7 @@ export default function AdminPage() {
             <Shield className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loadingRegs ? "..." : stats.total}</div>
+            <div className="text-2xl font-bold">{loadingStats ? "..." : stats.total}</div>
             <p className="text-[10px] text-muted-foreground">Ciclo Lectivo 2026</p>
           </CardContent>
         </Card>
@@ -171,7 +212,7 @@ export default function AdminPage() {
             <Shapes className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loadingGroups ? "..." : stats.groups}</div>
+            <div className="text-2xl font-bold">{loadingStats ? "..." : stats.groups}</div>
             <p className="text-[10px] text-muted-foreground">Sábados y Domingos</p>
           </CardContent>
         </Card>
@@ -181,7 +222,7 @@ export default function AdminPage() {
             <UserCheck className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loadingUsers ? "..." : stats.catechists}</div>
+            <div className="text-2xl font-bold">{loadingStats ? "..." : stats.catechists}</div>
             <p className="text-[10px] text-muted-foreground">Personal Autorizado</p>
           </CardContent>
         </Card>
@@ -191,7 +232,7 @@ export default function AdminPage() {
             <Church className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.adults}</div>
+            <div className="text-2xl font-bold">{loadingStats ? "..." : stats.adults}</div>
             <p className="text-[10px] text-muted-foreground">Inscripción especial</p>
           </CardContent>
         </Card>

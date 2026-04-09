@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -43,10 +44,11 @@ import {
   Move,
   ZoomIn,
   FlipHorizontal,
-  Check
+  Check,
+  ChevronDown
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc } from "firebase/firestore"
+import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc, limit, startAfter, getDocs, where, QueryConstraint, DocumentSnapshot } from "firebase/firestore"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -85,6 +87,14 @@ export default function RegistrationsListPage() {
   const [withdrawalReason, setWithdrawalReason] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
 
+  // Estados para Paginación y Carga Optimizada
+  const [registrations, setRegistrations] = useState<any[]>([])
+  const [lastVisible, setLastVisible] = useState<DocumentSnapshot | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const PAGE_SIZE = 25
+
+
   // Estados para Validacion Personalizada
   const [validationAmount, setValidationAmount] = useState<number>(0)
   
@@ -121,30 +131,83 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  const regsQuery = useMemoFirebase(() => {
-    if (!db) return null
-    return collection(db, "confirmations")
-  }, [db])
+
+
+
+
 
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
 
-  const { data: rawData, loading } = useCollection(regsQuery)
-  const { data: allGroups } = useCollection(groupsQuery)
-  const { data: allUsers } = useCollection(usersQuery)
+  // Función de Carga con Paginación y Filtros de Servidor (Ahorro de Lecturas)
+  const loadRegistrations = useCallback(async (isNextPage = false) => {
+    if (!db || loading || (!isNextPage && !mounted)) return
+    
+    setLoading(true)
+    try {
+      const constraints: QueryConstraint[] = [
+        where("isArchived", "!=", true),
+        orderBy("isArchived"),
+        orderBy("createdAt", "desc"),
+        limit(PAGE_SIZE)
+      ]
+
+      if (filterSex !== "all") constraints.push(where("sexo", "==", filterSex))
+      if (filterYear !== "all") constraints.push(where("catechesisYear", "==", filterYear))
+      if (filterStatus !== "all" && filterStatus !== "REPETIDO") constraints.push(where("status", "==", filterStatus))
+      if (filterDay !== "all") constraints.push(where("attendanceDay", "==", filterDay))
+      if (filterMethod !== "all") constraints.push(where("paymentMethod", "==", filterMethod))
+      if (filterGroup !== "all") {
+        if (filterGroup === "none") {
+          constraints.push(where("groupId", "==", "none"))
+        } else {
+          constraints.push(where("groupId", "==", filterGroup))
+        }
+      }
+
+      const q = isNextPage && lastVisible 
+        ? query(collection(db, "confirmations"), ...constraints, startAfter(lastVisible))
+        : query(collection(db, "confirmations"), ...constraints)
+
+      const snapshot = await getDocs(q)
+      const newRegs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+      
+      if (isNextPage) {
+        setRegistrations(prev => [...prev, ...newRegs])
+      } else {
+        setRegistrations(newRegs)
+      }
+
+      setLastVisible(snapshot.docs[snapshot.docs.length - 1] || null)
+      setHasMore(snapshot.docs.length === PAGE_SIZE)
+    } catch (error) {
+      console.error("Error al cargar registros:", error)
+      toast({ variant: "destructive", title: "Error de carga" })
+    } finally {
+      setLoading(false)
+    }
+  }, [db, mounted, filterSex, filterYear, filterStatus, filterDay, filterMethod, filterGroup, lastVisible])
+
+  // Recargar cuando cambian los filtros
+  useEffect(() => {
+    setLastVisible(null)
+    loadRegistrations(false)
+  }, [db, mounted, filterSex, filterYear, filterStatus, filterDay, filterMethod, filterGroup])
+
+  const { data: allGroups } = useCollection(groupsQuery, { once: true })
+  const { data: allUsers } = useCollection(usersQuery, { once: true })
   const { data: costs } = useDoc(treasuryRef)
 
-  const registrations = useMemo(() => {
-    if (!rawData) return []
-    return [...rawData]
-      .filter(r => r.isArchived !== true)
-      .sort((a, b) => {
-        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt ? new Date(a.createdAt) : new Date(0))
-        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt ? new Date(b.createdAt) : new Date(0))
-        return dateB.getTime() - dateA.getTime()
-      })
-  }, [rawData])
+
+
+
+
+
+
+
+
+
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
   const { data: profile } = useDoc(userProfileRef)
@@ -750,6 +813,20 @@ export default function RegistrationsListPage() {
               </Accordion>
             </TabsContent>
           </Tabs>
+
+          {hasMore && (
+            <div className="p-8 flex justify-center bg-slate-50/50 border-t">
+              <Button 
+                onClick={() => loadRegistrations(true)} 
+                disabled={loading}
+                variant="outline"
+                className="rounded-2xl h-14 px-12 font-black text-primary border-primary/20 hover:bg-primary hover:text-white transition-all shadow-lg gap-2"
+              >
+                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                CARGAR MÁS ESTUDIANTES
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -917,7 +994,7 @@ export default function RegistrationsListPage() {
                         <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group cursor-pointer" onClick={() => openImageViewer(selectedReg.paymentProofUrl)}>
                           {selectedReg.paymentProofUrl ? (
                             <>
-                              <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                              <Image src={selectedReg.paymentProofUrl} alt="Comprobante" width={400} height={300} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Maximize2 className="h-8 w-8 text-white" /></div>
                             </>
                           ) : (
@@ -935,7 +1012,7 @@ export default function RegistrationsListPage() {
                         <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group cursor-pointer" onClick={() => openImageViewer(selectedReg.baptismCertificatePhotoUrl)}>
                           {selectedReg.baptismCertificatePhotoUrl ? (
                             <>
-                              <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                              <Image src={selectedReg.baptismCertificatePhotoUrl} alt="Certificado" width={400} height={300} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Maximize2 className="h-8 w-8 text-white" /></div>
                             </>
                           ) : (
