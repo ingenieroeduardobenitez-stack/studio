@@ -53,20 +53,20 @@ export default function AttendanceControlPage() {
   const db = useFirestore()
 
   const userProfileRef = useMemoFirebase(() => db && currentUser?.uid ? doc(db, "users", currentUser.uid) : null, [db, currentUser?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
-  const { data: groups } = useCollection(groupsQuery)
+  const { data: groups } = useCollection(groupsQuery, { once: true })
 
   const regsQuery = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return collection(db, "confirmations")
   }, [db, currentUser])
-  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery)
+  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
 
   const filteredStudents = useMemo(() => {
     if (!allRegistrations) return []

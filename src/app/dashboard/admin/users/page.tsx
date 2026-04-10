@@ -76,7 +76,7 @@ export default function UsersAdminPage() {
   const { user } = useUser()
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   useEffect(() => {
     setMounted(true)
@@ -124,7 +124,7 @@ export default function UsersAdminPage() {
     return collection(db, "users")
   }, [db])
 
-  const { data: users, loading } = useCollection(usersQuery)
+  const { data: users, loading } = useCollection(usersQuery, { once: true })
 
   const isOnline = (user: any) => {
     if (user.status !== "online") return false

@@ -146,7 +146,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   useEffect(() => { setMounted(true) }, [])
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
-  const { data: costs } = useDoc(treasuryRef)
+  const { data: costs } = useDoc(treasuryRef, { once: true })
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

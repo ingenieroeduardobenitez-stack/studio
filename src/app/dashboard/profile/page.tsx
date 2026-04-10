@@ -75,7 +75,7 @@ export default function ProfilePage() {
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
 
-  const { data: profile, loading } = useDoc(userProfileRef)
+  const { data: profile, loading } = useDoc(userProfileRef, { once: true })
   
   const [formData, setFormData] = useState({
     firstName: "",

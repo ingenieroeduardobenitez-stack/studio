@@ -39,8 +39,8 @@ export default function DocumentationControlPage() {
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
 
-  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery)
-  const { data: allGroups } = useCollection(groupsQuery)
+  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
+  const { data: allGroups } = useCollection(groupsQuery, { once: true })
 
   const activeConfirmands = useMemo(() => {
     if (!allRegistrations) return []

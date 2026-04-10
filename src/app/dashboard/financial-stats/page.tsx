@@ -45,10 +45,10 @@ export default function FinancialStatsPage() {
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const expensesQuery = useMemoFirebase(() => db ? collection(db, "expenses") : null, [db])
 
-  // RESTAURADO: Suscripciones en tiempo real para estadísticas instantáneas
-  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
-  const { data: users, loading: loadingUsers } = useCollection(usersQuery)
-  const { data: expenses, loading: loadingExpenses } = useCollection(expensesQuery)
+  // OPTIMIZADO: Carga única para ahorro de recursos
+  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
+  const { data: users, loading: loadingUsers } = useCollection(usersQuery, { once: true })
+  const { data: expenses, loading: loadingExpenses } = useCollection(expensesQuery, { once: true })
 
   const totals = useMemo(() => {
     const incomeRegs = registrations?.reduce((sum, r) => sum + (r.amountPaid || 0), 0) || 0

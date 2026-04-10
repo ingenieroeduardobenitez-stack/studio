@@ -59,7 +59,7 @@ function AttendanceCalendar({ studentId }: { studentId: string }) {
     )
   }, [db, studentId, calendarData])
 
-  const { data: attendanceDocs } = useCollection(attendanceQuery)
+  const { data: attendanceDocs } = useCollection(attendanceQuery, { once: true })
   
   const historyMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -117,14 +117,14 @@ export default function MyListPage() {
     if (!db || !user?.uid) return null
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   const myGroupsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return query(collection(db, "groups"), where("catequistaIds", "array-contains", user.uid))
   }, [db, user?.uid])
 
-  const { data: myGroups, loading: loadingGroups } = useCollection(myGroupsQuery)
+  const { data: myGroups, loading: loadingGroups } = useCollection(myGroupsQuery, { once: true })
 
   const groupParams = useMemo(() => {
     if (!myGroups || myGroups.length === 0) return null
@@ -153,8 +153,8 @@ export default function MyListPage() {
     )
   }, [db, groupParams])
 
-  const { data: myConfirmands, loading: loadingMyConf } = useCollection(myConfirmandsQuery)
-  const { data: recoveryConfirmands, loading: loadingRecovery } = useCollection(recoveryConfirmandsQuery)
+  const { data: myConfirmands, loading: loadingMyConf } = useCollection(myConfirmandsQuery, { once: true })
+  const { data: recoveryConfirmands, loading: loadingRecovery } = useCollection(recoveryConfirmandsQuery, { once: true })
 
   const handleAttendance = (id: string, status: "PRESENTE" | "AUSENTE") => {
     if (!db) return

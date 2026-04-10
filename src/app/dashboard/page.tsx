@@ -30,7 +30,7 @@ export default function DashboardPage() {
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
 
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   // OPTIMIZACIÓN: Consulta general para evitar fallos por campos faltantes en registros antiguos
   const regsQuery = useMemoFirebase(() => {
@@ -38,7 +38,7 @@ export default function DashboardPage() {
     return collection(db, "confirmations")
   }, [db])
 
-  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery)
+  const { data: registrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
 
   const stats = useMemo(() => {
     if (!registrations) return { total: 0, firstYear: 0, secondYear: 0, adults: 0 }

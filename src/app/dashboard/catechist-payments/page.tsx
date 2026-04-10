@@ -37,13 +37,13 @@ export default function CatechistPaymentsPage() {
   }, [])
 
   const userProfileRef = useMemoFirebase(() => db && currentUser?.uid ? doc(db, "users", currentUser.uid) : null, [db, currentUser?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
-  const { data: catechists, loading: loadingUsers } = useCollection(usersQuery)
+  const { data: catechists, loading: loadingUsers } = useCollection(usersQuery, { once: true })
 
   const eventsQuery = useMemoFirebase(() => db ? collection(db, "events") : null, [db])
-  const { data: events, loading: loadingEvents } = useCollection(eventsQuery)
+  const { data: events, loading: loadingEvents } = useCollection(eventsQuery, { once: true })
 
   const filteredCatechists = useMemo(() => {
     if (!catechists) return []

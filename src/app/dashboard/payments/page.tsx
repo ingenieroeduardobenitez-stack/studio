@@ -94,10 +94,10 @@ export default function PaymentsManagementPage() {
   }, [])
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   const treasurySettingsRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
-  const { data: treasurySettings } = useDoc(treasurySettingsRef)
+  const { data: treasurySettings } = useDoc(treasurySettingsRef, { once: true })
 
   const myGroupsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null

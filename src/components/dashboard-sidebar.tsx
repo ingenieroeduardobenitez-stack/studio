@@ -91,7 +91,7 @@ export function DashboardSidebar() {
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
 
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   const isAdmin = profile?.role?.toLowerCase() === "administrador"
   const isTesorero = profile?.role?.toLowerCase() === "tesorero"
@@ -102,7 +102,7 @@ export function DashboardSidebar() {
     if (isTesorero && (type === 'ops' || type === 'treasury')) return items;
     
     if (allowedModules.length > 0) {
-      return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));
+      return items.filter(item => allowedModules.some((p: string) => p.startsWith(`${item.id}:ver`)));
     }
 
     if (type === 'ops') {

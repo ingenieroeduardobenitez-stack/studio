@@ -59,10 +59,10 @@ export default function QrLabPage() {
   }, [])
 
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
-  const { data: treasurySettings } = useDoc(treasuryRef)
+  const { data: treasurySettings } = useDoc(treasuryRef, { once: true })
 
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
-  const { data: allConfirmands, loading: loadingRegs } = useCollection(regsQuery)
+  const { data: allConfirmands, loading: loadingRegs } = useCollection(regsQuery, { once: true })
 
   const filteredConfirmands = useMemo(() => {
     if (!allConfirmands || !studentSearch) return []

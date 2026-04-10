@@ -147,24 +147,9 @@ export default function RegistrationsListPage() {
     setLoading(true)
     try {
       const constraints: QueryConstraint[] = [
-        where("isArchived", "!=", true),
-        orderBy("isArchived"),
         orderBy("createdAt", "desc"),
         limit(PAGE_SIZE)
       ]
-
-      if (filterSex !== "all") constraints.push(where("sexo", "==", filterSex))
-      if (filterYear !== "all") constraints.push(where("catechesisYear", "==", filterYear))
-      if (filterStatus !== "all" && filterStatus !== "REPETIDO") constraints.push(where("status", "==", filterStatus))
-      if (filterDay !== "all") constraints.push(where("attendanceDay", "==", filterDay))
-      if (filterMethod !== "all") constraints.push(where("paymentMethod", "==", filterMethod))
-      if (filterGroup !== "all") {
-        if (filterGroup === "none") {
-          constraints.push(where("groupId", "==", "none"))
-        } else {
-          constraints.push(where("groupId", "==", filterGroup))
-        }
-      }
 
       const q = isNextPage && lastVisible 
         ? query(collection(db, "confirmations"), ...constraints, startAfter(lastVisible))
@@ -197,7 +182,7 @@ export default function RegistrationsListPage() {
 
   const { data: allGroups } = useCollection(groupsQuery, { once: true })
   const { data: allUsers } = useCollection(usersQuery, { once: true })
-  const { data: costs } = useDoc(treasuryRef)
+  const { data: costs } = useDoc(treasuryRef, { once: true })
 
 
 
@@ -210,7 +195,7 @@ export default function RegistrationsListPage() {
 
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   const duplicateCis = useMemo(() => {
     if (!registrations) return new Set<string>()

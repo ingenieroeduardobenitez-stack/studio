@@ -41,7 +41,7 @@ export function NotificationBell() {
     return query(collection(db, "confirmations"), where("absenceCount", ">=", 3), limit(20))
   }, [db, user])
 
-  const { data: alerts, loading: loadingAlerts } = useCollection(alertQuery)
+  const { data: alerts, loading: loadingAlerts } = useCollection(alertQuery, { once: true })
 
   // Consultar personal online para cumpleaños (limitado a 50)
   const usersQuery = useMemoFirebase(() => {
@@ -49,7 +49,7 @@ export function NotificationBell() {
     return query(collection(db, "users"), limit(50))
   }, [db, user])
 
-  const { data: catechists, loading: loadingUsers } = useCollection(usersQuery)
+  const { data: catechists, loading: loadingUsers } = useCollection(usersQuery, { once: true })
 
   useEffect(() => {
     if (!mounted) return

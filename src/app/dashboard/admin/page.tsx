@@ -54,7 +54,7 @@ export default function AdminPage() {
 
   // Suscripciones a datos con useMemoFirebase para estabilidad
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
-  const { data: settings, loading: loadingSettings } = useDoc(treasuryRef)
+  const { data: settings, loading: loadingSettings } = useDoc(treasuryRef, { once: true })
 
   // Carga eficiente de estadísticas usando getCountFromServer
   useEffect(() => {
