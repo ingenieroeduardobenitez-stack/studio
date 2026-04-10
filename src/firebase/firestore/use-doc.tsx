@@ -103,8 +103,8 @@ export function useDoc<T = any>(
     return () => unsubscribe();
   }, [memoizedDocRef, options?.once]);
 
-  if(memoizedDocRef && !memoizedDocRef.__memo) {
-     throw new Error(memoizedDocRef + ' was not properly memoized using useMemoFirebase');
+  if(memoizedDocRef && !memoizedDocRef.__memo && process.env.NODE_ENV === 'development') {
+     console.warn(memoizedDocRef + ' was not properly memoized using useMemoFirebase. This can cause redundant reads or infinite loops with { once: true }.');
   }
 
   const actualLoading = isLoading || (!!memoizedDocRef && data === null);

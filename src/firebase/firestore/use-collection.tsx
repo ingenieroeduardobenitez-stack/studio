@@ -133,8 +133,8 @@ export function useCollection<T = any>(
     return () => unsubscribe();
   }, [memoizedTargetRefOrQuery, options?.once]);
 
-  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
+  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo && process.env.NODE_ENV === 'development') {
+    console.warn(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase. This can cause redundant reads or infinite loops with { once: true }.');
   }
 
   const actualLoading = isLoading || (!!memoizedTargetRefOrQuery && data === null);
