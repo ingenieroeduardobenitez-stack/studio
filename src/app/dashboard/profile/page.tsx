@@ -25,9 +25,10 @@ import {
   Move,
   Check
 } from "lucide-react"
-import { useUser, useDoc, useFirestore, useAuth, useMemoFirebase } from "@/firebase"
+import { useUser, useDoc, useFirestore, useAuth, useMemoFirebase, getSdks, useStorage } from "@/firebase"
 import { doc, updateDoc } from "firebase/firestore"
 import { updatePassword } from "firebase/auth"
+import { ref, uploadString, getDownloadURL } from "firebase/storage"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
@@ -246,22 +247,42 @@ export default function ProfilePage() {
     setIsDragging(false);
   }
 
+  const storage = useStorage()
+  
   const handleSaveProfile = async () => {
-    if (!userProfileRef) return
+    if (!userProfileRef || !db) return
     setIsSaving(true)
 
-    updateDoc(userProfileRef, formData)
-      .then(() => {
-        toast({ title: "Perfil actualizado" })
-      })
-      .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: userProfileRef.path,
-          operation: 'update',
-          requestResourceData: formData,
-        }));
-      })
-      .finally(() => setIsSaving(false))
+    try {
+      let finalPhotoUrl = formData.photoUrl
+
+      // Si la foto es una nueva capturada o cargada (es base64)
+      if (finalPhotoUrl && finalPhotoUrl.startsWith('data:image')) {
+        if (storage && user?.uid) {
+          const storageRef = ref(storage, `users/${user.uid}/profile.jpg`)
+          await uploadString(storageRef, finalPhotoUrl, 'data_url')
+          finalPhotoUrl = await getDownloadURL(storageRef)
+        }
+      }
+
+      const updateData = {
+        ...formData,
+        photoUrl: finalPhotoUrl
+      }
+
+      await updateDoc(userProfileRef, updateData)
+      setFormData(updateData)
+      toast({ title: "Perfil actualizado" })
+    } catch (error: any) {
+      console.error("Error al guardar perfil:", error)
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: userProfileRef.path,
+        operation: 'update',
+        requestResourceData: formData,
+      }));
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleUpdatePassword = async () => {

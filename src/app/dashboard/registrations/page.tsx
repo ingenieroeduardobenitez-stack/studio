@@ -47,8 +47,9 @@ import {
   Check,
   ChevronDown
 } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc, limit, startAfter, getDocs, where, QueryConstraint, DocumentSnapshot } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc, useStorage } from "@/firebase"
+import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc, limit, startAfter, getDocs, where, QueryConstraint, DocumentSnapshot, getCountFromServer } from "firebase/firestore"
+import { ref, uploadString, getDownloadURL } from "firebase/storage"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -64,6 +65,36 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { Slider } from "@/components/ui/slider"
+
+const compressImage = (base64Str: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new (window as any).Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 800;
+      const MAX_HEIGHT = 800;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+  });
+};
 
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
@@ -90,9 +121,13 @@ export default function RegistrationsListPage() {
   // Estados para Paginación y Carga Optimizada
   const [registrations, setRegistrations] = useState<any[]>([])
   const [lastVisible, setLastVisible] = useState<DocumentSnapshot | null>(null)
+  const [firstVisible, setFirstVisible] = useState<DocumentSnapshot | null>(null)
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const PAGE_SIZE = 25
+  const [totalCount, setTotalCount] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [snapshotsStack, setSnapshotsStack] = useState<DocumentSnapshot[]>([])
+  const PAGE_SIZE = 150
 
 
   // Estados para Validacion Personalizada
@@ -105,6 +140,9 @@ export default function RegistrationsListPage() {
   // Estado para la forma de pago y foto en edición
   const [editPaymentMethod, setEditPaymentMethod] = useState<string>("")
   const [editPhotoUrl, setEditPhotoUrl] = useState<string | null>(null)
+  const [editPaymentProofUrl, setEditPaymentProofUrl] = useState<string | null>(null)
+  const [editBaptismCertUrl, setEditBaptismCertUrl] = useState<string | null>(null)
+  const [cameraTarget, setCameraTarget] = useState<'profile' | 'payment' | 'baptism'>('profile')
 
   // Estados para Cámara y Ajuste de Foto
   const [showCamera, setShowCamera] = useState(false)
@@ -124,6 +162,7 @@ export default function RegistrationsListPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const db = useFirestore()
+  const storage = useStorage()
   const { user } = useUser()
   const { toast } = useToast()
 
@@ -131,18 +170,28 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-
-
-
-
+  // Carga del Conteo Total (Ahorro de costos: 1 lectura por cada 1000 items)
+  useEffect(() => {
+    if (!db || !mounted) return;
+    const fetchTotal = async () => {
+      try {
+        const coll = collection(db, "confirmations");
+        const snapshot = await getCountFromServer(coll);
+        setTotalCount(snapshot.data().count);
+      } catch (e) {
+        console.error("Error fetching count:", e);
+      }
+    };
+    fetchTotal();
+  }, [db, mounted]);
 
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
 
   // Función de Carga con Paginación y Filtros de Servidor (Ahorro de Lecturas)
-  const loadRegistrations = useCallback(async (isNextPage = false) => {
-    if (!db || loading || (!isNextPage && !mounted)) return
+  const loadRegistrations = useCallback(async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
+    if (!db || loading || (direction === 'initial' && !mounted)) return
     
     setLoading(true)
     try {
@@ -151,33 +200,61 @@ export default function RegistrationsListPage() {
         limit(PAGE_SIZE)
       ]
 
-      const q = isNextPage && lastVisible 
-        ? query(collection(db, "confirmations"), ...constraints, startAfter(lastVisible))
-        : query(collection(db, "confirmations"), ...constraints)
+      let q;
+      if (direction === 'next' && lastVisible) {
+        q = query(collection(db, "confirmations"), ...constraints, startAfter(lastVisible))
+      } else if (direction === 'prev' && snapshotsStack.length > 1) {
+        // Para ir atrás en Firestore, necesitamos el snapshot anterior al actual
+        const newStack = [...snapshotsStack];
+        newStack.pop(); // Removemos el actual ultimo
+        const prevTarget = newStack[newStack.length - 1]; // El nuevo ultimo
+        
+        // Si hay una página previa, el query debe empezar después del snapshot que precede al actual
+        if (newStack.length === 1) {
+          // Volvimos a la primera página
+          q = query(collection(db, "confirmations"), ...constraints)
+        } else {
+          const prevStart = newStack[newStack.length - 2];
+          q = query(collection(db, "confirmations"), ...constraints, startAfter(prevStart))
+        }
+        setSnapshotsStack(newStack);
+      } else {
+        // Carga inicial o reset
+        q = query(collection(db, "confirmations"), ...constraints)
+        setSnapshotsStack([])
+      }
 
       const snapshot = await getDocs(q)
       const newRegs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
       
-      if (isNextPage) {
-        setRegistrations(prev => [...prev, ...newRegs])
-      } else {
-        setRegistrations(newRegs)
+      setRegistrations(newRegs)
+      
+      const newLastVisible = snapshot.docs[snapshot.docs.length - 1] || null
+      setLastVisible(newLastVisible)
+      setFirstVisible(snapshot.docs[0] || null)
+      setHasMore(snapshot.docs.length === PAGE_SIZE)
+      
+      if (direction === 'next' && newLastVisible) {
+        setSnapshotsStack(prev => [...prev, newLastVisible])
+        setCurrentPage(prev => prev + 1)
+      } else if (direction === 'prev') {
+        setCurrentPage(prev => prev - 1)
+      } else if (direction === 'initial') {
+        if (newLastVisible) setSnapshotsStack([newLastVisible])
+        setCurrentPage(1)
       }
 
-      setLastVisible(snapshot.docs[snapshot.docs.length - 1] || null)
-      setHasMore(snapshot.docs.length === PAGE_SIZE)
     } catch (error) {
       console.error("Error al cargar registros:", error)
       toast({ variant: "destructive", title: "Error de carga" })
     } finally {
       setLoading(false)
     }
-  }, [db, mounted, filterSex, filterYear, filterStatus, filterDay, filterMethod, filterGroup, lastVisible])
+  }, [db, mounted, lastVisible, snapshotsStack])
 
-  // Recargar cuando cambian los filtros
+  // Recargar cuando cambian los filtros (Reset a página 1)
   useEffect(() => {
-    setLastVisible(null)
-    loadRegistrations(false)
+    loadRegistrations('initial')
   }, [db, mounted, filterSex, filterYear, filterStatus, filterDay, filterMethod, filterGroup])
 
   const { data: allGroups } = useCollection(groupsQuery, { once: true })
@@ -244,6 +321,8 @@ export default function RegistrationsListPage() {
     setSelectedReg(reg)
     setEditPaymentMethod(reg.paymentMethod || "TRANSFERENCIA")
     setEditPhotoUrl(reg.photoUrl || null)
+    setEditPaymentProofUrl(reg.paymentProofUrl || null)
+    setEditBaptismCertUrl(reg.baptismCertificatePhotoUrl || null)
     setIsDetailsOpen(true)
   }
 
@@ -263,19 +342,43 @@ export default function RegistrationsListPage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return;
+    
+    if (file.type === 'application/pdf') {
+       const reader = new FileReader();
+       reader.onload = () => {
+         if (cameraTarget === 'payment') setEditPaymentProofUrl(reader.result as string)
+         else if (cameraTarget === 'baptism') setEditBaptismCertUrl(reader.result as string)
+       };
+       reader.readAsDataURL(file);
+       if (e.target) e.target.value = "";
+       return;
+    }
+
     if (!file.type.startsWith('image/')) {
       toast({ variant: "destructive", title: "Formato no válido" });
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setPendingPhoto(reader.result as string);
-      setZoom(1);
-      setPosition({ x: 0, y: 0 });
-      setShowAdjuster(true);
+      if (cameraTarget === 'profile') {
+        setPendingPhoto(reader.result as string);
+        setZoom(1);
+        setPosition({ x: 0, y: 0 });
+        setShowAdjuster(true);
+      } else {
+        compressImage(reader.result as string).then(res => {
+          if (cameraTarget === 'payment') setEditPaymentProofUrl(res)
+          else if (cameraTarget === 'baptism') setEditBaptismCertUrl(res)
+        })
+      }
     };
     reader.readAsDataURL(file);
     if (e.target) e.target.value = "";
+  }
+
+  const startCameraFor = (target: 'profile' | 'payment' | 'baptism') => {
+    setCameraTarget(target)
+    startCamera()
   }
 
   const startCamera = async (deviceId?: string) => {
@@ -319,10 +422,18 @@ export default function RegistrationsListPage() {
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(video, 0, 0);
-        setPendingPhoto(canvas.toDataURL('image/jpeg', 0.9));
-        setZoom(1);
-        setPosition({ x: 0, y: 0 });
-        setShowAdjuster(true);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        
+        if (cameraTarget === 'profile') {
+          setPendingPhoto(dataUrl);
+          setZoom(1);
+          setPosition({ x: 0, y: 0 });
+          setShowAdjuster(true);
+        } else {
+          const compressed = await compressImage(dataUrl);
+          if (cameraTarget === 'payment') setEditPaymentProofUrl(compressed);
+          else if (cameraTarget === 'baptism') setEditBaptismCertUrl(compressed);
+        }
         stopCamera();
       }
     }
@@ -346,7 +457,9 @@ export default function RegistrationsListPage() {
     ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
     ctx.restore();
     const finalDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    setEditPhotoUrl(finalDataUrl);
+    if (cameraTarget === 'profile') setEditPhotoUrl(finalDataUrl);
+    else if (cameraTarget === 'payment') setEditPaymentProofUrl(finalDataUrl);
+    else if (cameraTarget === 'baptism') setEditBaptismCertUrl(finalDataUrl);
     setShowAdjuster(false);
     setPendingPhoto(null);
     toast({ title: "Imagen actualizada" });
@@ -454,29 +567,65 @@ export default function RegistrationsListPage() {
     e.preventDefault()
     if (!db || !selectedReg || isProcessing) return
     setIsProcessing(true)
-    const formData = new FormData(e.currentTarget)
-    const updateData = {
-      fullName: (formData.get("fullName") as string || selectedReg.fullName || "").toUpperCase(),
-      ciNumber: formData.get("ciNumber") as string || selectedReg.ciNumber || "",
-      phone: formData.get("phone") as string || selectedReg.phone || "",
-      groupId: formData.get("groupId") as string || selectedReg.groupId || "none",
-      catechesisYear: formData.get("catechesisYear") as string || selectedReg.catechesisYear || "",
-      paymentMethod: editPaymentMethod,
-      photoUrl: editPhotoUrl !== undefined ? editPhotoUrl : selectedReg.photoUrl,
-      motherName: (formData.get("motherName") as string || selectedReg.motherName || "").toUpperCase(),
-      motherPhone: formData.get("motherPhone") as string || selectedReg.motherPhone || "",
-      fatherName: (formData.get("fatherName") as string || selectedReg.fatherName || "").toUpperCase(),
-      fatherPhone: formData.get("fatherPhone") as string || selectedReg.fatherPhone || "",
-      baptismParish: formData.get("baptismParish") as string || selectedReg.baptismParish || "",
-      baptismBook: formData.get("baptismBook") as string || selectedReg.baptismBook || "",
-      baptismFolio: formData.get("baptismFolio") as string || selectedReg.baptismFolio || "",
-      updatedAt: serverTimestamp()
+
+    try {
+      const formData = new FormData(e.currentTarget)
+      let finalPhotoUrl = editPhotoUrl !== undefined && editPhotoUrl !== null ? editPhotoUrl : selectedReg.photoUrl
+      let finalPaymentUrl = editPaymentProofUrl !== null ? editPaymentProofUrl : selectedReg.paymentProofUrl
+      let finalBaptismUrl = editBaptismCertUrl !== null ? editBaptismCertUrl : selectedReg.baptismCertificatePhotoUrl
+
+      // Helper para subir a storage
+      const uploadFile = async (data: string | null, path: string) => {
+        if (data && data.startsWith('data:')) {
+          const storageRef = ref(storage, path)
+          await uploadString(storageRef, data, 'data_url')
+          return await getDownloadURL(storageRef)
+        }
+        return data
+      }
+
+      finalPhotoUrl = await uploadFile(finalPhotoUrl, `confirmations/${selectedReg.id}/profile.jpg`)
+      
+      const paymentExt = (finalPaymentUrl || "").includes('application/pdf') ? 'pdf' : 'jpg'
+      finalPaymentUrl = await uploadFile(finalPaymentUrl, `confirmations/${selectedReg.id}/payment_proof.${paymentExt}`)
+      
+      const baptismExt = (finalBaptismUrl || "").includes('application/pdf') ? 'pdf' : 'jpg'
+      finalBaptismUrl = await uploadFile(finalBaptismUrl, `confirmations/${selectedReg.id}/baptism_cert.${baptismExt}`)
+
+      const updateData = {
+        fullName: (formData.get("fullName") as string || selectedReg.fullName || "").toUpperCase(),
+        ciNumber: formData.get("ciNumber") as string || selectedReg.ciNumber || "",
+        phone: formData.get("phone") as string || selectedReg.phone || "",
+        groupId: formData.get("groupId") as string || selectedReg.groupId || "none",
+        catechesisYear: formData.get("catechesisYear") as string || selectedReg.catechesisYear || "",
+        paymentMethod: editPaymentMethod,
+        photoUrl: finalPhotoUrl,
+        paymentProofUrl: finalPaymentUrl,
+        baptismCertificatePhotoUrl: finalBaptismUrl,
+        motherName: (formData.get("motherName") as string || selectedReg.motherName || "").toUpperCase(),
+        motherPhone: formData.get("motherPhone") as string || selectedReg.motherPhone || "",
+        fatherName: (formData.get("fatherName") as string || selectedReg.fatherName || "").toUpperCase(),
+        fatherPhone: formData.get("fatherPhone") as string || selectedReg.fatherPhone || "",
+        baptismParish: formData.get("baptismParish") as string || selectedReg.baptismParish || "",
+        baptismBook: formData.get("baptismBook") as string || selectedReg.baptismBook || "",
+        baptismFolio: formData.get("baptismFolio") as string || selectedReg.baptismFolio || "",
+        updatedAt: serverTimestamp()
+      }
+      
+      const regRef = doc(db, "confirmations", selectedReg.id)
+      await updateDoc(regRef, updateData)
+      
+      toast({ title: "Ficha actualizada" })
+      setIsDetailsOpen(false)
+    } catch (error: any) {
+      console.error("Error updating details:", error)
+      if (error.code === 'permission-denied') {
+         // Silently handle or use errorEmitter if available
+      }
+      toast({ variant: "destructive", title: "Error al actualizar", description: error.message })
+    } finally {
+      setIsProcessing(false)
     }
-    const regRef = doc(db, "confirmations", selectedReg.id)
-    updateDoc(regRef, updateData)
-      .then(() => { toast({ title: "Ficha actualizada" }); setIsDetailsOpen(false); })
-      .catch(async (error) => { errorEmitter.emit('permission-error', new FirestorePermissionError({ path: regRef.path, operation: 'update', requestResourceData: updateData })); })
-      .finally(() => setIsProcessing(false))
   }
 
   const handleWithdrawal = async () => {
@@ -711,7 +860,7 @@ export default function RegistrationsListPage() {
               <div className="flex gap-3 w-full lg:w-auto">
                 <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
-                  <p className="text-xl font-black text-primary leading-none">{loading ? "..." : stats.total}</p>
+                  <p className="text-xl font-black text-primary leading-none">{loading && totalCount === 0 ? "..." : totalCount}</p>
                 </div>
                 <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Hombres</p>
@@ -799,17 +948,33 @@ export default function RegistrationsListPage() {
             </TabsContent>
           </Tabs>
 
-          {hasMore && (
-            <div className="p-8 flex justify-center bg-slate-50/50 border-t">
-              <Button 
-                onClick={() => loadRegistrations(true)} 
-                disabled={loading}
-                variant="outline"
-                className="rounded-2xl h-14 px-12 font-black text-primary border-primary/20 hover:bg-primary hover:text-white transition-all shadow-lg gap-2"
-              >
-                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                CARGAR MÁS ESTUDIANTES
-              </Button>
+          {(totalCount > PAGE_SIZE || registrations.length > 0) && (
+            <div className="p-8 flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-50/50 border-t">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white px-6 py-3 rounded-2xl border shadow-sm">
+                Mostrando <span className="text-primary">{Math.min(((currentPage - 1) * PAGE_SIZE) + 1, totalCount)}</span> - <span className="text-primary">{Math.min(currentPage * PAGE_SIZE, totalCount)}</span> de <span className="text-primary">{totalCount}</span> registros
+              </div>
+              
+              <div className="flex gap-4">
+                <Button 
+                  onClick={() => loadRegistrations('prev')} 
+                  disabled={loading || currentPage === 1}
+                  variant="outline"
+                  className="rounded-2xl h-14 px-8 font-black text-slate-600 border-slate-200 hover:bg-white transition-all shadow-sm gap-2 uppercase tracking-widest text-[10px]"
+                >
+                  <ChevronDown className="h-5 w-5 rotate-90" />
+                  Anterior
+                </Button>
+                
+                <Button 
+                  onClick={() => loadRegistrations('next')} 
+                  disabled={loading || !hasMore}
+                  variant="outline"
+                  className="rounded-2xl h-14 px-8 font-black text-primary border-primary/20 hover:bg-primary hover:text-white transition-all shadow-lg gap-2 uppercase tracking-widest text-[10px]"
+                >
+                  {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <ChevronDown className="h-5 w-5 -rotate-90" />}
+                  Siguiente
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -832,19 +997,19 @@ export default function RegistrationsListPage() {
                       <button 
                         type="button"
                         className="h-8 w-8 rounded-full bg-primary text-white border-2 border-slate-900 flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg active:scale-95"
-                        onClick={() => startCamera()}
+                        onClick={() => startCameraFor('profile')}
                       >
                         <Camera className="h-3.5 w-3.5" />
                       </button>
                       <button 
                         type="button"
                         className="h-8 w-8 rounded-full bg-blue-600 text-white border-2 border-slate-900 flex items-center justify-center hover:bg-blue-700 transition-all shadow-lg active:scale-95"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => { setCameraTarget('profile'); fileInputRef.current?.click(); }}
                       >
                         <ImageIcon className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
                   </div>
                   <div className="space-y-1">
                     <DialogTitle className="text-3xl font-black uppercase tracking-tight leading-none">{selectedReg.fullName}</DialogTitle>
@@ -976,15 +1141,23 @@ export default function RegistrationsListPage() {
                           <div className="flex items-center gap-2"><ImageIcon className="h-4 w-4 text-blue-500" /><h4 className="text-xs font-black uppercase text-slate-500">Comprobante de Pago</h4></div>
                           {selectedReg.receiptNumber && <Badge className="bg-green-100 text-green-700 border-none">RECIBO: {selectedReg.receiptNumber}</Badge>}
                         </div>
-                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group cursor-pointer" onClick={() => openImageViewer(selectedReg.paymentProofUrl)}>
-                          {selectedReg.paymentProofUrl ? (
-                            <>
-                              <Image src={selectedReg.paymentProofUrl} alt="Comprobante" width={400} height={300} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group">
+                          {editPaymentProofUrl || selectedReg.paymentProofUrl ? (
+                            <div className="w-full h-full cursor-pointer" onClick={() => openImageViewer(editPaymentProofUrl || selectedReg.paymentProofUrl)}>
+                              {(editPaymentProofUrl || selectedReg.paymentProofUrl).includes('application/pdf') ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-blue-50 text-blue-600"><FileText className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Documento PDF</span></div>
+                              ) : (
+                                <Image src={editPaymentProofUrl || selectedReg.paymentProofUrl} alt="Comprobante" width={400} height={300} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                              )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Maximize2 className="h-8 w-8 text-white" /></div>
-                            </>
+                            </div>
                           ) : (
                             <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-2"><ImageIcon className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Sin imagen adjunta</span></div>
                           )}
+                        </div>
+                        <div className="pt-2 flex gap-2">
+                           <Button type="button" variant="outline" className="flex-1 h-9 text-[10px] font-bold gap-2 rounded-xl" onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*,application/pdf'; input.onchange = (e: any) => { const file = e.target.files[0]; if(file){ const reader = new FileReader(); reader.onload = () => { let res = reader.result as string; setEditPaymentProofUrl(res); }; reader.readAsDataURL(file); } }; input.click(); }}><ImageIcon className="h-3 w-3" /> GALERÍA</Button>
+                           <Button type="button" variant="outline" className="flex-1 h-9 text-[10px] font-bold gap-2 rounded-xl" onClick={() => { startCameraFor('payment'); }}><Camera className="h-3 w-3" /> CÁMARA</Button>
                         </div>
                         <div className="pt-2 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
                           <span>Monto Abonado:</span>
@@ -994,15 +1167,23 @@ export default function RegistrationsListPage() {
 
                       <div className="p-8 bg-white rounded-[2rem] border shadow-sm space-y-4">
                         <div className="flex items-center gap-2 mb-2"><ImageIcon className="h-4 w-4 text-orange-500" /><h4 className="text-xs font-black uppercase text-slate-500">Certificado de Bautismo</h4></div>
-                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group cursor-pointer" onClick={() => openImageViewer(selectedReg.baptismCertificatePhotoUrl)}>
-                          {selectedReg.baptismCertificatePhotoUrl ? (
-                            <>
-                              <Image src={selectedReg.baptismCertificatePhotoUrl} alt="Certificado" width={400} height={300} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group">
+                          {editBaptismCertUrl || selectedReg.baptismCertificatePhotoUrl ? (
+                            <div className="w-full h-full cursor-pointer" onClick={() => openImageViewer(editBaptismCertUrl || selectedReg.baptismCertificatePhotoUrl)}>
+                              {(editBaptismCertUrl || selectedReg.baptismCertificatePhotoUrl).includes('application/pdf') ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-orange-50 text-orange-600"><FileText className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Documento PDF</span></div>
+                              ) : (
+                                <Image src={editBaptismCertUrl || selectedReg.baptismCertificatePhotoUrl} alt="Certificado" width={400} height={300} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                              )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Maximize2 className="h-8 w-8 text-white" /></div>
-                            </>
+                            </div>
                           ) : (
                             <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-2"><ImageIcon className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Sin imagen adjunta</span></div>
                           )}
+                        </div>
+                        <div className="pt-2 flex gap-2">
+                           <Button type="button" variant="outline" className="flex-1 h-9 text-[10px] font-bold gap-2 rounded-xl" onClick={() => { setCameraTarget('baptism'); fileInputRef.current?.click(); }}><ImageIcon className="h-3 w-3" /> GALERÍA</Button>
+                           <Button type="button" variant="outline" className="flex-1 h-9 text-[10px] font-bold gap-2 rounded-xl" onClick={() => { startCameraFor('baptism'); }}><Camera className="h-3 w-3" /> CÁMARA</Button>
                         </div>
                         <div className="pt-2 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
                           <span>Estado SACRAMENTO:</span>

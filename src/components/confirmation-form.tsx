@@ -47,8 +47,9 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase"
+import { useFirestore, useUser, useDoc, useMemoFirebase, useStorage } from "@/firebase"
 import { doc, setDoc, getDoc, getDocs, query, where, serverTimestamp, collection } from "firebase/firestore"
+import { ref, uploadString, getDownloadURL } from "firebase/storage"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -140,6 +141,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const db = useFirestore()
+  const storage = useStorage()
   const { user } = useUser()
   const { toast } = useToast()
 
@@ -273,10 +275,18 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: any) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+        toast({ variant: "destructive", title: "Formato no soportado", description: "Solo se permiten imágenes o PDF." });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const compressed = await compressImage(reader.result as string);
-        setValue(target, compressed);
+        let result = reader.result as string;
+        if (file.type.startsWith('image/')) {
+          result = await compressImage(result);
+        }
+        setValue(target, result);
       };
       reader.readAsDataURL(file);
     }
@@ -286,42 +296,57 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     if (!db) return;
     setLoading(true);
     
-    const cleanedValues: any = {};
-    Object.keys(values).forEach(key => {
-      const val = (values as any)[key];
-      cleanedValues[key] = val === undefined ? null : val;
-    });
+    try {
+      const regId = `conf_${Date.now()}`;
+      const cleanedValues: any = {};
+      
+      // Función auxiliar para subir a storage si es base64
+      const uploadIfBase64 = async (value: string | null | undefined, path: string) => {
+        if (value && value.startsWith('data:')) {
+          const storageRef = ref(storage, path);
+          await uploadString(storageRef, value, 'data_url');
+          return await getDownloadURL(storageRef);
+        }
+        return value;
+      };
 
-    const isEfectivo = values.paymentMethod === "EFECTIVO";
-    const regCost = Number(values.registrationCost);
-    const regId = `conf_${Date.now()}`;
-    
-    const regData = {
-      ...cleanedValues,
-      userId: user?.uid || (isPublic ? "public_registration" : "manual"),
-      status: isEfectivo ? "INSCRITO" : "POR_VALIDAR",
-      paymentStatus: isEfectivo ? "PAGADO" : "PENDIENTE",
-      amountPaid: isEfectivo ? regCost : 0,
-      isArchived: false,
-      createdAt: serverTimestamp()
-    };
+      // Procesar imágenes de forma secuencial o paralela
+      cleanedValues.photoUrl = await uploadIfBase64(values.photoUrl, `confirmations/${regId}/profile.jpg`);
+      cleanedValues.paymentProofUrl = await uploadIfBase64(values.paymentProofUrl, `confirmations/${regId}/payment_proof.jpg`);
+      cleanedValues.baptismCertificatePhotoUrl = await uploadIfBase64(values.baptismCertificatePhotoUrl, `confirmations/${regId}/baptism_cert.jpg`);
 
-    setDoc(doc(db, "confirmations", regId), regData)
-      .then(() => {
-        setSubmittedData({ ...regData, id: regId });
-        setIsSubmittedSuccessfully(true);
-        toast({ title: "Inscripción recibida correctamente" });
-      })
-      .catch(error => {
-        const permissionError = new FirestorePermissionError({
-          path: `confirmations/${regId}`,
-          operation: 'create',
-          requestResourceData: regData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        toast({ variant: "destructive", title: "Error al guardar", description: "No se pudo procesar la inscripción." });
-      })
-      .finally(() => setLoading(false));
+      // Copiar el resto de valores
+      Object.keys(values).forEach(key => {
+        if (!['photoUrl', 'paymentProofUrl', 'baptismCertificatePhotoUrl'].includes(key)) {
+          const val = (values as any)[key];
+          cleanedValues[key] = val === undefined ? null : val;
+        }
+      });
+
+      const isEfectivo = values.paymentMethod === "EFECTIVO";
+      const regCost = Number(values.registrationCost);
+      
+      const regData = {
+        ...cleanedValues,
+        userId: user?.uid || (isPublic ? "public_registration" : "manual"),
+        status: isEfectivo ? "INSCRITO" : "POR_VALIDAR",
+        paymentStatus: isEfectivo ? "PAGADO" : "PENDIENTE",
+        amountPaid: isEfectivo ? regCost : 0,
+        isArchived: false,
+        createdAt: serverTimestamp()
+      };
+
+      await setDoc(doc(db, "confirmations", regId), regData);
+      
+      setSubmittedData({ ...regData, id: regId });
+      setIsSubmittedSuccessfully(true);
+      toast({ title: "Inscripción recibida correctamente" });
+    } catch (error: any) {
+      console.error("Error in registration:", error);
+      toast({ variant: "destructive", title: "Error al guardar", description: error.message || "No se pudo procesar la inscripción." });
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (isSubmittedSuccessfully) {
@@ -365,7 +390,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
                       <Button type="button" size="icon" variant="secondary" className="h-10 w-10 rounded-full" onClick={() => fileInputRef.current?.click()}><ImageIcon className="h-4 w-4" /></Button>
                     </div>
                   </div>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "photoUrl")} />
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, "photoUrl")} />
                 </div>
                 <FormField control={form.control} name="ciNumber" render={({ field }) => (
                   <FormItem><FormLabel className="font-bold">N° de C.I. *</FormLabel><div className="flex gap-2"><FormControl><Input placeholder="Solo números" {...field} className="h-12 rounded-xl" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleLookupCi(field.value); } }} /></FormControl><Button type="button" onClick={() => handleLookupCi(field.value)} disabled={isSearchingCi} className="h-12 px-6 rounded-xl bg-primary">{isSearchingCi ? <Loader2 className="animate-spin" /> : <Search className="h-4 w-4" />}</Button></div><FormMessage /></FormItem>

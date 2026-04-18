@@ -17,7 +17,8 @@ import {
   Shapes,
   UserCheck,
   CheckCircle2,
-  Wallet
+  Wallet,
+  Cloud
 } from "lucide-react"
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, serverTimestamp, writeBatch, getDocs, deleteField, getCountFromServer, query, where } from "firebase/firestore"
@@ -362,6 +363,11 @@ export default function AdminPage() {
               <Button asChild variant="outline" className="w-full justify-start h-12 rounded-xl font-bold gap-3 border-slate-100 hover:bg-slate-50">
                 <Link href="/dashboard/admin/archive">
                   <Church className="h-5 w-5 text-orange-500" /> Cierre de Año
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-start h-12 rounded-xl font-bold gap-3 border-slate-100 hover:bg-slate-50">
+                <Link href="/dashboard/admin/migration">
+                  <Cloud className="h-5 w-5 text-green-500" /> Optimizar Imágenes
                 </Link>
               </Button>
               <Button type="button" onClick={handleClearAttendance} disabled={isClearingAttendance} variant="outline" className="w-full justify-start h-12 rounded-xl font-bold gap-3 border-red-50 text-red-600 hover:bg-red-50">

@@ -13,12 +13,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Search, MoreHorizontal, Loader2, ShieldCheck, Edit, Trash2, Camera, User, Check, X, Circle, Download } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc, useStorage } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore"
 import { initializeApp, deleteApp } from "firebase/app"
 import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth"
-import { firebaseConfig } from "@/firebase/config"
+import { ref, uploadString, getDownloadURL } from "firebase/storage"
 import { useToast } from "@/hooks/use-toast"
+import { firebaseConfig } from "@/firebase/config"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -205,13 +206,22 @@ export default function UsersAdminPage() {
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
       const newUser = userCredential.user
       await signOut(secondaryAuth)
+      let finalPhotoUrl = tempPhoto || null
+      const storage = useStorage()
+
+      if (finalPhotoUrl && finalPhotoUrl.startsWith('data:image') && storage) {
+        const storageRef = ref(storage, `users/${newUser.uid}/profile.jpg`)
+        await uploadString(storageRef, finalPhotoUrl, 'data_url')
+        finalPhotoUrl = await getDownloadURL(storageRef)
+      }
+
       const userData = {
         firstName: firstName || "",
         lastName: lastName || "",
         email: email || "",
         role: role || "Catequista",
         allowedModules: selectedModules,
-        photoUrl: tempPhoto || null,
+        photoUrl: finalPhotoUrl,
         status: "offline",
         lastSeen: serverTimestamp(),
         createdAt: serverTimestamp(),
@@ -246,12 +256,21 @@ export default function UsersAdminPage() {
     setIsSubmitting(true)
     try {
       const formData = new FormData(e.currentTarget)
+      let finalPhotoUrl = selectedUser.photoUrl || null
+      const storage = useStorage()
+
+      if (tempPhoto && tempPhoto.startsWith('data:image') && storage) {
+        const storageRef = ref(storage, `users/${selectedUser.id}/profile.jpg`)
+        await uploadString(storageRef, tempPhoto, 'data_url')
+        finalPhotoUrl = await getDownloadURL(storageRef)
+      }
+
       const userData = {
         firstName: formData.get("firstName") as string || "",
         lastName: formData.get("lastName") as string || "",
         role: editRole,
         allowedModules: selectedModules,
-        photoUrl: tempPhoto || selectedUser.photoUrl || null
+        photoUrl: finalPhotoUrl
       }
       await updateDoc(doc(db, "users", selectedUser.id), userData)
 

@@ -41,8 +41,10 @@ import {
   Clock,
   Eye
 } from "lucide-react"
-import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
+import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc, getSdks, useStorage } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, addDoc, runTransaction, orderBy, limit } from "firebase/firestore"
+import { ref, uploadString, getDownloadURL } from "firebase/storage"
+import { firebaseConfig } from "@/firebase/config"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -244,6 +246,8 @@ export default function PaymentsManagementPage() {
     document.body.removeChild(link);
   }
 
+  const storage = useStorage()
+
   const handleProcessPayment = async () => {
     if (!db || !selectedReg || !treasurySettingsRef || isSubmitting) return
     setIsSubmitting(true)
@@ -261,6 +265,15 @@ export default function PaymentsManagementPage() {
         const newPaid = (regData.amountPaid || 0) + paymentAmount;
         const regCost = regData.registrationCost || (regData.catechesisYear === "ADULTOS" ? 50000 : 35000);
         
+        let finalProofUrl = paymentProofUrl || regData.paymentProofUrl || null;
+
+        if (paymentProofUrl && paymentProofUrl.startsWith('data:') && storage) {
+          const extension = paymentProofUrl.includes('application/pdf') ? 'pdf' : 'jpg';
+          const storageRef = ref(storage, `confirmations/${regSnap.id}/payment_proof.${extension}`);
+          await uploadString(storageRef, paymentProofUrl, 'data_url');
+          finalProofUrl = await getDownloadURL(storageRef);
+        }
+
         const updatePayload = { 
           amountPaid: newPaid, 
           paymentStatus: newPaid >= regCost ? "PAGADO" : (newPaid > 0 ? "PARCIAL" : "PENDIENTE"), 
@@ -269,7 +282,7 @@ export default function PaymentsManagementPage() {
           validatedBy: catechistName,
           receiptNumber: formattedReceipt,
           lastPaymentMethod: paymentType,
-          paymentProofUrl: paymentProofUrl || regData.paymentProofUrl || null
+          paymentProofUrl: finalProofUrl
         };
 
         transaction.update(regRef, updatePayload);
@@ -326,6 +339,36 @@ export default function PaymentsManagementPage() {
     }
   }
 
+const compressImage = (base64Str: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new (window as any).Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 800;
+      const MAX_HEIGHT = 800;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+  });
+};
+
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
@@ -335,6 +378,25 @@ export default function PaymentsManagementPage() {
       setPaymentProofUrl(canvas.toDataURL('image/jpeg', 0.8));
       setShowCamera(false);
       if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+    }
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+        toast({ variant: "destructive", title: "Formato no soportado", description: "Solo se permiten imágenes o PDF." });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        let result = reader.result as string;
+        if (file.type.startsWith('image/')) {
+          result = await compressImage(result);
+        }
+        setPaymentProofUrl(result);
+      };
+      reader.readAsDataURL(file);
     }
   }
 
@@ -657,22 +719,38 @@ export default function PaymentsManagementPage() {
 
             {paymentType === "TRANSFERENCIA" && (
               <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                <Label className="font-bold text-slate-700 ml-1">Comprobante (Foto)</Label>
-                <div 
-                  className={cn(
-                    "border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden",
-                    paymentProofUrl ? "border-primary bg-primary/5" : "border-slate-200 bg-slate-50 hover:bg-slate-100"
-                  )} 
-                  onClick={() => startCamera()}
-                >
-                  {paymentProofUrl ? (
-                    <img src={paymentProofUrl} className="h-full w-full object-cover" alt="Comprobante" />
-                  ) : (
+                <Label className="font-bold text-slate-700 ml-1">Comprobante (Archivo)</Label>
+                <div className="flex gap-2">
+                  <div 
+                    className={cn(
+                      "flex-1 border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden",
+                      paymentProofUrl ? "border-primary bg-primary/5" : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                    )} 
+                    onClick={() => startCamera()}
+                  >
+                    {paymentProofUrl && !paymentProofUrl.includes('application/pdf') ? (
+                      <img src={paymentProofUrl} className="h-full w-full object-cover" alt="Comprobante" />
+                    ) : paymentProofUrl?.includes('application/pdf') ? (
+                      <div className="flex flex-col items-center gap-1 text-primary"><FileText className="h-8 w-8" /><span className="text-[10px] font-bold">PDF CARGADO</span></div>
+                    ) : (
+                      <div className="text-center space-y-1">
+                        <Camera className="h-6 w-6 text-slate-300 mx-auto" />
+                        <p className="text-[10px] font-black text-slate-400 uppercase">Cámara</p>
+                      </div>
+                    )}
+                  </div>
+                  <div 
+                    className={cn(
+                      "flex-1 border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer transition-all bg-slate-50 hover:bg-slate-100",
+                      paymentProofUrl ? "border-primary" : "border-slate-200"
+                    )}
+                    onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*,application/pdf'; input.onchange = (e: any) => handleFileUpload(e); input.click(); }}
+                  >
                     <div className="text-center space-y-1">
                       <ImageIcon className="h-6 w-6 text-slate-300 mx-auto" />
-                      <p className="text-[10px] font-black text-slate-400 uppercase">Tocar para Capturar</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase">Galería / PDF</p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             )}
