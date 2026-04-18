@@ -18,7 +18,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, query, where, doc, updateDoc, serverTimestamp, writeBatch } from "firebase/firestore"
+import { collection, query, where, doc, updateDoc, serverTimestamp, writeBatch, collectionGroup } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { errorEmitter } from "@/firebase/error-emitter"
@@ -156,6 +156,23 @@ export default function MyListPage() {
   const { data: myConfirmands, loading: loadingMyConf } = useCollection(myConfirmandsQuery, { once: true })
   const { data: recoveryConfirmands, loading: loadingRecovery } = useCollection(recoveryConfirmandsQuery, { once: true })
 
+  const todayStr = useMemo(() => new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0], [])
+  
+  const todayAttendanceQuery = useMemoFirebase(() => {
+    if (!db) return null
+    return query(collectionGroup(db, "attendance"), where("date", "==", todayStr))
+  }, [db, todayStr])
+  const { data: todayAttendanceRecords } = useCollection(todayAttendanceQuery)
+
+  const attendanceMap = useMemo(() => {
+    const map = new Map<string, string>()
+    todayAttendanceRecords?.forEach((rec: any) => {
+      const studentId = rec.id.split('_')[0]
+      map.set(studentId, rec.status)
+    })
+    return map
+  }, [todayAttendanceRecords])
+
   const handleAttendance = (id: string, status: "PRESENTE" | "AUSENTE") => {
     if (!db) return
     setUpdatingId(id)
@@ -283,12 +300,16 @@ export default function MyListPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge 
-                          variant={conf.attendanceStatus === "PRESENTE" ? "default" : conf.attendanceStatus === "AUSENTE" ? "destructive" : "secondary"}
-                          className={cn(conf.attendanceStatus === "PRESENTE" ? "bg-green-500" : "")}
-                        >
-                          {conf.attendanceStatus || "PENDIENTE"}
-                        </Badge>
+                        {attendanceMap.get(conf.id) ? (
+                          <Badge 
+                            variant={attendanceMap.get(conf.id) === "PRESENTE" ? "default" : attendanceMap.get(conf.id) === "AUSENTE" ? "destructive" : "secondary"}
+                            className={cn(attendanceMap.get(conf.id) === "PRESENTE" ? "bg-green-500" : "")}
+                          >
+                            {attendanceMap.get(conf.id)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-slate-400">SIN MARCAR</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <AttendanceCalendar studentId={conf.id} />
