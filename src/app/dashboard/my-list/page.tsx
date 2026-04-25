@@ -15,7 +15,9 @@ import {
   User, 
   Calendar, 
   RefreshCcw,
-  AlertCircle
+  AlertCircle,
+  Search,
+  Check
 } from "lucide-react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, doc, updateDoc, serverTimestamp, writeBatch, getDoc } from "firebase/firestore"
@@ -23,6 +25,10 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { CardFooter } from "@/components/ui/card"
+import { getDocs } from "firebase/firestore"
 
 function AttendanceCalendar({ studentId, todayStatus }: { studentId: string, todayStatus?: string }) {
   const db = useFirestore()
@@ -168,6 +174,11 @@ export default function MyListPage() {
   const todayStr = useMemo(() => new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0], [])
   
   const [attendanceMap, setAttendanceMap] = useState<Map<string, string>>(new Map())
+  const [isClosingCycle, setIsClosingCycle] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [manualSearchTerm, setManualSearchTerm] = useState("")
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
   
   useEffect(() => {
     if (!db || !myConfirmands || !isMounted) return
@@ -240,25 +251,103 @@ export default function MyListPage() {
           description: status === "AUSENTE" ? "Habilitado para recuperación el día opuesto." : "Confirmando presente.",
         })
       })
-      .catch(async (error) => {
-        // Rollback
-        setAttendanceMap(prev => {
-          const newMap = new Map(prev)
-          if (previousStatus) newMap.set(id, previousStatus)
-          else newMap.delete(id)
-          return newMap
-        })
-        const permissionError = new FirestorePermissionError({
-          path: regRef.path,
-          operation: 'update',
-          requestResourceData: updateData,
-        })
-        errorEmitter.emit('permission-error', permissionError)
-      })
       .finally(() => {
         setUpdatingId(null)
       })
   }
+
+  const handleCloseCycle = async () => {
+    if (!db || !myConfirmands || isClosingCycle) return
+    if (!confirm("¿Deseas marcar a todos los que no asistieron como AUSENTES? Esto los enviará automáticamente a la lista de recuperación.")) return
+
+    setIsClosingCycle(true)
+    const batch = writeBatch(db)
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.email || "Catequista")
+    const todayStr = new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0]
+    
+    let count = 0
+    myConfirmands.forEach((conf: any) => {
+      if (!attendanceMap.has(conf.id)) {
+        const regRef = doc(db, "confirmations", conf.id)
+        const updateData = {
+          attendanceStatus: "AUSENTE",
+          needsRecovery: true,
+          lastAttendanceUpdate: serverTimestamp(),
+          lastAttendanceTakenBy: catechistName
+        }
+        batch.update(regRef, updateData)
+
+        const attendanceRef = doc(db, "confirmations", conf.id, "attendance", `${conf.id}_${todayStr}`)
+        batch.set(attendanceRef, {
+          date: todayStr,
+          status: "AUSENTE",
+          registeredBy: user?.uid || "admin",
+          timestamp: serverTimestamp()
+        }, { merge: true })
+        
+        count++
+      }
+    })
+
+    if (count === 0) {
+      setIsClosingCycle(false)
+      toast({ title: "Información", description: "Todos los alumnos ya tienen su asistencia marcada." })
+      return
+    }
+
+    try {
+      await batch.commit()
+      toast({ title: "Ciclo cerrado", description: `Se marcaron ${count} ausencias y se habilitaron para recuperación.` })
+      
+      // Update local state for immediate feedback
+      setAttendanceMap(prev => {
+        const newMap = new Map(prev)
+        myConfirmands.forEach((conf: any) => {
+          if (!newMap.has(conf.id)) newMap.set(conf.id, "AUSENTE")
+        })
+        return newMap
+      })
+    } catch (e) {
+      console.error(e)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo cerrar el ciclo de asistencia." })
+    } finally {
+      setIsClosingCycle(false)
+    }
+  }
+
+  const handleManualSearch = async () => {
+    if (!db || !manualSearchTerm || isSearching) return
+    setIsSearching(true)
+    try {
+      // Buscamos en toda la colección pero filtramos por el otro día
+      const q = query(
+        collection(db, "confirmations"),
+        where("attendanceDay", "==", groupParams?.otherDay)
+      )
+      const snap = await getDocs(q)
+      const results = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((s: any) => s.fullName?.toLowerCase().includes(manualSearchTerm.toLowerCase()) || s.ciNumber?.includes(manualSearchTerm))
+      
+      setSearchResults(results)
+      if (results.length === 0) {
+        toast({ title: "Sin resultados", description: `No se encontraron alumnos de los ${groupParams?.otherDay.toLowerCase()}s con ese nombre.` })
+      }
+    } catch (e) {
+      console.error(e)
+      toast({ variant: "destructive", title: "Error", description: "Error al buscar alumnos." })
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  useEffect(() => {
+    // Limpiar resultados al cerrar el diálogo
+    if (!isSearchOpen) {
+      setSearchResults([])
+      setManualSearchTerm("")
+    }
+  }, [isSearchOpen])
 
   if (loadingGroups) {
     return (
@@ -383,6 +472,23 @@ export default function MyListPage() {
               </Table>
             )}
           </CardContent>
+          {!loadingMyConf && myConfirmands && myConfirmands.length > 0 && (
+            <CardFooter className="bg-slate-50 border-t p-4 flex justify-between items-center">
+              <div className="text-[10px] text-slate-500 font-bold uppercase">
+                {Array.from(attendanceMap.entries()).filter(([id]) => myConfirmands.some((c: any) => c.id === id)).length} de {myConfirmands.length} marcados
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-xl font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5"
+                onClick={handleCloseCycle}
+                disabled={isClosingCycle}
+              >
+                {isClosingCycle ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                Cerrar Asistencia del Día
+              </Button>
+            </CardFooter>
+          )}
         </Card>
 
         <Card className="border-none shadow-xl overflow-hidden border-t-4 border-t-accent">
@@ -403,6 +509,66 @@ export default function MyListPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            <div className="p-4 bg-accent/5 border-b border-accent/10 flex justify-end">
+              <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="rounded-xl text-accent border-accent/20 hover:bg-accent/10 font-bold gap-2">
+                    <Search className="h-4 w-4" /> Adelantar/Cargar Recuperatorio
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md rounded-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Buscador de Alumnos ({groupParams?.otherDay === "SABADO" ? "Sábados" : "Domingos"})</DialogTitle>
+                    <DialogDescription>
+                      Busca un alumno del otro día para marcarle asistencia hoy.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Nombre o C.I..." 
+                        value={manualSearchTerm}
+                        onChange={(e) => setManualSearchTerm(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()}
+                      />
+                      <Button onClick={handleManualSearch} disabled={isSearching}>
+                        {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
+
+                    <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
+                      {searchResults.map((student) => (
+                        <div key={student.id} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50 hover:bg-white transition-colors">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 border">
+                              <AvatarImage src={student.photoUrl} className="object-cover" />
+                              <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold truncate max-w-[150px]">{student.fullName}</span>
+                              <span className="text-[10px] text-slate-500 uppercase">{student.ciNumber}</span>
+                            </div>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            className="bg-green-500 hover:bg-green-600 rounded-lg h-8 px-3"
+                            onClick={() => {
+                              handleAttendance(student.id, "PRESENTE")
+                              setIsSearchOpen(false)
+                            }}
+                          >
+                            <Check className="h-4 w-4 mr-1" /> Marcar
+                          </Button>
+                        </div>
+                      ))}
+                      {searchResults.length === 0 && !isSearching && manualSearchTerm && (
+                        <div className="text-center py-8 text-slate-400 text-sm">Sin resultados</div>
+                      )}
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
             {loadingRecovery ? (
               <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>
             ) : !recoveryConfirmands || recoveryConfirmands?.length === 0 ? (
