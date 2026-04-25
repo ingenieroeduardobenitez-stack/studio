@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -18,13 +18,13 @@ import {
   AlertCircle
 } from "lucide-react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, query, where, doc, updateDoc, serverTimestamp, writeBatch, collectionGroup } from "firebase/firestore"
+import { collection, query, where, doc, updateDoc, serverTimestamp, writeBatch, getDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 
-function AttendanceCalendar({ studentId }: { studentId: string }) {
+function AttendanceCalendar({ studentId, todayStatus }: { studentId: string, todayStatus?: string }) {
   const db = useFirestore()
   const today = new Date()
   const year = today.getFullYear()
@@ -86,7 +86,8 @@ function AttendanceCalendar({ studentId }: { studentId: string }) {
                  const isToday = dateAsLocalStr === new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0]
                  
                  const localStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-                 const status = historyMap.get(localStr)
+                  const dbStatus = historyMap.get(localStr)
+                  const status = isToday ? (todayStatus || dbStatus) : dbStatus
                  
                  return (
                    <div key={cIdx} className={cn(
@@ -113,6 +114,12 @@ export default function MyListPage() {
   const db = useFirestore()
   const { toast } = useToast()
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return doc(db, "users", user.uid)
@@ -129,6 +136,7 @@ export default function MyListPage() {
   const groupParams = useMemo(() => {
     if (!myGroups || myGroups.length === 0) return null
     return {
+      id: myGroups[0].id,
       day: myGroups[0].attendanceDay,
       year: myGroups[0].catechesisYear,
       otherDay: myGroups[0].attendanceDay === "SABADO" ? "DOMINGO" : "SABADO"
@@ -139,6 +147,7 @@ export default function MyListPage() {
     if (!db || !groupParams) return null
     return query(
       collection(db, "confirmations"), 
+      where("groupId", "==", groupParams.id),
       where("attendanceDay", "==", groupParams.day),
       where("catechesisYear", "==", groupParams.year)
     )
@@ -158,23 +167,46 @@ export default function MyListPage() {
 
   const todayStr = useMemo(() => new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0], [])
   
-  const todayAttendanceQuery = useMemoFirebase(() => {
-    if (!db) return null
-    return query(collectionGroup(db, "attendance"), where("date", "==", todayStr))
-  }, [db, todayStr])
-  const { data: todayAttendanceRecords } = useCollection(todayAttendanceQuery)
+  const [attendanceMap, setAttendanceMap] = useState<Map<string, string>>(new Map())
+  
+  useEffect(() => {
+    if (!db || !myConfirmands || !isMounted) return
+    
+    const fetchAttendance = async () => {
+      const newMap = new Map<string, string>()
+      const allToFetch = [...(myConfirmands || []), ...(recoveryConfirmands || [])]
+      
+      const promises = allToFetch.map(async (conf) => {
+        const attRef = doc(db, "confirmations", conf.id, "attendance", `${conf.id}_${todayStr}`)
+        try {
+          const snap = await getDoc(attRef)
+          if (snap.exists()) {
+            newMap.set(conf.id, snap.data().status)
+          }
+        } catch (e) {
+          console.error("Error fetching attendance for", conf.id, e)
+        }
+      })
+      
+      await Promise.all(promises)
+      setAttendanceMap(newMap)
+    }
 
-  const attendanceMap = useMemo(() => {
-    const map = new Map<string, string>()
-    todayAttendanceRecords?.forEach((rec: any) => {
-      const studentId = rec.id.split('_')[0]
-      map.set(studentId, rec.status)
-    })
-    return map
-  }, [todayAttendanceRecords])
+    fetchAttendance()
+  }, [db, myConfirmands, recoveryConfirmands, todayStr, isMounted])
 
   const handleAttendance = (id: string, status: "PRESENTE" | "AUSENTE") => {
     if (!db) return
+    
+    const previousStatus = attendanceMap.get(id)
+    
+    // Optimistic Update
+    setAttendanceMap(prev => {
+      const newMap = new Map(prev)
+      newMap.set(id, status)
+      return newMap
+    })
+
     setUpdatingId(id)
     
     const regRef = doc(db, "confirmations", id)
@@ -209,6 +241,13 @@ export default function MyListPage() {
         })
       })
       .catch(async (error) => {
+        // Rollback
+        setAttendanceMap(prev => {
+          const newMap = new Map(prev)
+          if (previousStatus) newMap.set(id, previousStatus)
+          else newMap.delete(id)
+          return newMap
+        })
         const permissionError = new FirestorePermissionError({
           path: regRef.path,
           operation: 'update',
@@ -300,7 +339,9 @@ export default function MyListPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {attendanceMap.get(conf.id) ? (
+                        {!isMounted ? (
+                          <Badge variant="outline" className="text-slate-300">...</Badge>
+                        ) : attendanceMap.has(conf.id) ? (
                           <Badge 
                             variant={attendanceMap.get(conf.id) === "PRESENTE" ? "default" : attendanceMap.get(conf.id) === "AUSENTE" ? "destructive" : "secondary"}
                             className={cn(attendanceMap.get(conf.id) === "PRESENTE" ? "bg-green-500" : "")}
@@ -312,7 +353,7 @@ export default function MyListPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <AttendanceCalendar studentId={conf.id} />
+                        <AttendanceCalendar studentId={conf.id} todayStatus={attendanceMap.get(conf.id)} />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -373,6 +414,7 @@ export default function MyListPage() {
                     <TableHead className="w-[80px]">Foto</TableHead>
                     <TableHead>Nombre Completo</TableHead>
                     <TableHead>Día Original</TableHead>
+                    <TableHead>Estado Hoy</TableHead>
                     <TableHead>Última Asistencia</TableHead>
                     <TableHead className="text-right">Control</TableHead>
                   </TableRow>
@@ -397,6 +439,20 @@ export default function MyListPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-[10px] uppercase">{conf.attendanceDay}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {!isMounted ? (
+                          <Badge variant="outline" className="text-slate-300">...</Badge>
+                        ) : attendanceMap.has(conf.id) ? (
+                          <Badge 
+                            variant={attendanceMap.get(conf.id) === "PRESENTE" ? "default" : "secondary"}
+                            className={cn(attendanceMap.get(conf.id) === "PRESENTE" ? "bg-green-500" : "")}
+                          >
+                            {attendanceMap.get(conf.id)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-slate-400 font-bold text-[10px]">SIN MARCAR</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         {conf.lastAttendanceUpdate ? (

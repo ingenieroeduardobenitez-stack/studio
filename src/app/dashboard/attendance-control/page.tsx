@@ -27,7 +27,7 @@ import {
   X
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, query, where, doc, setDoc, serverTimestamp, updateDoc, increment, addDoc, collectionGroup } from "firebase/firestore"
+import { collection, query, where, doc, setDoc, serverTimestamp, updateDoc, increment, addDoc, getDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -40,6 +40,11 @@ export default function AttendanceControlPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedGroupId, setSelectedGroupId] = useState<string>("all")
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0])
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
   const [selectedStudent, setSelectedStudent] = useState<any>(null)
   const [isJustifyDialogOpen, setIsJustifyDialogOpen] = useState(false)
   const [justificationProof, setJustificationProof] = useState<string | null>(null)
@@ -68,21 +73,7 @@ export default function AttendanceControlPage() {
   }, [db, currentUser])
   const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
   
-  const attendanceDayQuery = useMemoFirebase(() => {
-    if (!db || !attendanceDate) return null
-    return query(collectionGroup(db, "attendance"), where("date", "==", attendanceDate))
-  }, [db, attendanceDate])
-  const { data: dayAttendanceRecords } = useCollection(attendanceDayQuery)
-
-  const attendanceMap = useMemo(() => {
-    const map = new Map<string, string>()
-    dayAttendanceRecords?.forEach((rec: any) => {
-      // El ID del documento de asistencia es studentId_date
-      const studentId = rec.id.split('_')[0]
-      map.set(studentId, rec.status)
-    })
-    return map
-  }, [dayAttendanceRecords])
+  const [attendanceMap, setAttendanceMap] = useState<Map<string, string>>(new Map())
 
   const filteredStudents = useMemo(() => {
     if (!allRegistrations) return []
@@ -93,8 +84,43 @@ export default function AttendanceControlPage() {
     })
   }, [allRegistrations, searchTerm, selectedGroupId])
 
+  useEffect(() => {
+    if (!db || !filteredStudents || !isMounted) return
+    
+    // Para evitar demasiadas peticiones, solo buscamos si hay menos de 200 estudiantes
+    // (en control de asistencia admin pueden ser muchos)
+    const fetchAttendance = async () => {
+      const newMap = new Map<string, string>()
+      const promises = filteredStudents.map(async (student: any) => {
+        const attRef = doc(db, "confirmations", student.id, "attendance", `${student.id}_${attendanceDate}`)
+        try {
+          const snap = await getDoc(attRef)
+          if (snap.exists()) {
+            newMap.set(student.id, snap.data().status)
+          }
+        } catch (e) {
+          console.error("Error fetching attendance for", student.id, e)
+        }
+      })
+      await Promise.all(promises)
+      setAttendanceMap(newMap)
+    }
+
+    fetchAttendance()
+  }, [db, filteredStudents, attendanceDate, isMounted])
+
   const handleMarkAttendance = async (student: any, status: "PRESENTE" | "AUSENTE") => {
     if (!db || isSubmitting) return
+
+    const previousStatus = attendanceMap.get(student.id)
+    
+    // Optimistic Update
+    setAttendanceMap(prev => {
+      const newMap = new Map(prev)
+      newMap.set(student.id, status)
+      return newMap
+    })
+
     setIsSubmitting(true)
     const attendanceId = `${student.id}_${attendanceDate}`
     const attendanceRef = doc(db, "confirmations", student.id, "attendance", attendanceId)
@@ -127,6 +153,13 @@ export default function AttendanceControlPage() {
 
       toast({ title: "Asistencia registrada" })
     } catch (error) {
+      // Rollback
+      setAttendanceMap(prev => {
+        const newMap = new Map(prev)
+        if (previousStatus) newMap.set(student.id, previousStatus)
+        else newMap.delete(student.id)
+        return newMap
+      })
       toast({ variant: "destructive", title: "Error al registrar" })
     } finally {
       setIsSubmitting(false)
@@ -136,6 +169,16 @@ export default function AttendanceControlPage() {
   const handleJustifyAttendance = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!db || !selectedStudent || isSubmitting) return
+    
+    const previousStatus = attendanceMap.get(selectedStudent.id)
+
+    // Optimistic Update
+    setAttendanceMap(prev => {
+      const newMap = new Map(prev)
+      newMap.set(selectedStudent.id, "JUSTIFICADO")
+      return newMap
+    })
+
     setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     const notes = formData.get("notes") as string
@@ -166,6 +209,13 @@ export default function AttendanceControlPage() {
       setIsJustifyDialogOpen(false)
       setJustificationProof(null)
     } catch (error) {
+      // Rollback
+      setAttendanceMap(prev => {
+        const newMap = new Map(prev)
+        if (previousStatus) newMap.set(selectedStudent.id, previousStatus)
+        else newMap.delete(selectedStudent.id)
+        return newMap
+      })
       toast({ variant: "destructive", title: "Error al justificar" })
     } finally {
       setIsSubmitting(false)
@@ -250,7 +300,9 @@ export default function AttendanceControlPage() {
                           <TableCell className="text-center"><div className="flex flex-col items-center gap-1"><Badge variant={hasAlert ? "destructive" : "secondary"} className={cn("h-6 px-3 text-[10px] font-black", hasAlert && "animate-pulse")}>{student.absenceCount || 0} AUSENCIAS</Badge>{hasAlert && (<span className="text-[9px] font-bold text-red-600 uppercase flex items-center gap-1"><AlertTriangle className="h-2.5 w-2.5" /> Comunicar a padres</span>)}</div></TableCell>
                           <TableCell className="text-center">
                             <div className="flex flex-col items-center gap-2">
-                              {attendanceMap.get(student.id) ? (
+                              {!isMounted ? (
+                                <Badge variant="outline" className="h-6 px-3 text-[10px] font-black text-slate-300">...</Badge>
+                              ) : attendanceMap.get(student.id) ? (
                                 <Badge 
                                   variant={attendanceMap.get(student.id) === "PRESENTE" ? "default" : attendanceMap.get(student.id) === "AUSENTE" ? "destructive" : "secondary"}
                                   className={cn("h-6 px-3 text-[10px] font-black", attendanceMap.get(student.id) === "PRESENTE" && "bg-green-500")}
