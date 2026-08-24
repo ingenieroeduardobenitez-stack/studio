@@ -23,7 +23,8 @@ import {
   CalendarCheck,
   FileWarning,
   QrCode,
-  Dices
+  Dices,
+  FileText
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -58,6 +59,7 @@ const operationsItems = [
   { id: "cambio_grupo", name: "Cambio de Grupo", href: "/dashboard/group-change", icon: ArrowLeftRight },
   { id: "pagos_alumnos", name: "Control Cobros Inscripción", href: "/dashboard/payments", icon: CreditCard },
   { id: "pagos_catequistas", name: "Cobro Catequistas", href: "/dashboard/catechist-payments", icon: Contact },
+  { id: "divulgaciones_informe", name: "Informe Solicitudes Divulgaciones", href: "/dashboard/divulgation-requests", icon: FileText },
 ]
 
 const treasuryItems = [
@@ -91,7 +93,7 @@ export function DashboardSidebar() {
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
 
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   const isAdmin = profile?.role?.toLowerCase() === "administrador"
   const isTesorero = profile?.role?.toLowerCase() === "tesorero"
@@ -102,7 +104,7 @@ export function DashboardSidebar() {
     if (isTesorero && (type === 'ops' || type === 'treasury')) return items;
     
     if (allowedModules.length > 0) {
-      return items.filter(item => allowedModules.some(p => p.startsWith(`${item.id}:ver`)));
+      return items.filter(item => allowedModules.some((p: string) => p.startsWith(`${item.id}:ver`)));
     }
 
     if (type === 'ops') {

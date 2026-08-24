@@ -36,7 +36,7 @@ export default function GroupsAdminPage() {
   const { user } = useUser()
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   useEffect(() => {
     setMounted(true)
@@ -45,8 +45,8 @@ export default function GroupsAdminPage() {
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
 
-  const { data: users, loading: loadingUsers } = useCollection(usersQuery)
-  const { data: groups, loading: loadingGroups } = useCollection(groupsQuery)
+  const { data: users, loading: loadingUsers } = useCollection(usersQuery, { once: true })
+  const { data: groups, loading: loadingGroups } = useCollection(groupsQuery, { once: true })
 
   const filteredGroups = useMemo(() => {
     if (!groups) return []

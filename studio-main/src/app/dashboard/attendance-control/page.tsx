@@ -27,7 +27,7 @@ import {
   X
 } from "lucide-react"
 import { useFirestore, useCollection, useUser, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, query, where, doc, setDoc, serverTimestamp, updateDoc, increment, addDoc } from "firebase/firestore"
+import { collection, query, where, doc, setDoc, serverTimestamp, updateDoc, increment, addDoc, getDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -40,6 +40,11 @@ export default function AttendanceControlPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedGroupId, setSelectedGroupId] = useState<string>("all")
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0])
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
   const [selectedStudent, setSelectedStudent] = useState<any>(null)
   const [isJustifyDialogOpen, setIsJustifyDialogOpen] = useState(false)
   const [justificationProof, setJustificationProof] = useState<string | null>(null)
@@ -53,20 +58,22 @@ export default function AttendanceControlPage() {
   const db = useFirestore()
 
   const userProfileRef = useMemoFirebase(() => db && currentUser?.uid ? doc(db, "users", currentUser.uid) : null, [db, currentUser?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
-  const { data: groups } = useCollection(groupsQuery)
+  const { data: groups } = useCollection(groupsQuery, { once: true })
 
   const regsQuery = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return collection(db, "confirmations")
   }, [db, currentUser])
-  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery)
+  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
+  
+  const [attendanceMap, setAttendanceMap] = useState<Map<string, string>>(new Map())
 
   const filteredStudents = useMemo(() => {
     if (!allRegistrations) return []
@@ -77,8 +84,43 @@ export default function AttendanceControlPage() {
     })
   }, [allRegistrations, searchTerm, selectedGroupId])
 
+  useEffect(() => {
+    if (!db || !filteredStudents || !isMounted) return
+    
+    // Para evitar demasiadas peticiones, solo buscamos si hay menos de 200 estudiantes
+    // (en control de asistencia admin pueden ser muchos)
+    const fetchAttendance = async () => {
+      const newMap = new Map<string, string>()
+      const promises = filteredStudents.map(async (student: any) => {
+        const attRef = doc(db, "confirmations", student.id, "attendance", `${student.id}_${attendanceDate}`)
+        try {
+          const snap = await getDoc(attRef)
+          if (snap.exists()) {
+            newMap.set(student.id, snap.data().status)
+          }
+        } catch (e) {
+          console.error("Error fetching attendance for", student.id, e)
+        }
+      })
+      await Promise.all(promises)
+      setAttendanceMap(newMap)
+    }
+
+    fetchAttendance()
+  }, [db, filteredStudents, attendanceDate, isMounted])
+
   const handleMarkAttendance = async (student: any, status: "PRESENTE" | "AUSENTE") => {
     if (!db || isSubmitting) return
+
+    const previousStatus = attendanceMap.get(student.id)
+    
+    // Optimistic Update
+    setAttendanceMap(prev => {
+      const newMap = new Map(prev)
+      newMap.set(student.id, status)
+      return newMap
+    })
+
     setIsSubmitting(true)
     const attendanceId = `${student.id}_${attendanceDate}`
     const attendanceRef = doc(db, "confirmations", student.id, "attendance", attendanceId)
@@ -111,6 +153,13 @@ export default function AttendanceControlPage() {
 
       toast({ title: "Asistencia registrada" })
     } catch (error) {
+      // Rollback
+      setAttendanceMap(prev => {
+        const newMap = new Map(prev)
+        if (previousStatus) newMap.set(student.id, previousStatus)
+        else newMap.delete(student.id)
+        return newMap
+      })
       toast({ variant: "destructive", title: "Error al registrar" })
     } finally {
       setIsSubmitting(false)
@@ -120,6 +169,16 @@ export default function AttendanceControlPage() {
   const handleJustifyAttendance = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!db || !selectedStudent || isSubmitting) return
+    
+    const previousStatus = attendanceMap.get(selectedStudent.id)
+
+    // Optimistic Update
+    setAttendanceMap(prev => {
+      const newMap = new Map(prev)
+      newMap.set(selectedStudent.id, "JUSTIFICADO")
+      return newMap
+    })
+
     setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     const notes = formData.get("notes") as string
@@ -150,6 +209,13 @@ export default function AttendanceControlPage() {
       setIsJustifyDialogOpen(false)
       setJustificationProof(null)
     } catch (error) {
+      // Rollback
+      setAttendanceMap(prev => {
+        const newMap = new Map(prev)
+        if (previousStatus) newMap.set(selectedStudent.id, previousStatus)
+        else newMap.delete(selectedStudent.id)
+        return newMap
+      })
       toast({ variant: "destructive", title: "Error al justificar" })
     } finally {
       setIsSubmitting(false)
@@ -232,7 +298,26 @@ export default function AttendanceControlPage() {
                         <TableRow key={student.id} className={cn("hover:bg-slate-50/30 h-20 transition-colors", hasAlert && "bg-red-50/50")}>
                           <TableCell className="pl-8"><div className="flex items-center gap-4"><Avatar className="h-10 w-10 border shadow-sm"><AvatarImage src={student.photoUrl} className="object-cover" /><AvatarFallback><User className="h-5 w-5" /></AvatarFallback></Avatar><div className="flex flex-col"><span className="font-bold text-sm text-slate-900">{student.fullName}</span><span className="text-[10px] text-slate-500">{student.phone}</span></div></div></TableCell>
                           <TableCell className="text-center"><div className="flex flex-col items-center gap-1"><Badge variant={hasAlert ? "destructive" : "secondary"} className={cn("h-6 px-3 text-[10px] font-black", hasAlert && "animate-pulse")}>{student.absenceCount || 0} AUSENCIAS</Badge>{hasAlert && (<span className="text-[9px] font-bold text-red-600 uppercase flex items-center gap-1"><AlertTriangle className="h-2.5 w-2.5" /> Comunicar a padres</span>)}</div></TableCell>
-                          <TableCell className="text-center"><div className="flex justify-center gap-2"><Button size="sm" variant="outline" className="h-9 w-9 p-0 rounded-full border-green-200 hover:bg-green-500 hover:text-white text-green-600" onClick={() => handleMarkAttendance(student, "PRESENTE")} disabled={isSubmitting}><CheckCircle2 className="h-5 w-5" /></Button><Button size="sm" variant="outline" className="h-9 w-9 p-0 rounded-full border-red-200 hover:bg-red-500 hover:text-white text-red-600" onClick={() => handleMarkAttendance(student, "AUSENTE")} disabled={isSubmitting}><XCircle className="h-5 w-5" /></Button></div></TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center gap-2">
+                              {!isMounted ? (
+                                <Badge variant="outline" className="h-6 px-3 text-[10px] font-black text-slate-300">...</Badge>
+                              ) : attendanceMap.get(student.id) ? (
+                                <Badge 
+                                  variant={attendanceMap.get(student.id) === "PRESENTE" ? "default" : attendanceMap.get(student.id) === "AUSENTE" ? "destructive" : "secondary"}
+                                  className={cn("h-6 px-3 text-[10px] font-black", attendanceMap.get(student.id) === "PRESENTE" && "bg-green-500")}
+                                >
+                                  {attendanceMap.get(student.id)}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="h-6 px-3 text-[10px] font-black text-slate-400">SIN MARCAR</Badge>
+                              )}
+                              <div className="flex justify-center gap-2">
+                                <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-full border-green-200 hover:bg-green-500 hover:text-white text-green-600" onClick={() => handleMarkAttendance(student, "PRESENTE")} disabled={isSubmitting}><CheckCircle2 className="h-4 w-4" /></Button>
+                                <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-full border-red-200 hover:bg-red-500 hover:text-white text-red-600" onClick={() => handleMarkAttendance(student, "AUSENTE")} disabled={isSubmitting}><XCircle className="h-4 w-4" /></Button>
+                              </div>
+                            </div>
+                          </TableCell>
                           <TableCell className="text-right pr-8"><div className="flex justify-end gap-2">{hasAlert && (<Button size="sm" variant="ghost" className="h-9 w-9 p-0 rounded-full bg-green-50 text-green-600 hover:bg-green-100" onClick={() => openWhatsApp(student.phone || student.motherPhone || student.fatherPhone || "", student.fullName)} title="WhatsApp padres"><MessageCircle className="h-5 w-5" /></Button>)}<Button size="sm" variant="outline" className="h-9 px-4 rounded-xl font-bold text-[10px] gap-2" onClick={() => { setSelectedStudent(student); setIsJustifyDialogOpen(true); }}><FileText className="h-3.5 w-3.5" /> JUSTIFICAR</Button></div></TableCell>
                         </TableRow>
                       )

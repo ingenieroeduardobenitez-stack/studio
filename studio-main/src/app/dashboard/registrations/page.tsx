@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -43,10 +44,12 @@ import {
   Move,
   ZoomIn,
   FlipHorizontal,
-  Check
+  Check,
+  ChevronDown
 } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc, useStorage } from "@/firebase"
+import { collection, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy, runTransaction, addDoc, limit, startAfter, getDocs, where, QueryConstraint, DocumentSnapshot, getCountFromServer } from "firebase/firestore"
+import { ref, uploadString, getDownloadURL } from "firebase/storage"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -58,12 +61,44 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 import { Slider } from "@/components/ui/slider"
 
+const compressImage = (base64Str: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new (window as any).Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 800;
+      const MAX_HEIGHT = 800;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+  });
+};
+
 export default function RegistrationsListPage() {
   const [mounted, setMounted] = useState(false)
+  const [viewMode, setViewMode] = useState<"flat" | "grouped">("flat")
   const [searchTerm, setSearchTerm] = useState("")
   
   const [filterSex, setFilterSex] = useState<string>("all")
@@ -72,6 +107,7 @@ export default function RegistrationsListPage() {
   const [filterOrigin, setFilterOrigin] = useState<string>("all")
   const [filterDay, setFilterDay] = useState<string>("all")
   const [filterMethod, setFilterMethod] = useState<string>("all")
+  const [filterGroup, setFilterGroup] = useState<string>("all")
   
   const [selectedReg, setSelectedReg] = useState<any>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -81,6 +117,18 @@ export default function RegistrationsListPage() {
   const [isValidatingProofOpen, setIsValidatingProofOpen] = useState(false)
   const [withdrawalReason, setWithdrawalReason] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Estados para Paginación y Carga Optimizada
+  const [registrations, setRegistrations] = useState<any[]>([])
+  const [lastVisible, setLastVisible] = useState<DocumentSnapshot | null>(null)
+  const [firstVisible, setFirstVisible] = useState<DocumentSnapshot | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [snapshotsStack, setSnapshotsStack] = useState<DocumentSnapshot[]>([])
+  const PAGE_SIZE = 150
+
 
   // Estados para Validacion Personalizada
   const [validationAmount, setValidationAmount] = useState<number>(0)
@@ -92,6 +140,9 @@ export default function RegistrationsListPage() {
   // Estado para la forma de pago y foto en edición
   const [editPaymentMethod, setEditPaymentMethod] = useState<string>("")
   const [editPhotoUrl, setEditPhotoUrl] = useState<string | null>(null)
+  const [editPaymentProofUrl, setEditPaymentProofUrl] = useState<string | null>(null)
+  const [editBaptismCertUrl, setEditBaptismCertUrl] = useState<string | null>(null)
+  const [cameraTarget, setCameraTarget] = useState<'profile' | 'payment' | 'baptism'>('profile')
 
   // Estados para Cámara y Ajuste de Foto
   const [showCamera, setShowCamera] = useState(false)
@@ -111,6 +162,7 @@ export default function RegistrationsListPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const db = useFirestore()
+  const storage = useStorage()
   const { user } = useUser()
   const { toast } = useToast()
 
@@ -118,33 +170,109 @@ export default function RegistrationsListPage() {
     setMounted(true)
   }, [])
 
-  const regsQuery = useMemoFirebase(() => {
-    if (!db) return null
-    return collection(db, "confirmations")
-  }, [db])
+  // Carga del Conteo Total (Ahorro de costos: 1 lectura por cada 1000 items)
+  useEffect(() => {
+    if (!db || !mounted) return;
+    const fetchTotal = async () => {
+      try {
+        const coll = collection(db, "confirmations");
+        const snapshot = await getCountFromServer(coll);
+        setTotalCount(snapshot.data().count);
+      } catch (e) {
+        console.error("Error fetching count:", e);
+      }
+    };
+    fetchTotal();
+  }, [db, mounted]);
 
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db])
   const treasuryRef = useMemoFirebase(() => db ? doc(db, "settings", "treasury") : null, [db])
 
-  const { data: rawData, loading } = useCollection(regsQuery)
-  const { data: allGroups } = useCollection(groupsQuery)
-  const { data: allUsers } = useCollection(usersQuery)
-  const { data: costs } = useDoc(treasuryRef)
+  // Función de Carga con Paginación y Filtros de Servidor (Ahorro de Lecturas)
+  const loadRegistrations = useCallback(async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
+    if (!db || loading || (direction === 'initial' && !mounted)) return
+    
+    setLoading(true)
+    try {
+      const constraints: QueryConstraint[] = [
+        orderBy("createdAt", "desc"),
+        limit(PAGE_SIZE)
+      ]
 
-  const registrations = useMemo(() => {
-    if (!rawData) return []
-    return [...rawData]
-      .filter(r => r.isArchived !== true)
-      .sort((a, b) => {
-        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt ? new Date(a.createdAt) : new Date(0))
-        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt ? new Date(b.createdAt) : new Date(0))
-        return dateB.getTime() - dateA.getTime()
-      })
-  }, [rawData])
+      let q;
+      if (direction === 'next' && lastVisible) {
+        q = query(collection(db, "confirmations"), ...constraints, startAfter(lastVisible))
+      } else if (direction === 'prev' && snapshotsStack.length > 1) {
+        // Para ir atrás en Firestore, necesitamos el snapshot anterior al actual
+        const newStack = [...snapshotsStack];
+        newStack.pop(); // Removemos el actual ultimo
+        const prevTarget = newStack[newStack.length - 1]; // El nuevo ultimo
+        
+        // Si hay una página previa, el query debe empezar después del snapshot que precede al actual
+        if (newStack.length === 1) {
+          // Volvimos a la primera página
+          q = query(collection(db, "confirmations"), ...constraints)
+        } else {
+          const prevStart = newStack[newStack.length - 2];
+          q = query(collection(db, "confirmations"), ...constraints, startAfter(prevStart))
+        }
+        setSnapshotsStack(newStack);
+      } else {
+        // Carga inicial o reset
+        q = query(collection(db, "confirmations"), ...constraints)
+        setSnapshotsStack([])
+      }
+
+      const snapshot = await getDocs(q)
+      const newRegs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+      
+      setRegistrations(newRegs)
+      
+      const newLastVisible = snapshot.docs[snapshot.docs.length - 1] || null
+      setLastVisible(newLastVisible)
+      setFirstVisible(snapshot.docs[0] || null)
+      setHasMore(snapshot.docs.length === PAGE_SIZE)
+      
+      if (direction === 'next' && newLastVisible) {
+        setSnapshotsStack(prev => [...prev, newLastVisible])
+        setCurrentPage(prev => prev + 1)
+      } else if (direction === 'prev') {
+        setCurrentPage(prev => prev - 1)
+      } else if (direction === 'initial') {
+        if (newLastVisible) setSnapshotsStack([newLastVisible])
+        setCurrentPage(1)
+      }
+
+    } catch (error) {
+      console.error("Error al cargar registros:", error)
+      toast({ variant: "destructive", title: "Error de carga" })
+    } finally {
+      setLoading(false)
+    }
+  }, [db, mounted, lastVisible, snapshotsStack])
+
+  // Recargar cuando cambian los filtros (Reset a página 1)
+  useEffect(() => {
+    loadRegistrations('initial')
+  }, [db, mounted, filterSex, filterYear, filterStatus, filterDay, filterMethod, filterGroup])
+
+  const { data: allGroups } = useCollection(groupsQuery, { once: true })
+  const { data: allUsers } = useCollection(usersQuery, { once: true })
+  const { data: costs } = useDoc(treasuryRef, { once: true })
+
+
+
+
+
+
+
+
+
+
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   const duplicateCis = useMemo(() => {
     if (!registrations) return new Set<string>()
@@ -170,14 +298,15 @@ export default function RegistrationsListPage() {
         r.receiptNumber?.toLowerCase().includes(searchLower)
       const matchesSex = filterSex === "all" || r.sexo === filterSex
       const matchesYear = filterYear === "all" || r.catechesisYear === filterYear
-      const matchesStatus = filterStatus === "all" || (filterStatus === "REPETIDO" ? isRepetido : r.status === filterStatus)
+      const matchesStatus = filterStatus === "all" || (filterStatus === "REPETIDO" ? duplicateCis.has(cleanCi) : r.status === filterStatus)
       const matchesOrigin = filterOrigin === "all" || (filterOrigin === "MANUAL" ? r.userId !== "public_registration" : r.userId === "public_registration")
       const matchesDay = filterDay === "all" || r.attendanceDay === filterDay
       const matchesMethod = filterMethod === "all" || r.paymentMethod === filterMethod
+      const matchesGroup = filterGroup === "all" || (filterGroup === "none" ? !r.groupId || r.groupId === "none" : r.groupId === filterGroup)
 
-      return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay && matchesMethod
+      return matchesSearch && matchesSex && matchesYear && matchesStatus && matchesOrigin && matchesDay && matchesMethod && matchesGroup
     })
-  }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterMethod, duplicateCis])
+  }, [registrations, searchTerm, filterSex, filterYear, filterStatus, filterOrigin, filterDay, filterMethod, filterGroup, duplicateCis])
 
   const stats = useMemo(() => {
     if (!filteredRegistrations) return { total: 0, masc: 0, fem: 0 }
@@ -192,6 +321,8 @@ export default function RegistrationsListPage() {
     setSelectedReg(reg)
     setEditPaymentMethod(reg.paymentMethod || "TRANSFERENCIA")
     setEditPhotoUrl(reg.photoUrl || null)
+    setEditPaymentProofUrl(reg.paymentProofUrl || null)
+    setEditBaptismCertUrl(reg.baptismCertificatePhotoUrl || null)
     setIsDetailsOpen(true)
   }
 
@@ -211,19 +342,43 @@ export default function RegistrationsListPage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return;
+    
+    if (file.type === 'application/pdf') {
+       const reader = new FileReader();
+       reader.onload = () => {
+         if (cameraTarget === 'payment') setEditPaymentProofUrl(reader.result as string)
+         else if (cameraTarget === 'baptism') setEditBaptismCertUrl(reader.result as string)
+       };
+       reader.readAsDataURL(file);
+       if (e.target) e.target.value = "";
+       return;
+    }
+
     if (!file.type.startsWith('image/')) {
       toast({ variant: "destructive", title: "Formato no válido" });
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setPendingPhoto(reader.result as string);
-      setZoom(1);
-      setPosition({ x: 0, y: 0 });
-      setShowAdjuster(true);
+      if (cameraTarget === 'profile') {
+        setPendingPhoto(reader.result as string);
+        setZoom(1);
+        setPosition({ x: 0, y: 0 });
+        setShowAdjuster(true);
+      } else {
+        compressImage(reader.result as string).then(res => {
+          if (cameraTarget === 'payment') setEditPaymentProofUrl(res)
+          else if (cameraTarget === 'baptism') setEditBaptismCertUrl(res)
+        })
+      }
     };
     reader.readAsDataURL(file);
     if (e.target) e.target.value = "";
+  }
+
+  const startCameraFor = (target: 'profile' | 'payment' | 'baptism') => {
+    setCameraTarget(target)
+    startCamera()
   }
 
   const startCamera = async (deviceId?: string) => {
@@ -267,10 +422,18 @@ export default function RegistrationsListPage() {
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(video, 0, 0);
-        setPendingPhoto(canvas.toDataURL('image/jpeg', 0.9));
-        setZoom(1);
-        setPosition({ x: 0, y: 0 });
-        setShowAdjuster(true);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        
+        if (cameraTarget === 'profile') {
+          setPendingPhoto(dataUrl);
+          setZoom(1);
+          setPosition({ x: 0, y: 0 });
+          setShowAdjuster(true);
+        } else {
+          const compressed = await compressImage(dataUrl);
+          if (cameraTarget === 'payment') setEditPaymentProofUrl(compressed);
+          else if (cameraTarget === 'baptism') setEditBaptismCertUrl(compressed);
+        }
         stopCamera();
       }
     }
@@ -294,7 +457,9 @@ export default function RegistrationsListPage() {
     ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
     ctx.restore();
     const finalDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    setEditPhotoUrl(finalDataUrl);
+    if (cameraTarget === 'profile') setEditPhotoUrl(finalDataUrl);
+    else if (cameraTarget === 'payment') setEditPaymentProofUrl(finalDataUrl);
+    else if (cameraTarget === 'baptism') setEditBaptismCertUrl(finalDataUrl);
     setShowAdjuster(false);
     setPendingPhoto(null);
     toast({ title: "Imagen actualizada" });
@@ -361,6 +526,18 @@ export default function RegistrationsListPage() {
         timestamp: serverTimestamp()
       }).catch(console.error)
       toast({ title: "Pago confirmado con éxito" })
+      
+      // Actualizar estado local para visualización inmediata sin costo
+      setRegistrations(prev => prev.map(r => r.id === selectedReg.id ? { 
+        ...r, 
+        amountPaid: validationAmount,
+        paymentStatus: validationAmount >= limit ? "PAGADO" : "PARCIAL",
+        status: "INSCRITO",
+        validatedBy: catechistName,
+        receiptNumber: formattedReceipt,
+        lastPaymentMethod: selectedReg.paymentMethod || "TRANSFERENCIA"
+      } : r))
+      
       setIsValidatingProofOpen(false)
     } catch (e: any) { 
       console.error("Confirmar pago error:", e)
@@ -393,6 +570,19 @@ export default function RegistrationsListPage() {
         timestamp: serverTimestamp()
       })
       toast({ title: "Pago Anulado" })
+      
+      // Actualizar estado local
+      setRegistrations(prev => prev.map(r => r.id === selectedReg.id ? { 
+        ...r, 
+        status: "POR_VALIDAR",
+        paymentStatus: "PENDIENTE",
+        amountPaid: 0,
+        receiptNumber: null,
+        validatedBy: null,
+        lastPaymentDate: null,
+        lastPaymentMethod: null
+      } : r))
+      
       setIsRevertDialogOpen(false); setIsDetailsOpen(false);
     } catch (e) { toast({ variant: "destructive", title: "Error al revertir" }) }
     finally { setIsProcessing(false) }
@@ -402,29 +592,67 @@ export default function RegistrationsListPage() {
     e.preventDefault()
     if (!db || !selectedReg || isProcessing) return
     setIsProcessing(true)
-    const formData = new FormData(e.currentTarget)
-    const updateData = {
-      fullName: (formData.get("fullName") as string).toUpperCase(),
-      ciNumber: formData.get("ciNumber") as string,
-      phone: formData.get("phone") as string,
-      groupId: formData.get("groupId") as string,
-      catechesisYear: formData.get("catechesisYear") as string,
-      paymentMethod: editPaymentMethod,
-      photoUrl: editPhotoUrl,
-      motherName: (formData.get("motherName") as string || "").toUpperCase(),
-      motherPhone: formData.get("motherPhone") as string || "",
-      fatherName: (formData.get("fatherName") as string || "").toUpperCase(),
-      fatherPhone: formData.get("fatherPhone") as string || "",
-      baptismParish: formData.get("baptismParish") as string || "",
-      baptismBook: formData.get("baptismBook") as string || "",
-      baptismFolio: formData.get("baptismFolio") as string || "",
-      updatedAt: serverTimestamp()
+
+    try {
+      const formData = new FormData(e.currentTarget)
+      
+      // Helper para subir a storage
+      const uploadFile = async (data: string | null, path: string) => {
+        if (data && data.startsWith('data:')) {
+          const storageRef = ref(storage, path)
+          await uploadString(storageRef, data, 'data_url')
+          return await getDownloadURL(storageRef)
+        }
+        return data
+      }
+
+      const finalPhotoUrl = await uploadFile(editPhotoUrl ?? selectedReg.photoUrl ?? null, `confirmations/${selectedReg.id}/profile.jpg`)
+      const finalPaymentUrl = await uploadFile(editPaymentProofUrl ?? selectedReg.paymentProofUrl ?? null, `confirmations/${selectedReg.id}/payment_proof.${(editPaymentProofUrl ?? selectedReg.paymentProofUrl ?? "").includes('application/pdf') ? 'pdf' : 'jpg'}`)
+      const finalBaptismUrl = await uploadFile(editBaptismCertUrl ?? selectedReg.baptismCertificatePhotoUrl ?? null, `confirmations/${selectedReg.id}/baptism_cert.${(editBaptismCertUrl ?? selectedReg.baptismCertificatePhotoUrl ?? "").includes('application/pdf') ? 'pdf' : 'jpg'}`)
+
+      const updateData = {
+        fullName: (formData.get("fullName") as string || selectedReg.fullName || "").toUpperCase(),
+        ciNumber: formData.get("ciNumber") as string || selectedReg.ciNumber || "",
+        phone: formData.get("phone") as string || selectedReg.phone || "",
+        groupId: (formData.get("groupId") as string || selectedReg.groupId || "none"),
+        catechesisYear: (formData.get("catechesisYear") as string || selectedReg.catechesisYear || ""),
+        paymentMethod: editPaymentMethod || selectedReg.paymentMethod || "TRANSFERENCIA",
+        photoUrl: finalPhotoUrl || null,
+        paymentProofUrl: finalPaymentUrl || null,
+        baptismCertificatePhotoUrl: finalBaptismUrl || null,
+        motherName: (formData.get("motherName") as string || selectedReg.motherName || "").toUpperCase(),
+        motherPhone: formData.get("motherPhone") as string || selectedReg.motherPhone || "",
+        fatherName: (formData.get("fatherName") as string || selectedReg.fatherName || "").toUpperCase(),
+        fatherPhone: formData.get("fatherPhone") as string || selectedReg.fatherPhone || "",
+        baptismParish: formData.get("baptismParish") as string || selectedReg.baptismParish || "",
+        baptismBook: formData.get("baptismBook") as string || selectedReg.baptismBook || "",
+        baptismFolio: formData.get("baptismFolio") as string || selectedReg.baptismFolio || "",
+        updatedAt: serverTimestamp()
+      }
+      
+      const regRef = doc(db, "confirmations", selectedReg.id)
+      await updateDoc(regRef, updateData)
+      
+      toast({ title: "Ficha actualizada" })
+      
+      // Actualizar estado local
+      setRegistrations(prev => prev.map(r => r.id === selectedReg.id ? { 
+        ...r, 
+        ...updateData,
+        // Al ser updateDoc, updatedAt es serverTimestamp, para el local usamos Date.now()
+        updatedAt: { toDate: () => new Date() } 
+      } : r))
+      
+      setIsDetailsOpen(false)
+    } catch (error: any) {
+      console.error("Error updating details:", error)
+      if (error.code === 'permission-denied') {
+         // Silently handle or use errorEmitter if available
+      }
+      toast({ variant: "destructive", title: "Error al actualizar", description: error.message })
+    } finally {
+      setIsProcessing(false)
     }
-    const regRef = doc(db, "confirmations", selectedReg.id)
-    updateDoc(regRef, updateData)
-      .then(() => { toast({ title: "Ficha actualizada" }); setIsDetailsOpen(false); })
-      .catch(async (error) => { errorEmitter.emit('permission-error', new FirestorePermissionError({ path: regRef.path, operation: 'update', requestResourceData: updateData })); })
-      .finally(() => setIsProcessing(false))
   }
 
   const handleWithdrawal = async () => {
@@ -432,7 +660,18 @@ export default function RegistrationsListPage() {
     setIsProcessing(true)
     try {
       await updateDoc(doc(db, "confirmations", selectedReg.id), { isArchived: true, status: "BAJA", withdrawalReason, withdrawalDate: serverTimestamp() })
-      toast({ title: "Baja procesada" }); setIsWithdrawalOpen(false); setIsDetailsOpen(false);
+      toast({ title: "Baja procesada" }); 
+      
+      // Actualizar estado local
+      setRegistrations(prev => prev.map(r => r.id === selectedReg.id ? { 
+        ...r, 
+        isArchived: true, 
+        status: "BAJA", 
+        withdrawalReason, 
+        withdrawalDate: { toDate: () => new Date() } 
+      } : r))
+      
+      setIsWithdrawalOpen(false); setIsDetailsOpen(false);
     } catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setIsProcessing(false) }
   }
@@ -440,95 +679,41 @@ export default function RegistrationsListPage() {
   const handleDelete = async () => {
     if (!db || !selectedReg) return
     setIsProcessing(true)
-    try { await deleteDoc(doc(db, "confirmations", selectedReg.id)); toast({ title: "Registro eliminado" }); setIsDeleteDialogOpen(false); }
+    try { 
+      await deleteDoc(doc(db, "confirmations", selectedReg.id)); 
+      toast({ title: "Registro eliminado" }); 
+      
+      // Actualizar estado local
+      setRegistrations(prev => prev.filter(r => r.id !== selectedReg.id));
+      
+      setIsDeleteDialogOpen(false); 
+    }
     catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setIsProcessing(false) }
   }
 
   const openImageViewer = (url: string) => { if (!url) return; setFullImageUrl(url); setFullImageOpen(true); }
-  const resetFilters = () => { setSearchTerm(""); setFilterSex("all"); setFilterYear("all"); setFilterStatus("all"); setFilterOrigin("all"); setFilterDay("all"); setFilterMethod("all"); }
+  const resetFilters = () => { setSearchTerm(""); setFilterSex("all"); setFilterYear("all"); setFilterStatus("all"); setFilterOrigin("all"); setFilterDay("all"); setFilterMethod("all"); setFilterGroup("all"); }
 
-  if (!mounted) return null
+  const groupedRegistrations = useMemo(() => {
+    if (!filteredRegistrations) return {}
+    const groups: Record<string, any[]> = {}
+    groups["none"] = []
+    allGroups?.forEach((g: any) => { groups[g.id] = [] })
+    filteredRegistrations.forEach((r: any) => {
+      const gid = r.groupId && r.groupId !== "none" ? r.groupId : "none"
+      if (!groups[gid]) groups[gid] = [] 
+      groups[gid].push(r)
+    })
+    return groups
+  }, [filteredRegistrations, allGroups])
 
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-headline font-bold text-primary tracking-tight">Lista de Confirmandos</h1>
-          <p className="text-muted-foreground font-medium">Gestión administrativa de postulantes ciclo 2026.</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="rounded-xl h-12 font-bold px-6 border-slate-200 bg-white hover:bg-slate-50 gap-2 shadow-sm" onClick={() => {
-            if (filteredRegistrations.length === 0) return;
-            const headers = ["Nombre", "CI", "Celular", "Año", "Dia", "Estado"];
-            const rows = filteredRegistrations.map(r => [r.fullName, r.ciNumber, r.phone, r.catechesisYear, r.attendanceDay, r.status]);
-            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(",")).join("\n");
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "lista_confirmandos.csv");
-            document.body.appendChild(link);
-            link.click();
-          }}>
-            <Download className="h-4 w-4" /> Exportar
-          </Button>
-          <Button asChild className="bg-primary hover:bg-primary/90 rounded-2xl h-12 font-black px-8 shadow-lg shadow-primary/20 text-white">
-            <Link href="/dashboard/registration" prefetch={false}>Nueva Ficha</Link>
-          </Button>
-        </div>
-      </div>
-
-      <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="bg-slate-50/30 p-8 pb-0">
-          <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row gap-6 items-end">
-              <div className="flex-1 w-full space-y-2">
-                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal</Label>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input 
-                    placeholder="Nombre o C.I..." 
-                    className="pl-12 h-14 rounded-2xl bg-white border-slate-200 shadow-sm text-lg" 
-                    value={searchTerm} 
-                    onChange={(e) => setSearchTerm(e.target.value)} 
-                  />
-                </div>
-              </div>
-              
-              <div className="flex gap-3 w-full lg:w-auto">
-                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
-                  <p className="text-xl font-black text-primary leading-none">{loading ? "..." : stats.total}</p>
-                </div>
-                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Hombres</p>
-                  <p className="text-xl font-black text-blue-600 leading-none">{loading ? "..." : stats.masc}</p>
-                </div>
-                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mujeres</p>
-                  <p className="text-xl font-black text-pink-600 leading-none">{loading ? "..." : stats.fem}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-4 pb-8 border-b border-slate-100">
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label><Select value={filterSex} onValueChange={setFilterSex}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Sexo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="M">Masc.</SelectItem><SelectItem value="F">Fem.</SelectItem></SelectContent></Select></div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel</Label><Select value={filterYear} onValueChange={setFilterYear}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Nivel" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label><Select value={filterStatus} onValueChange={setFilterStatus}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="INSCRITO">Inscritos</SelectItem><SelectItem value="POR_VALIDAR">Por Validar</SelectItem><SelectItem value="REPETIDO">Repetidos</SelectItem></SelectContent></Select></div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Método Pago</Label><Select value={filterMethod} onValueChange={setFilterMethod}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Método" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="EFECTIVO">Efectivo</SelectItem><SelectItem value="TRANSFERENCIA">Transferencia</SelectItem><SelectItem value="SIN_PAGO">Pagar en Caja</SelectItem></SelectContent></Select></div>
-              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label><Select value={filterDay} onValueChange={setFilterDay}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Horario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent></Select></div>
-              <div className="flex items-end pb-1"><Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-slate-100" onClick={resetFilters}><FilterX className="h-5 w-5 text-slate-400" /></Button></div>
-            </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-32 gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Cargando...</p></div>
-          ) : filteredRegistrations.length === 0 ? (
-            <div className="py-32 text-center text-slate-400 italic">No se encontraron registros.</div>
-          ) : (
-            <Table>
+  const renderTable = (regsToRender: any[]) => {
+    if (regsToRender.length === 0) {
+      return <div className="py-24 text-center text-slate-400 italic">No hay estudiantes asignados a este grupo.</div>
+    }
+    return (
+      <Table>
               <TableHeader className="bg-slate-50/50 border-y">
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="pl-8 py-5 font-bold text-slate-500">Confirmando</TableHead>
@@ -541,7 +726,7 @@ export default function RegistrationsListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRegistrations.map((reg) => {
+                {regsToRender.map((reg: any) => {
                   const cleanCi = reg.ciNumber?.replace(/[^0-9]/g, '') || ""
                   const isRepetido = duplicateCis.has(cleanCi)
                   const isManual = reg.userId !== "public_registration"
@@ -668,6 +853,187 @@ export default function RegistrationsListPage() {
                 })}
               </TableBody>
             </Table>
+    )
+  }
+
+  if (!mounted) return null
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-headline font-bold text-primary tracking-tight">Lista de Confirmandos</h1>
+          <p className="text-muted-foreground font-medium">Gestión administrativa de postulantes ciclo 2026.</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" className="rounded-xl h-12 font-bold px-6 border-slate-200 bg-white hover:bg-slate-50 gap-2 shadow-sm" onClick={async () => {
+            if (filteredRegistrations.length === 0) return;
+            
+            // Importación dinámica para evitar errores de SSR
+            const XLSX = await import("xlsx");
+            
+            const headers = ["Nombre Completo", "C.I.", "Teléfono", "Nivel", "Día", "Estado", "Método de Pago", "Monto Pagado", "N° Recibo"];
+            const rows = filteredRegistrations.map(r => [
+              r.fullName, 
+              r.ciNumber, 
+              r.phone, 
+              r.catechesisYear?.replace("_", " "), 
+              r.attendanceDay, 
+              r.status,
+              r.paymentMethod,
+              r.amountPaid || 0,
+              r.receiptNumber || ""
+            ]);
+            
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Confirmandos");
+            XLSX.writeFile(wb, "lista_confirmandos.xlsx");
+          }}>
+            <Download className="h-4 w-4" /> Exportar
+          </Button>
+          <Button asChild className="bg-primary hover:bg-primary/90 rounded-2xl h-12 font-black px-8 shadow-lg shadow-primary/20 text-white">
+            <Link href="/dashboard/registration" prefetch={false}>Nueva Ficha</Link>
+          </Button>
+        </div>
+      </div>
+
+      <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="bg-slate-50/30 p-8 pb-0">
+          <div className="space-y-6">
+            <div className="flex flex-col lg:flex-row gap-6 items-end">
+              <div className="flex-1 w-full space-y-2">
+                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Buscador Principal</Label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Nombre o C.I..." 
+                    className="pl-12 h-14 rounded-2xl bg-white border-slate-200 shadow-sm text-lg" 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 w-full lg:w-auto">
+                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
+                  <p className="text-xl font-black text-primary leading-none">{loading && totalCount === 0 ? "..." : totalCount}</p>
+                </div>
+                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Hombres</p>
+                  <p className="text-xl font-black text-blue-600 leading-none">{loading ? "..." : stats.masc}</p>
+                </div>
+                <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm flex flex-col items-center justify-center min-w-[100px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mujeres</p>
+                  <p className="text-xl font-black text-pink-600 leading-none">{loading ? "..." : stats.fem}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap gap-4 pb-8 border-b border-slate-100">
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Sexo</Label><Select value={filterSex} onValueChange={setFilterSex}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Sexo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="M">Masc.</SelectItem><SelectItem value="F">Fem.</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nivel</Label><Select value={filterYear} onValueChange={setFilterYear}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Nivel" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="PRIMER_AÑO">1° Año</SelectItem><SelectItem value="SEGUNDO_AÑO">2° Año</SelectItem><SelectItem value="ADULTOS">Adultos</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado</Label><Select value={filterStatus} onValueChange={setFilterStatus}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="INSCRITO">Inscritos</SelectItem><SelectItem value="POR_VALIDAR">Por Validar</SelectItem><SelectItem value="REPETIDO">Repetidos</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Método Pago</Label><Select value={filterMethod} onValueChange={setFilterMethod}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Método" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="EFECTIVO">Efectivo</SelectItem><SelectItem value="TRANSFERENCIA">Transferencia</SelectItem><SelectItem value="SIN_PAGO">Pagar en Caja</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Horario</Label><Select value={filterDay} onValueChange={setFilterDay}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Horario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="SABADO">Sábados</SelectItem><SelectItem value="DOMINGO">Domingos</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5 flex-1 min-w-[140px]"><Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Origen</Label><Select value={filterOrigin} onValueChange={setFilterOrigin}><SelectTrigger className="h-12 rounded-2xl bg-white"><SelectValue placeholder="Origen" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="MANUAL">Manual</SelectItem><SelectItem value="PUBLICO">Público</SelectItem></SelectContent></Select></div>
+
+              <div className="flex items-end pb-1"><Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-slate-100" onClick={resetFilters}><FilterX className="h-5 w-5 text-slate-400" /></Button></div>
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="p-0">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full">
+            <div className="flex justify-end p-4 pb-0 bg-slate-50/10 border-b">
+              <TabsList className="bg-slate-100/80 rounded-xl h-12 p-1 border shadow-xs">
+                <TabsTrigger value="flat" className="rounded-lg px-6 font-bold text-xs h-full data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all uppercase tracking-widest">Vista Plana</TabsTrigger>
+                <TabsTrigger value="grouped" className="rounded-lg px-6 font-bold text-xs h-full data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all uppercase tracking-widest">Vista por Grupos</TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <TabsContent value="flat" className="m-0">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-32 gap-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Cargando...</p></div>
+              ) : filteredRegistrations.length === 0 ? (
+                <div className="py-32 text-center text-slate-400 italic">No se encontraron registros.</div>
+              ) : renderTable(filteredRegistrations)}
+            </TabsContent>
+
+            <TabsContent value="grouped" className="m-0 p-8 pt-6 space-y-6 bg-slate-50/30">
+              <Accordion type="multiple" className="w-full space-y-4">
+                {groupedRegistrations["none"]?.length > 0 && (
+                  <AccordionItem value="none" className="bg-white border rounded-3xl overflow-hidden shadow-sm px-2">
+                    <AccordionTrigger className="hover:no-underline p-6 py-5">
+                      <div className="flex items-center gap-4 text-left w-full pr-4">
+                        <div className="bg-amber-100 p-3 rounded-2xl shrink-0"><UserMinus className="h-5 w-5 text-amber-600" /></div>
+                        <div className="flex-1">
+                          <h3 className="font-black text-lg text-slate-800 uppercase tracking-tight leading-none">Sin Grupo Asignado</h3>
+                          <p className="text-xs font-bold text-slate-400 mt-1">Alumnos a la espera de integración</p>
+                        </div>
+                        <Badge className="bg-amber-500 text-white font-black px-4 h-8 rounded-full border-none shadow-sm">{groupedRegistrations["none"].length} ALUMNOS</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-0 border-t bg-slate-50/50">
+                       {renderTable(groupedRegistrations["none"])}
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+                
+                {allGroups?.map((g: any) => {
+                  const regs = groupedRegistrations[g.id] || []
+                  if (regs.length === 0) return null
+                  return (
+                     <AccordionItem key={g.id} value={g.id} className="bg-white border rounded-3xl overflow-hidden shadow-sm px-2">
+                       <AccordionTrigger className="hover:no-underline p-6 py-5">
+                         <div className="flex items-center gap-4 text-left w-full pr-4">
+                           <div className="bg-primary/10 p-3 rounded-2xl shrink-0"><Church className="h-5 w-5 text-primary" /></div>
+                           <div className="flex-1">
+                             <h3 className="font-black text-lg text-slate-800 uppercase tracking-tight leading-none">{g.name}</h3>
+                             <p className="text-xs font-bold text-slate-400 mt-1">{g.catechesisYear?.replace('_', ' ')} • {g.attendanceDay}S</p>
+                           </div>
+                           <Badge className="bg-primary text-white font-black px-4 h-8 rounded-full border-none shadow-sm">{regs.length} ALUMNOS</Badge>
+                         </div>
+                       </AccordionTrigger>
+                       <AccordionContent className="p-0 border-t bg-slate-50/50">
+                         {renderTable(regs)}
+                       </AccordionContent>
+                     </AccordionItem>
+                  )
+                })}
+              </Accordion>
+            </TabsContent>
+          </Tabs>
+
+          {(totalCount > PAGE_SIZE || registrations.length > 0) && (
+            <div className="p-8 flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-50/50 border-t">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white px-6 py-3 rounded-2xl border shadow-sm">
+                Mostrando <span className="text-primary">{Math.min(((currentPage - 1) * PAGE_SIZE) + 1, totalCount)}</span> - <span className="text-primary">{Math.min(currentPage * PAGE_SIZE, totalCount)}</span> de <span className="text-primary">{totalCount}</span> registros
+              </div>
+              
+              <div className="flex gap-4">
+                <Button 
+                  onClick={() => loadRegistrations('prev')} 
+                  disabled={loading || currentPage === 1}
+                  variant="outline"
+                  className="rounded-2xl h-14 px-8 font-black text-slate-600 border-slate-200 hover:bg-white transition-all shadow-sm gap-2 uppercase tracking-widest text-[10px]"
+                >
+                  <ChevronDown className="h-5 w-5 rotate-90" />
+                  Anterior
+                </Button>
+                
+                <Button 
+                  onClick={() => loadRegistrations('next')} 
+                  disabled={loading || !hasMore}
+                  variant="outline"
+                  className="rounded-2xl h-14 px-8 font-black text-primary border-primary/20 hover:bg-primary hover:text-white transition-all shadow-lg gap-2 uppercase tracking-widest text-[10px]"
+                >
+                  {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <ChevronDown className="h-5 w-5 -rotate-90" />}
+                  Siguiente
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -676,7 +1042,7 @@ export default function RegistrationsListPage() {
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] h-[90vh] flex flex-col">
           {selectedReg && (
-            <form onSubmit={handleUpdateDetails} className="flex flex-col h-full overflow-hidden">
+            <form key={selectedReg.id} onSubmit={handleUpdateDetails} className="flex flex-col h-full overflow-hidden">
               <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 relative">
                 <div className="absolute top-0 right-0 p-8 opacity-10"><Church className="h-24 w-24" /></div>
                 <div className="flex items-center gap-6 relative z-10">
@@ -689,19 +1055,19 @@ export default function RegistrationsListPage() {
                       <button 
                         type="button"
                         className="h-8 w-8 rounded-full bg-primary text-white border-2 border-slate-900 flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg active:scale-95"
-                        onClick={() => startCamera()}
+                        onClick={() => startCameraFor('profile')}
                       >
                         <Camera className="h-3.5 w-3.5" />
                       </button>
                       <button 
                         type="button"
                         className="h-8 w-8 rounded-full bg-blue-600 text-white border-2 border-slate-900 flex items-center justify-center hover:bg-blue-700 transition-all shadow-lg active:scale-95"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => { setCameraTarget('profile'); fileInputRef.current?.click(); }}
                       >
                         <ImageIcon className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
                   </div>
                   <div className="space-y-1">
                     <DialogTitle className="text-3xl font-black uppercase tracking-tight leading-none">{selectedReg.fullName}</DialogTitle>
@@ -784,7 +1150,11 @@ export default function RegistrationsListPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año de Catequesis</Label>
-                          <Select name="catechesisYear" defaultValue={selectedReg.catechesisYear}>
+                          <Select 
+                            name="catechesisYear" 
+                            value={selectedReg.catechesisYear}
+                            onValueChange={(val) => setSelectedReg({ ...selectedReg, catechesisYear: val, groupId: "none" })}
+                          >
                             <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="PRIMER_AÑO">PRIMER AÑO</SelectItem>
@@ -795,7 +1165,11 @@ export default function RegistrationsListPage() {
                         </div>
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignación de Grupo</Label>
-                          <Select name="groupId" defaultValue={selectedReg.groupId || "none"}>
+                          <Select 
+                            name="groupId" 
+                            value={selectedReg.groupId || "none"}
+                            onValueChange={(val) => setSelectedReg({ ...selectedReg, groupId: val === "none" ? null : val })}
+                          >
                             <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none shadow-inner font-bold"><SelectValue placeholder="Sin grupo asignado" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">SIN GRUPO ASIGNADO</SelectItem>
@@ -825,15 +1199,23 @@ export default function RegistrationsListPage() {
                           <div className="flex items-center gap-2"><ImageIcon className="h-4 w-4 text-blue-500" /><h4 className="text-xs font-black uppercase text-slate-500">Comprobante de Pago</h4></div>
                           {selectedReg.receiptNumber && <Badge className="bg-green-100 text-green-700 border-none">RECIBO: {selectedReg.receiptNumber}</Badge>}
                         </div>
-                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group cursor-pointer" onClick={() => openImageViewer(selectedReg.paymentProofUrl)}>
-                          {selectedReg.paymentProofUrl ? (
-                            <>
-                              <img src={selectedReg.paymentProofUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group">
+                          {editPaymentProofUrl || selectedReg.paymentProofUrl ? (
+                            <div className="w-full h-full cursor-pointer" onClick={() => openImageViewer(editPaymentProofUrl || selectedReg.paymentProofUrl)}>
+                              {(editPaymentProofUrl || selectedReg.paymentProofUrl).includes('application/pdf') ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-blue-50 text-blue-600"><FileText className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Documento PDF</span></div>
+                              ) : (
+                                <Image src={editPaymentProofUrl || selectedReg.paymentProofUrl} alt="Comprobante" width={400} height={300} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                              )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Maximize2 className="h-8 w-8 text-white" /></div>
-                            </>
+                            </div>
                           ) : (
                             <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-2"><ImageIcon className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Sin imagen adjunta</span></div>
                           )}
+                        </div>
+                        <div className="pt-2 flex gap-2">
+                           <Button type="button" variant="outline" className="flex-1 h-9 text-[10px] font-bold gap-2 rounded-xl" onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*,application/pdf'; input.onchange = (e: any) => { const file = e.target.files[0]; if(file){ const reader = new FileReader(); reader.onload = () => { let res = reader.result as string; setEditPaymentProofUrl(res); }; reader.readAsDataURL(file); } }; input.click(); }}><ImageIcon className="h-3 w-3" /> GALERÍA</Button>
+                           <Button type="button" variant="outline" className="flex-1 h-9 text-[10px] font-bold gap-2 rounded-xl" onClick={() => { startCameraFor('payment'); }}><Camera className="h-3 w-3" /> CÁMARA</Button>
                         </div>
                         <div className="pt-2 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
                           <span>Monto Abonado:</span>
@@ -843,15 +1225,23 @@ export default function RegistrationsListPage() {
 
                       <div className="p-8 bg-white rounded-[2rem] border shadow-sm space-y-4">
                         <div className="flex items-center gap-2 mb-2"><ImageIcon className="h-4 w-4 text-orange-500" /><h4 className="text-xs font-black uppercase text-slate-500">Certificado de Bautismo</h4></div>
-                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group cursor-pointer" onClick={() => openImageViewer(selectedReg.baptismCertificatePhotoUrl)}>
-                          {selectedReg.baptismCertificatePhotoUrl ? (
-                            <>
-                              <img src={selectedReg.baptismCertificatePhotoUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                        <div className="aspect-[4/3] bg-slate-100 rounded-3xl overflow-hidden border border-dashed border-slate-300 relative group">
+                          {editBaptismCertUrl || selectedReg.baptismCertificatePhotoUrl ? (
+                            <div className="w-full h-full cursor-pointer" onClick={() => openImageViewer(editBaptismCertUrl || selectedReg.baptismCertificatePhotoUrl)}>
+                              {(editBaptismCertUrl || selectedReg.baptismCertificatePhotoUrl).includes('application/pdf') ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-orange-50 text-orange-600"><FileText className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Documento PDF</span></div>
+                              ) : (
+                                <Image src={editBaptismCertUrl || selectedReg.baptismCertificatePhotoUrl} alt="Certificado" width={400} height={300} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                              )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Maximize2 className="h-8 w-8 text-white" /></div>
-                            </>
+                            </div>
                           ) : (
                             <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-2"><ImageIcon className="h-12 w-12" /><span className="text-[10px] font-bold uppercase">Sin imagen adjunta</span></div>
                           )}
+                        </div>
+                        <div className="pt-2 flex gap-2">
+                           <Button type="button" variant="outline" className="flex-1 h-9 text-[10px] font-bold gap-2 rounded-xl" onClick={() => { setCameraTarget('baptism'); fileInputRef.current?.click(); }}><ImageIcon className="h-3 w-3" /> GALERÍA</Button>
+                           <Button type="button" variant="outline" className="flex-1 h-9 text-[10px] font-bold gap-2 rounded-xl" onClick={() => { startCameraFor('baptism'); }}><Camera className="h-3 w-3" /> CÁMARA</Button>
                         </div>
                         <div className="pt-2 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
                           <span>Estado SACRAMENTO:</span>

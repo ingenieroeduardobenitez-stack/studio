@@ -1,0 +1,7 @@
+src/app/dashboard/registrations/page.tsx(175,86): error TS2304: Cannot find name 'isRepetido'.
+src/app/dashboard/registrations/page.tsx(692,24): error TS2304: Cannot find name 'viewMode'.
+src/app/dashboard/registrations/page.tsx(692,56): error TS2304: Cannot find name 'setViewMode'.
+src/components/dashboard-sidebar.tsx(105,55): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/components/ui/calendar.tsx(57,9): error TS2353: Object literal may only specify known properties, and 'IconLeft' does not exist in type 'Partial<CustomComponents>'.
+src/components/ui/calendar.tsx(57,22): error TS7031: Binding element 'className' implicitly has an 'any' type.
+src/components/ui/calendar.tsx(60,23): error TS7031: Binding element 'className' implicitly has an 'any' type.

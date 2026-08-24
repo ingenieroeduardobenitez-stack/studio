@@ -1,20 +1,15 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": {
     "site": "confir-juvenil-nsps",
-    "public": "public",
+    "webApp": "1:618645486004:web:199dbf50db4987171e1ae1",
+    "source": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "run": {
-          "serviceId": "confir-juvenil-nsps",
-          "region": "us-central1"
-        }
-      }
     ]
   }
 }

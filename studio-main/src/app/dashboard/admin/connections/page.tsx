@@ -28,7 +28,7 @@ export default function ConnectionsMonitorPage() {
     return collection(db, "users")
   }, [db])
 
-  const { data: users, loading } = useCollection(usersQuery)
+  const { data: users, loading } = useCollection(usersQuery, { once: true })
 
   const isOnline = (user: any) => {
     if (!mounted) return false

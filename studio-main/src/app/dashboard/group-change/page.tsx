@@ -44,10 +44,10 @@ export default function GroupChangePage() {
   }, [])
 
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
-  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery)
+  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
 
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
-  const { data: allGroups, loading: loadingGroups } = useCollection(groupsQuery)
+  const { data: allGroups, loading: loadingGroups } = useCollection(groupsQuery, { once: true })
 
   const filteredConfirmands = useMemo(() => {
     if (!allRegistrations) return []

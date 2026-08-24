@@ -1,0 +1,13 @@
+const fs = require('fs');
+const file = 'c:/studio-main/studio-main/src/app/dashboard/admin/page.tsx';
+let code = fs.readFileSync(file, 'utf8');
+
+code = code.replace(/import \{ collection, doc, setDoc, serverTimestamp \} from \"firebase\/firestore\"/, 'import { collection, doc, setDoc, serverTimestamp, writeBatch, getDocs, deleteField } from "firebase/firestore"');
+
+code = code.replace(/const \\[isSaving, setIsSaving\\] = useState\\(false\\)/, 'const [isSaving, setIsSaving] = useState(false)\n  const [isClearingAttendance, setIsClearingAttendance] = useState(false)');
+
+code = code.replace(/const handleSaveSettings = async/, 'const handleClearAttendance = async () => {\n    if (!db) return\n    if (!confirm("¿Estás MUY seguro de querer borrar TODAS las asistencias registradas de todos los confirmandos? Permite preparar el sistema para producción.")) return\n    \n    setIsClearingAttendance(true)\n    try {\n      const snapshot = await getDocs(collection(db, "confirmations"))\n      const batch = writeBatch(db)\n      let count = 0\n      snapshot.docs.forEach((d) => {\n        batch.update(d.ref, {\n           attendanceStatus: deleteField(),\n           needsRecovery: deleteField(),\n           lastAttendanceUpdate: deleteField(),\n           lastAttendanceTakenBy: deleteField()\n        })\n        count++\n        if (count % 400 === 0) { /* For very large batches you need chunking, but for a few hundred it is fine */ }\n      })\n      await batch.commit()\n      toast({ title: "Asistencia limpiada", description: Se han limpiado los registros de asistencia de  confirmandos. })\n    } catch (error) {\n       toast({ variant: "destructive", title: "Error", description: "Ocurrió un error al limpiar asistencias." })\n    } finally {\n       setIsClearingAttendance(false)\n    }\n  }\n\n  const handleSaveSettings = async');
+
+code = code.replace(/<Link href=\"\\/dashboard\\/admin\\/archive\">\\s+<Church className=\"h-5 w-5 text-orange-500\" \\/> Cierre de Año\\s+<\\/Link>\\s+<\\/Button>/, '<Link href="/dashboard/admin/archive">\n                  <Church className="h-5 w-5 text-orange-500" /> Cierre de Año\n                </Link>\n              </Button>\n              <Button type="button" onClick={handleClearAttendance} disabled={isClearingAttendance} variant="outline" className="w-full justify-start h-12 rounded-xl font-bold gap-3 border-danger/20 text-red-600 hover:bg-red-50">\n                {isClearingAttendance ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}\n                Limpiar Asistencia Total\n              </Button>');
+
+fs.writeFileSync(file, code, 'utf8');

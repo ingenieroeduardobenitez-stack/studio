@@ -26,11 +26,12 @@ export interface UseDocResult<T> {
 }
 
 /**
- * React hook to subscribe to a single Firestore document in real-time.
- * Handles nullable references.
+ * React hook to fetch or subscribe to a single Firestore document.
+ * Supports an optional 'once' mode to fetch data only once instead of real-time.
  */
 export function useDoc<T = any>(
-  memoizedDocRef: DocumentReference<DocumentData> | null | undefined,
+  memoizedDocRef: (DocumentReference<DocumentData> & {__memo?: boolean}) | null | undefined,
+  options?: { once?: boolean }
 ): UseDocResult<T> {
   type StateDataType = WithId<T> | null;
 
@@ -49,6 +50,32 @@ export function useDoc<T = any>(
     setIsLoading(true);
     setError(null);
 
+    // MODO CARGA ÚNICA (Ahorro de recursos)
+    if (options?.once) {
+      import('firebase/firestore').then(({ getDoc }) => {
+        getDoc(memoizedDocRef)
+          .then((snapshot) => {
+            if (snapshot.exists()) {
+              setData({ ...(snapshot.data() as T), id: snapshot.id });
+            } else {
+              setData(null);
+            }
+            setIsLoading(false);
+          })
+          .catch((err: FirestoreError) => {
+            const contextualError = new FirestorePermissionError({
+              operation: 'get',
+              path: memoizedDocRef.path,
+            });
+            setError(contextualError);
+            setIsLoading(false);
+            errorEmitter.emit('permission-error', contextualError);
+          });
+      });
+      return;
+    }
+
+    // MODO TIEMPO REAL (onSnapshot)
     const unsubscribe = onSnapshot(
       memoizedDocRef,
       (snapshot: DocumentSnapshot<DocumentData>) => {
@@ -74,7 +101,11 @@ export function useDoc<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedDocRef]);
+  }, [memoizedDocRef, options?.once]);
+
+  if(memoizedDocRef && !memoizedDocRef.__memo && process.env.NODE_ENV === 'development') {
+     console.warn(memoizedDocRef + ' was not properly memoized using useMemoFirebase. This can cause redundant reads or infinite loops with { once: true }.');
+  }
 
   const actualLoading = isLoading || (!!memoizedDocRef && data === null);
 

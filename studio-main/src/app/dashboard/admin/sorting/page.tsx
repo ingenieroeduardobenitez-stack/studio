@@ -43,7 +43,7 @@ export default function SortingAdminPage() {
   const { user } = useUser()
 
   const userProfileRef = useMemoFirebase(() => db && user?.uid ? doc(db, "users", user.uid) : null, [db, user?.uid])
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   useEffect(() => {
     setMounted(true)
@@ -52,8 +52,8 @@ export default function SortingAdminPage() {
   const regsQuery = useMemoFirebase(() => db ? collection(db, "confirmations") : null, [db])
   const groupsQuery = useMemoFirebase(() => db ? collection(db, "groups") : null, [db])
 
-  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery)
-  const { data: allGroups, loading: loadingGroups } = useCollection(groupsQuery)
+  const { data: allRegistrations, loading: loadingRegs } = useCollection(regsQuery, { once: true })
+  const { data: allGroups, loading: loadingGroups } = useCollection(groupsQuery, { once: true })
 
   // FILTRO: Solo alumnos de primer año, sin grupo, QUE COINCIDAN CON EL DÍA SELECCIONADO
   const unassignedStudents = useMemo(() => {

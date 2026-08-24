@@ -25,7 +25,7 @@ export default function ArchiveAdminPage() {
   useEffect(() => { setMounted(true) }, [])
 
   const candidatesQuery = useMemoFirebase(() => db ? query(collection(db, "confirmations"), where("isArchived", "==", false)) : null, [db])
-  const { data: activeStudents, loading } = useCollection(candidatesQuery)
+  const { data: activeStudents, loading } = useCollection(candidatesQuery, { once: true })
 
   const stats = useMemo(() => ({
     firstYear: activeStudents?.filter(r => r.catechesisYear === "PRIMER_AÑO").length || 0,

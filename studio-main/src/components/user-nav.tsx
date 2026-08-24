@@ -30,7 +30,7 @@ export function UserNav() {
     return doc(db, "users", user.uid)
   }, [db, user?.uid])
 
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile } = useDoc(userProfileRef, { once: true })
 
   const handleSignOut = async () => {
     if (auth) {
