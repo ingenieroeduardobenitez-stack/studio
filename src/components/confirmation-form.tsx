@@ -154,7 +154,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       fullName: "", ciNumber: "", phone: "", birthDate: "", age: 0, sexo: "",
-      photoUrl: "", paymentMethod: isPublic ? "TRANSFERENCIA" : "EFECTIVO",
+      photoUrl: "", paymentProofUrl: "", baptismCertificatePhotoUrl: "", paymentMethod: isPublic ? "TRANSFERENCIA" : "EFECTIVO",
       registrationCost: 35000, catechesisYear: "PRIMER_AÑO", attendanceDay: "SABADO",
       hasBaptism: false, hasFirstCommunion: false,
       motherName: "", motherPhone: "", fatherName: "", fatherPhone: "", tutorName: "", tutorPhone: ""
@@ -307,7 +307,7 @@ export function ConfirmationForm({ isPublic = false }: { isPublic?: boolean }) {
           await uploadString(storageRef, value, 'data_url');
           return await getDownloadURL(storageRef);
         }
-        return value;
+        return value || null;
       };
 
       // Procesar imágenes de forma secuencial o paralela

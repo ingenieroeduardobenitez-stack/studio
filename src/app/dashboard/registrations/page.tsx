@@ -526,6 +526,18 @@ export default function RegistrationsListPage() {
         timestamp: serverTimestamp()
       }).catch(console.error)
       toast({ title: "Pago confirmado con éxito" })
+      
+      // Actualizar estado local para visualización inmediata sin costo
+      setRegistrations(prev => prev.map(r => r.id === selectedReg.id ? { 
+        ...r, 
+        amountPaid: validationAmount,
+        paymentStatus: validationAmount >= limit ? "PAGADO" : "PARCIAL",
+        status: "INSCRITO",
+        validatedBy: catechistName,
+        receiptNumber: formattedReceipt,
+        lastPaymentMethod: selectedReg.paymentMethod || "TRANSFERENCIA"
+      } : r))
+      
       setIsValidatingProofOpen(false)
     } catch (e: any) { 
       console.error("Confirmar pago error:", e)
@@ -558,6 +570,19 @@ export default function RegistrationsListPage() {
         timestamp: serverTimestamp()
       })
       toast({ title: "Pago Anulado" })
+      
+      // Actualizar estado local
+      setRegistrations(prev => prev.map(r => r.id === selectedReg.id ? { 
+        ...r, 
+        status: "POR_VALIDAR",
+        paymentStatus: "PENDIENTE",
+        amountPaid: 0,
+        receiptNumber: null,
+        validatedBy: null,
+        lastPaymentDate: null,
+        lastPaymentMethod: null
+      } : r))
+      
       setIsRevertDialogOpen(false); setIsDetailsOpen(false);
     } catch (e) { toast({ variant: "destructive", title: "Error al revertir" }) }
     finally { setIsProcessing(false) }
@@ -570,10 +595,7 @@ export default function RegistrationsListPage() {
 
     try {
       const formData = new FormData(e.currentTarget)
-      let finalPhotoUrl = editPhotoUrl !== undefined && editPhotoUrl !== null ? editPhotoUrl : selectedReg.photoUrl
-      let finalPaymentUrl = editPaymentProofUrl !== null ? editPaymentProofUrl : selectedReg.paymentProofUrl
-      let finalBaptismUrl = editBaptismCertUrl !== null ? editBaptismCertUrl : selectedReg.baptismCertificatePhotoUrl
-
+      
       // Helper para subir a storage
       const uploadFile = async (data: string | null, path: string) => {
         if (data && data.startsWith('data:')) {
@@ -584,24 +606,20 @@ export default function RegistrationsListPage() {
         return data
       }
 
-      finalPhotoUrl = await uploadFile(finalPhotoUrl, `confirmations/${selectedReg.id}/profile.jpg`)
-      
-      const paymentExt = (finalPaymentUrl || "").includes('application/pdf') ? 'pdf' : 'jpg'
-      finalPaymentUrl = await uploadFile(finalPaymentUrl, `confirmations/${selectedReg.id}/payment_proof.${paymentExt}`)
-      
-      const baptismExt = (finalBaptismUrl || "").includes('application/pdf') ? 'pdf' : 'jpg'
-      finalBaptismUrl = await uploadFile(finalBaptismUrl, `confirmations/${selectedReg.id}/baptism_cert.${baptismExt}`)
+      const finalPhotoUrl = await uploadFile(editPhotoUrl ?? selectedReg.photoUrl ?? null, `confirmations/${selectedReg.id}/profile.jpg`)
+      const finalPaymentUrl = await uploadFile(editPaymentProofUrl ?? selectedReg.paymentProofUrl ?? null, `confirmations/${selectedReg.id}/payment_proof.${(editPaymentProofUrl ?? selectedReg.paymentProofUrl ?? "").includes('application/pdf') ? 'pdf' : 'jpg'}`)
+      const finalBaptismUrl = await uploadFile(editBaptismCertUrl ?? selectedReg.baptismCertificatePhotoUrl ?? null, `confirmations/${selectedReg.id}/baptism_cert.${(editBaptismCertUrl ?? selectedReg.baptismCertificatePhotoUrl ?? "").includes('application/pdf') ? 'pdf' : 'jpg'}`)
 
       const updateData = {
         fullName: (formData.get("fullName") as string || selectedReg.fullName || "").toUpperCase(),
         ciNumber: formData.get("ciNumber") as string || selectedReg.ciNumber || "",
         phone: formData.get("phone") as string || selectedReg.phone || "",
-        groupId: formData.get("groupId") as string || selectedReg.groupId || "none",
-        catechesisYear: formData.get("catechesisYear") as string || selectedReg.catechesisYear || "",
-        paymentMethod: editPaymentMethod,
-        photoUrl: finalPhotoUrl,
-        paymentProofUrl: finalPaymentUrl,
-        baptismCertificatePhotoUrl: finalBaptismUrl,
+        groupId: (formData.get("groupId") as string || selectedReg.groupId || "none"),
+        catechesisYear: (formData.get("catechesisYear") as string || selectedReg.catechesisYear || ""),
+        paymentMethod: editPaymentMethod || selectedReg.paymentMethod || "TRANSFERENCIA",
+        photoUrl: finalPhotoUrl || null,
+        paymentProofUrl: finalPaymentUrl || null,
+        baptismCertificatePhotoUrl: finalBaptismUrl || null,
         motherName: (formData.get("motherName") as string || selectedReg.motherName || "").toUpperCase(),
         motherPhone: formData.get("motherPhone") as string || selectedReg.motherPhone || "",
         fatherName: (formData.get("fatherName") as string || selectedReg.fatherName || "").toUpperCase(),
@@ -616,6 +634,15 @@ export default function RegistrationsListPage() {
       await updateDoc(regRef, updateData)
       
       toast({ title: "Ficha actualizada" })
+      
+      // Actualizar estado local
+      setRegistrations(prev => prev.map(r => r.id === selectedReg.id ? { 
+        ...r, 
+        ...updateData,
+        // Al ser updateDoc, updatedAt es serverTimestamp, para el local usamos Date.now()
+        updatedAt: { toDate: () => new Date() } 
+      } : r))
+      
       setIsDetailsOpen(false)
     } catch (error: any) {
       console.error("Error updating details:", error)
@@ -633,7 +660,18 @@ export default function RegistrationsListPage() {
     setIsProcessing(true)
     try {
       await updateDoc(doc(db, "confirmations", selectedReg.id), { isArchived: true, status: "BAJA", withdrawalReason, withdrawalDate: serverTimestamp() })
-      toast({ title: "Baja procesada" }); setIsWithdrawalOpen(false); setIsDetailsOpen(false);
+      toast({ title: "Baja procesada" }); 
+      
+      // Actualizar estado local
+      setRegistrations(prev => prev.map(r => r.id === selectedReg.id ? { 
+        ...r, 
+        isArchived: true, 
+        status: "BAJA", 
+        withdrawalReason, 
+        withdrawalDate: { toDate: () => new Date() } 
+      } : r))
+      
+      setIsWithdrawalOpen(false); setIsDetailsOpen(false);
     } catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setIsProcessing(false) }
   }
@@ -641,7 +679,15 @@ export default function RegistrationsListPage() {
   const handleDelete = async () => {
     if (!db || !selectedReg) return
     setIsProcessing(true)
-    try { await deleteDoc(doc(db, "confirmations", selectedReg.id)); toast({ title: "Registro eliminado" }); setIsDeleteDialogOpen(false); }
+    try { 
+      await deleteDoc(doc(db, "confirmations", selectedReg.id)); 
+      toast({ title: "Registro eliminado" }); 
+      
+      // Actualizar estado local
+      setRegistrations(prev => prev.filter(r => r.id !== selectedReg.id));
+      
+      setIsDeleteDialogOpen(false); 
+    }
     catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setIsProcessing(false) }
   }
@@ -820,17 +866,29 @@ export default function RegistrationsListPage() {
           <p className="text-muted-foreground font-medium">Gestión administrativa de postulantes ciclo 2026.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="rounded-xl h-12 font-bold px-6 border-slate-200 bg-white hover:bg-slate-50 gap-2 shadow-sm" onClick={() => {
+          <Button variant="outline" className="rounded-xl h-12 font-bold px-6 border-slate-200 bg-white hover:bg-slate-50 gap-2 shadow-sm" onClick={async () => {
             if (filteredRegistrations.length === 0) return;
-            const headers = ["Nombre", "CI", "Celular", "Año", "Dia", "Estado"];
-            const rows = filteredRegistrations.map(r => [r.fullName, r.ciNumber, r.phone, r.catechesisYear, r.attendanceDay, r.status]);
-            const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(",")).join("\n");
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "lista_confirmandos.csv");
-            document.body.appendChild(link);
-            link.click();
+            
+            // Importación dinámica para evitar errores de SSR
+            const XLSX = await import("xlsx");
+            
+            const headers = ["Nombre Completo", "C.I.", "Teléfono", "Nivel", "Día", "Estado", "Método de Pago", "Monto Pagado", "N° Recibo"];
+            const rows = filteredRegistrations.map(r => [
+              r.fullName, 
+              r.ciNumber, 
+              r.phone, 
+              r.catechesisYear?.replace("_", " "), 
+              r.attendanceDay, 
+              r.status,
+              r.paymentMethod,
+              r.amountPaid || 0,
+              r.receiptNumber || ""
+            ]);
+            
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Confirmandos");
+            XLSX.writeFile(wb, "lista_confirmandos.xlsx");
           }}>
             <Download className="h-4 w-4" /> Exportar
           </Button>

@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -15,16 +15,22 @@ import {
   User, 
   Calendar, 
   RefreshCcw,
-  AlertCircle
+  AlertCircle,
+  Search,
+  Check
 } from "lucide-react"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, query, where, doc, updateDoc, serverTimestamp, writeBatch, collectionGroup } from "firebase/firestore"
+import { collection, query, where, doc, updateDoc, serverTimestamp, writeBatch, getDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { CardFooter } from "@/components/ui/card"
+import { getDocs } from "firebase/firestore"
 
-function AttendanceCalendar({ studentId }: { studentId: string }) {
+function AttendanceCalendar({ studentId, todayStatus }: { studentId: string, todayStatus?: string }) {
   const db = useFirestore()
   const today = new Date()
   const year = today.getFullYear()
@@ -86,7 +92,8 @@ function AttendanceCalendar({ studentId }: { studentId: string }) {
                  const isToday = dateAsLocalStr === new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0]
                  
                  const localStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-                 const status = historyMap.get(localStr)
+                  const dbStatus = historyMap.get(localStr)
+                  const status = isToday ? (todayStatus || dbStatus) : dbStatus
                  
                  return (
                    <div key={cIdx} className={cn(
@@ -113,6 +120,12 @@ export default function MyListPage() {
   const db = useFirestore()
   const { toast } = useToast()
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return doc(db, "users", user.uid)
@@ -129,6 +142,7 @@ export default function MyListPage() {
   const groupParams = useMemo(() => {
     if (!myGroups || myGroups.length === 0) return null
     return {
+      id: myGroups[0].id,
       day: myGroups[0].attendanceDay,
       year: myGroups[0].catechesisYear,
       otherDay: myGroups[0].attendanceDay === "SABADO" ? "DOMINGO" : "SABADO"
@@ -139,6 +153,7 @@ export default function MyListPage() {
     if (!db || !groupParams) return null
     return query(
       collection(db, "confirmations"), 
+      where("groupId", "==", groupParams.id),
       where("attendanceDay", "==", groupParams.day),
       where("catechesisYear", "==", groupParams.year)
     )
@@ -158,23 +173,51 @@ export default function MyListPage() {
 
   const todayStr = useMemo(() => new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0], [])
   
-  const todayAttendanceQuery = useMemoFirebase(() => {
-    if (!db) return null
-    return query(collectionGroup(db, "attendance"), where("date", "==", todayStr))
-  }, [db, todayStr])
-  const { data: todayAttendanceRecords } = useCollection(todayAttendanceQuery)
+  const [attendanceMap, setAttendanceMap] = useState<Map<string, string>>(new Map())
+  const [isClosingCycle, setIsClosingCycle] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [manualSearchTerm, setManualSearchTerm] = useState("")
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  
+  useEffect(() => {
+    if (!db || !myConfirmands || !isMounted) return
+    
+    const fetchAttendance = async () => {
+      const newMap = new Map<string, string>()
+      const allToFetch = [...(myConfirmands || []), ...(recoveryConfirmands || [])]
+      
+      const promises = allToFetch.map(async (conf) => {
+        const attRef = doc(db, "confirmations", conf.id, "attendance", `${conf.id}_${todayStr}`)
+        try {
+          const snap = await getDoc(attRef)
+          if (snap.exists()) {
+            newMap.set(conf.id, snap.data().status)
+          }
+        } catch (e) {
+          console.error("Error fetching attendance for", conf.id, e)
+        }
+      })
+      
+      await Promise.all(promises)
+      setAttendanceMap(newMap)
+    }
 
-  const attendanceMap = useMemo(() => {
-    const map = new Map<string, string>()
-    todayAttendanceRecords?.forEach((rec: any) => {
-      const studentId = rec.id.split('_')[0]
-      map.set(studentId, rec.status)
-    })
-    return map
-  }, [todayAttendanceRecords])
+    fetchAttendance()
+  }, [db, myConfirmands, recoveryConfirmands, todayStr, isMounted])
 
   const handleAttendance = (id: string, status: "PRESENTE" | "AUSENTE") => {
     if (!db) return
+    
+    const previousStatus = attendanceMap.get(id)
+    
+    // Optimistic Update
+    setAttendanceMap(prev => {
+      const newMap = new Map(prev)
+      newMap.set(id, status)
+      return newMap
+    })
+
     setUpdatingId(id)
     
     const regRef = doc(db, "confirmations", id)
@@ -208,18 +251,103 @@ export default function MyListPage() {
           description: status === "AUSENTE" ? "Habilitado para recuperación el día opuesto." : "Confirmando presente.",
         })
       })
-      .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
-          path: regRef.path,
-          operation: 'update',
-          requestResourceData: updateData,
-        })
-        errorEmitter.emit('permission-error', permissionError)
-      })
       .finally(() => {
         setUpdatingId(null)
       })
   }
+
+  const handleCloseCycle = async () => {
+    if (!db || !myConfirmands || isClosingCycle) return
+    if (!confirm("¿Deseas marcar a todos los que no asistieron como AUSENTES? Esto los enviará automáticamente a la lista de recuperación.")) return
+
+    setIsClosingCycle(true)
+    const batch = writeBatch(db)
+    const catechistName = profile ? `${profile.firstName} ${profile.lastName}` : (user?.email || "Catequista")
+    const todayStr = new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0]
+    
+    let count = 0
+    myConfirmands.forEach((conf: any) => {
+      if (!attendanceMap.has(conf.id)) {
+        const regRef = doc(db, "confirmations", conf.id)
+        const updateData = {
+          attendanceStatus: "AUSENTE",
+          needsRecovery: true,
+          lastAttendanceUpdate: serverTimestamp(),
+          lastAttendanceTakenBy: catechistName
+        }
+        batch.update(regRef, updateData)
+
+        const attendanceRef = doc(db, "confirmations", conf.id, "attendance", `${conf.id}_${todayStr}`)
+        batch.set(attendanceRef, {
+          date: todayStr,
+          status: "AUSENTE",
+          registeredBy: user?.uid || "admin",
+          timestamp: serverTimestamp()
+        }, { merge: true })
+        
+        count++
+      }
+    })
+
+    if (count === 0) {
+      setIsClosingCycle(false)
+      toast({ title: "Información", description: "Todos los alumnos ya tienen su asistencia marcada." })
+      return
+    }
+
+    try {
+      await batch.commit()
+      toast({ title: "Ciclo cerrado", description: `Se marcaron ${count} ausencias y se habilitaron para recuperación.` })
+      
+      // Update local state for immediate feedback
+      setAttendanceMap(prev => {
+        const newMap = new Map(prev)
+        myConfirmands.forEach((conf: any) => {
+          if (!newMap.has(conf.id)) newMap.set(conf.id, "AUSENTE")
+        })
+        return newMap
+      })
+    } catch (e) {
+      console.error(e)
+      toast({ variant: "destructive", title: "Error", description: "No se pudo cerrar el ciclo de asistencia." })
+    } finally {
+      setIsClosingCycle(false)
+    }
+  }
+
+  const handleManualSearch = async () => {
+    if (!db || !manualSearchTerm || isSearching) return
+    setIsSearching(true)
+    try {
+      // Buscamos en toda la colección pero filtramos por el otro día
+      const q = query(
+        collection(db, "confirmations"),
+        where("attendanceDay", "==", groupParams?.otherDay)
+      )
+      const snap = await getDocs(q)
+      const results = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((s: any) => s.fullName?.toLowerCase().includes(manualSearchTerm.toLowerCase()) || s.ciNumber?.includes(manualSearchTerm))
+      
+      setSearchResults(results)
+      if (results.length === 0) {
+        toast({ title: "Sin resultados", description: `No se encontraron alumnos de los ${groupParams?.otherDay.toLowerCase()}s con ese nombre.` })
+      }
+    } catch (e) {
+      console.error(e)
+      toast({ variant: "destructive", title: "Error", description: "Error al buscar alumnos." })
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  useEffect(() => {
+    // Limpiar resultados al cerrar el diálogo
+    if (!isSearchOpen) {
+      setSearchResults([])
+      setManualSearchTerm("")
+    }
+  }, [isSearchOpen])
 
   if (loadingGroups) {
     return (
@@ -300,7 +428,9 @@ export default function MyListPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {attendanceMap.get(conf.id) ? (
+                        {!isMounted ? (
+                          <Badge variant="outline" className="text-slate-300">...</Badge>
+                        ) : attendanceMap.has(conf.id) ? (
                           <Badge 
                             variant={attendanceMap.get(conf.id) === "PRESENTE" ? "default" : attendanceMap.get(conf.id) === "AUSENTE" ? "destructive" : "secondary"}
                             className={cn(attendanceMap.get(conf.id) === "PRESENTE" ? "bg-green-500" : "")}
@@ -312,7 +442,7 @@ export default function MyListPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <AttendanceCalendar studentId={conf.id} />
+                        <AttendanceCalendar studentId={conf.id} todayStatus={attendanceMap.get(conf.id)} />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -342,6 +472,23 @@ export default function MyListPage() {
               </Table>
             )}
           </CardContent>
+          {!loadingMyConf && myConfirmands && myConfirmands.length > 0 && (
+            <CardFooter className="bg-slate-50 border-t p-4 flex justify-between items-center">
+              <div className="text-[10px] text-slate-500 font-bold uppercase">
+                {Array.from(attendanceMap.entries()).filter(([id]) => myConfirmands.some((c: any) => c.id === id)).length} de {myConfirmands.length} marcados
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-xl font-bold gap-2 text-primary border-primary/20 hover:bg-primary/5"
+                onClick={handleCloseCycle}
+                disabled={isClosingCycle}
+              >
+                {isClosingCycle ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                Cerrar Asistencia del Día
+              </Button>
+            </CardFooter>
+          )}
         </Card>
 
         <Card className="border-none shadow-xl overflow-hidden border-t-4 border-t-accent">
@@ -362,6 +509,66 @@ export default function MyListPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            <div className="p-4 bg-accent/5 border-b border-accent/10 flex justify-end">
+              <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="rounded-xl text-accent border-accent/20 hover:bg-accent/10 font-bold gap-2">
+                    <Search className="h-4 w-4" /> Adelantar/Cargar Recuperatorio
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md rounded-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Buscador de Alumnos ({groupParams?.otherDay === "SABADO" ? "Sábados" : "Domingos"})</DialogTitle>
+                    <DialogDescription>
+                      Busca un alumno del otro día para marcarle asistencia hoy.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Nombre o C.I..." 
+                        value={manualSearchTerm}
+                        onChange={(e) => setManualSearchTerm(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()}
+                      />
+                      <Button onClick={handleManualSearch} disabled={isSearching}>
+                        {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
+
+                    <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
+                      {searchResults.map((student) => (
+                        <div key={student.id} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50 hover:bg-white transition-colors">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 border">
+                              <AvatarImage src={student.photoUrl} className="object-cover" />
+                              <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold truncate max-w-[150px]">{student.fullName}</span>
+                              <span className="text-[10px] text-slate-500 uppercase">{student.ciNumber}</span>
+                            </div>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            className="bg-green-500 hover:bg-green-600 rounded-lg h-8 px-3"
+                            onClick={() => {
+                              handleAttendance(student.id, "PRESENTE")
+                              setIsSearchOpen(false)
+                            }}
+                          >
+                            <Check className="h-4 w-4 mr-1" /> Marcar
+                          </Button>
+                        </div>
+                      ))}
+                      {searchResults.length === 0 && !isSearching && manualSearchTerm && (
+                        <div className="text-center py-8 text-slate-400 text-sm">Sin resultados</div>
+                      )}
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
             {loadingRecovery ? (
               <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>
             ) : !recoveryConfirmands || recoveryConfirmands?.length === 0 ? (
@@ -373,6 +580,7 @@ export default function MyListPage() {
                     <TableHead className="w-[80px]">Foto</TableHead>
                     <TableHead>Nombre Completo</TableHead>
                     <TableHead>Día Original</TableHead>
+                    <TableHead>Estado Hoy</TableHead>
                     <TableHead>Última Asistencia</TableHead>
                     <TableHead className="text-right">Control</TableHead>
                   </TableRow>
@@ -397,6 +605,20 @@ export default function MyListPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-[10px] uppercase">{conf.attendanceDay}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {!isMounted ? (
+                          <Badge variant="outline" className="text-slate-300">...</Badge>
+                        ) : attendanceMap.has(conf.id) ? (
+                          <Badge 
+                            variant={attendanceMap.get(conf.id) === "PRESENTE" ? "default" : "secondary"}
+                            className={cn(attendanceMap.get(conf.id) === "PRESENTE" ? "bg-green-500" : "")}
+                          >
+                            {attendanceMap.get(conf.id)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-slate-400 font-bold text-[10px]">SIN MARCAR</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         {conf.lastAttendanceUpdate ? (
