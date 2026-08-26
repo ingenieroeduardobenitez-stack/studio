@@ -1,2 +1,0 @@
-
-/** ARCHIVO ELIMINADO POR ERROR DE ESCRITURA - USAR tailwind.config.ts **/
